@@ -1,197 +1,126 @@
-targetScope = 'resourceGroup'
+# Personal Site Starter on Azure Static Web Apps + VM Echo Backend
 
-@description('Azure region for the VM lab')
-param location string = resourceGroup().location
+This starter repo gives you:
 
-@description('Virtual machine name')
-param vmName string = 'vm-echo-lab'
+- A **publicly accessible website** on **Azure Static Web Apps**
+- **GitHub Actions CI/CD** for the frontend + managed API
+- A small **Azure Functions proxy API** exposed as `/api/echo`
+- An **Ubuntu VM** that hosts a simple **echo service**
+- A clean place to add **local model experiments** later on the VM
+- Documentation to evolve toward **Microsoft Entra External ID** for customer sign-up/sign-in later
 
-@description('Admin username')
-param adminUsername string = 'azureuser'
+## Architecture
 
-@secure()
-@description('SSH public key for the VM user')
-param sshPublicKey string
+```text
+Browser
+  ↓
+Azure Static Web App (public frontend)
+  ↓
+/api/echo (managed Azure Functions proxy)
+  ↓
+VM-hosted echo service on Ubuntu
+```
 
-@description('VM size. Keep this small for experimentation.')
-param vmSize string = 'Standard_B1s'
+The browser never calls the VM directly in the sample app. The frontend calls the Static Web App API, and the API proxies the request to the VM.
 
-var cloudInit = '''#cloud-config
-package_update: true
-write_files:
-  - path: /opt/echo/echo_server.py
-    permissions: '0755'
-    content: |
-      from http.server import BaseHTTPRequestHandler, HTTPServer
-      from urllib.parse import urlparse, parse_qs
-      import json, socket
+---
 
-      class Handler(BaseHTTPRequestHandler):
-          def do_GET(self):
-              parsed = urlparse(self.path)
-              if parsed.path != '/echo':
-                  self.send_response(404)
-                  self.send_header('Content-Type', 'application/json')
-                  self.end_headers()
-                  self.wfile.write(json.dumps({'ok': False, 'error': 'Not found'}).encode())
-                  return
-              query = parse_qs(parsed.query)
-              msg = query.get('msg', [''])[0]
-              body = {
-                  'ok': True,
-                  'echo': msg,
-                  'host': socket.gethostname(),
-                  'path': parsed.path,
-                  'query': query
-              }
-              payload = json.dumps(body).encode()
-              self.send_response(200)
-              self.send_header('Content-Type', 'application/json')
-              self.send_header('Content-Length', str(len(payload)))
-              self.end_headers()
-              self.wfile.write(payload)
+## Repo Layout
 
-      HTTPServer(('0.0.0.0', 8080), Handler).serve_forever()
-  - path: /etc/systemd/system/echo-server.service
-    permissions: '0644'
-    content: |
-      [Unit]
-      Description=Simple Echo Server
-      After=network.target
+```text
+.
+├── .github/workflows/
+│   ├── deploy-static-web-app.yml
+│   └── infra-whatif.yml
+├── api/
+│   ├── echo/
+│   │   ├── function.json
+│   │   └── index.js
+│   └── profile/
+│       ├── function.json
+│       └── index.js
+├── app/
+│   ├── index.html
+│   ├── main.js
+│   ├── styles.css
+│   └── staticwebapp.config.json
+├── docs/
+│   ├── architecture.md
+│   ├── ai-options-and-budget.md
+│   ├── external-id-setup-checklist.md
+│   └── vm-echo-wiring.md
+├── infra/
+│   ├── main.bicep
+│   ├── main.parameters.json
+│   └── vm-echo-lab.bicep
+└── scripts/
+    ├── local-dev.ps1
+    ├── print-next-steps.sh
+    └── wireup-backend-url.sh
+```
 
-      [Service]
-      Type=simple
-      ExecStart=/usr/bin/python3 /opt/echo/echo_server.py
-      Restart=always
-      RestartSec=3
+## What the website does
 
-      [Install]
-      WantedBy=multi-user.target
-runcmd:
-  - mkdir -p /opt/echo
-  - systemctl daemon-reload
-  - systemctl enable echo-server.service
-  - systemctl start echo-server.service
-'''
+The home page includes:
+- sign in / sign out buttons
+- a protected profile test
+- an **Echo Lab** section
 
-resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' = {
-  name: '${vmName}-vnet'
-  location: location
-  properties: {
-    addressSpace: {
-      addressPrefixes: [
-        '10.40.0.0/16'
-      ]
-    }
-    subnets: [
-      {
-        name: 'default'
-        properties: {
-          addressPrefix: '10.40.0.0/24'
-        }
-      }
-    ]
-  }
-}
+The Echo Lab sends a message to:
+- `GET /api/echo?msg=hello`
 
-resource pip 'Microsoft.Network/publicIPAddresses@2024-01-01' = {
-  name: '${vmName}-pip'
-  location: location
-  sku: { name: 'Standard' }
-  properties: { publicIPAllocationMethod: 'Static' }
-}
+The Azure Function proxy forwards the request to the VM echo service using the app setting:
+- `BACKEND_ECHO_BASE_URL`
 
-resource nsg 'Microsoft.Network/networkSecurityGroups@2024-01-01' = {
-  name: '${vmName}-nsg'
-  location: location
-  properties: {
-    securityRules: [
-      {
-        name: 'allow-ssh'
-        properties: {
-          protocol: 'Tcp'
-          sourcePortRange: '*'
-          destinationPortRange: '22'
-          sourceAddressPrefix: '*'
-          destinationAddressPrefix: '*'
-          access: 'Allow'
-          priority: 1000
-          direction: 'Inbound'
-        }
-      }
-      {
-        name: 'allow-echo'
-        properties: {
-          protocol: 'Tcp'
-          sourcePortRange: '*'
-          destinationPortRange: '8080'
-          sourceAddressPrefix: '*'
-          destinationAddressPrefix: '*'
-          access: 'Allow'
-          priority: 1010
-          direction: 'Inbound'
-        }
-      }
-    ]
-  }
-}
+Example value:
 
-resource nic 'Microsoft.Network/networkInterfaces@2024-01-01' = {
-  name: '${vmName}-nic'
-  location: location
-  properties: {
-    networkSecurityGroup: { id: nsg.id }
-    ipConfigurations: [
-      {
-        name: 'ipconfig1'
-        properties: {
-          subnet: { id: vnet.properties.subnets[0].id }
-          privateIPAllocationMethod: 'Dynamic'
-          publicIPAddress: { id: pip.id }
-        }
-      }
-    ]
-  }
-}
+```text
+http://<vm-public-ip>:8080
+```
 
-resource vm 'Microsoft.Compute/virtualMachines@2024-03-01' = {
-  name: vmName
-  location: location
-  properties: {
-    hardwareProfile: { vmSize: vmSize }
-    osProfile: {
-      computerName: vmName
-      adminUsername: adminUsername
-      customData: base64(cloudInit)
-      linuxConfiguration: {
-        disablePasswordAuthentication: true
-        ssh: {
-          publicKeys: [
-            {
-              path: '/home/${adminUsername}/.ssh/authorized_keys'
-              keyData: sshPublicKey
-            }
-          ]
-        }
-      }
-    }
-    storageProfile: {
-      imageReference: {
-        publisher: 'Canonical'
-        offer: '0001-com-ubuntu-server-jammy'
-        sku: '22_04-lts-gen2'
-        version: 'latest'
-      }
-      osDisk: {
-        createOption: 'FromImage'
-        managedDisk: { storageAccountType: 'Standard_LRS' }
-      }
-    }
-    networkProfile: {
-      networkInterfaces: [ { id: nic.id } ]
-    }
-  }
-}
+## Deployment sequence
 
-output publicIpAddress string = pip.properties.ipAddress
-output backendEchoBaseUrl string = 'http://${pip.properties.ipAddress}:8080'
+### 1) Create your Git repo manually
+
+```bash
+git init
+git checkout -b main
+```
+
+### 2) Create your Azure Static Web App
+Use the Azure portal and point it to this repo.
+
+Set:
+- **Plan**: Standard
+- **App location**: `app`
+- **API location**: `api`
+- **Output location**: blank
+
+Then add the GitHub secret:
+- `AZURE_STATIC_WEB_APPS_API_TOKEN`
+
+### 3) Deploy the VM echo backend
+Deploy the Bicep file in `infra/vm-echo-lab.bicep` into a resource group.
+
+### 4) Wire the Static Web App to the VM
+Set the Static Web App application setting:
+- `BACKEND_ECHO_BASE_URL=http://<vm-public-ip>:8080`
+
+## Notes on security
+
+This scaffold is intentionally simple so you can focus on experiments.
+
+For the VM starter, the echo service listens on a public IP and port 8080 so the integration is easy to understand and validate. That is **good for experiments**, but not the hardened end state.
+
+The next hardening steps would be:
+- remove the VM public IP or restrict it tightly
+- use a private network path
+- keep the browser calling the Static Web App API instead of the VM directly
+- keep platform-managed auth and routing at the edge
+
+## AI path
+
+If you want to keep **everything under Azure credits only**, the lowest-risk approach is:
+1. **Use local/open models on the VM** for experimentation
+2. **Use Azure OpenAI pay-as-you-go** only for selective calls
+3. Avoid provisioned throughput and fine-tuned hosting early
