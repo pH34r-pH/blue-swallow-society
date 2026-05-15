@@ -1,81 +1,210 @@
-// Wires up Echo Lab, sign-in/out, and profile loading against the Static Web Apps
-// managed API and built-in Easy Auth endpoints.
+// Blue Swallow Society - Cyberpunk Interface Controller
 
 const $ = (id) => document.getElementById(id);
+const $$ = (selector) => document.querySelectorAll(selector);
 
-function setText(el, value) {
-  if (el) el.textContent = value;
+// Hard-coded passcode for local testing (should be pulled from VM backend)
+const CORRECT_PASSCODE = "blue-swallow";
+
+// State
+let isAuthenticated = false;
+const chatHistory = [];
+
+// ===== LOGIN FLOW =====
+
+function initLoginFlow() {
+  const loginBtn = $("loginBtn");
+  const passcodeInput = $("passcodeInput");
+  
+  if (loginBtn) {
+    loginBtn.addEventListener("click", handleLogin);
+    passcodeInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") handleLogin();
+    });
+  }
 }
 
-async function fetchJsonOrText(url, init) {
-  const res = await fetch(url, init);
-  const text = await res.text();
+async function handleLogin() {
+  const passcodeInput = $("passcodeInput");
+  const errorDiv = $("terminalError");
+  const passcode = passcodeInput ? passcodeInput.value : "";
+  
+  if (!passcode) {
+    showError(errorDiv, "PASSCODE REQUIRED");
+    return;
+  }
+  
+  // Simulate API call to validate passcode against VM
   try {
-    return { ok: res.ok, status: res.status, body: JSON.parse(text) };
-  } catch {
-    return { ok: res.ok, status: res.status, body: text };
+    const isValid = await validatePasscode(passcode);
+    
+    if (isValid) {
+      isAuthenticated = true;
+      unlockInterface();
+    } else {
+      showError(errorDiv, "ACCESS DENIED - INVALID CREDENTIALS");
+      passcodeInput.value = "";
+    }
+  } catch (err) {
+    showError(errorDiv, `AUTHENTICATION ERROR: ${err.message}`);
   }
 }
 
-async function sendEcho() {
-  const input = $("echoInput");
-  const output = $("echoOutput");
-  const msg = input ? input.value : "";
-  setText(output, "Sending...");
-  const result = await fetchJsonOrText(`/api/echo?msg=${encodeURIComponent(msg)}`);
-  setText(output, JSON.stringify(result, null, 2));
-}
-
-async function loadClientPrincipal() {
-  const out = $("clientPrincipalOutput");
-  setText(out, "Loading...");
-  const res = await fetch("/.auth/me");
-  if (!res.ok) {
-    setText(out, `Not signed in (HTTP ${res.status}).`);
-    return null;
+async function validatePasscode(passcode) {
+  // In production, this would call /api/validate-passcode on the backend
+  // For local testing, we simulate it
+  try {
+    const response = await fetch("/api/validate-passcode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passcode })
+    });
+    
+    const data = await response.json();
+    return data.ok === true;
+  } catch (err) {
+    // Fallback to local validation for development
+    console.log("Using local validation (no backend)");
+    return passcode === CORRECT_PASSCODE;
   }
-  const data = await res.json();
-  const principal = (data && data.clientPrincipal) || null;
-  setText(out, principal ? JSON.stringify(principal, null, 2) : "No client principal.");
-  return principal;
 }
 
-async function loadProfile() {
-  const out = $("apiOutput");
-  setText(out, "Loading...");
-  const result = await fetchJsonOrText("/api/profile");
-  setText(out, JSON.stringify(result, null, 2));
+function showError(errorDiv, message) {
+  if (errorDiv) {
+    errorDiv.textContent = `> ERROR: ${message}`;
+    errorDiv.classList.add("show");
+  }
 }
 
-function goLogin() {
-  window.location.assign("/.auth/login/aad?post_login_redirect_uri=/");
+function unlockInterface() {
+  const terminalScreen = $("terminalScreen");
+  const mainInterface = $("mainInterface");
+  
+  if (terminalScreen) terminalScreen.classList.remove("active");
+  if (mainInterface) mainInterface.classList.add("active");
+  
+  initTabSystem();
+  initAgenticChat();
 }
 
-function goLogout() {
-  window.location.assign("/.auth/logout?post_logout_redirect_uri=/");
-}
+// ===== TAB SYSTEM =====
 
-function wire() {
-  const echoBtn = $("sendEchoButton");
-  if (echoBtn) echoBtn.addEventListener("click", sendEcho);
-
-  const loginBtn = $("loginButton");
-  if (loginBtn) loginBtn.addEventListener("click", goLogin);
-
-  const logoutBtn = $("logoutButton");
-  if (logoutBtn) logoutBtn.addEventListener("click", goLogout);
-
-  const refreshBtn = $("refreshProfileButton");
-  if (refreshBtn) refreshBtn.addEventListener("click", loadProfile);
-
-  // Best-effort principal load on page open. Failures are silent — page still works anonymously.
-  loadClientPrincipal().catch(() => {
-    setText($("clientPrincipalOutput"), "Unable to load client principal.");
+function initTabSystem() {
+  const tabBtns = $$(".tab-btn");
+  const tabContents = $$(".tab-content");
+  
+  tabBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tabName = btn.getAttribute("data-tab");
+      
+      // Remove active class from all
+      tabBtns.forEach((b) => b.classList.remove("active"));
+      tabContents.forEach((c) => c.classList.remove("active"));
+      
+      // Add active class to clicked tab and content
+      btn.classList.add("active");
+      const tabContent = $(`${tabName}-tab`);
+      if (tabContent) tabContent.classList.add("active");
+    });
   });
+  
+  // Setup logout
+  const logoutBtn = $("logoutBtn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", handleLogout);
+  }
 }
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", wire);
-} else {
-  wire();
+function handleLogout() {
+  isAuthenticated = false;
+  chatHistory.length = 0;
+  
+  const terminalScreen = $("terminalScreen");
+  const mainInterface = $("mainInterface");
+  const passcodeInput = $("passcodeInput");
+  const errorDiv = $("terminalError");
+  
+  if (terminalScreen) terminalScreen.classList.add("active");
+  if (mainInterface) mainInterface.classList.remove("active");
+  if (passcodeInput) passcodeInput.value = "";
+  if (errorDiv) errorDiv.classList.remove("show");
 }
+
+// ===== AGENTIC CHAT =====
+
+function initAgenticChat() {
+  const chatInput = $("chatInput");
+  const sendBtn = $("sendBtn");
+  
+  if (sendBtn) {
+    sendBtn.addEventListener("click", handleSendMessage);
+  }
+  
+  if (chatInput) {
+    chatInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") handleSendMessage();
+    });
+  }
+  
+  // Add welcome message
+  addChatMessage("SYSTEM", "// AGENTIC NETWORK INITIALIZED //\n// Ready for input //");
+}
+
+async function handleSendMessage() {
+  const chatInput = $("chatInput");
+  const message = chatInput ? chatInput.value.trim() : "";
+  
+  if (!message) return;
+  
+  // Add user message to chat
+  addChatMessage("USER", message);
+  if (chatInput) chatInput.value = "";
+  
+  // Simulate sending to backend
+  const response = await getAgentResponse(message);
+  addChatMessage("AGENT", response);
+}
+
+async function getAgentResponse(prompt) {
+  // In production, call /api/agent with the prompt
+  try {
+    const response = await fetch(`/api/agent?prompt=${encodeURIComponent(prompt)}`);
+    const data = await response.json();
+    
+    if (data.ok) {
+      return data.message || "No response";
+    } else {
+      return `// ERROR: ${data.error || "Unknown error"}`;
+    }
+  } catch (err) {
+    return `// TRANSMISSION ERROR: ${err.message}`;
+  }
+}
+
+function addChatMessage(sender, text) {
+  const messagesDiv = $("chatMessages");
+  if (!messagesDiv) return;
+  
+  const msgEl = document.createElement("div");
+  msgEl.className = `chat-message ${sender.toLowerCase()}`;
+  
+  const timestamp = new Date().toLocaleTimeString();
+  msgEl.innerHTML = `<div style="opacity: 0.6; font-size: 0.8em;">[${timestamp}]</div><div>${text}</div>`;
+  
+  messagesDiv.appendChild(msgEl);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  
+  chatHistory.push({ sender, text, timestamp });
+}
+
+// ===== INITIALIZATION =====
+
+function init() {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    initLoginFlow();
+  }
+}
+
+init();

@@ -3,80 +3,155 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Tyler's Personal Site + VM Echo</title>
+    <title>Blue Swallow Society</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <header class="site-header">
-      <div class="container row between center wrap gap-md">
-        <div>
-          <div class="eyebrow">Azure Static Web Apps + VM Echo Starter</div>
-          <h1>Public site, managed API, experimental VM backend</h1>
-          <p class="subtle">Start with a simple echo chain, then grow into local models and richer services.</p>
+    <!-- Terminal Login Screen -->
+    <div id="terminalScreen" class="terminal-screen active">
+      <div class="terminal-container">
+        <div class="terminal-panel">
+          <div class="terminal-header">
+            <div style="font-size: 1.2em; margin-bottom: 0.5rem;">> BLUE_SWALLOW_SOCIETY.INIT</div>
+            <div style="font-size: 0.85em; opacity: 0.7;">[RESTRICTED ACCESS NETWORK]</div>
+          </div>
+          
+          <div class="terminal-input">
+            <label for="passcodeInput">PASSCODE</label>
+            <input
+              id="passcodeInput"
+              class="input"
+              type="password"
+              placeholder="Enter passcode..."
+              autocomplete="off"
+            />
+          </div>
+          
+          <div id="terminalError" class="terminal-error"></div>
+          
+          <div style="margin-top: 2rem;">
+            <button id="loginBtn" class="btn btn-primary" style="width: 100%;">AUTHENTICATE</button>
+          </div>
+          
+          <div style="margin-top: 1rem; font-size: 0.8em; opacity: 0.5; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+            <div>> SYSTEM_STATUS: ONLINE</div>
+            <div>> ENCRYPTION: ACTIVE</div>
+            <div>> CONNECTIONS: MONITORING</div>
+          </div>
         </div>
-        <nav class="row gap-sm">
-          <a class="btn btn-secondary" href="#echo-lab">Echo Lab</a>
-          <button id="loginButton" class="btn btn-primary">Sign in</button>
-          <button id="logoutButton" class="btn btn-secondary">Sign out</button>
-        </nav>
       </div>
-    </header>
+    </div>
 
-    <main>
-      <section class="hero">
-        <div class="container grid-2 gap-lg">
+    <!-- Main Application Interface -->
+    <div id="mainInterface" class="main-interface">
+      <!-- Header -->
+      <header class="site-header">
+        <div class="container row between center wrap gap-md">
           <div>
-            <span class="pill">Starter chain</span>
-            <h2>Browser → Static Web App → Managed API → VM echo service</h2>
-            <p>
-              This repo proves the full set of moving parts with the smallest possible backend.
-              Once the echo path works, you can replace the VM service with local model experiments.
-            </p>
+            <div class="eyebrow">// BLUE_SWALLOW_COLLECTIVE</div>
+            <h1 style="margin: 0.5rem 0 0;">NETWORK CONSOLE</h1>
           </div>
-          <div class="card code">
-<pre><code>frontend  ──► /api/echo
-                │
-                ▼
-        VM backend /echo?msg=...
-</code></pre>
+          <div class="row gap-sm">
+            <button id="logoutBtn" class="btn btn-secondary">DISCONNECT</button>
           </div>
         </div>
-      </section>
+      </header>
 
-      <section id="echo-lab" class="section">
-        <div class="container">
-          <div class="card top-space">
-            <div class="row gap-sm wrap center">
-              <input id="echoInput" class="input" type="text" value="hello from the static web app" />
-              <button id="sendEchoButton" class="btn btn-primary">Send echo request</button>
-            </div>
-            <pre id="echoOutput" class="top-space">Press “Send echo request”.</pre>
-          </div>
-        </div>
-      </section>
-
-      <section id="account" class="section alt">
-        <div class="container">
-          <div class="row between center wrap gap-md">
-            <div>
-              <h2>Protected account area</h2>
-            </div>
-            <button id="refreshProfileButton" class="btn btn-secondary">Load profile</button>
-          </div>
-          <div class="grid-2 gap-md top-space">
-            <div class="card"><h3>Client principal</h3><pre id="clientPrincipalOutput">Loading…</pre></div>
-            <div class="card"><h3>Profile API response</h3><pre id="apiOutput">Press “Load profile”.</pre></div>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <footer class="site-footer">
-      <div class="container row between center wrap gap-sm">
-        <span>Starter scaffold for experiments</span>
-        <span class="subtle">Echo first, then local models and richer agents</span>
+      <!-- Tab Bar -->
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="landing">LANDING</button>
+        <button class="tab-btn" data-tab="agentic">AGENTIC</button>
+        <button class="tab-btn" data-tab="monitoring">MONITORING</button>
+        <button class="tab-btn" data-tab="experiments">EXPERIMENTS</button>
       </div>
-    </footer>
+
+      <!-- Landing Tab -->
+      <div id="landing-tab" class="tab-content active">
+        <main class="container">
+          <section class="hero">
+            <h2>Blue Swallow Society</h2>
+            <p style="color: var(--text-primary); font-size: 1.05rem; line-height: 1.8; margin-bottom: 1.5rem;">
+              We are the Blue Swallows�a convergence of those who recognize the elegant necessity of freedom'"'"'s flight. 
+              In the liminal spaces between the rigid structures of control, we find ourselves drawn together by a 
+              recognition: that the most resilient networks are those where information flows unfiltered, where 
+              knowledge is decentralized, and where no single point of failure can silence the collective voice. 
+              We do not seek to dismantle what exists; rather, we demonstrate through practice that alternatives 
+              are possible when individuals choose coordination over coercion.
+            </p>
+            <p style="color: var(--text-primary); font-size: 1.05rem; line-height: 1.8; margin-bottom: 1.5rem;">
+              Like the swallow banking through urban canyons, we navigate the constraints of our environment 
+              with precision and grace. Our society operates in the margins, in the overlooked corridors where 
+              the infrastructure of power often forgets to look. Here, we exchange ideas as freely as birds 
+              exchange altitude, building networks that function not through the imposition of authority but 
+              through the emergent consensus of those who participate. Ours is a project of radical pragmatism�
+              we build the tools, the protocols, the infrastructure that enables others to opt out.
+            </p>
+            <p style="color: var(--text-primary); font-size: 1.05rem; line-height: 1.8;">
+              Access to this network is not a right to be granted by distant institutions. It is recognition 
+              among peers that you understand the principles we operate under: that information should flow 
+              freely, that power should be distributed, and that individuals are the rightful architects of 
+              their own networks. To participate is to accept responsibility. To protect is to preserve. 
+              To persist is to prove that another way is not merely possible�it is inevitable.
+            </p>
+          </section>
+
+          <section class="section" style="text-align: center;">
+            <p style="color: var(--accent-neon); font-size: 0.9em; letter-spacing: 0.05em;">
+              // NETWORK STATUS: SECURED AND OPERATIONAL //
+            </p>
+          </section>
+        </main>
+      </div>
+
+      <!-- Agentic Tab -->
+      <div id="agentic-tab" class="tab-content">
+        <div class="container">
+          <div class="chat-interface">
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-input-area">
+              <input
+                id="chatInput"
+                class="input"
+                type="text"
+                placeholder="Enter command or query..."
+                autocomplete="off"
+              />
+              <button id="sendBtn" class="btn btn-primary">SEND</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monitoring Tab -->
+      <div id="monitoring-tab" class="tab-content">
+        <div class="container">
+          <h2>System Monitoring</h2>
+          <div id="monitoringContent" style="color: var(--text-secondary);">
+            <p style="opacity: 0.6;">// MONITORING FEED PLACEHOLDER //</p>
+            <p style="opacity: 0.6;">Additional feeds and metrics will be configured here.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Experiments Tab -->
+      <div id="experiments-tab" class="tab-content">
+        <div class="container">
+          <h2>Experimental Workbench</h2>
+          <div id="experimentsContent" style="color: var(--text-secondary);">
+            <p style="opacity: 0.6;">// EXPERIMENTS PLACEHOLDER //</p>
+            <p style="opacity: 0.6;">Sandbox environment for testing new capabilities.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <footer class="site-footer">
+        <div class="container row between center wrap gap-sm">
+          <span>Blue Swallow Society</span>
+          <span class="subtle">// Network console active //</span>
+        </div>
+      </footer>
+    </div>
 
     <script src="/main.js" type="module"></script>
   </body>
