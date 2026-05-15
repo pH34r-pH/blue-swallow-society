@@ -3,7 +3,11 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "location": { "value": "westus2" },
-    "resourceGroupName": { "value": "rg-personal-site-demo" },
-    "staticWebAppName": { "value": "personal-site-demo-REPLACE" }
+    "staticWebAppName": { "value": "blue-swallow-swa" },
+    "prefix": { "value": "blue-swallow" },
+    "allowedSourceIp": { "value": "*" },
+    "deployOpenAi": { "value": false },
+    "autoShutdownTime": { "value": "0200" },
+    "autoShutdownTimeZone": { "value": "Pacific Standard Time" }
   }
 }
