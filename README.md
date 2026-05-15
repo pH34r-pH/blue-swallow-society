@@ -1,5 +1,5 @@
 # Personal Site Starter on Azure Static Web Apps + VM Echo Backend
-
+UPDATE
 This starter repo gives you:
 
 - A **publicly accessible website** on **Azure Static Web Apps**
