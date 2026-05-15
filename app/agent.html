@@ -1,11 +1,20 @@
-<input id="prompt" />
-<button onclick="run()">Run Agent</button>
-<pre id="out"></pre>
-
-<script>
-async function run() {
-  const p = document.getElementById("prompt").value;
-  const res = await fetch("/api/agent?prompt=" + encodeURIComponent(p));
-  document.getElementById("out").innerText = await res.text();
-}
-</script>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent Lab</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Agent Lab</h1>
+      <div class="row gap-sm wrap center top-space">
+        <input id="prompt" class="input" placeholder="Ask the agent..." />
+        <button id="runButton" class="btn btn-primary">Run agent</button>
+      </div>
+      <pre id="out" class="top-space">Press &ldquo;Run agent&rdquo;.</pre>
+    </main>
+    <script src="/agent.js" type="module"></script>
+  </body>
+</html>
