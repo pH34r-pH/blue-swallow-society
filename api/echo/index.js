@@ -1,36 +1,29 @@
-const { URL } = require('url');
-
 module.exports = async function (context, req) {
-  const baseUrl = process.env.BACKEND_ECHO_BASE_URL;
-  const msg = (req.query && req.query.msg) || 'hello';
+  const base = process.env.BACKEND_ECHO_BASE_URL;
 
-  if (!baseUrl) {
+  if (!base) {
     context.res = {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
-      body: { ok: false, error: 'BACKEND_ECHO_BASE_URL is not set.' }
+      body: "Missing BACKEND_ECHO_BASE_URL"
     };
     return;
   }
 
-  const target = new URL('/echo', baseUrl);
-  target.searchParams.set('msg', msg);
+  const msg = req.query.msg || "empty";
+  const url = `${base}/?msg=${encodeURIComponent(msg)}`;
 
   try {
-    const response = await fetch(target.toString(), { method: 'GET', headers: { 'Accept': 'application/json' } });
-    const text = await response.text();
-    let parsed = null;
-    try { parsed = JSON.parse(text); } catch { parsed = { raw: text }; }
+    const response = await fetch(url);
+    const data = await response.text();
+
     context.res = {
-      status: response.status,
-      headers: { 'Content-Type': 'application/json' },
-      body: { ok: response.ok, proxiedTo: target.toString(), backendResponse: parsed }
+      headers: { "Content-Type": "application/json" },
+      body: data
     };
-  } catch (error) {
+  } catch (err) {
     context.res = {
-      status: 502,
-      headers: { 'Content-Type': 'application/json' },
-      body: { ok: false, error: 'Failed to reach backend echo service.', detail: error.message, proxiedTo: target.toString() }
+      status: 500,
+      body: `Echo backend failed: ${err.message}`
     };
   }
 };
