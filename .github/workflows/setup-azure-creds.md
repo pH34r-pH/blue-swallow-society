@@ -36,13 +36,42 @@ feature branches.
 
 ## 3. GitHub secrets to set
 
-| Secret                              | Value                                                |
-| ----------------------------------- | ---------------------------------------------------- |
-| `AZURE_CLIENT_ID`                   | `appId` from step 1                                  |
-| `AZURE_TENANT_ID`                   | `tenant` from step 1                                 |
-| `AZURE_SUBSCRIPTION_ID`             | Your subscription GUID                               |
-| `AZURE_STATIC_WEB_APPS_API_TOKEN`   | Deployment token from the Static Web Apps resource   |
-| `VM_SSH_PUBLIC_KEY`                 | Single-line OpenSSH public key for the VM admin user |
+| Secret                  | Value                                                |
+| ----------------------- | ---------------------------------------------------- |
+| `AZURE_CLIENT_ID`       | `appId` from step 1                                  |
+| `AZURE_TENANT_ID`       | `tenant` from step 1                                 |
+| `AZURE_SUBSCRIPTION_ID` | Your subscription GUID                               |
+| `VM_SSH_PUBLIC_KEY`     | Single-line OpenSSH public key for the VM admin user |
 
-The legacy `AZURE_CREDENTIALS` (SDK-auth JSON) secret is no longer used and can
-be deleted.
+The deploy workflow fetches the Static Web Apps deployment token at runtime via
+the OIDC-authenticated Azure CLI session (`az staticwebapp secrets list`), so
+**no `AZURE_STATIC_WEB_APPS_API_TOKEN` secret is required**. Any pre-existing
+`AZURE_STATIC_WEB_APPS_API_TOKEN` or legacy `AZURE_CREDENTIALS` (SDK-auth JSON)
+secrets can be deleted.
+
+### Generating `VM_SSH_PUBLIC_KEY`
+
+The Bicep template refuses to create the VM with an empty `keyData`, so this
+secret must be populated **before** the first deployment run.
+
+```bash
+# Linux / macOS / WSL
+ssh-keygen -t ed25519 -C "blue-swallow-vm" -f ~/.ssh/blue-swallow-vm -N ""
+cat ~/.ssh/blue-swallow-vm.pub
+```
+
+```powershell
+# Windows PowerShell
+ssh-keygen -t ed25519 -C "blue-swallow-vm" -f $HOME\.ssh\blue-swallow-vm -N '""'
+Get-Content $HOME\.ssh\blue-swallow-vm.pub
+```
+
+Copy the single-line output (starts with `ssh-ed25519 AAAA...`) into the
+`VM_SSH_PUBLIC_KEY` repo secret. Keep the matching private key
+(`blue-swallow-vm`) somewhere safe — you'll need it to `ssh azureuser@<vm-ip>`.
+
+The deploy workflow runs a `Validate SSH public key format` step before calling
+`az deployment group create`; an empty or malformed secret fails fast with a
+clear error instead of producing the
+`InvalidParameter: linuxConfiguration.ssh.publicKeys.keyData` failure deep in
+the Bicep deployment.
