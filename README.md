@@ -10,6 +10,7 @@ This starter repo gives you:
 - An optional **Azure OpenAI** account, gated by a single Bicep parameter
 - Documentation to evolve toward **Microsoft Entra External ID** for customer sign-up/sign-in later
 
+update
 ## Architecture
 
 ```text
