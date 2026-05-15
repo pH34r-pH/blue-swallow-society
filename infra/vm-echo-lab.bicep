@@ -16,6 +16,15 @@ param sshPublicKey string
 @description('VM size. Keep this small for experimentation.')
 param vmSize string = 'Standard_B1s'
 
+@description('CIDR allowed to reach SSH (22) and echo (8080). Use your dev IP (e.g. 203.0.113.5/32). Default "*" is wide open.')
+param allowedSourceIp string = '*'
+
+@description('Daily auto-shutdown time for the VM (HHmm, 24h).')
+param autoShutdownTime string = '0200'
+
+@description('Time zone for the auto-shutdown schedule (Windows ID, e.g. "Pacific Standard Time").')
+param autoShutdownTimeZone string = 'Pacific Standard Time'
+
 var cloudInit = '''#cloud-config
 package_update: true
 write_files:
@@ -112,7 +121,7 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2024-01-01' = {
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '22'
-          sourceAddressPrefix: '*'
+          sourceAddressPrefix: allowedSourceIp
           destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 1000
@@ -125,7 +134,7 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2024-01-01' = {
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '8080'
-          sourceAddressPrefix: '*'
+          sourceAddressPrefix: allowedSourceIp
           destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 1010
@@ -190,6 +199,27 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-03-01' = {
     networkProfile: {
       networkInterfaces: [ { id: nic.id } ]
     }
+  }
+}
+
+/*
+ * Daily auto-shutdown to cap cost. Notification disabled — purely best-effort.
+ */
+resource autoShutdown 'Microsoft.DevTestLab/schedules@2018-09-15' = {
+  name: 'shutdown-computevm-${vmName}'
+  location: location
+  properties: {
+    status: 'Enabled'
+    taskType: 'ComputeVmShutdownTask'
+    dailyRecurrence: {
+      time: autoShutdownTime
+    }
+    timeZoneId: autoShutdownTimeZone
+    notificationSettings: {
+      status: 'Disabled'
+      timeInMinutes: 30
+    }
+    targetResourceId: vm.id
   }
 }
 
