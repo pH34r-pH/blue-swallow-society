@@ -24,7 +24,11 @@ module.exports = async function (context, req) {
     context.res = {
       status: response.status,
       headers: { 'Content-Type': 'application/json' },
-      body: text
+      body: {
+        ok: response.ok,
+        status: response.status,
+        body: text
+      }
     };
   } catch (err) {
     context.res = {
