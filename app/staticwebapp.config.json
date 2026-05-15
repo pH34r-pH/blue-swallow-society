@@ -3,6 +3,8 @@
     { "route": "/account/*", "allowedRoles": ["authenticated"] },
     { "route": "/api/profile", "allowedRoles": ["authenticated"] },
     { "route": "/api/echo", "allowedRoles": ["anonymous", "authenticated"] },
+    { "route": "/api/agent", "allowedRoles": ["anonymous", "authenticated"] },
+    { "route": "/agent", "rewrite": "/agent.html", "allowedRoles": ["anonymous", "authenticated"] },
     { "route": "/login", "redirect": "/.auth/login/aad" },
     { "route": "/logout", "redirect": "/.auth/logout" }
   ],
@@ -11,11 +13,13 @@
   },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/api/*", "/.auth/*"]
+    "exclude": ["/api/*", "/.auth/*", "/*.{css,js,svg,ico,png,jpg,jpeg,gif,webp}"]
   },
   "globalHeaders": {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "strict-origin-when-cross-origin",
-    "X-Frame-Options": "DENY"
+    "X-Frame-Options": "DENY",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains"
   }
 }
