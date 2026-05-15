@@ -1,0 +1,11 @@
+<input id="prompt" />
+<button onclick="run()">Run Agent</button>
+<pre id="out"></pre>
+
+<script>
+async function run() {
+  const p = document.getElementById("prompt").value;
+  const res = await fetch("/api/agent?prompt=" + encodeURIComponent(p));
+  document.getElementById("out").innerText = await res.text();
+}
+</script>
