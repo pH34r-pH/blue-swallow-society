@@ -30,9 +30,12 @@ jobs:
           az group create --name "$RESOURCE_GROUP" --location "$LOCATION"
 
       - name: Run resource-group what-if
+        env:
+          SSH_KEY: ${{ secrets.VM_SSH_PUBLIC_KEY }}
         run: |
+          ssh_key=$(printf '%s' "$SSH_KEY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           az deployment group what-if \
             --resource-group "$RESOURCE_GROUP" \
             --template-file infra/main.bicep \
             --parameters @infra/main.parameters.json \
-            --parameters sshPublicKey="${{ secrets.VM_SSH_PUBLIC_KEY }}"
+            --parameters sshPublicKey="$ssh_key"
