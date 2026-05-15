@@ -203,7 +203,9 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-03-01' = {
 }
 
 /*
- * Daily auto-shutdown to cap cost. Notification disabled — purely best-effort.
+ * Daily auto-shutdown to cap cost. notificationSettings is intentionally
+ * omitted — when status=Disabled the 2018-09-15 API can reject partially
+ * populated notification blocks with InvalidParameter.
  */
 resource autoShutdown 'Microsoft.DevTestLab/schedules@2018-09-15' = {
   name: 'shutdown-computevm-${vmName}'
@@ -215,10 +217,6 @@ resource autoShutdown 'Microsoft.DevTestLab/schedules@2018-09-15' = {
       time: autoShutdownTime
     }
     timeZoneId: autoShutdownTimeZone
-    notificationSettings: {
-      status: 'Disabled'
-      timeInMinutes: 30
-    }
     targetResourceId: vm.id
   }
 }
