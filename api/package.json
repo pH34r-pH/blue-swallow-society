@@ -1,0 +1,9 @@
+{
+  "name": "blue-swallow-api",
+  "version": "1.0.0",
+  "description": "Azure Static Web Apps managed Functions for blue-swallow-society.",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  }
+}
