@@ -4,26 +4,33 @@ module.exports = async function (context, req) {
   if (!base) {
     context.res = {
       status: 500,
-      body: "Missing BACKEND_ECHO_BASE_URL"
+      body: { ok: false, error: 'Missing BACKEND_ECHO_BASE_URL' }
     };
     return;
   }
 
-  const msg = req.query.msg || "empty";
-  const url = `${base}/?msg=${encodeURIComponent(msg)}`;
+  // Strip trailing slash so we always produce `${base}/echo?...`.
+  const cleanBase = base.replace(/\/+$/, '');
+  const msg = req.query.msg || 'empty';
+  const url = `${cleanBase}/echo?msg=${encodeURIComponent(msg)}`;
 
   try {
-    const response = await fetch(url);
-    const data = await response.text();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
 
+    const text = await response.text();
     context.res = {
-      headers: { "Content-Type": "application/json" },
-      body: data
+      status: response.status,
+      headers: { 'Content-Type': 'application/json' },
+      body: text
     };
   } catch (err) {
     context.res = {
-      status: 500,
-      body: `Echo backend failed: ${err.message}`
+      status: 502,
+      headers: { 'Content-Type': 'application/json' },
+      body: { ok: false, error: `Echo backend failed: ${err.message}` }
     };
   }
 };
