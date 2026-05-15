@@ -35,15 +35,72 @@ jobs:
         run: |
           az group create --name "$RESOURCE_GROUP" --location "$LOCATION"
 
+      - name: Ensure resource providers are registered
+        run: |
+          for ns in Microsoft.Compute Microsoft.Network Microsoft.Web Microsoft.DevTestLab; do
+            state=$(az provider show --namespace "$ns" --query registrationState -o tsv)
+            if [ "$state" != "Registered" ]; then
+              echo "Registering $ns (current state: $state)..."
+              az provider register --namespace "$ns" --wait
+            fi
+          done
+
+      - name: Validate SSH public key format
+        env:
+          SSH_KEY: ${{ secrets.VM_SSH_PUBLIC_KEY }}
+        run: |
+          # Trim whitespace/newlines, then sanity-check it's a real OpenSSH public key.
+          trimmed=$(printf '%s' "$SSH_KEY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [ -z "$trimmed" ]; then
+            echo "::error::VM_SSH_PUBLIC_KEY secret is empty."
+            exit 1
+          fi
+          case "$trimmed" in
+            ssh-rsa*|ssh-ed25519*|ecdsa-sha2-*) ;;
+            *)
+              echo "::error::VM_SSH_PUBLIC_KEY does not look like an OpenSSH public key (must start with ssh-rsa, ssh-ed25519, or ecdsa-sha2-*)."
+              exit 1
+              ;;
+          esac
+          echo "SSH public key looks well-formed (length=${#trimmed})."
+
       - name: Deploy infrastructure
         id: deploy
+        env:
+          SSH_KEY: ${{ secrets.VM_SSH_PUBLIC_KEY }}
         run: |
+          # Trim any stray whitespace/newlines from the secret before passing to az.
+          ssh_key=$(printf '%s' "$SSH_KEY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          set +e
           out=$(az deployment group create \
             --resource-group "$RESOURCE_GROUP" \
+            --name main \
             --template-file infra/main.bicep \
             --parameters infra/main.parameters.json \
-            --parameters sshPublicKey="${{ secrets.VM_SSH_PUBLIC_KEY }}" \
-            --query properties.outputs -o json)
+            --parameters sshPublicKey="$ssh_key" \
+            --query properties.outputs -o json 2>az_stderr.log)
+          rc=$?
+          set -e
+          if [ $rc -ne 0 ]; then
+            echo "::group::Deployment stderr"
+            cat az_stderr.log
+            echo "::endgroup::"
+            echo "::group::Failed deployment operations (top-level)"
+            az deployment operation group list \
+              --resource-group "$RESOURCE_GROUP" \
+              --name main \
+              --query "[?properties.provisioningState=='Failed'].{resource:properties.targetResource.resourceName, type:properties.targetResource.resourceType, status:properties.statusMessage}" \
+              -o json || true
+            echo "::endgroup::"
+            echo "::group::Failed deployment operations (vm-echo-lab module)"
+            az deployment operation group list \
+              --resource-group "$RESOURCE_GROUP" \
+              --name vm-echo-lab \
+              --query "[?properties.provisioningState=='Failed'].{resource:properties.targetResource.resourceName, type:properties.targetResource.resourceType, status:properties.statusMessage}" \
+              -o json || true
+            echo "::endgroup::"
+            exit $rc
+          fi
           backend=$(echo "$out" | jq -r '.backendEchoBaseUrl.value')
           swa=$(echo "$out" | jq -r '.staticWebAppDefaultHostname.value')
           echo "backendEchoBaseUrl=$backend" >> "$GITHUB_OUTPUT"
@@ -64,10 +121,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Fetch SWA deployment token
+        id: swa-token
+        run: |
+          swa_name=$(jq -r '.parameters.staticWebAppName.value' infra/main.parameters.json)
+          token=$(az staticwebapp secrets list \
+            --name "$swa_name" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query properties.apiKey -o tsv)
+          if [ -z "$token" ] || [ "$token" = "null" ]; then
+            echo "::error::Failed to retrieve deployment token for SWA $swa_name in $RESOURCE_GROUP."
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
       - name: Deploy SWA
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          azure_static_web_apps_api_token: ${{ steps.swa-token.outputs.token }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
           app_location: "app"
