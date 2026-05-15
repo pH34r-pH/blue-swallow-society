@@ -1,168 +1,70 @@
 targetScope = 'resourceGroup'
 
+@description('Azure region for all resources.')
 param location string = resourceGroup().location
 
-var prefix = 'blue-swallow'
+@description('Static Web App name. Must be unique within the subscription/region scope of SWA.')
+param staticWebAppName string
+
+@description('Resource name prefix used for VM and networking.')
+param prefix string = 'blue-swallow'
+
+@description('SSH public key for the VM admin user. Pass via parameter file or pipeline secret.')
+@secure()
+param sshPublicKey string
+
+@description('CIDR allowed to reach SSH (22) and the echo port (8080). Use your developer IP (e.g. 203.0.113.5/32). Default "*" is wide open — only acceptable for short-lived experiments.')
+param allowedSourceIp string = '*'
+
+@description('Set true to deploy an Azure OpenAI account alongside the rest of the stack.')
+param deployOpenAi bool = false
+
+@description('Daily auto-shutdown time for the VM (HHmm, 24h, in the schedule time zone).')
+param autoShutdownTime string = '0200'
+
+@description('IANA/Windows time zone ID used by the auto-shutdown schedule.')
+param autoShutdownTimeZone string = 'Pacific Standard Time'
 
 /*
- * Static Web App
+ * Static Web App (Standard SKU so we can use app settings + linked APIs)
  */
 resource swa 'Microsoft.Web/staticSites@2023-01-01' = {
-  name: '${prefix}-swa'
-  location: location
-  sku: {
-    name: 'Free'
-    tier: 'Free'
-  }
-}
-
-/*
- * VM Public IP
- */
-resource pip 'Microsoft.Network/publicIPAddresses@2023-04-01' = {
-  name: '${prefix}-pip'
+  name: staticWebAppName
   location: location
   sku: {
     name: 'Standard'
+    tier: 'Standard'
   }
-  properties: {
-    publicIPAllocationMethod: 'Static'
+  properties: {}
+}
+
+/*
+ * VM + networking via shared module — single source of truth for the echo lab.
+ */
+module vmModule 'vm-echo-lab.bicep' = {
+  name: 'vm-echo-lab'
+  params: {
+    location: location
+    vmName: '${prefix}-vm'
+    sshPublicKey: sshPublicKey
+    allowedSourceIp: allowedSourceIp
+    autoShutdownTime: autoShutdownTime
+    autoShutdownTimeZone: autoShutdownTimeZone
   }
 }
 
 /*
- * Network Security Group
+ * Optional Azure OpenAI account — only deployed when deployOpenAi=true.
  */
-resource nsg 'Microsoft.Network/networkSecurityGroups@2023-04-01' = {
-  name: '${prefix}-nsg'
-  location: location
-  properties: {
-    securityRules: [
-      {
-        name: 'allow-http'
-        properties: {
-          priority: 1000
-          protocol: 'Tcp'
-          access: 'Allow'
-          direction: 'Inbound'
-          sourceAddressPrefix: '*'
-          sourcePortRange: '*'
-          destinationAddressPrefix: '*'
-          destinationPortRange: '80'
-        }
-      }
-      {
-        name: 'allow-8080'
-        properties: {
-          priority: 1001
-          protocol: 'Tcp'
-          access: 'Allow'
-          direction: 'Inbound'
-          sourceAddressPrefix: '*'
-          sourcePortRange: '*'
-          destinationAddressPrefix: '*'
-          destinationPortRange: '8080'
-        }
-      }
-    ]
+module openAiModule 'modules/openai.bicep' = if (deployOpenAi) {
+  name: 'openai'
+  params: {
+    name: '${prefix}-openai'
+    location: location
   }
 }
 
-/*
- * Virtual Network
- */
-resource vnet 'Microsoft.Network/virtualNetworks@2023-04-01' = {
-  name: '${prefix}-vnet'
-  location: location
-  properties: {
-    addressSpace: {
-      addressPrefixes: ['10.0.0.0/16']
-    }
-    subnets: [
-      {
-        name: 'default'
-        properties: {
-          addressPrefix: '10.0.0.0/24'
-          networkSecurityGroup: {
-            id: nsg.id
-          }
-        }
-      }
-    ]
-  }
-}
-
-/*
- * Network Interface
- */
-resource nic 'Microsoft.Network/networkInterfaces@2023-04-01' = {
-  name: '${prefix}-nic'
-  location: location
-  properties: {
-    ipConfigurations: [
-      {
-        name: 'ipconfig'
-        properties: {
-          subnet: {
-            id: vnet.properties.subnets[0].id
-          }
-          privateIPAllocationMethod: 'Dynamic'
-          publicIPAddress: {
-            id: pip.id
-          }
-        }
-      }
-    ]
-  }
-}
-
-/*
- * VM
- */
-resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' = {
-  name: '${prefix}-vm'
-  location: location
-  properties: {
-    hardwareProfile: {
-      vmSize: 'Standard_B1s'
-    }
-    osProfile: {
-      computerName: '${prefix}-vm'
-      adminUsername: 'azureuser'
-      linuxConfiguration: {
-        disablePasswordAuthentication: true
-        ssh: {
-          publicKeys: [
-            {
-              path: '/home/azureuser/.ssh/authorized_keys'
-              keyData: '<YOUR_SSH_PUBLIC_KEY>'
-            }
-          ]
-        }
-      }
-    }
-    networkProfile: {
-      networkInterfaces: [
-        {
-          id: nic.id
-        }
-      ]
-    }
-    storageProfile: {
-      imageReference: {
-        publisher: 'Canonical'
-        offer: '0001-com-ubuntu-server-jammy'
-        sku: '22_04-lts'
-        version: 'latest'
-      }
-      osDisk: {
-        createOption: 'FromImage'
-      }
-    }
-  }
-}
-
-/*
- * Output VM IP
- */
-output backendEchoBaseUrl string = 'http://${pip.properties.ipAddress}:8080'
+output staticWebAppDefaultHostname string = swa.properties.defaultHostname
+output backendEchoBaseUrl string = vmModule.outputs.backendEchoBaseUrl
+output vmPublicIp string = vmModule.outputs.publicIpAddress
+output openAiDeployed bool = deployOpenAi
