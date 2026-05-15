@@ -10,6 +10,13 @@ permissions:
   id-token: write
   contents: read
 
+# Serialize deployments to this SWA. SWA's deployment service cancels older
+# runs when newer ones arrive (surfacing as "Deployment Canceled"), so we
+# guarantee at most one active run per ref.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   RESOURCE_GROUP: rg-blue-swallow
   LOCATION: westus2
