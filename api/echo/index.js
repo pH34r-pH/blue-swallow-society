@@ -2,6 +2,7 @@ module.exports = async function (context, req) {
   const base = process.env.BACKEND_ECHO_BASE_URL;
 
   if (!base) {
+    context.log.error("BACKEND_ECHO_BASE_URL missing — proxy cannot forward request");
     context.res = {
       status: 500,
       body: { ok: false, error: 'Missing BACKEND_ECHO_BASE_URL' }
@@ -21,6 +22,7 @@ module.exports = async function (context, req) {
     clearTimeout(timeout);
 
     const text = await response.text();
+    context.log.info(`Echo backend responded HTTP ${response.status} for msg=${msg.substring(0, 50)}`);
     context.res = {
       status: response.status,
       headers: { 'Content-Type': 'application/json' },
@@ -31,6 +33,7 @@ module.exports = async function (context, req) {
       }
     };
   } catch (err) {
+    context.log.error(`Echo backend unreachable: ${err.message}`);
     context.res = {
       status: 502,
       headers: { 'Content-Type': 'application/json' },

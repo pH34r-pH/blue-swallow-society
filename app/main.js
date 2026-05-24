@@ -27,13 +27,16 @@ function initLoginFlow() {
 async function handleLogin() {
   const passcodeInput = $("passcodeInput");
   const errorDiv = $("terminalError");
-  const passcode = passcodeInput ? passcodeInput.value : "";
-  
+  let passcode = passcodeInput ? passcodeInput.value : "";
+
   if (!passcode) {
     showError(errorDiv, "PASSCODE REQUIRED");
     return;
   }
-  
+
+  // T017: Input sanitization — strip HTML tags and enforce max length
+  passcode = passcode.replace(/<[^>]*>/g, "").slice(0, 128);
+
   // Simulate API call to validate passcode against VM
   try {
     const isValid = await validatePasscode(passcode);
@@ -64,7 +67,6 @@ async function validatePasscode(passcode) {
     return data.ok === true;
   } catch (err) {
     // Fallback to local validation for development
-    console.log("Using local validation (no backend)");
     return passcode === CORRECT_PASSCODE;
   }
 }
@@ -92,27 +94,62 @@ function unlockInterface() {
 function initTabSystem() {
   const tabBtns = $$(".tab-btn");
   const tabContents = $$(".tab-content");
-  
-  tabBtns.forEach((btn) => {
+
+  tabBtns.forEach((btn, index) => {
+    btn.setAttribute("role", "tab");
+    btn.setAttribute("aria-selected", "false");
+    btn.setAttribute("tabindex", "-1");
+    btn.setAttribute("aria-controls", `${btn.getAttribute("data-tab")}-tab`);
+
     btn.addEventListener("click", () => {
-      const tabName = btn.getAttribute("data-tab");
-      
-      // Remove active class from all
-      tabBtns.forEach((b) => b.classList.remove("active"));
-      tabContents.forEach((c) => c.classList.remove("active"));
-      
-      // Add active class to clicked tab and content
-      btn.classList.add("active");
-      const tabContent = $(`${tabName}-tab`);
-      if (tabContent) tabContent.classList.add("active");
+      activateTab(index, tabBtns, tabContents);
+    });
+
+    // T022: Keyboard navigation — arrow keys cycle tabs, Home/End jump
+    btn.addEventListener("keydown", (e) => {
+      let nextIndex = index;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        nextIndex = (index + 1) % tabBtns.length;
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        nextIndex = (index - 1 + tabBtns.length) % tabBtns.length;
+      } else if (e.key === "Home") {
+        nextIndex = 0;
+      } else if (e.key === "End") {
+        nextIndex = tabBtns.length - 1;
+      } else {
+        return;
+      }
+      e.preventDefault();
+      activateTab(nextIndex, tabBtns, tabContents);
+      tabBtns[nextIndex].focus();
     });
   });
-  
+
+  // Set up tabpanel roles
+  tabContents.forEach((panel) => {
+    panel.setAttribute("role", "tabpanel");
+    panel.setAttribute("tabindex", "0");
+  });
+
   // Setup logout
   const logoutBtn = $("logoutBtn");
   if (logoutBtn) {
     logoutBtn.addEventListener("click", handleLogout);
   }
+}
+
+function activateTab(index, tabBtns, tabContents) {
+  tabBtns.forEach((b, i) => {
+    const isActive = i === index;
+    b.classList.toggle("active", isActive);
+    b.setAttribute("aria-selected", String(isActive));
+    b.setAttribute("tabindex", isActive ? "0" : "-1");
+  });
+
+  tabContents.forEach((c, i) => {
+    c.classList.toggle("active", i === index);
+    c.setAttribute("aria-hidden", String(i !== index));
+  });
 }
 
 function handleLogout() {
@@ -184,16 +221,27 @@ async function getAgentResponse(prompt) {
 function addChatMessage(sender, text) {
   const messagesDiv = $("chatMessages");
   if (!messagesDiv) return;
-  
+
   const msgEl = document.createElement("div");
   msgEl.className = `chat-message ${sender.toLowerCase()}`;
-  
+
   const timestamp = new Date().toLocaleTimeString();
-  msgEl.innerHTML = `<div style="opacity: 0.6; font-size: 0.8em;">[${timestamp}]</div><div>${text}</div>`;
-  
+
+  // T037: Safe DOM construction — never use innerHTML with user input
+  const timeDiv = document.createElement("div");
+  timeDiv.style.opacity = "0.6";
+  timeDiv.style.fontSize = "0.8em";
+  timeDiv.textContent = `[${timestamp}]`;
+
+  const textDiv = document.createElement("div");
+  textDiv.textContent = text;
+
+  msgEl.appendChild(timeDiv);
+  msgEl.appendChild(textDiv);
+
   messagesDiv.appendChild(msgEl);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
-  
+
   chatHistory.push({ sender, text, timestamp });
 }
 

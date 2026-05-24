@@ -16,6 +16,9 @@ param sshPublicKey string
 @description('CIDR allowed to reach SSH (22) and the echo port (8080). Use your developer IP (e.g. 203.0.113.5/32). Default "*" is wide open — only acceptable for short-lived experiments.')
 param allowedSourceIp string = '*'
 
+@description('VM size. Keep this small for experimentation.')
+param vmSize string = 'Standard_B1s'
+
 @description('Set true to deploy an Azure OpenAI account alongside the rest of the stack.')
 param deployOpenAi bool = false
 
@@ -36,6 +39,9 @@ resource swa 'Microsoft.Web/staticSites@2023-01-01' = {
     tier: 'Standard'
   }
   properties: {}
+  tags: {
+    project: 'blue-swallow-society'
+  }
 }
 
 /*
@@ -50,6 +56,7 @@ module vmModule 'vm-echo-lab.bicep' = {
     allowedSourceIp: allowedSourceIp
     autoShutdownTime: autoShutdownTime
     autoShutdownTimeZone: autoShutdownTimeZone
+    vmSize: vmSize
   }
 }
 
@@ -68,3 +75,4 @@ output staticWebAppDefaultHostname string = swa.properties.defaultHostname
 output backendEchoBaseUrl string = vmModule.outputs.backendEchoBaseUrl
 output vmPublicIp string = vmModule.outputs.publicIpAddress
 output openAiDeployed bool = deployOpenAi
+output openAiEndpoint string = deployOpenAi ? openAiModule.outputs.endpoint : ''

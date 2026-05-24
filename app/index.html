@@ -11,11 +11,11 @@
     <div id="terminalScreen" class="terminal-screen active">
       <div class="terminal-container">
         <div class="terminal-panel">
-          <div class="terminal-header">
-            <div style="font-size: 1.2em; margin-bottom: 0.5rem;">> BLUE_SWALLOW_SOCIETY.INIT</div>
-            <div style="font-size: 0.85em; opacity: 0.7;">[RESTRICTED ACCESS NETWORK]</div>
-          </div>
-          
+          <header class="terminal-header" aria-label="Authentication terminal">
+            <div class="terminal-title">> BLUE_SWALLOW_SOCIETY.INIT</div>
+            <div class="terminal-subtitle">[RESTRICTED ACCESS NETWORK]</div>
+          </header>
+
           <div class="terminal-input">
             <label for="passcodeInput">PASSCODE</label>
             <input
@@ -24,16 +24,18 @@
               type="password"
               placeholder="Enter passcode..."
               autocomplete="off"
+              maxlength="128"
+              aria-describedby="terminalError"
             />
           </div>
-          
-          <div id="terminalError" class="terminal-error"></div>
-          
-          <div style="margin-top: 2rem;">
-            <button id="loginBtn" class="btn btn-primary" style="width: 100%;">AUTHENTICATE</button>
+
+          <div id="terminalError" class="terminal-error" role="alert" aria-live="assertive"></div>
+
+          <div class="terminal-btn-wrapper">
+            <button id="loginBtn" class="btn btn-primary terminal-btn-full">AUTHENTICATE</button>
           </div>
-          
-          <div style="margin-top: 1rem; font-size: 0.8em; opacity: 0.5; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+
+          <div class="terminal-status" aria-label="System status indicators">
             <div>> SYSTEM_STATUS: ONLINE</div>
             <div>> ENCRYPTION: ACTIVE</div>
             <div>> CONNECTIONS: MONITORING</div>
@@ -49,7 +51,7 @@
         <div class="container row between center wrap gap-md">
           <div>
             <div class="eyebrow">// BLUE_SWALLOW_COLLECTIVE</div>
-            <h1 style="margin: 0.5rem 0 0;">NETWORK CONSOLE</h1>
+            <h1 class="console-heading">NETWORK CONSOLE</h1>
           </div>
           <div class="row gap-sm">
             <button id="logoutBtn" class="btn btn-secondary">DISCONNECT</button>
@@ -58,45 +60,45 @@
       </header>
 
       <!-- Tab Bar -->
-      <div class="tab-bar">
-        <button class="tab-btn active" data-tab="landing">LANDING</button>
-        <button class="tab-btn" data-tab="agentic">AGENTIC</button>
-        <button class="tab-btn" data-tab="monitoring">MONITORING</button>
-        <button class="tab-btn" data-tab="experiments">EXPERIMENTS</button>
-      </div>
+      <nav class="tab-bar" role="tablist" aria-label="Main navigation">
+        <button class="tab-btn active" data-tab="landing" role="tab" aria-selected="true" aria-controls="landing-tab" id="tab-landing" tabindex="0">LANDING</button>
+        <button class="tab-btn" data-tab="agentic" role="tab" aria-selected="false" aria-controls="agentic-tab" id="tab-agentic" tabindex="-1">AGENTIC</button>
+        <button class="tab-btn" data-tab="monitoring" role="tab" aria-selected="false" aria-controls="monitoring-tab" id="tab-monitoring" tabindex="-1">MONITORING</button>
+        <button class="tab-btn" data-tab="experiments" role="tab" aria-selected="false" aria-controls="experiments-tab" id="tab-experiments" tabindex="-1">EXPERIMENTS</button>
+      </nav>
 
       <!-- Landing Tab -->
-      <div id="landing-tab" class="tab-content active">
+      <div id="landing-tab" class="tab-content active" role="tabpanel" aria-labelledby="tab-landing">
         <main class="container">
           <section class="hero">
             <h2>Blue Swallow Society</h2>
-            <p style="color: var(--text-primary); font-size: 1.05rem; line-height: 1.8; margin-bottom: 1.5rem;">
-              We are the Blue Swallows�a convergence of those who recognize the elegant necessity of freedom'"'"'s flight. 
-              In the liminal spaces between the rigid structures of control, we find ourselves drawn together by a 
-              recognition: that the most resilient networks are those where information flows unfiltered, where 
-              knowledge is decentralized, and where no single point of failure can silence the collective voice. 
-              We do not seek to dismantle what exists; rather, we demonstrate through practice that alternatives 
+            <p class="manifesto">
+              We are the Blue Swallows—a convergence of those who recognize the elegant necessity of freedom's flight.
+              In the liminal spaces between the rigid structures of control, we find ourselves drawn together by a
+              recognition: that the most resilient networks are those where information flows unfiltered, where
+              knowledge is decentralized, and where no single point of failure can silence the collective voice.
+              We do not seek to dismantle what exists; rather, we demonstrate through practice that alternatives
               are possible when individuals choose coordination over coercion.
             </p>
-            <p style="color: var(--text-primary); font-size: 1.05rem; line-height: 1.8; margin-bottom: 1.5rem;">
-              Like the swallow banking through urban canyons, we navigate the constraints of our environment 
-              with precision and grace. Our society operates in the margins, in the overlooked corridors where 
-              the infrastructure of power often forgets to look. Here, we exchange ideas as freely as birds 
-              exchange altitude, building networks that function not through the imposition of authority but 
-              through the emergent consensus of those who participate. Ours is a project of radical pragmatism�
+            <p class="manifesto">
+              Like the swallow banking through urban canyons, we navigate the constraints of our environment
+              with precision and grace. Our society operates in the margins, in the overlooked corridors where
+              the infrastructure of power often forgets to look. Here, we exchange ideas as freely as birds
+              exchange altitude, building networks that function not through the imposition of authority but
+              through the emergent consensus of those who participate. Ours is a project of radical pragmatism—
               we build the tools, the protocols, the infrastructure that enables others to opt out.
             </p>
-            <p style="color: var(--text-primary); font-size: 1.05rem; line-height: 1.8;">
-              Access to this network is not a right to be granted by distant institutions. It is recognition 
-              among peers that you understand the principles we operate under: that information should flow 
-              freely, that power should be distributed, and that individuals are the rightful architects of 
-              their own networks. To participate is to accept responsibility. To protect is to preserve. 
-              To persist is to prove that another way is not merely possible�it is inevitable.
+            <p class="manifesto">
+              Access to this network is not a right to be granted by distant institutions. It is recognition
+              among peers that you understand the principles we operate under: that information should flow
+              freely, that power should be distributed, and that individuals are the rightful architects of
+              their own networks. To participate is to accept responsibility. To protect is to preserve.
+              To persist is to prove that another way is not merely possible—it is inevitable.
             </p>
           </section>
 
-          <section class="section" style="text-align: center;">
-            <p style="color: var(--accent-neon); font-size: 0.9em; letter-spacing: 0.05em;">
+          <section class="section status-section">
+            <p class="status-text">
               // NETWORK STATUS: SECURED AND OPERATIONAL //
             </p>
           </section>
@@ -104,7 +106,7 @@
       </div>
 
       <!-- Agentic Tab -->
-      <div id="agentic-tab" class="tab-content">
+      <div id="agentic-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-agentic">
         <div class="container">
           <div class="chat-interface">
             <div class="chat-messages" id="chatMessages"></div>
@@ -123,23 +125,23 @@
       </div>
 
       <!-- Monitoring Tab -->
-      <div id="monitoring-tab" class="tab-content">
+      <div id="monitoring-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-monitoring">
         <div class="container">
           <h2>System Monitoring</h2>
-          <div id="monitoringContent" style="color: var(--text-secondary);">
-            <p style="opacity: 0.6;">// MONITORING FEED PLACEHOLDER //</p>
-            <p style="opacity: 0.6;">Additional feeds and metrics will be configured here.</p>
+          <div id="monitoringContent" class="placeholder-content">
+            <p class="placeholder-text">// MONITORING FEED PLACEHOLDER //</p>
+            <p class="placeholder-text">Additional feeds and metrics will be configured here.</p>
           </div>
         </div>
       </div>
 
       <!-- Experiments Tab -->
-      <div id="experiments-tab" class="tab-content">
+      <div id="experiments-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-experiments">
         <div class="container">
           <h2>Experimental Workbench</h2>
-          <div id="experimentsContent" style="color: var(--text-secondary);">
-            <p style="opacity: 0.6;">// EXPERIMENTS PLACEHOLDER //</p>
-            <p style="opacity: 0.6;">Sandbox environment for testing new capabilities.</p>
+          <div id="experimentsContent" class="placeholder-content">
+            <p class="placeholder-text">// EXPERIMENTS PLACEHOLDER //</p>
+            <p class="placeholder-text">Sandbox environment for testing new capabilities.</p>
           </div>
         </div>
       </div>
