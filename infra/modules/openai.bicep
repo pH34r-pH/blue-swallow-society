@@ -8,6 +8,9 @@ resource openai 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   sku: {
     name: 'S0'
   }
+  tags: {
+    project: 'blue-swallow-society'
+  }
 }
 
 output endpoint string = openai.properties.endpoint

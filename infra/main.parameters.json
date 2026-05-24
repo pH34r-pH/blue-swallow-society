@@ -2,10 +2,19 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
+    "_comments": {
+      "value": "Validation rules: allowedSourceIp should be a CIDR (e.g. 203.0.113.0/24) not * in production. vmSize defaults to Standard_B1s for cost control. deployOpenAi=true requires an approved Azure subscription."
+    },
     "location": { "value": "westus2" },
     "staticWebAppName": { "value": "blue-swallow-swa" },
     "prefix": { "value": "blue-swallow" },
-    "allowedSourceIp": { "value": "*" },
+    "allowedSourceIp": {
+      "value": "*",
+      "metadata": {
+        "description": "WARNING: '*' exposes ports 22 and 8080 to the entire internet. Set to your IP before production."
+      }
+    },
+    "vmSize": { "value": "Standard_B1s" },
     "deployOpenAi": { "value": false },
     "autoShutdownTime": { "value": "0200" },
     "autoShutdownTimeZone": { "value": "Pacific Standard Time" }

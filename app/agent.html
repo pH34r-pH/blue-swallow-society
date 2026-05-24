@@ -7,13 +7,13 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main class="container">
+    <main class="container" role="main" aria-label="Agent laboratory">
       <h1>Agent Lab</h1>
       <div class="row gap-sm wrap center top-space">
-        <input id="prompt" class="input" placeholder="Ask the agent..." />
-        <button id="runButton" class="btn btn-primary">Run agent</button>
+        <input id="prompt" class="input" placeholder="Ask the agent..." aria-label="Agent prompt input" />
+        <button id="runButton" class="btn btn-primary" aria-label="Run agent query">Run agent</button>
       </div>
-      <pre id="out" class="top-space">Press &ldquo;Run agent&rdquo;.</pre>
+      <pre id="out" class="top-space" aria-live="polite" aria-label="Agent response output">Press &ldquo;Run agent&rdquo;.</pre>
     </main>
     <script src="/agent.js" type="module"></script>
   </body>
