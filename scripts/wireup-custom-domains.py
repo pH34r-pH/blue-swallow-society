@@ -92,7 +92,7 @@ def get_custom_domain(
     hostname: str,
 ) -> dict[str, object] | None:
     result = run_az(
-        ["rest", "--method", "get", "--url", custom_domain_url(sub_id, resource_group, static_web_app_name, hostname)],
+        ["rest", "--method", "get", "--uri", custom_domain_url(sub_id, resource_group, static_web_app_name, hostname)],
         check=False,
     )
     if result.returncode != 0:
@@ -115,7 +115,7 @@ def upsert_custom_domain(
     url = custom_domain_url(sub_id, resource_group, static_web_app_name, hostname)
     body = {"properties": {"validationMethod": validation_method}}
     result = run_az(
-        ["rest", "--method", "put", "--url", url, "--body", json.dumps(body)],
+        ["rest", "--method", "put", "--uri", url, "--body", json.dumps(body)],
     )
     if not result.stdout.strip():
         return {}
@@ -168,7 +168,7 @@ def put_record_set(
         f"/{record_type}/{record_name_enc}?api-version=2018-05-01"
     )
     body = json.dumps({"properties": properties})
-    run_az(["rest", "--method", "put", "--url", url, "--body", body])
+    run_az(["rest", "--method", "put", "--uri", url, "--body", body])
 
 
 def configure_www(
