@@ -3,14 +3,8 @@ targetScope = 'resourceGroup'
 @description('Name of the existing Static Web App.')
 param staticWebAppName string
 
-@description('Resource group that already contains the Static Web App.')
-param staticWebAppResourceGroup string = resourceGroup().name
-
 @description('Azure DNS zone name.')
 param dnsZoneName string
-
-@description('Resource group that already contains the Azure DNS zone.')
-param dnsZoneResourceGroup string = resourceGroup().name
 
 @description('The TXT validation token emitted by the custom-domain deployment.')
 param apexValidationToken string
@@ -20,12 +14,10 @@ param staticWebAppDefaultHostname string
 
 resource swa 'Microsoft.Web/staticSites@2023-01-01' existing = {
   name: staticWebAppName
-  scope: resourceGroup(staticWebAppResourceGroup)
 }
 
 resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' existing = {
   name: dnsZoneName
-  scope: resourceGroup(dnsZoneResourceGroup)
 }
 
 resource apexTxtRecord 'Microsoft.Network/dnsZones/TXT@2018-05-01' = {

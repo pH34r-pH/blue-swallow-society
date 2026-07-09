@@ -20,7 +20,6 @@ concurrency:
 env:
   RESOURCE_GROUP: rg-blue-swallow
   LOCATION: westus2
-  DNS_ZONE_RESOURCE_GROUP: rg-blue-swallow
   DNS_ZONE_NAME: blueswallow.co.in
   APEX_DOMAIN: blueswallow.co.in
   WWW_DOMAIN: www.blueswallow.co.in
@@ -30,7 +29,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       backendEchoBaseUrl: ${{ steps.deploy.outputs.backendEchoBaseUrl }}
-      staticWebAppDefaultHostname: ${{ steps.deploy.outputs.staticWebAppDefaultHostname }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -113,9 +111,7 @@ jobs:
             exit $rc
           fi
           backend=$(echo "$out" | jq -r '.backendEchoBaseUrl.value')
-          swa_default_hostname=$(echo "$out" | jq -r '.staticWebAppDefaultHostname.value')
           echo "backendEchoBaseUrl=$backend" >> "$GITHUB_OUTPUT"
-          echo "staticWebAppDefaultHostname=$swa_default_hostname" >> "$GITHUB_OUTPUT"
 
       - name: Wire BACKEND_ECHO_BASE_URL into SWA app settings
         run: |
@@ -172,9 +168,7 @@ jobs:
             --resource-group "$RESOURCE_GROUP" \
             --template-file infra/custom-domains.bicep \
             --parameters staticWebAppName="$swa_name" \
-            --parameters staticWebAppResourceGroup="$RESOURCE_GROUP" \
             --parameters dnsZoneName="$DNS_ZONE_NAME" \
-            --parameters dnsZoneResourceGroup="$DNS_ZONE_RESOURCE_GROUP" \
             --parameters apexHostname="$APEX_DOMAIN" \
             --parameters wwwHostname="$WWW_DOMAIN" \
             --query properties.provisioningState -o tsv)
