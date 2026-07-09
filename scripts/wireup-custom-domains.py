@@ -18,6 +18,7 @@ import subprocess
 import sys
 import time
 from typing import Any
+from urllib.parse import quote
 
 TTL = 300
 TOKEN_RETRIES = 12
@@ -28,7 +29,9 @@ def run_az(args: list[str], *, check: bool = True) -> subprocess.CompletedProces
     cmd = ["az", "--only-show-errors", *args]
     proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if check and proc.returncode != 0:
-        raise RuntimeError(f"Azure CLI command failed (exit {proc.returncode}).\nSTDERR: {proc.stderr.strip()}")
+        raise RuntimeError(
+            f"Azure CLI command failed (exit {proc.returncode}).\nSTDERR: {proc.stderr.strip()}"
+        )
     return proc
 
 
@@ -39,22 +42,20 @@ def subscription_id() -> str:
     return sub_id
 
 
-def ensure_dns_extension() -> None:
-    run_az(["extension", "add", "--name", "dns", "--upgrade", "--yes"])
-
-
 def hostname_list(static_web_app_name: str, resource_group: str) -> list[dict[str, Any]]:
-    proc = run_az([
-        "staticwebapp",
-        "hostname",
-        "list",
-        "-n",
-        static_web_app_name,
-        "-g",
-        resource_group,
-        "-o",
-        "json",
-    ])
+    proc = run_az(
+        [
+            "staticwebapp",
+            "hostname",
+            "list",
+            "-n",
+            static_web_app_name,
+            "-g",
+            resource_group,
+            "-o",
+            "json",
+        ]
+    )
     payload = proc.stdout.strip()
     if not payload:
         return []
@@ -64,7 +65,13 @@ def hostname_list(static_web_app_name: str, resource_group: str) -> list[dict[st
 
 def find_hostname_entry(static_web_app_name: str, resource_group: str, hostname: str) -> dict[str, Any] | None:
     for entry in hostname_list(static_web_app_name, resource_group):
-        entry_hostname = str(entry.get("domainName") or entry.get("name") or "").strip()
+        entry_hostname = str(
+            entry.get("domainName")
+            or entry.get("hostname")
+            or entry.get("hostName")
+            or entry.get("name")
+            or ""
+        ).strip()
         if entry_hostname.lower() == hostname.lower():
             return entry
     return None
@@ -79,20 +86,22 @@ def ensure_hostname_binding(
     if find_hostname_entry(static_web_app_name, resource_group, hostname) is not None:
         return
 
-    run_az([
-        "staticwebapp",
-        "hostname",
-        "set",
-        "-n",
-        static_web_app_name,
-        "-g",
-        resource_group,
-        "--hostname",
-        hostname,
-        "--validation-method",
-        validation_method,
-        "--no-wait",
-    ])
+    run_az(
+        [
+            "staticwebapp",
+            "hostname",
+            "set",
+            "-n",
+            static_web_app_name,
+            "-g",
+            resource_group,
+            "--hostname",
+            hostname,
+            "--validation-method",
+            validation_method,
+            "--no-wait",
+        ]
+    )
 
 
 def fetch_validation_token(
@@ -105,76 +114,102 @@ def fetch_validation_token(
     sleep_seconds: int = TOKEN_SLEEP_SECONDS,
 ) -> str:
     for attempt in range(1, retries + 1):
-        entry = find_hostname_entry(static_web_app_name, resource_group, hostname)
-        if entry:
-            token = str(entry.get("validationToken") or "").strip()
-            if token and token.lower() != "null":
-                return token
+        proc = run_az(
+            [
+                "staticwebapp",
+                "hostname",
+                "show",
+                "-n",
+                static_web_app_name,
+                "-g",
+                resource_group,
+                "--hostname",
+                hostname,
+                "--query",
+                "validationToken",
+                "-o",
+                "tsv",
+            ],
+            check=False,
+        )
+        token = proc.stdout.strip()
+        if proc.returncode == 0 and token and token.lower() != "null":
+            return token
         if attempt < retries:
             time.sleep(sleep_seconds)
+
     if required:
         raise RuntimeError(f"Validation token for {hostname} was not returned after requesting TXT validation.")
     return ""
 
 
-def ensure_cname_record(resource_group: str, zone_name: str, hostname: str, cname: str) -> None:
-    run_az([
-        "network",
-        "dns",
-        "record-set",
-        "cname",
-        "set-record",
-        "-g",
-        resource_group,
-        "-z",
-        zone_name,
-        "-n",
-        hostname,
-        "-c",
-        cname,
-        "--ttl",
-        str(TTL),
-    ])
+# Azure DNS record-set CLI commands live behind the dns extension on some
+# runners, so we use ARM REST directly to keep the deployment self-contained.
+def dns_record_set_url(resource_group: str, zone_name: str, record_type: str, record_name: str) -> str:
+    encoded_name = quote(record_name, safe="")
+    sub_id = subscription_id()
+    return (
+        f"https://management.azure.com/subscriptions/{sub_id}/resourceGroups/{resource_group}"
+        f"/providers/Microsoft.Network/dnsZones/{zone_name}/{record_type}/{encoded_name}?api-version=2018-05-01"
+    )
 
 
-def ensure_txt_record(resource_group: str, zone_name: str, hostname: str, token: str) -> None:
-    run_az([
-        "network",
-        "dns",
-        "record-set",
-        "txt",
-        "add-record",
-        "-g",
-        resource_group,
-        "-z",
-        zone_name,
-        "-n",
-        hostname,
-        "-v",
-        token,
-        "--ttl",
-        str(TTL),
-    ])
+def arm_put(url: str, body: dict[str, Any]) -> None:
+    run_az(
+        [
+            "rest",
+            "--method",
+            "put",
+            "--url",
+            url,
+            "--body",
+            json.dumps(body, separators=(",", ":")),
+        ]
+    )
 
 
-def ensure_alias_a_record(resource_group: str, zone_name: str, hostname: str, target_resource_id: str) -> None:
-    run_az([
-        "network",
-        "dns",
-        "record-set",
-        "a",
-        "create",
-        "-g",
-        resource_group,
-        "-z",
-        zone_name,
-        "-n",
-        hostname,
-        "--target-resource",
-        target_resource_id,
-        "--ttl",
-        str(TTL),
-    ])
+def upsert_cname_record(resource_group: str, zone_name: str, hostname: str, cname: str) -> None:
+    arm_put(
+        dns_record_set_url(resource_group, zone_name, "CNAME", hostname),
+        {
+            "properties": {
+                "TTL": TTL,
+                "CNAMERecord": {
+                    "cname": cname,
+                },
+            }
+        },
+    )
+
+
+def upsert_txt_record(resource_group: str, zone_name: str, hostname: str, token: str) -> None:
+    arm_put(
+        dns_record_set_url(resource_group, zone_name, "TXT", hostname),
+        {
+            "properties": {
+                "TTL": TTL,
+                "TXTRecords": [
+                    {
+                        "value": [token],
+                    }
+                ],
+            }
+        },
+    )
+
+
+def upsert_alias_a_record(resource_group: str, zone_name: str, hostname: str, target_resource_id: str) -> None:
+    arm_put(
+        dns_record_set_url(resource_group, zone_name, "A", hostname),
+        {
+            "properties": {
+                "TTL": TTL,
+                "targetResource": {
+                    "id": target_resource_id,
+                },
+            }
+        },
+    )
 
 
 def configure_www(
@@ -185,7 +220,7 @@ def configure_www(
     www_hostname: str,
     default_hostname: str,
 ) -> None:
-    ensure_cname_record(dns_zone_resource_group, dns_zone_name, "www", default_hostname)
+    upsert_cname_record(dns_zone_resource_group, dns_zone_name, "www", default_hostname)
     ensure_hostname_binding(static_web_app_name, resource_group, www_hostname, "cname-delegation")
     print(f"CNAME configured: {www_hostname} -> {default_hostname}")
 
@@ -209,18 +244,18 @@ def configure_apex(
     )
 
     if token:
-        ensure_txt_record(dns_zone_resource_group, dns_zone_name, "@", token)
+        upsert_txt_record(dns_zone_resource_group, dns_zone_name, "@", token)
         print(f"TXT validation configured for apex domain: {apex_hostname}")
     elif preexisting is None:
         raise RuntimeError(f"Validation token for {apex_hostname} was not available after requesting TXT validation.")
     else:
         print(f"Validation token for {apex_hostname} not returned; assuming an existing TXT record remains in place.")
 
-    ensure_alias_a_record(
+    upsert_alias_a_record(
         dns_zone_resource_group,
         dns_zone_name,
         "@",
-        f"/subscriptions/{sub_id}/resourceGroups/{resource_group}/providers/Microsoft.Web/staticSites/{static_web_app_name}"
+        f"/subscriptions/{sub_id}/resourceGroups/{resource_group}/providers/Microsoft.Web/staticSites/{static_web_app_name}",
     )
     print(f"ALIAS configured for apex domain: {apex_hostname}")
 
@@ -240,8 +275,6 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     sub_id = subscription_id()
-
-    ensure_dns_extension()
 
     configure_www(
         args.static_web_app_name,
