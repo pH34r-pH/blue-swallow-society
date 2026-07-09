@@ -12,27 +12,21 @@
     <main id="terminalScreen" class="terminal-screen active" aria-label="Private access login">
       <div class="terminal-container">
         <section class="terminal-panel panel login-panel" aria-label="Authentication portal">
-          <p class="terminal-badge">PRIVATE ACCESS</p>
           <h1 class="terminal-title">Blue Swallow Society</h1>
-          <p class="terminal-subtitle">Invite-only access to the signal console.</p>
-          <label class="terminal-label" for="passcodeInput">Passcode</label>
           <input
             id="passcodeInput"
             class="input terminal-input-field"
             type="password"
-            placeholder="Passcode"
             autocomplete="off"
             autocapitalize="none"
             spellcheck="false"
             enterkeyhint="go"
             maxlength="128"
-            aria-describedby="terminalError"
+            aria-label="Passcode"
           />
 
-          <div id="terminalError" class="terminal-error" role="alert" aria-live="assertive"></div>
-
           <div class="terminal-actions">
-            <button id="loginBtn" class="btn login-btn" type="button">Unlock</button>
+            <button id="loginBtn" class="btn login-btn" type="button">login</button>
           </div>
         </section>
       </div>
@@ -145,12 +139,21 @@
               </div>
             </div>
 
-            <div class="tzeentch-surface-tabs" role="tablist" aria-label="Tzeentch surfaces">
-              <button id="tzeentchSurfaceSeek" class="tzeentch-surface-tab is-active" data-surface="seek" role="tab" aria-selected="true" aria-controls="tzeentchSeekPanel" type="button">
+            <div class="tzeentch-subtabs" role="tablist" aria-label="Tzeentch sub-tabs">
+              <button id="tzeentchSurfaceSeek" class="tzeentch-subtab is-active" data-surface="seek" role="tab" aria-selected="true" aria-controls="tzeentchSeekPanel" type="button">
                 Seek
               </button>
-              <button id="tzeentchSurfaceMarkets" class="tzeentch-surface-tab" data-surface="markets" role="tab" aria-selected="false" aria-controls="tzeentchMarketPanel" type="button">
-                Markets
+              <button id="tzeentchSurfaceMurmurs" class="tzeentch-subtab" data-surface="murmurs" role="tab" aria-selected="false" aria-controls="tzeentchMarketPanel" type="button">
+                Murmurs
+              </button>
+              <button id="tzeentchSurfaceCrypto" class="tzeentch-subtab" data-surface="crypto" role="tab" aria-selected="false" aria-controls="tzeentchMarketPanel" type="button">
+                Crypto
+              </button>
+              <button id="tzeentchSurfacePolymarket" class="tzeentch-subtab" data-surface="polymarket" role="tab" aria-selected="false" aria-controls="tzeentchMarketPanel" type="button">
+                Polymarket
+              </button>
+              <button id="tzeentchSurfaceIntel" class="tzeentch-subtab" data-surface="intel" role="tab" aria-selected="false" aria-controls="tzeentchMarketPanel" type="button">
+                Actionable Intel
               </button>
             </div>
 
@@ -374,9 +377,8 @@
                   </label>
                   <div class="wigle-action-row">
                     <button id="visionConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect live model</button>
-                    <button id="visionSampleBtn" class="btn btn-secondary sensor-action" type="button">Load sample detections</button>
                   </div>
-                  <p id="visionStatusText">Object detections are ready.</p>
+                  <p id="visionStatusText">Live object detections are not connected yet.</p>
                   <div id="arDetectionList" class="wigle-list vision-list"></div>
                 </div>
 

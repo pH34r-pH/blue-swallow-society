@@ -95,20 +95,20 @@ function bindTzeentchSurfaceTabs() {
 }
 
 function setTzeentchSurface(key) {
-  if (key !== 'seek' && key !== 'markets') {
+  if (key !== 'seek' && key !== 'murmurs' && key !== 'crypto' && key !== 'polymarket' && key !== 'intel') {
     return;
   }
 
   state.surfaceTab = key;
   syncTzeentchSurfaceVisibility();
+  renderApplications();
 }
 
 function syncTzeentchSurfaceVisibility() {
   const seekPanel = $('tzeentchSeekPanel');
   const marketPanel = $('tzeentchMarketPanel');
-  const seekButton = $('tzeentchSurfaceSeek');
-  const marketsButton = $('tzeentchSurfaceMarkets');
-  const showSeek = state.surfaceTab !== 'markets';
+  const buttons = Array.from(document.querySelectorAll('[data-surface]'));
+  const showSeek = state.surfaceTab === 'seek';
 
   if (seekPanel) {
     seekPanel.classList.toggle('hidden', !showSeek);
@@ -116,14 +116,13 @@ function syncTzeentchSurfaceVisibility() {
   if (marketPanel) {
     marketPanel.classList.toggle('hidden', showSeek);
   }
-  if (seekButton) {
-    seekButton.classList.toggle('is-active', showSeek);
-    seekButton.setAttribute('aria-selected', String(showSeek));
-  }
-  if (marketsButton) {
-    marketsButton.classList.toggle('is-active', !showSeek);
-    marketsButton.setAttribute('aria-selected', String(!showSeek));
-  }
+
+  buttons.forEach((button) => {
+    const active = (button.dataset.surface || 'seek') === state.surfaceTab;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-selected', String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
 }
 
 async function runScan(query, mode, { recordRecent = true, focus = false } = {}) {
@@ -212,7 +211,7 @@ function renderPayload(payload, requestMeta) {
 
   renderSourceChips(payload.supportedSources || []);
   renderSourceCards(payload.sources || []);
-  renderApplications([]);
+  renderApplications();
   void loadTzeentchMarketFeed();
   renderRows('tzeentchProfile', payload.sections?.profile || []);
   renderRows('tzeentchNetwork', payload.sections?.network || []);
@@ -232,7 +231,7 @@ function renderFailure(message) {
   setText('tzeentchMetricRefreshNote', 'Waiting for input.');
   renderSourceChips([]);
   renderSourceCards([]);
-  renderApplications([]);
+  renderApplications();
   void loadTzeentchMarketFeed({ refresh: true });
   renderRows('tzeentchProfile', [{ label: 'Status', value: 'No data', detail: message }]);
   renderRows('tzeentchNetwork', []);
@@ -291,7 +290,24 @@ function renderSourceCards(cards) {
 }
 
 function renderApplications() {
-  renderTzeentchMarketSurface();
+  const container = $('tzeentchApplications');
+  if (!container) return;
+
+  if (state.surfaceTab === 'seek') {
+    container.replaceChildren();
+    return;
+  }
+
+  const model = getTzeentchMarketModel();
+  const panel = renderTzeentchPanel(state.surfaceTab, model);
+  if (state.marketError) {
+    const errorNote = document.createElement('p');
+    errorNote.className = 'panel-meta';
+    errorNote.textContent = `Feed fallback: ${state.marketError}`;
+    panel.prepend(errorNote);
+  }
+
+  container.replaceChildren(panel);
 }
 
 function renderRows(containerId, rows) {
@@ -568,7 +584,7 @@ const TZEENTCH_MARKET_TABS = [
   { key: 'murmurs', label: 'Murmurs', subtitle: 'Virality and current events' },
   { key: 'crypto', label: 'Crypto', subtitle: 'Top 10 by trading volume' },
   { key: 'polymarket', label: 'Polymarket', subtitle: 'New bets and recent resolutions' },
-  { key: 'intel', label: 'Flows', subtitle: 'Paper-only signals and thesis notes' },
+  { key: 'intel', label: 'Actionable Intel', subtitle: 'Paper-only signals and thesis notes' },
 ];
 
 function getTzeentchMarketModel() {
@@ -608,7 +624,7 @@ async function loadTzeentchMarketFeed({ refresh = false } = {}) {
       }
     } finally {
       state.marketFetchPromise = null;
-      renderTzeentchMarketSurface();
+      renderApplications();
     }
   })();
 
@@ -1342,7 +1358,7 @@ function renderPolymarketCard(market) {
 function renderActionablePanel(model) {
   const panel = document.createElement('div');
   panel.className = 'tzeentch-panel tzeentch-panel-intel';
-  panel.appendChild(renderPanelHeader('Flows', 'Paper-only signals', model.actionable.loopNote));
+  panel.appendChild(renderPanelHeader('Actionable Intel', 'Paper-only signals', model.actionable.loopNote));
 
   const summary = document.createElement('p');
   summary.className = 'panel-meta';

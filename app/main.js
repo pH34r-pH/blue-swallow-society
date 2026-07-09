@@ -16,7 +16,6 @@ import {
 } from './wigle.mjs';
 import {
   buildArDetectionBoxes,
-  createSampleVisionDataset,
   mergeVisionDetections,
   parseVisionPayload,
 } from './vision.mjs';
@@ -78,10 +77,10 @@ const state = {
   wigleSourceLabel: 'sample',
   visionBound: false,
   visionRenderFrame: 0,
-  visionData: createSampleVisionDataset(),
+  visionData: { frame: null, detections: [] },
   visionEndpoint: '',
-  visionStatus: 'Sample object detections are ready.',
-  visionSourceLabel: 'sample',
+  visionStatus: 'Live object detections are not connected yet.',
+  visionSourceLabel: 'live',
 };
 
 function init() {
@@ -110,11 +109,9 @@ function bindLoginFlow() {
 async function handleLogin() {
   const passcodeInput = $('passcodeInput');
   const loginBtn = $('loginBtn');
-  const terminalError = $('terminalError');
   const passcode = passcodeInput ? passcodeInput.value.trim() : '';
 
   if (!passcode) {
-    showTerminalError('Enter the passcode to continue.');
     return;
   }
 
@@ -122,25 +119,18 @@ async function handleLogin() {
     loginBtn.disabled = true;
   }
 
-  showTerminalError('');
-
   try {
     const isValid = await validatePasscode(passcode);
     if (!isValid) {
-      showTerminalError('Passcode rejected.');
       return;
     }
 
     unlockConsole();
   } catch (error) {
     console.error('Login failed', error);
-    showTerminalError('Login failed. Please try again.');
   } finally {
     if (loginBtn) {
       loginBtn.disabled = false;
-    }
-    if (terminalError && !terminalError.textContent) {
-      terminalError.classList.remove('show');
     }
   }
 }
@@ -227,7 +217,6 @@ function resetConsoleToLogin() {
     loginBtn.disabled = false;
   }
 
-  hideTerminalError();
   stopTzeentchDashboard();
   stopArFeed();
   stopGodeyeFeed();
@@ -240,10 +229,10 @@ function resetConsoleToLogin() {
   state.wigleEndpoint = '';
   state.wigleStatus = 'Local WiGLE database is ready.';
   state.wigleSourceLabel = 'sample';
-  state.visionData = createSampleVisionDataset();
+  state.visionData = { frame: null, detections: [] };
   state.visionEndpoint = '';
-  state.visionStatus = 'Sample object detections are ready.';
-  state.visionSourceLabel = 'sample';
+  state.visionStatus = 'Live object detections are not connected yet.';
+  state.visionSourceLabel = 'live';
   state.arEnabled = false;
   state.arFullscreen = false;
   const endpointInput = $('wigleEndpointInput');
@@ -1083,7 +1072,6 @@ function bindVisionControls() {
 
   const endpointInput = $('visionEndpointInput');
   const connectBtn = $('visionConnectBtn');
-  const sampleBtn = $('visionSampleBtn');
   const fileInput = $('visionFileInput');
 
   if (endpointInput) {
@@ -1100,25 +1088,11 @@ function bindVisionControls() {
     });
   }
 
-  if (sampleBtn) {
-    sampleBtn.addEventListener('click', () => {
-      loadSampleVisionData();
-    });
-  }
-
   if (fileInput) {
     fileInput.addEventListener('change', handleVisionFileChange);
   }
 
   state.visionBound = true;
-}
-
-async function loadSampleVisionData() {
-  applyVisionDataset(createSampleVisionDataset(), {
-    sourceLabel: 'sample',
-    message: 'Sample object detections loaded.',
-    merge: false,
-  });
 }
 
 async function loadVisionEndpoint(endpoint) {
@@ -1147,11 +1121,8 @@ async function loadVisionEndpoint(endpoint) {
     });
   } catch (error) {
     console.error('Failed to load object detections', error);
-    applyVisionDataset(createSampleVisionDataset(), {
-      sourceLabel: 'sample',
-      message: `Live object detections unavailable (${error.message}); sample data loaded.`,
-      merge: false,
-    });
+    setVisionStatus('Live object detections are not connected yet.');
+    renderVisionViews();
   }
 }
 
@@ -1184,7 +1155,7 @@ function applyVisionDataset(payload, { sourceLabel = 'sample', message = '', mer
 
   const currentDetections = Array.isArray(state.visionData?.detections) ? state.visionData.detections : [];
   const nextDetections = merge ? mergeVisionDetections(currentDetections, parsed.detections) : mergeVisionDetections(parsed.detections);
-  const nextFrame = parsed.frame || state.visionData?.frame || createSampleVisionDataset().frame;
+  const nextFrame = parsed.frame || state.visionData?.frame || null;
 
   state.visionData = {
     frame: nextFrame,
@@ -1214,7 +1185,9 @@ function renderArDetectionLayer() {
   const frame = $('arFrame');
   const records = state.visionData?.detections || [];
   const sourceLabel = state.visionSourceLabel || state.visionData?.source || 'sample';
-  const summary = `${state.visionStatus} · ${records.length} detection${records.length === 1 ? '' : 's'} · ${sourceLabel}`;
+  const summary = records.length
+    ? `${state.visionStatus} · ${records.length} detection${records.length === 1 ? '' : 's'} · ${sourceLabel}`
+    : state.visionStatus;
 
   if (status) {
     status.textContent = summary;
