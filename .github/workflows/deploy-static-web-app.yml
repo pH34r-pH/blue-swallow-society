@@ -20,6 +20,7 @@ concurrency:
 env:
   RESOURCE_GROUP: rg-blue-swallow
   LOCATION: westus2
+  DNS_ZONE_RESOURCE_GROUP: rg-blue-swallow
   DNS_ZONE_NAME: blueswallow.co.in
   APEX_DOMAIN: blueswallow.co.in
   WWW_DOMAIN: www.blueswallow.co.in
@@ -161,15 +162,17 @@ jobs:
           output_location: ""
 
       - name: Configure custom domains
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
           swa_name=$(jq -r '.parameters.staticWebAppName.value' infra/main.parameters.json)
-          state=$(az deployment group create \
-            --name custom-domains \
-            --resource-group "$RESOURCE_GROUP" \
-            --template-file infra/custom-domains.bicep \
-            --parameters staticWebAppName="$swa_name" \
-            --parameters dnsZoneName="$DNS_ZONE_NAME" \
-            --parameters apexHostname="$APEX_DOMAIN" \
-            --parameters wwwHostname="$WWW_DOMAIN" \
-            --query properties.provisioningState -o tsv)
-          echo "Custom domain deployment: $state"
+          python3 scripts/wireup-custom-domains.py \
+            "$swa_name" \
+            "$RESOURCE_GROUP" \
+            "$DNS_ZONE_RESOURCE_GROUP" \
+            "$DNS_ZONE_NAME" \
+            "" \
+            "$APEX_DOMAIN" \
+            "$WWW_DOMAIN"
