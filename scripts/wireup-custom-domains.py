@@ -20,7 +20,7 @@ import time
 from functools import lru_cache
 from typing import Any
 from urllib import error as urllib_error, request as urllib_request
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 TTL = 300
 TOKEN_RETRIES = 12
@@ -158,22 +158,57 @@ def dns_record_set_url(resource_group: str, zone_name: str, record_type: str, re
 
 @lru_cache(maxsize=1)
 def management_access_token() -> str:
-    proc = run_az(
-        [
-            "account",
-            "get-access-token",
-            "--resource",
-            "https://management.azure.com/",
-            "--query",
-            "accessToken",
-            "-o",
-            "tsv",
-        ]
-    )
-    token = proc.stdout.strip()
-    if not token:
-        raise RuntimeError("Azure CLI did not return a management access token.")
-    return token
+    client_id = os.environ.get("AZURE_CLIENT_ID", "").strip()
+    tenant_id = os.environ.get("AZURE_TENANT_ID", "").strip()
+    if not client_id or not tenant_id:
+        raise RuntimeError("AZURE_CLIENT_ID and AZURE_TENANT_ID environment variables are required.")
+
+    request_url = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL", "").strip()
+    request_token = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "").strip()
+    if not request_url or not request_token:
+        raise RuntimeError("GitHub OIDC environment variables are required (id-token: write).")
+
+    separator = "&" if "?" in request_url else "?"
+    oidc_request = urllib_request.Request(f"{request_url}{separator}audience=api://AzureADTokenExchange")
+    oidc_request.add_header("Authorization", f"Bearer {request_token}")
+    oidc_request.add_header("Accept", "application/json")
+    try:
+        with urllib_request.urlopen(oidc_request, timeout=30) as response:
+            oidc_payload = json.loads(response.read().decode("utf-8"))
+    except urllib_error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"GitHub OIDC token request failed (HTTP {exc.code}): {body.strip()}") from exc
+    except urllib_error.URLError as exc:
+        raise RuntimeError(f"GitHub OIDC token request failed: {exc.reason}") from exc
+    oidc_jwt = str(oidc_payload.get("value") or "").strip()
+    if not oidc_jwt:
+        raise RuntimeError("GitHub OIDC token request did not return a token payload.")
+
+    token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+    token_body = urlencode(
+        {
+            "client_id": client_id,
+            "scope": "https://management.azure.com/.default",
+            "grant_type": "client_credentials",
+            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            "client_assertion": oidc_jwt,
+        }
+    ).encode("utf-8")
+    token_request = urllib_request.Request(token_url, data=token_body, method="POST")
+    token_request.add_header("Content-Type", "application/x-www-form-urlencoded")
+    token_request.add_header("Accept", "application/json")
+    try:
+        with urllib_request.urlopen(token_request, timeout=30) as response:
+            token_payload = json.loads(response.read().decode("utf-8"))
+    except urllib_error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Azure AD token exchange failed (HTTP {exc.code}): {body.strip()}") from exc
+    except urllib_error.URLError as exc:
+        raise RuntimeError(f"Azure AD token exchange failed: {exc.reason}") from exc
+    access_token = str(token_payload.get("access_token") or "").strip()
+    if not access_token:
+        raise RuntimeError("Azure AD token exchange did not return an access token.")
+    return access_token
 
 
 def arm_put(url: str, body: dict[str, Any]) -> None:

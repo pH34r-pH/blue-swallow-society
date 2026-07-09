@@ -167,6 +167,8 @@ jobs:
       - name: Configure custom domains
         env:
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           SWA_DEFAULT_HOSTNAME: ${{ needs.deploy-infra.outputs.staticWebAppDefaultHostname }}
         run: |
           swa_name=$(jq -r '.parameters.staticWebAppName.value' infra/main.parameters.json)
