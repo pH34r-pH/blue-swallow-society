@@ -69,21 +69,6 @@ def subscription_id() -> str:
     return sub_id
 
 
-def custom_domain_resource_id(
-    sub_id: str,
-    resource_group: str,
-    static_web_app_name: str,
-    hostname: str,
-) -> str:
-    hostname_enc = hostname
-    return (
-        f"/subscriptions/{sub_id}"
-        f"/resourceGroups/{resource_group}"
-        f"/providers/Microsoft.Web/staticSites/{static_web_app_name}"
-        f"/customDomains/{hostname_enc}"
-    )
-
-
 def show_custom_domain(
     sub_id: str,
     resource_group: str,
@@ -94,10 +79,16 @@ def show_custom_domain(
         [
             "resource",
             "show",
-            "--ids",
-            custom_domain_resource_id(sub_id, resource_group, static_web_app_name, hostname),
-            "--api-version",
-            API_VERSION,
+            "-g",
+            resource_group,
+            "--namespace",
+            "Microsoft.Web",
+            "--parent",
+            f"staticSites/{static_web_app_name}",
+            "--resource-type",
+            "customDomains",
+            "-n",
+            hostname,
             "-o",
             "json",
         ],
@@ -120,10 +111,26 @@ def create_or_update_custom_domain(
     hostname: str,
     validation_method: str,
 ) -> dict[str, object]:
-    resource_id = custom_domain_resource_id(sub_id, resource_group, static_web_app_name, hostname)
     body = {"properties": {"validationMethod": validation_method}}
     result = run_az(
-        ["resource", "create", "--id", resource_id, "--api-version", API_VERSION, "--properties", json.dumps(body), "-o", "json"],
+        [
+            "resource",
+            "create",
+            "-g",
+            resource_group,
+            "--namespace",
+            "Microsoft.Web",
+            "--parent",
+            f"staticSites/{static_web_app_name}",
+            "--resource-type",
+            "customDomains",
+            "-n",
+            hostname,
+            "--properties",
+            json.dumps(body),
+            "-o",
+            "json",
+        ],
     )
     if not result.stdout.strip():
         return {}
@@ -169,14 +176,25 @@ def put_record_set(
     properties: dict[str, object],
 ) -> None:
     record_name_enc = record_name
-    resource_id = (
-        f"/subscriptions/{sub_id}"
-        f"/resourceGroups/{dns_zone_resource_group}"
-        f"/providers/Microsoft.Network/dnsZones/{dns_zone_name}"
-        f"/{record_type}/{record_name_enc}"
-    )
     body = json.dumps({"properties": properties})
-    run_az(["resource", "create", "--id", resource_id, "--api-version", "2018-05-01", "--properties", body, "-o", "json"])
+    run_az([
+        "resource",
+        "create",
+        "-g",
+        dns_zone_resource_group,
+        "--namespace",
+        "Microsoft.Network",
+        "--parent",
+        f"dnsZones/{dns_zone_name}",
+        "--resource-type",
+        record_type,
+        "-n",
+        record_name_enc,
+        "--properties",
+        body,
+        "-o",
+        "json",
+    ])
 
 
 def configure_www(
