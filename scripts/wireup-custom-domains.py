@@ -2,18 +2,11 @@
 """Wire blueswallow.co.in and www.blueswallow.co.in to the Static Web App.
 
 This script expects Azure CLI authentication to already be active (for example
-via azure/login@v2 in GitHub Actions). It talks directly to the Microsoft.Web
-staticSites custom-domains REST resource so it does not depend on any specific
-`az staticwebapp hostname ...` subcommands being present in the runner.
+via azure/login@v2 in GitHub Actions). It configures:
 
-It configures:
 - www -> CNAME to the Static Web App default hostname
-- apex -> TXT validation token + Azure DNS alias A record to the Static Web App
-
-The commands are intentionally idempotent-ish:
-- DNS record sets are upserted via ARM PUT calls
-- custom-domain resources are upserted via ARM PUT calls
-- the apex validation token is reused if the resource already exists
+- apex -> TXT validation plus an Azure DNS alias A record to the Static Web
+  App resource
 """
 
 from __future__ import annotations
@@ -24,42 +17,19 @@ import os
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from typing import Any
 
 TTL = 300
 TOKEN_RETRIES = 12
 TOKEN_SLEEP_SECONDS = 5
-API_VERSION = "2024-11-01"
 
 
-@dataclass
-class CommandResult:
-    returncode: int
-    stdout: str
-    stderr: str
-
-
-def run_az(args: list[str], *, check: bool = True) -> CommandResult:
+def run_az(args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
     cmd = ["az", "--only-show-errors", *args]
-    proc = subprocess.run(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-    )
-    result = CommandResult(proc.returncode, proc.stdout, proc.stderr)
+    proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if check and proc.returncode != 0:
-        raise RuntimeError(
-            f"Azure CLI command failed (exit {proc.returncode}).\n"
-            f"STDERR: {proc.stderr.strip()}"
-        )
-    return result
-
-
-def tsv(args: list[str]) -> str:
-    result = run_az([*args, "-o", "tsv"])
-    return result.stdout.strip()
+        raise RuntimeError(f"Azure CLI command failed (exit {proc.returncode}).\nSTDERR: {proc.stderr.strip()}")
+    return proc
 
 
 def subscription_id() -> str:
@@ -69,136 +39,145 @@ def subscription_id() -> str:
     return sub_id
 
 
-def show_custom_domain(
-    sub_id: str,
-    resource_group: str,
-    static_web_app_name: str,
-    hostname: str,
-) -> dict[str, object] | None:
-    result = run_az(
-        [
-            "resource",
-            "show",
-            "-g",
-            resource_group,
-            "--namespace",
-            "Microsoft.Web",
-            "--parent",
-            f"staticSites/{static_web_app_name}",
-            "--resource-type",
-            "customDomains",
-            "-n",
-            hostname,
-            "-o",
-            "json",
-        ],
-        check=False,
-    )
-    if result.returncode != 0:
-        stderr = result.stderr.lower()
-        if "not found" in stderr or "could not be found" in stderr or "resource not found" in stderr:
-            return None
-        raise RuntimeError(f"Failed to query custom domain {hostname}: {result.stderr.strip()}")
-    if not result.stdout.strip():
-        return {}
-    return json.loads(result.stdout)
+def static_web_app_resource_id(sub_id: str, resource_group: str, static_web_app_name: str) -> str:
+    return f"/subscriptions/{sub_id}/resourceGroups/{resource_group}/providers/Microsoft.Web/staticSites/{static_web_app_name}"
 
 
-def create_or_update_custom_domain(
-    sub_id: str,
-    resource_group: str,
+def hostname_list(static_web_app_name: str, resource_group: str) -> list[dict[str, Any]]:
+    proc = run_az([
+        "staticwebapp",
+        "hostname",
+        "list",
+        "-n",
+        static_web_app_name,
+        "-g",
+        resource_group,
+        "-o",
+        "json",
+    ])
+    payload = proc.stdout.strip()
+    if not payload:
+        return []
+    data = json.loads(payload)
+    return data if isinstance(data, list) else []
+
+
+def find_hostname_entry(static_web_app_name: str, resource_group: str, hostname: str) -> dict[str, Any] | None:
+    for entry in hostname_list(static_web_app_name, resource_group):
+        entry_hostname = str(entry.get("domainName") or entry.get("name") or "").strip()
+        if entry_hostname.lower() == hostname.lower():
+            return entry
+    return None
+
+
+def ensure_hostname_binding(
     static_web_app_name: str,
+    resource_group: str,
     hostname: str,
     validation_method: str,
-) -> dict[str, object]:
-    body = {"properties": {"validationMethod": validation_method}}
-    result = run_az(
-        [
-            "resource",
-            "create",
-            "-g",
-            resource_group,
-            "--namespace",
-            "Microsoft.Web",
-            "--parent",
-            f"staticSites/{static_web_app_name}",
-            "--resource-type",
-            "customDomains",
-            "-n",
-            hostname,
-            "--properties",
-            json.dumps(body),
-            "-o",
-            "json",
-        ],
-    )
-    if not result.stdout.strip():
-        return {}
-    return json.loads(result.stdout)
+) -> None:
+    if find_hostname_entry(static_web_app_name, resource_group, hostname) is not None:
+        return
+
+    run_az([
+        "staticwebapp",
+        "hostname",
+        "set",
+        "-n",
+        static_web_app_name,
+        "-g",
+        resource_group,
+        "--hostname",
+        hostname,
+        "--validation-method",
+        validation_method,
+        "--no-wait",
+    ])
 
 
-def extract_validation_token(payload: dict[str, object] | None) -> str:
-    if not payload:
-        return ""
-    properties = payload.get("properties")
-    if not isinstance(properties, dict):
-        return ""
-    token = properties.get("validationToken")
-    if token is None:
-        return ""
-    return str(token).strip()
-
-
-def poll_validation_token(
-    sub_id: str,
-    resource_group: str,
+def fetch_validation_token(
     static_web_app_name: str,
+    resource_group: str,
     hostname: str,
+    *,
+    required: bool,
     retries: int = TOKEN_RETRIES,
     sleep_seconds: int = TOKEN_SLEEP_SECONDS,
 ) -> str:
     for attempt in range(1, retries + 1):
-        payload = show_custom_domain(sub_id, resource_group, static_web_app_name, hostname)
-        token = extract_validation_token(payload)
-        if token and token.lower() != "null":
-            return token
+        entry = find_hostname_entry(static_web_app_name, resource_group, hostname)
+        if entry:
+            token = str(entry.get("validationToken") or "").strip()
+            if token and token.lower() != "null":
+                return token
         if attempt < retries:
             time.sleep(sleep_seconds)
+    if required:
+        raise RuntimeError(f"Validation token for {hostname} was not returned after requesting TXT validation.")
     return ""
 
 
-def put_record_set(
-    sub_id: str,
-    dns_zone_resource_group: str,
-    dns_zone_name: str,
-    record_type: str,
-    record_name: str,
-    properties: dict[str, object],
-) -> None:
-    record_name_enc = record_name
-    body = json.dumps({"properties": properties})
+def ensure_cname_record(resource_group: str, zone_name: str, hostname: str, cname: str) -> None:
     run_az([
-        "resource",
+        "network",
+        "dns",
+        "record-set",
+        "cname",
+        "set-record",
+        "-g",
+        resource_group,
+        "-z",
+        zone_name,
+        "-n",
+        hostname,
+        "-c",
+        cname,
+        "--ttl",
+        str(TTL),
+    ])
+
+
+def ensure_txt_record(resource_group: str, zone_name: str, hostname: str, token: str) -> None:
+    run_az([
+        "network",
+        "dns",
+        "record-set",
+        "txt",
+        "add-record",
+        "-g",
+        resource_group,
+        "-z",
+        zone_name,
+        "-n",
+        hostname,
+        "-v",
+        token,
+        "--ttl",
+        str(TTL),
+    ])
+
+
+def ensure_alias_a_record(resource_group: str, zone_name: str, hostname: str, target_resource_id: str) -> None:
+    run_az([
+        "network",
+        "dns",
+        "record-set",
+        "a",
         "create",
         "-g",
-        dns_zone_resource_group,
-        "--namespace",
-        "Microsoft.Network",
-        "--parent",
-        f"dnsZones/{dns_zone_name}",
-        "--resource-type",
-        record_type,
+        resource_group,
+        "-z",
+        zone_name,
         "-n",
-        record_name_enc,
-        "--properties",
-        body,
-        "-o",
-        "json",
+        hostname,
+        "--target-resource",
+        target_resource_id,
+        "--ttl",
+        str(TTL),
     ])
 
 
 def configure_www(
-    sub_id: str,
     static_web_app_name: str,
     resource_group: str,
     dns_zone_resource_group: str,
@@ -206,26 +185,8 @@ def configure_www(
     www_hostname: str,
     default_hostname: str,
 ) -> None:
-    put_record_set(
-        sub_id,
-        dns_zone_resource_group,
-        dns_zone_name,
-        "CNAME",
-        "www",
-        {
-            "TTL": TTL,
-            "CNAMERecord": {"cname": default_hostname},
-        },
-    )
-
-    create_or_update_custom_domain(
-        sub_id,
-        resource_group,
-        static_web_app_name,
-        www_hostname,
-        validation_method="cname-delegation",
-    )
-
+    ensure_cname_record(dns_zone_resource_group, dns_zone_name, "www", default_hostname)
+    ensure_hostname_binding(static_web_app_name, resource_group, www_hostname, "cname-delegation")
     print(f"CNAME configured: {www_hostname} -> {default_hostname}")
 
 
@@ -237,57 +198,29 @@ def configure_apex(
     dns_zone_name: str,
     apex_hostname: str,
 ) -> None:
-    preexisting = show_custom_domain(sub_id, resource_group, static_web_app_name, apex_hostname)
+    preexisting = find_hostname_entry(static_web_app_name, resource_group, apex_hostname)
 
-    payload = create_or_update_custom_domain(
-        sub_id,
-        resource_group,
+    ensure_hostname_binding(static_web_app_name, resource_group, apex_hostname, "dns-txt-token")
+    token = fetch_validation_token(
         static_web_app_name,
+        resource_group,
         apex_hostname,
-        validation_method="dns-txt-token",
+        required=preexisting is None,
     )
-    token = extract_validation_token(payload)
-    if not token:
-        token = poll_validation_token(sub_id, resource_group, static_web_app_name, apex_hostname)
 
     if token:
-        put_record_set(
-            sub_id,
-            dns_zone_resource_group,
-            dns_zone_name,
-            "TXT",
-            "@",
-            {
-                "TTL": TTL,
-                "TXTRecords": [{"value": [token]}],
-            },
-        )
+        ensure_txt_record(dns_zone_resource_group, dns_zone_name, "@", token)
         print(f"TXT validation configured for apex domain: {apex_hostname}")
     elif preexisting is None:
-        raise RuntimeError(
-            f"Validation token for {apex_hostname} was not available after creating the hostname binding."
-        )
+        raise RuntimeError(f"Validation token for {apex_hostname} was not available after requesting TXT validation.")
     else:
-        print(
-            f"Validation token for {apex_hostname} not returned; assuming an existing TXT record remains in place."
-        )
+        print(f"Validation token for {apex_hostname} not returned; assuming an existing TXT record remains in place.")
 
-    put_record_set(
-        sub_id,
+    ensure_alias_a_record(
         dns_zone_resource_group,
         dns_zone_name,
-        "A",
         "@",
-        {
-            "TTL": TTL,
-            "targetResource": {
-                "id": (
-                    f"/subscriptions/{sub_id}"
-                    f"/resourceGroups/{resource_group}"
-                    f"/providers/Microsoft.Web/staticSites/{static_web_app_name}"
-                )
-            },
-        },
+        static_web_app_resource_id(sub_id, resource_group, static_web_app_name),
     )
     print(f"ALIAS configured for apex domain: {apex_hostname}")
 
@@ -309,7 +242,6 @@ def main() -> int:
     sub_id = subscription_id()
 
     configure_www(
-        sub_id,
         args.static_web_app_name,
         args.resource_group,
         args.dns_zone_resource_group,
@@ -326,19 +258,9 @@ def main() -> int:
         args.apex_hostname,
     )
 
-    print("Custom domain wiring requested successfully.")
-    print(
-        "DNS propagation can take time; Azure DNS usually updates within about an hour, "
-        "while apex changes can still take up to 72 hours in the worst case."
-    )
+    print("Custom domains wired successfully. DNS propagation can still take some time.")
     return 0
 
 
 if __name__ == "__main__":
-    try:
-        raise SystemExit(main())
-    except KeyboardInterrupt:
-        raise SystemExit(130)
-    except Exception as exc:  # noqa: BLE001 - surface useful CLI failures to CI logs
-        print(f"ERROR: {exc}", file=sys.stderr)
-        raise SystemExit(1)
+    raise SystemExit(main())
