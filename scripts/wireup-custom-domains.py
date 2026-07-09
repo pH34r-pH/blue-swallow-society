@@ -39,8 +39,8 @@ def subscription_id() -> str:
     return sub_id
 
 
-def static_web_app_resource_id(sub_id: str, resource_group: str, static_web_app_name: str) -> str:
-    return f"/subscriptions/{sub_id}/resourceGroups/{resource_group}/providers/Microsoft.Web/staticSites/{static_web_app_name}"
+def ensure_dns_extension() -> None:
+    run_az(["extension", "add", "--name", "dns", "--upgrade", "--yes"])
 
 
 def hostname_list(static_web_app_name: str, resource_group: str) -> list[dict[str, Any]]:
@@ -220,7 +220,7 @@ def configure_apex(
         dns_zone_resource_group,
         dns_zone_name,
         "@",
-        static_web_app_resource_id(sub_id, resource_group, static_web_app_name),
+        f"/subscriptions/{sub_id}/resourceGroups/{resource_group}/providers/Microsoft.Web/staticSites/{static_web_app_name}"
     )
     print(f"ALIAS configured for apex domain: {apex_hostname}")
 
@@ -240,6 +240,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     sub_id = subscription_id()
+
+    ensure_dns_extension()
 
     configure_www(
         args.static_web_app_name,
