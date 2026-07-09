@@ -1,36 +1,36 @@
-const DEMO_TIMESTAMP = '2026-07-09T12:10:00Z';
-const DEMO_FRAME = { width: 1280, height: 720 };
-const DEMO_DETECTIONS = [
+const SAMPLE_TIMESTAMP = '2026-07-09T12:10:00Z';
+const SAMPLE_FRAME = { width: 1280, height: 720 };
+const SAMPLE_DETECTIONS = [
   {
-    id: 'demo-person-1',
+    id: 'sample-person-1',
     label: 'person',
     confidence: 0.96,
     box: { x: 0.18, y: 0.12, width: 0.18, height: 0.55, normalized: true },
-    source: 'demo',
+    source: 'sample',
     trackId: 'person-1',
   },
   {
-    id: 'demo-bicycle-1',
+    id: 'sample-bicycle-1',
     label: 'bicycle',
     confidence: 0.84,
     box: { x: 0.42, y: 0.34, width: 0.24, height: 0.28, normalized: true },
-    source: 'demo',
+    source: 'sample',
     trackId: 'bicycle-1',
   },
   {
-    id: 'demo-car-1',
+    id: 'sample-car-1',
     label: 'car',
     confidence: 0.78,
     box: { x: 0.68, y: 0.18, width: 0.2, height: 0.18, normalized: true },
-    source: 'demo',
+    source: 'sample',
     trackId: 'car-1',
   },
   {
-    id: 'demo-door-1',
+    id: 'sample-door-1',
     label: 'door',
     confidence: 0.71,
     box: { left: 900, top: 220, right: 1115, bottom: 612 },
-    source: 'demo',
+    source: 'sample',
     trackId: 'door-1',
   },
 ];
@@ -183,18 +183,18 @@ export function buildArDetectionBoxes({
     orientationAngle: normalizedAngle,
     boxes,
     guide: {
-      hint: 'Detection overlays are driven by live, local, or demo vision payloads.',
+      hint: 'Detection overlays are driven by live, local, or sample vision payloads.',
       rotationUpright: true,
     },
   };
 }
 
-export function createDemoVisionDataset() {
+export function createSampleVisionDataset() {
   return {
-    frame: { ...DEMO_FRAME },
-    detections: DEMO_DETECTIONS.map((entry) => ({ ...entry })),
-    source: 'demo',
-    updatedAt: DEMO_TIMESTAMP,
+    frame: { ...SAMPLE_FRAME },
+    detections: SAMPLE_DETECTIONS.map((entry) => ({ ...entry })),
+    source: 'sample',
+    updatedAt: SAMPLE_TIMESTAMP,
   };
 }
 

@@ -14,6 +14,8 @@ const state = {
   marketTouch: null,
   marketFetchPromise: null,
   marketBound: false,
+  surfaceTab: 'seek',
+  surfaceBound: false,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -50,6 +52,8 @@ export function initTzeentchDashboard({ refresh = false } = {}) {
   }
 
   renderRecentQueries();
+  bindTzeentchSurfaceTabs();
+  syncTzeentchSurfaceVisibility();
   void loadTzeentchMarketFeed({ refresh });
 
   if (!state.loaded || refresh) {
@@ -73,6 +77,53 @@ async function loadOverview({ focus = false } = {}) {
     queryInput.placeholder = 'example.com, @handle, 8.8.8.8, or a URL';
   }
   await runScan('', 'overview', { recordRecent: false, focus });
+}
+
+function bindTzeentchSurfaceTabs() {
+  if (state.surfaceBound) {
+    return;
+  }
+
+  const buttons = Array.from(document.querySelectorAll('[data-surface]'));
+  buttons.forEach((button) => {
+    button.addEventListener('click', () => {
+      setTzeentchSurface(button.dataset.surface || 'seek');
+    });
+  });
+
+  state.surfaceBound = true;
+}
+
+function setTzeentchSurface(key) {
+  if (key !== 'seek' && key !== 'markets') {
+    return;
+  }
+
+  state.surfaceTab = key;
+  syncTzeentchSurfaceVisibility();
+}
+
+function syncTzeentchSurfaceVisibility() {
+  const seekPanel = $('tzeentchSeekPanel');
+  const marketPanel = $('tzeentchMarketPanel');
+  const seekButton = $('tzeentchSurfaceSeek');
+  const marketsButton = $('tzeentchSurfaceMarkets');
+  const showSeek = state.surfaceTab !== 'markets';
+
+  if (seekPanel) {
+    seekPanel.classList.toggle('hidden', !showSeek);
+  }
+  if (marketPanel) {
+    marketPanel.classList.toggle('hidden', showSeek);
+  }
+  if (seekButton) {
+    seekButton.classList.toggle('is-active', showSeek);
+    seekButton.setAttribute('aria-selected', String(showSeek));
+  }
+  if (marketsButton) {
+    marketsButton.classList.toggle('is-active', !showSeek);
+    marketsButton.setAttribute('aria-selected', String(!showSeek));
+  }
 }
 
 async function runScan(query, mode, { recordRecent = true, focus = false } = {}) {
@@ -517,7 +568,7 @@ const TZEENTCH_MARKET_TABS = [
   { key: 'murmurs', label: 'Murmurs', subtitle: 'Virality and current events' },
   { key: 'crypto', label: 'Crypto', subtitle: 'Top 10 by trading volume' },
   { key: 'polymarket', label: 'Polymarket', subtitle: 'New bets and recent resolutions' },
-  { key: 'intel', label: 'Actionable Intel', subtitle: 'Paper buys and sells' },
+  { key: 'intel', label: 'Flows', subtitle: 'Paper-only signals and thesis notes' },
 ];
 
 function getTzeentchMarketModel() {
@@ -551,7 +602,7 @@ async function loadTzeentchMarketFeed({ refresh = false } = {}) {
       state.marketModel = buildTzeentchDashboardModel(payload);
     } catch (error) {
       state.marketError = error?.message || 'Tzeentch feed failed.';
-      console.warn('Tzeentch market feed failed; using demo model.', error);
+      console.warn('Tzeentch market feed failed; using sample model.', error);
       if (!state.marketModel || refresh) {
         state.marketModel = buildTzeentchDashboardModel(createDemoDashboardDataset());
       }
@@ -586,11 +637,11 @@ function renderTzeentchMarketSurface() {
 
   const eyebrow = document.createElement('p');
   eyebrow.className = 'eyebrow';
-  eyebrow.textContent = '// SIGNAL LANE /';
+  eyebrow.textContent = '// MARKETS /';
   headingBlock.appendChild(eyebrow);
 
   const title = document.createElement('h3');
-  title.textContent = 'Murmurs, Crypto, Polymarket, Actionable Intel';
+  title.textContent = 'Market surfaces';
   headingBlock.appendChild(title);
 
   header.appendChild(headingBlock);
@@ -599,11 +650,6 @@ function renderTzeentchMarketSurface() {
   meta.className = 'panel-meta';
   meta.textContent = model.accessNotes?.[0] || 'Public feeds only.';
   header.appendChild(meta);
-
-  const note = document.createElement('p');
-  note.className = 'panel-meta';
-  note.textContent = 'Swipe left/right to move between sub-tabs.';
-  header.appendChild(note);
 
   if (state.marketError) {
     const errorNote = document.createElement('p');
@@ -963,6 +1009,36 @@ function renderMurmurCard(item) {
   return card;
 }
 
+function renderCryptoIcon(asset) {
+  const wrap = document.createElement('div');
+  wrap.className = 'crypto-asset-icon-wrap';
+
+  const fallback = document.createElement('div');
+  fallback.className = 'crypto-asset-icon crypto-asset-icon-placeholder';
+  fallback.textContent = (asset.symbol || asset.name || '?').slice(0, 2).toUpperCase();
+
+  if (!asset.image) {
+    wrap.classList.add('is-fallback');
+    wrap.appendChild(fallback);
+    return wrap;
+  }
+
+  const icon = document.createElement('img');
+  icon.className = 'crypto-asset-icon';
+  icon.alt = `${asset.name || asset.symbol || 'Asset'} icon`;
+  icon.src = asset.image;
+  icon.loading = 'lazy';
+  icon.decoding = 'async';
+  icon.addEventListener('error', () => {
+    wrap.classList.add('is-fallback');
+    icon.remove();
+  });
+
+  wrap.appendChild(icon);
+  wrap.appendChild(fallback);
+  return wrap;
+}
+
 function renderCryptoPanel(model) {
   const panel = document.createElement('div');
   panel.className = 'tzeentch-panel tzeentch-panel-crypto';
@@ -981,19 +1057,7 @@ function renderCryptoPanel(model) {
 
     const header = document.createElement('div');
     header.className = 'crypto-asset-header';
-
-    if (asset.image) {
-      const icon = document.createElement('img');
-      icon.className = 'crypto-asset-icon';
-      icon.alt = `${asset.name || asset.symbol || 'Asset'} icon`;
-      icon.src = asset.image;
-      header.appendChild(icon);
-    } else {
-      const icon = document.createElement('div');
-      icon.className = 'crypto-asset-icon crypto-asset-icon-placeholder';
-      icon.textContent = (asset.symbol || asset.name || '?').slice(0, 2).toUpperCase();
-      header.appendChild(icon);
-    }
+    header.appendChild(renderCryptoIcon(asset));
 
     const titleWrap = document.createElement('div');
     titleWrap.className = 'crypto-asset-title-wrap';
@@ -1011,7 +1075,7 @@ function renderCryptoPanel(model) {
 
     const ranking = document.createElement('span');
     ranking.className = 'source-chip';
-    ranking.textContent = asset.priceLabel || '—';
+    ranking.textContent = `#${asset.marketCapRank ?? '—'}`;
     header.appendChild(ranking);
 
     card.appendChild(header);
@@ -1077,8 +1141,47 @@ function renderCryptoViewCell(view, label) {
 
   cell.appendChild(header);
 
+  const chartShell = document.createElement('div');
+  chartShell.className = 'crypto-chart-shell';
+
+  const sparkline = view.sparkline || {};
+  const selectedSeries = Array.isArray(view.selectedSeries) ? view.selectedSeries : [];
+  const min = Number.isFinite(sparkline.min) ? sparkline.min : null;
+  const max = Number.isFinite(sparkline.max) ? sparkline.max : null;
+  const mid = Number.isFinite(min) && Number.isFinite(max) ? min + ((max - min) / 2) : null;
+  const startTs = selectedSeries.length ? selectedSeries[0].t : null;
+  const endTs = selectedSeries.length ? selectedSeries[selectedSeries.length - 1].t : null;
+  const startLabel = Number.isFinite(startTs) ? formatRelativeTime(new Date(startTs).toISOString()) : 'start';
+  const endLabel = Number.isFinite(endTs) ? formatRelativeTime(new Date(endTs).toISOString()) : 'now';
+
+  const yAxis = document.createElement('div');
+  yAxis.className = 'crypto-chart-axis crypto-chart-axis-y';
+  [max, mid, min].forEach((value) => {
+    const axisLabel = document.createElement('span');
+    axisLabel.className = 'crypto-chart-axis-label';
+    axisLabel.textContent = Number.isFinite(value) ? formatTokenPrice(value) : '—';
+    yAxis.appendChild(axisLabel);
+  });
+
   const figure = renderSparklineGraphic(view);
-  cell.appendChild(figure);
+
+  const xAxis = document.createElement('div');
+  xAxis.className = 'crypto-chart-axis crypto-chart-axis-x';
+
+  const startAxisLabel = document.createElement('span');
+  startAxisLabel.className = 'crypto-chart-axis-label';
+  startAxisLabel.textContent = startLabel;
+  xAxis.appendChild(startAxisLabel);
+
+  const endAxisLabel = document.createElement('span');
+  endAxisLabel.className = 'crypto-chart-axis-label';
+  endAxisLabel.textContent = endLabel;
+  xAxis.appendChild(endAxisLabel);
+
+  chartShell.appendChild(yAxis);
+  chartShell.appendChild(figure);
+  chartShell.appendChild(xAxis);
+  cell.appendChild(chartShell);
 
   const range = document.createElement('p');
   range.className = 'signal-item-detail';
@@ -1100,18 +1203,44 @@ function renderSparklineGraphic(view) {
     return figure;
   }
 
+  const sparkline = view.sparkline || {};
+  const width = Number.isFinite(sparkline.width) ? sparkline.width : 100;
+  const height = Number.isFinite(sparkline.height) ? sparkline.height : 28;
+
   const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${view.sparkline.width || 100} ${view.sparkline.height || 28}`);
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svg.setAttribute('preserveAspectRatio', 'none');
   svg.setAttribute('aria-hidden', 'true');
 
+  const addLine = (x1, y1, x2, y2) => {
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', String(x1));
+    line.setAttribute('y1', String(y1));
+    line.setAttribute('x2', String(x2));
+    line.setAttribute('y2', String(y2));
+    line.setAttribute('class', 'sparkline-grid-line');
+    svg.appendChild(line);
+  };
+
+  const horizontalSteps = 3;
+  for (let i = 1; i < horizontalSteps; i += 1) {
+    const y = (height / horizontalSteps) * i;
+    addLine(0, y, width, y);
+  }
+
+  const verticalSteps = 4;
+  for (let i = 1; i < verticalSteps; i += 1) {
+    const x = (width / verticalSteps) * i;
+    addLine(x, 0, x, height);
+  }
+
   const fill = document.createElementNS(SVG_NS, 'path');
-  fill.setAttribute('d', view.sparkline.fill || '');
+  fill.setAttribute('d', sparkline.fill || '');
   fill.setAttribute('class', 'sparkline-fill');
   svg.appendChild(fill);
 
   const line = document.createElementNS(SVG_NS, 'path');
-  line.setAttribute('d', view.sparkline.line || '');
+  line.setAttribute('d', sparkline.line || '');
   line.setAttribute('class', 'sparkline-line');
   svg.appendChild(line);
 
@@ -1122,10 +1251,10 @@ function renderSparklineGraphic(view) {
 function renderPolymarketPanel(model) {
   const panel = document.createElement('div');
   panel.className = 'tzeentch-panel tzeentch-panel-polymarket';
-  panel.appendChild(renderPanelHeader('Polymarket', 'New bets and recently resolved bets', 'Read-only Gamma API; no account is required for browsing.'));
+  panel.appendChild(renderPanelHeader('Polymarket', 'Prediction markets', 'Read-only Gamma feed.'));
 
   panel.appendChild(renderPolymarketSection('New bets', model.polymarket.newMarkets || [], 'No new bets yet.'));
-  panel.appendChild(renderPolymarketSection('Recently resolved', model.polymarket.resolvedMarkets || [], 'No recently resolved bets yet.'));
+  panel.appendChild(renderPolymarketSection('Resolved', model.polymarket.resolvedMarkets || [], 'No recently resolved bets yet.'));
   return panel;
 }
 
@@ -1213,11 +1342,11 @@ function renderPolymarketCard(market) {
 function renderActionablePanel(model) {
   const panel = document.createElement('div');
   panel.className = 'tzeentch-panel tzeentch-panel-intel';
-  panel.appendChild(renderPanelHeader('Actionable Intel', 'Paper buys and sells', model.actionable.loopNote));
+  panel.appendChild(renderPanelHeader('Flows', 'Paper-only signals', model.actionable.loopNote));
 
   const summary = document.createElement('p');
   summary.className = 'panel-meta';
-  summary.textContent = model.actionable.summary || 'Paper-only loop; learn from the outcomes.';
+  summary.textContent = model.actionable.summary || 'Paper-only review loop.';
   panel.appendChild(summary);
 
   if (!model.actionable.proposals?.length) {

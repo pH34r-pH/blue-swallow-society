@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildArDetectionBoxes,
-  createDemoVisionDataset,
+  createSampleVisionDataset,
   normalizeVisionDetection,
   parseVisionPayload,
 } from '../app/vision.mjs';
@@ -56,9 +56,9 @@ test('buildArDetectionBoxes orders overlays by confidence and maps them to viewp
   assert.ok(overlay.boxes[0].y >= 0 && overlay.boxes[0].y <= 1920);
 });
 
-test('createDemoVisionDataset returns demo detections', () => {
-  const dataset = createDemoVisionDataset();
+test('createSampleVisionDataset returns sample detections', () => {
+  const dataset = createSampleVisionDataset();
 
-  assert.equal(dataset.source, 'demo');
+  assert.equal(dataset.source, 'sample');
   assert.ok(dataset.detections.length >= 3);
 });

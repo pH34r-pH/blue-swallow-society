@@ -1,7 +1,7 @@
 import { buildTileGrid, clamp, latLonToTileXY, metersPerPixel } from './map-math.mjs';
 
 const DEFAULT_VIEWPORT = { width: 1024, height: 768, zoom: 17 };
-const DEMO_LOCATION = {
+const SAMPLE_LOCATION = {
   lat: 47.6154,
   lon: -122.3362,
   accuracy: 14,
@@ -10,7 +10,7 @@ const DEMO_LOCATION = {
   timestamp: '2026-07-09T12:00:00Z',
 };
 
-const DEMO_ACCESS_POINTS = [
+const SAMPLE_ACCESS_POINTS = [
   {
     bssid: 'e8:de:27:aa:11:01',
     ssid: 'BSS-WorkRouter',
@@ -21,7 +21,7 @@ const DEMO_ACCESS_POINTS = [
     security: 'WPA2',
     vendor: 'Ubiquiti',
     lastSeen: '2026-07-09T12:15:00Z',
-    source: 'live',
+    source: 'sample',
     deviceClass: 'router',
   },
   {
@@ -34,7 +34,7 @@ const DEMO_ACCESS_POINTS = [
     security: 'WPA2',
     vendor: 'Ubiquiti',
     lastSeen: '2026-07-09T12:12:30Z',
-    source: 'database',
+    source: 'sample',
     deviceClass: 'access point',
   },
   {
@@ -47,7 +47,7 @@ const DEMO_ACCESS_POINTS = [
     security: 'WPA2',
     vendor: 'Generic',
     lastSeen: '2026-07-08T16:42:00Z',
-    source: 'database',
+    source: 'sample',
     deviceClass: 'network appliance',
   },
 ];
@@ -310,7 +310,7 @@ export function buildWigleMapState({
   radiusMeters = null,
 } = {}) {
   const normalizedAccessPoints = mergeWigleRecords(accessPoints);
-  const center = normalizeLocation(location) || inferCenterFromAccessPoints(normalizedAccessPoints) || DEMO_LOCATION;
+  const center = normalizeLocation(location) || inferCenterFromAccessPoints(normalizedAccessPoints) || SAMPLE_LOCATION;
   const mappedAccessPoints = Number.isFinite(radiusMeters)
     ? filterWigleRecordsByRadius(normalizedAccessPoints, center, radiusMeters)
     : normalizedAccessPoints;
@@ -435,15 +435,15 @@ export function buildArCandidateBoxes({
   };
 }
 
-export function createDemoWigleDataset() {
+export function createSampleWigleDataset() {
   return {
-    location: { ...DEMO_LOCATION },
-    accessPoints: DEMO_ACCESS_POINTS.map((entry) => ({ ...entry })),
-    source: 'demo',
-    mode: 'demo',
+    location: { ...SAMPLE_LOCATION },
+    accessPoints: SAMPLE_ACCESS_POINTS.map((entry) => ({ ...entry })),
+    source: 'sample',
+    mode: 'sample',
     live: false,
-    streamState: 'demo',
-    updatedAt: DEMO_LOCATION.timestamp,
+    streamState: 'sample',
+    updatedAt: SAMPLE_LOCATION.timestamp,
   };
 }
 

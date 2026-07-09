@@ -38,6 +38,7 @@
   --container-max: 68rem;
   --container-wide: 80rem;
   --font-mono: "Courier New", "Lucida Console", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "SF Pro Display", "SF Pro Text", Inter, "Helvetica Neue", system-ui, sans-serif;
   --body-size: clamp(0.98rem, 0.95rem + 0.2vw, 1.06rem);
   --h1-size: clamp(2rem, 1.2rem + 3vw, 3.4rem);
   --h2-size: clamp(1.45rem, 1rem + 1.8vw, 2.2rem);
@@ -959,9 +960,10 @@ strong {
   justify-content: center;
   padding: clamp(1rem, 4vw, 2.25rem);
   background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.9), transparent 46%),
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.92), transparent 46%),
     linear-gradient(180deg, #f8fafc 0%, #e5ecf6 100%);
   color: #0f172a;
+  font-family: var(--font-sans);
 }
 
 .terminal-screen .terminal-container {
@@ -969,16 +971,26 @@ strong {
 }
 
 .terminal-panel.login-panel {
+  position: relative;
   width: min(100%, 30rem);
-  padding: clamp(1.5rem, 4vw, 2.25rem);
+  padding: clamp(1.5rem, 4vw, 2.35rem);
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: clamp(1.2rem, 2vw, 1.8rem);
-  background: rgba(255, 255, 255, 0.84);
+  border-radius: clamp(1.25rem, 2vw, 1.95rem);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.9));
   box-shadow:
-    0 32px 80px rgba(15, 23, 42, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(18px) saturate(110%);
+    0 36px 90px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(125%);
+  overflow: hidden;
 }
+.terminal-panel.login-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.65), rgba(255, 255, 255, 0.8), rgba(37, 99, 235, 0.65), transparent);
+}
+
 
 .terminal-badge {
   display: inline-flex;
@@ -990,7 +1002,8 @@ strong {
   background: rgba(37, 99, 235, 0.08);
   color: #1d4ed8;
   font-size: 0.74rem;
-  letter-spacing: 0.14em;
+  font-weight: 600;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
@@ -1003,14 +1016,19 @@ strong {
 .terminal-screen .terminal-title {
   margin: 0 0 0.35rem;
   color: #0f172a;
-  letter-spacing: 0.02em;
+  font-family: var(--font-sans);
+  font-size: clamp(2.15rem, 1.55rem + 2.2vw, 3.15rem);
+  font-weight: 650;
+  letter-spacing: -0.04em;
   text-transform: none;
 }
 
 .terminal-screen .terminal-subtitle {
   margin: 0;
   color: #475569;
-  letter-spacing: 0.04em;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  text-transform: none;
 }
 
 .terminal-screen .terminal-copy {
@@ -1027,6 +1045,7 @@ strong {
   display: block;
   margin: 0 0 0.45rem;
   color: #0f172a;
+  font-family: var(--font-sans);
   font-size: 0.92rem;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -1036,6 +1055,7 @@ strong {
   background: rgba(255, 255, 255, 0.94);
   border-color: rgba(15, 23, 42, 0.12);
   color: #0f172a;
+  font-family: var(--font-sans);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
@@ -2239,8 +2259,8 @@ strong {
 .signal-item {
   display: grid;
   gap: 0.35rem;
-  padding: 0.85rem 0.95rem;
-  background: rgba(8, 13, 26, 0.7);
+  padding: 0.78rem 0.9rem;
+  background: rgba(8, 13, 26, 0.74);
 }
 
 .signal-item-title {
@@ -2377,40 +2397,93 @@ strong {
   min-height: 0;
 }
 
+.tzeentch-surface-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border: 1px solid rgba(122, 159, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(7, 10, 18, 0.68);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.tzeentch-surface-tab {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-1);
+  border-radius: 999px;
+  padding: 0.55rem 0.95rem;
+  font-size: 0.82rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.tzeentch-surface-tab:hover {
+  border-color: rgba(85, 232, 255, 0.28);
+  color: var(--text-0);
+  transform: translateY(-1px);
+}
+
+.tzeentch-surface-tab.is-active {
+  border-color: rgba(85, 232, 255, 0.48);
+  background: linear-gradient(135deg, rgba(118, 214, 255, 0.24), rgba(142, 118, 255, 0.3));
+  color: var(--text-0);
+  box-shadow: 0 0 0 1px rgba(118, 214, 255, 0.12) inset;
+}
+
+.tzeentch-surface-panel {
+  display: grid;
+  gap: 0.9rem;
+  padding-top: 0.4rem;
+}
+
 .tzeentch-carousel-shell {
   display: grid;
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 .tzeentch-carousel-header {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.25rem;
 }
 
 .tzeentch-subtabs {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.35rem;
   overflow-x: auto;
-  padding-bottom: 0.25rem;
+  padding-bottom: 0.2rem;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
 }
 
 .tzeentch-subtab {
   flex: 0 0 auto;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(10, 14, 24, 0.65);
-  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(10, 14, 24, 0.72);
+  color: var(--text-1);
   border-radius: 999px;
-  padding: 0.5rem 0.8rem;
-  font-size: 0.92rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  padding: 0.45rem 0.72rem;
+  font-size: 0.84rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.tzeentch-subtab:hover {
+  border-color: rgba(85, 232, 255, 0.24);
+  color: var(--text-0);
+  transform: translateY(-1px);
 }
 
 .tzeentch-subtab.is-active {
-  background: linear-gradient(135deg, rgba(118, 214, 255, 0.24), rgba(142, 118, 255, 0.28));
-  border-color: rgba(118, 214, 255, 0.45);
+  background: linear-gradient(135deg, rgba(118, 214, 255, 0.24), rgba(142, 118, 255, 0.32));
+  border-color: rgba(118, 214, 255, 0.5);
+  color: var(--text-0);
   box-shadow: 0 0 0 1px rgba(118, 214, 255, 0.16) inset;
 }
 
@@ -2434,27 +2507,27 @@ strong {
 
 .tzeentch-panel {
   display: grid;
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 .tzeentch-panel-header {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.2rem;
 }
 
 .tzeentch-panel-section {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .tzeentch-metric-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .metric-card-small {
-  padding: 0.9rem;
+  padding: 0.85rem;
 }
 
 .cluster-strip,
@@ -2466,43 +2539,73 @@ strong {
 
 .tzeentch-feed-list {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.7rem;
 }
 
 .crypto-asset-grid {
   display: grid;
-  gap: 0.9rem;
+  gap: 0.75rem;
 }
 
 .crypto-asset-card {
   display: grid;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  background: rgba(8, 12, 20, 0.72);
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(122, 159, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(8, 12, 20, 0.78);
 }
 
 .crypto-asset-header {
   display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 0.65rem;
   justify-content: space-between;
 }
 
-.crypto-asset-icon {
+.crypto-asset-icon-wrap {
+  position: relative;
   width: 48px;
   height: 48px;
-  border-radius: 12px;
-  object-fit: cover;
-  background: rgba(255, 255, 255, 0.08);
   flex: none;
+  overflow: hidden;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(8, 12, 20, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.crypto-asset-icon {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .crypto-asset-icon-placeholder {
   display: grid;
   place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0.1rem;
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.18), rgba(8, 12, 20, 0.78));
+  color: #eff6ff;
+  font-size: 0.82rem;
   font-weight: 700;
+  letter-spacing: 0.06em;
+  opacity: 0;
+  transform: scale(0.96);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.crypto-asset-icon-wrap.is-fallback .crypto-asset-icon-placeholder {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.crypto-asset-icon-wrap.is-fallback .crypto-asset-icon {
+  display: none;
 }
 
 .crypto-asset-title-wrap {
@@ -2514,21 +2617,22 @@ strong {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .crypto-view-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .crypto-view-card {
   display: grid;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
+  gap: 0.45rem;
+  padding: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .crypto-view-header {
@@ -2538,25 +2642,75 @@ strong {
   gap: 0.5rem;
 }
 
+.crypto-chart-shell {
+  display: grid;
+  grid-template-columns: 3.2rem minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0.25rem 0.6rem;
+  align-items: stretch;
+}
+
+.crypto-chart-axis {
+  color: var(--text-2);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.crypto-chart-axis-y {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  grid-row: 1 / span 2;
+  grid-column: 1;
+  padding: 0.1rem 0;
+}
+
+.crypto-chart-axis-x {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  grid-column: 2;
+}
+
+.crypto-chart-axis-label {
+  white-space: nowrap;
+}
+
 .sparkline-figure {
   margin: 0;
+  grid-column: 2;
+  min-width: 0;
+  min-height: 3.8rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .sparkline-figure svg {
   width: 100%;
-  height: 64px;
+  height: 100%;
+  min-height: 3.8rem;
   display: block;
+}
+
+.sparkline-grid-line {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
 
 .sparkline-fill {
   fill: currentColor;
-  opacity: 0.12;
+  opacity: 0.1;
 }
 
 .sparkline-line {
   fill: none;
   stroke: currentColor;
-  stroke-width: 2.25;
+  stroke-width: 1.35;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -2594,5 +2748,5 @@ strong {
 .murmurs-hero-card,
 .market-card,
 .actionable-card {
-  background: rgba(8, 12, 20, 0.7);
+  background: rgba(8, 12, 20, 0.76);
 }

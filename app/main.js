@@ -8,7 +8,7 @@ import { initTzeentchDashboard, stopTzeentchDashboard } from './tzeentch.mjs';
 import {
   buildArCandidateBoxes,
   buildWigleMapState,
-  createDemoWigleDataset,
+  createSampleWigleDataset,
   filterWigleRecordsByRadius,
   isLiveWigleSnapshot,
   mergeWigleRecords,
@@ -16,7 +16,7 @@ import {
 } from './wigle.mjs';
 import {
   buildArDetectionBoxes,
-  createDemoVisionDataset,
+  createSampleVisionDataset,
   mergeVisionDetections,
   parseVisionPayload,
 } from './vision.mjs';
@@ -67,7 +67,7 @@ const state = {
   godeyeResizeBound: false,
   wigleBound: false,
   wigleRenderFrame: 0,
-  wigleData: createDemoWigleDataset(),
+  wigleData: createSampleWigleDataset(),
   wigleLiveData: null,
   wigleLiveReady: false,
   wigleLiveStatus: 'Live WiGLE stream is not connected yet.',
@@ -75,13 +75,13 @@ const state = {
   wigleLivePollId: 0,
   wigleEndpoint: '',
   wigleStatus: 'Local WiGLE database is ready.',
-  wigleSourceLabel: 'demo',
+  wigleSourceLabel: 'sample',
   visionBound: false,
   visionRenderFrame: 0,
-  visionData: createDemoVisionDataset(),
+  visionData: createSampleVisionDataset(),
   visionEndpoint: '',
-  visionStatus: 'Demo object detections are ready.',
-  visionSourceLabel: 'demo',
+  visionStatus: 'Sample object detections are ready.',
+  visionSourceLabel: 'sample',
 };
 
 function init() {
@@ -232,18 +232,18 @@ function resetConsoleToLogin() {
   stopArFeed();
   stopGodeyeFeed();
   state.currentLocation = null;
-  state.wigleData = createDemoWigleDataset();
+  state.wigleData = createSampleWigleDataset();
   state.wigleLiveData = null;
   state.wigleLiveReady = false;
   state.wigleLiveStatus = 'Live WiGLE stream is not connected yet.';
   state.wigleLiveSourceLabel = 'live';
   state.wigleEndpoint = '';
   state.wigleStatus = 'Local WiGLE database is ready.';
-  state.wigleSourceLabel = 'demo';
-  state.visionData = createDemoVisionDataset();
+  state.wigleSourceLabel = 'sample';
+  state.visionData = createSampleVisionDataset();
   state.visionEndpoint = '';
-  state.visionStatus = 'Demo object detections are ready.';
-  state.visionSourceLabel = 'demo';
+  state.visionStatus = 'Sample object detections are ready.';
+  state.visionSourceLabel = 'sample';
   state.arEnabled = false;
   state.arFullscreen = false;
   const endpointInput = $('wigleEndpointInput');
@@ -262,7 +262,7 @@ function resetConsoleToLogin() {
   if (visionFileInput) {
     visionFileInput.value = '';
   }
-  setText('arStatusText', 'Camera feed off. Toggle on to request permissions and check the live WiGLE stream.');
+  setText('arStatusText', 'Camera feed off. Toggle on to request permissions and connect a live WiGLE bridge.');
   setText('geoStatusText', 'Geolocation permission has not been requested yet.');
   setText('wigleStatusText', state.wigleStatus);
   setText('visionStatusText', state.visionStatus);
@@ -1031,7 +1031,7 @@ function renderArCandidateLayer() {
 
   const width = frame?.clientWidth || 1080;
   const height = frame?.clientHeight || 1920;
-  const activeLocation = state.currentLocation || state.wigleLiveData?.location || createDemoWigleDataset().location;
+  const activeLocation = state.currentLocation || state.wigleLiveData?.location || createSampleWigleDataset().location;
   const candidatePlan = buildArCandidateBoxes({
     accessPoints: records,
     viewportWidth: width,
@@ -1083,7 +1083,7 @@ function bindVisionControls() {
 
   const endpointInput = $('visionEndpointInput');
   const connectBtn = $('visionConnectBtn');
-  const demoBtn = $('visionDemoBtn');
+  const sampleBtn = $('visionSampleBtn');
   const fileInput = $('visionFileInput');
 
   if (endpointInput) {
@@ -1100,9 +1100,9 @@ function bindVisionControls() {
     });
   }
 
-  if (demoBtn) {
-    demoBtn.addEventListener('click', () => {
-      loadDemoVisionData();
+  if (sampleBtn) {
+    sampleBtn.addEventListener('click', () => {
+      loadSampleVisionData();
     });
   }
 
@@ -1113,10 +1113,10 @@ function bindVisionControls() {
   state.visionBound = true;
 }
 
-async function loadDemoVisionData() {
-  applyVisionDataset(createDemoVisionDataset(), {
-    sourceLabel: 'demo',
-    message: 'Demo object detections loaded.',
+async function loadSampleVisionData() {
+  applyVisionDataset(createSampleVisionDataset(), {
+    sourceLabel: 'sample',
+    message: 'Sample object detections loaded.',
     merge: false,
   });
 }
@@ -1147,9 +1147,9 @@ async function loadVisionEndpoint(endpoint) {
     });
   } catch (error) {
     console.error('Failed to load object detections', error);
-    applyVisionDataset(createDemoVisionDataset(), {
-      sourceLabel: 'demo',
-      message: `Live object detections unavailable (${error.message}); demo data loaded.`,
+    applyVisionDataset(createSampleVisionDataset(), {
+      sourceLabel: 'sample',
+      message: `Live object detections unavailable (${error.message}); sample data loaded.`,
       merge: false,
     });
   }
@@ -1177,14 +1177,14 @@ async function handleVisionFileChange(event) {
   }
 }
 
-function applyVisionDataset(payload, { sourceLabel = 'demo', message = '', merge = true } = {}) {
+function applyVisionDataset(payload, { sourceLabel = 'sample', message = '', merge = true } = {}) {
   const parsed = payload && typeof payload === 'object' && Array.isArray(payload.detections)
     ? payload
     : parseVisionPayload(payload, { source: sourceLabel });
 
   const currentDetections = Array.isArray(state.visionData?.detections) ? state.visionData.detections : [];
   const nextDetections = merge ? mergeVisionDetections(currentDetections, parsed.detections) : mergeVisionDetections(parsed.detections);
-  const nextFrame = parsed.frame || state.visionData?.frame || createDemoVisionDataset().frame;
+  const nextFrame = parsed.frame || state.visionData?.frame || createSampleVisionDataset().frame;
 
   state.visionData = {
     frame: nextFrame,
@@ -1213,7 +1213,7 @@ function renderArDetectionLayer() {
   const status = $('visionStatusText');
   const frame = $('arFrame');
   const records = state.visionData?.detections || [];
-  const sourceLabel = state.visionSourceLabel || state.visionData?.source || 'demo';
+  const sourceLabel = state.visionSourceLabel || state.visionData?.source || 'sample';
   const summary = `${state.visionStatus} · ${records.length} detection${records.length === 1 ? '' : 's'} · ${sourceLabel}`;
 
   if (status) {
@@ -1406,7 +1406,7 @@ function bindWigleControls() {
 
   const endpointInput = $('wigleEndpointInput');
   const connectBtn = $('wigleConnectBtn');
-  const demoBtn = $('wigleDemoBtn');
+  const sampleBtn = $('wigleSampleBtn');
   const fileInput = $('wigleFileInput');
 
   if (endpointInput) {
@@ -1423,9 +1423,9 @@ function bindWigleControls() {
     });
   }
 
-  if (demoBtn) {
-    demoBtn.addEventListener('click', () => {
-      loadDemoWigleData();
+  if (sampleBtn) {
+    sampleBtn.addEventListener('click', () => {
+      loadSampleWigleData();
     });
   }
 
@@ -1436,10 +1436,10 @@ function bindWigleControls() {
   state.wigleBound = true;
 }
 
-async function loadDemoWigleData() {
-  applyWigleDataset(createDemoWigleDataset(), {
-    sourceLabel: 'demo',
-    message: 'Demo local WiGLE database loaded.',
+async function loadSampleWigleData() {
+  applyWigleDataset(createSampleWigleDataset(), {
+    sourceLabel: 'sample',
+    message: 'Sample local WiGLE database loaded.',
     merge: false,
     target: 'local',
   });
@@ -1475,7 +1475,7 @@ async function handleWigleFileChange(event) {
   }
 }
 
-function applyWigleDataset(payload, { sourceLabel = 'demo', message = '', merge = true, target = 'local', live = target === 'live' } = {}) {
+function applyWigleDataset(payload, { sourceLabel = 'sample', message = '', merge = true, target = 'local', live = target === 'live' } = {}) {
   const parsed = payload && typeof payload === 'object' && Array.isArray(payload.accessPoints)
     ? payload
     : parseWiglePayload(payload, { source: sourceLabel });
@@ -1483,7 +1483,7 @@ function applyWigleDataset(payload, { sourceLabel = 'demo', message = '', merge 
   if (target === 'live') {
     const currentRecords = Array.isArray(state.wigleLiveData?.accessPoints) ? state.wigleLiveData.accessPoints : [];
     const nextRecords = merge ? mergeWigleRecords(currentRecords, parsed.accessPoints) : mergeWigleRecords(parsed.accessPoints);
-    const nextLocation = parsed.location || state.currentLocation || state.wigleLiveData?.location || createDemoWigleDataset().location;
+    const nextLocation = parsed.location || state.currentLocation || state.wigleLiveData?.location || createSampleWigleDataset().location;
 
     state.wigleLiveData = {
       location: nextLocation,
@@ -1502,7 +1502,7 @@ function applyWigleDataset(payload, { sourceLabel = 'demo', message = '', merge 
   } else {
     const currentRecords = Array.isArray(state.wigleData?.accessPoints) ? state.wigleData.accessPoints : [];
     const nextRecords = merge ? mergeWigleRecords(currentRecords, parsed.accessPoints) : mergeWigleRecords(parsed.accessPoints);
-    const nextLocation = parsed.location || state.currentLocation || state.wigleData?.location || createDemoWigleDataset().location;
+    const nextLocation = parsed.location || state.currentLocation || state.wigleData?.location || createSampleWigleDataset().location;
 
     state.wigleData = {
       location: nextLocation,
@@ -1590,7 +1590,7 @@ function renderWigleList(container, records, limit = 6) {
 function renderGodeyeWigleList() {
   const list = $('godeyeWigleList');
   const records = state.wigleData?.accessPoints || [];
-  const location = state.currentLocation || state.wigleData?.location || createDemoWigleDataset().location;
+  const location = state.currentLocation || state.wigleData?.location || createSampleWigleDataset().location;
   const nearbyRecords = filterWigleRecordsByRadius(records, location, 100);
   if (!list) {
     return;
@@ -1664,7 +1664,7 @@ function scheduleGodeyeRender() {
 }
 
 function renderGodeyeFields() {
-  const location = state.currentLocation || state.wigleData?.location || createDemoWigleDataset().location;
+  const location = state.currentLocation || state.wigleData?.location || createSampleWigleDataset().location;
 
   setText('geoLat', location ? location.lat.toFixed(6) : '—');
   setText('geoLon', location ? location.lon.toFixed(6) : '—');
@@ -1676,7 +1676,7 @@ function renderGodeyeFields() {
   if (coords) {
     coords.textContent = state.currentLocation
       ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy || 0)}m · 100m WiGLE radius`
-      : `Demo fix ${formatCoordinatePair(location.lat, location.lon)} · local WiGLE database loaded`;
+      : `Sample fix ${formatCoordinatePair(location.lat, location.lon)} · local WiGLE database loaded`;
   }
 
   if (!state.currentLocation && state.authenticated) {
@@ -1690,7 +1690,7 @@ function renderGodeyeMap() {
   const marker = $('godeyeMarker');
   const wigleMarkers = $('godeyeWigleMarkers');
   const accuracy = $('godeyeAccuracy');
-  const location = state.currentLocation || state.wigleData?.location || createDemoWigleDataset().location;
+  const location = state.currentLocation || state.wigleData?.location || createSampleWigleDataset().location;
 
   if (!viewport || !tilesLayer || !marker || !accuracy || !wigleMarkers) {
     return;
@@ -1782,7 +1782,7 @@ function renderGodeyeMap() {
   if (coords) {
     coords.textContent = state.currentLocation
       ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy)}m`
-      : `Demo fix ${formatCoordinatePair(location.lat, location.lon)} · WiGLE overlay active`;
+      : `Sample fix ${formatCoordinatePair(location.lat, location.lon)} · WiGLE overlay active`;
   }
 
   const status = $('godeyeWigleStatus');

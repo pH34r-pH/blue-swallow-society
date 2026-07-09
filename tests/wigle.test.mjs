@@ -61,7 +61,7 @@ test('isLiveWigleSnapshot only promotes explicit live snapshots', () => {
   assert.equal(isLiveWigleSnapshot({ mode: 'live', accessPoints: [] }), true);
   assert.equal(isLiveWigleSnapshot({ streamState: 'bridge', accessPoints: [] }), true);
   assert.equal(isLiveWigleSnapshot({ mode: 'database', accessPoints: [] }), false);
-  assert.equal(isLiveWigleSnapshot({ source: 'demo', accessPoints: [] }), false);
+  assert.equal(isLiveWigleSnapshot({ source: 'sample', accessPoints: [] }), false);
 });
 
 test('buildWigleMapState keeps the Godeye map inside a 100m local radius', () => {

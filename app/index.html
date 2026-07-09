@@ -12,13 +12,15 @@
     <main id="terminalScreen" class="terminal-screen active" aria-label="Private access login">
       <div class="terminal-container">
         <section class="terminal-panel panel login-panel" aria-label="Authentication portal">
+          <p class="terminal-badge">PRIVATE ACCESS</p>
           <h1 class="terminal-title">Blue Swallow Society</h1>
+          <p class="terminal-subtitle">Invite-only access to the signal console.</p>
           <label class="terminal-label" for="passcodeInput">Passcode</label>
           <input
             id="passcodeInput"
             class="input terminal-input-field"
             type="password"
-            placeholder="Password"
+            placeholder="Passcode"
             autocomplete="off"
             autocapitalize="none"
             spellcheck="false"
@@ -139,147 +141,152 @@
             <div class="panel-heading">
               <div>
                 <p class="eyebrow">// TZEENTCH //</p>
-                <h2>Open-source intelligence dashboard</h2>
+                <h2>Tzeentch workspace</h2>
               </div>
-              <p class="panel-meta">Domains, IPs, handles, archive snapshots, and live public feeds.</p>
             </div>
 
-            <div class="dashboard-intake">
-              <label class="dashboard-field" for="tzeentchQuery">
-                <span>Target</span>
-                <input
-                  id="tzeentchQuery"
-                  class="input dashboard-input"
-                  type="text"
-                  placeholder="example.com, @handle, 8.8.8.8, or a URL"
-                  autocomplete="off"
-                  autocapitalize="none"
-                  spellcheck="false"
-                />
-              </label>
-
-              <label class="dashboard-field" for="tzeentchMode">
-                <span>Mode</span>
-                <select id="tzeentchMode" class="input dashboard-input dashboard-select">
-                  <option value="auto">Auto</option>
-                  <option value="domain">Domain</option>
-                  <option value="url">URL</option>
-                  <option value="ip">IP</option>
-                  <option value="handle">Handle</option>
-                  <option value="email">Email</option>
-                </select>
-              </label>
-
-              <button id="tzeentchSearchBtn" class="btn btn-primary dashboard-action" type="button">Scan</button>
-              <button id="tzeentchClearBtn" class="btn btn-secondary dashboard-action" type="button">Overview</button>
+            <div class="tzeentch-surface-tabs" role="tablist" aria-label="Tzeentch surfaces">
+              <button id="tzeentchSurfaceSeek" class="tzeentch-surface-tab is-active" data-surface="seek" role="tab" aria-selected="true" aria-controls="tzeentchSeekPanel" type="button">
+                Seek
+              </button>
+              <button id="tzeentchSurfaceMarkets" class="tzeentch-surface-tab" data-surface="markets" role="tab" aria-selected="false" aria-controls="tzeentchMarketPanel" type="button">
+                Markets
+              </button>
             </div>
 
-            <p id="tzeentchStatus" class="dashboard-status">Load a target to fan out across public sources.</p>
-            <div id="tzeentchSources" class="dashboard-chip-row" aria-label="Supported source families"></div>
+            <section id="tzeentchSeekPanel" class="tzeentch-surface-panel" aria-label="Seek workspace" data-surface-panel="seek">
+              <div class="dashboard-intake">
+                <label class="dashboard-field" for="tzeentchQuery">
+                  <span>Target</span>
+                  <input
+                    id="tzeentchQuery"
+                    class="input dashboard-input"
+                    type="text"
+                    placeholder="example.com, @handle, 8.8.8.8, or a URL"
+                    autocomplete="off"
+                    autocapitalize="none"
+                    spellcheck="false"
+                  />
+                </label>
 
-            <article class="result-card result-card-wide application-lane-card">
-              <div class="panel-heading panel-heading-compact">
-                <div>
-                  <p class="eyebrow">// APPLICATIONS //</p>
-                  <h3>Crypto and prediction markets</h3>
-                </div>
-                <p class="panel-meta">CoinGecko spot data and Polymarket liquidity boards in one glance.</p>
+                <label class="dashboard-field" for="tzeentchMode">
+                  <span>Mode</span>
+                  <select id="tzeentchMode" class="input dashboard-input dashboard-select">
+                    <option value="auto">Auto</option>
+                    <option value="domain">Domain</option>
+                    <option value="url">URL</option>
+                    <option value="ip">IP</option>
+                    <option value="handle">Handle</option>
+                    <option value="email">Email</option>
+                  </select>
+                </label>
+
+                <button id="tzeentchSearchBtn" class="btn btn-primary dashboard-action" type="button">Scan</button>
+                <button id="tzeentchClearBtn" class="btn btn-secondary dashboard-action" type="button">Overview</button>
               </div>
-              <div id="tzeentchApplications" class="application-list"></div>
-            </article>
 
-            <section class="dashboard-metrics" aria-label="Dashboard metrics">
-              <article class="metric-card">
-                <span class="metric-label">Target type</span>
-                <strong id="tzeentchMetricType">—</strong>
-                <p id="tzeentchMetricTypeNote">Awaiting query.</p>
-              </article>
-              <article class="metric-card">
-                <span class="metric-label">Sources queried</span>
-                <strong id="tzeentchMetricSources">0</strong>
-                <p>RDAP, DNS, archive, GitHub, Reddit, Wikipedia, and live feeds.</p>
-              </article>
-              <article class="metric-card">
-                <span class="metric-label">Findings</span>
-                <strong id="tzeentchMetricFindings">0</strong>
-                <p id="tzeentchMetricFindingsNote">No scan yet.</p>
-              </article>
-              <article class="metric-card">
-                <span class="metric-label">Last refresh</span>
-                <strong id="tzeentchMetricRefresh">—</strong>
-                <p id="tzeentchMetricRefreshNote">Waiting for input.</p>
-              </article>
+              <p id="tzeentchStatus" class="dashboard-status">Load a target to fan out across public sources.</p>
+              <div id="tzeentchSources" class="dashboard-chip-row" aria-label="Supported source families"></div>
+
+              <section class="dashboard-metrics" aria-label="Dashboard metrics">
+                <article class="metric-card">
+                  <span class="metric-label">Target type</span>
+                  <strong id="tzeentchMetricType">—</strong>
+                  <p id="tzeentchMetricTypeNote">Awaiting query.</p>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">Sources queried</span>
+                  <strong id="tzeentchMetricSources">0</strong>
+                  <p>RDAP, DNS, archive, GitHub, Reddit, Wikipedia, and live feeds.</p>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">Findings</span>
+                  <strong id="tzeentchMetricFindings">0</strong>
+                  <p id="tzeentchMetricFindingsNote">No scan yet.</p>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">Last refresh</span>
+                  <strong id="tzeentchMetricRefresh">—</strong>
+                  <p id="tzeentchMetricRefreshNote">Waiting for input.</p>
+                </article>
+              </section>
+
+              <section class="dashboard-results">
+                <article class="result-card">
+                  <div class="panel-heading panel-heading-compact">
+                    <div>
+                      <p class="eyebrow">// PROFILE //</p>
+                      <h3>Target profile</h3>
+                    </div>
+                  </div>
+                  <div id="tzeentchProfile" class="result-list"></div>
+                </article>
+
+                <article class="result-card">
+                  <div class="panel-heading panel-heading-compact">
+                    <div>
+                      <p class="eyebrow">// NETWORK //</p>
+                      <h3>Domain and network surface</h3>
+                    </div>
+                  </div>
+                  <div id="tzeentchNetwork" class="result-list"></div>
+                </article>
+
+                <article class="result-card">
+                  <div class="panel-heading panel-heading-compact">
+                    <div>
+                      <p class="eyebrow">// SOCIAL //</p>
+                      <h3>Public traces</h3>
+                    </div>
+                  </div>
+                  <div id="tzeentchSocial" class="result-list"></div>
+                </article>
+
+                <article class="result-card">
+                  <div class="panel-heading panel-heading-compact">
+                    <div>
+                      <p class="eyebrow">// ARCHIVE //</p>
+                      <h3>Archive and provenance</h3>
+                    </div>
+                  </div>
+                  <div id="tzeentchArchive" class="result-list"></div>
+                </article>
+
+                <article class="result-card result-card-wide">
+                  <div class="panel-heading panel-heading-compact">
+                    <div>
+                      <p class="eyebrow">// SOURCES //</p>
+                      <h3>Source coverage</h3>
+                    </div>
+                  </div>
+                  <div id="tzeentchSourcesList" class="source-result-list"></div>
+                </article>
+
+                <article class="result-card result-card-wide">
+                  <div class="panel-heading panel-heading-compact">
+                    <div>
+                      <p class="eyebrow">// SIGNALS //</p>
+                      <h3>Live public feeds</h3>
+                    </div>
+                  </div>
+                  <div id="tzeentchSignals" class="signal-feed-list"></div>
+                </article>
+
+                <article class="result-card result-card-wide">
+                  <div class="panel-heading panel-heading-compact">
+                    <div>
+                      <p class="eyebrow">// RECENT //</p>
+                      <h3>Recent queries</h3>
+                    </div>
+                  </div>
+                  <div id="tzeentchRecent" class="recent-query-list"></div>
+                </article>
+              </section>
             </section>
 
-            <section class="dashboard-results">
-              <article class="result-card">
-                <div class="panel-heading panel-heading-compact">
-                  <div>
-                    <p class="eyebrow">// PROFILE //</p>
-                    <h3>Target profile</h3>
-                  </div>
-                </div>
-                <div id="tzeentchProfile" class="result-list"></div>
-              </article>
-
-              <article class="result-card">
-                <div class="panel-heading panel-heading-compact">
-                  <div>
-                    <p class="eyebrow">// NETWORK //</p>
-                    <h3>Domain and network surface</h3>
-                  </div>
-                </div>
-                <div id="tzeentchNetwork" class="result-list"></div>
-              </article>
-
-              <article class="result-card">
-                <div class="panel-heading panel-heading-compact">
-                  <div>
-                    <p class="eyebrow">// SOCIAL //</p>
-                    <h3>Public traces</h3>
-                  </div>
-                </div>
-                <div id="tzeentchSocial" class="result-list"></div>
-              </article>
-
-              <article class="result-card">
-                <div class="panel-heading panel-heading-compact">
-                  <div>
-                    <p class="eyebrow">// ARCHIVE //</p>
-                    <h3>Archive and provenance</h3>
-                  </div>
-                </div>
-                <div id="tzeentchArchive" class="result-list"></div>
-              </article>
-
-              <article class="result-card result-card-wide">
-                <div class="panel-heading panel-heading-compact">
-                  <div>
-                    <p class="eyebrow">// SOURCES //</p>
-                    <h3>Source coverage</h3>
-                  </div>
-                </div>
-                <div id="tzeentchSourcesList" class="source-result-list"></div>
-              </article>
-
-              <article class="result-card result-card-wide">
-                <div class="panel-heading panel-heading-compact">
-                  <div>
-                    <p class="eyebrow">// SIGNALS //</p>
-                    <h3>Live public feeds</h3>
-                  </div>
-                </div>
-                <div id="tzeentchSignals" class="signal-feed-list"></div>
-              </article>
-
-              <article class="result-card result-card-wide">
-                <div class="panel-heading panel-heading-compact">
-                  <div>
-                    <p class="eyebrow">// RECENT //</p>
-                    <h3>Recent queries</h3>
-                  </div>
-                </div>
-                <div id="tzeentchRecent" class="recent-query-list"></div>
+            <section id="tzeentchMarketPanel" class="tzeentch-surface-panel hidden" aria-label="Market workspace" data-surface-panel="markets">
+              <article class="result-card result-card-wide market-lane-card">
+                <div id="tzeentchApplications" class="application-list"></div>
               </article>
             </section>
           </article>
@@ -294,7 +301,7 @@
                 <p class="eyebrow">// AR //</p>
                 <h2>Camera passthrough</h2>
               </div>
-              <p class="panel-meta">Camera passthrough gated by a live WiGLE stream.</p>
+              <p class="panel-meta">Live object overlays driven by device sensors and a configured WiGLE bridge.</p>
             </div>
 
             <div class="ar-layout">
@@ -309,7 +316,7 @@
                   <div class="motion-overlay" aria-hidden="true">
                     <div class="motion-edge motion-edge-top-left">
                       <span class="motion-tag">STATUS</span>
-                      <p id="arStatusText">Camera feed off. Toggle on to request permissions and check the live WiGLE stream.</p>
+                      <p id="arStatusText">Camera feed off. Toggle on to request permissions, then query the configured WiGLE bridge.</p>
                     </div>
                     <div class="motion-edge motion-edge-top-right">
                       <span class="motion-tag">ORIENTATION</span>
@@ -338,12 +345,12 @@
 
                 <div class="sensor-card">
                   <p class="sensor-label">Overlay</p>
-                  <p>Orientation and acceleration readouts float over the passthrough feed as a proof of concept.</p>
+                  <p>Orientation, acceleration, and object detections float over the passthrough feed as a live overlay stack.</p>
                 </div>
 
                 <div class="sensor-card">
                   <p class="sensor-label">WiGLE candidates</p>
-                  <p id="arWigleStatusText">Live WiGLE stream is idle until the camera feed is toggled on.</p>
+                  <p id="arWigleStatusText">Live WiGLE records stay idle until the camera feed is enabled and an endpoint is configured.</p>
                   <div id="arCandidateList" class="wigle-list"></div>
                 </div>
 
@@ -367,9 +374,9 @@
                   </label>
                   <div class="wigle-action-row">
                     <button id="visionConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect live model</button>
-                    <button id="visionDemoBtn" class="btn btn-secondary sensor-action" type="button">Load demo detections</button>
+                    <button id="visionSampleBtn" class="btn btn-secondary sensor-action" type="button">Load sample detections</button>
                   </div>
-                  <p id="visionStatusText">Demo object detections are ready.</p>
+                  <p id="visionStatusText">Object detections are ready.</p>
                   <div id="arDetectionList" class="wigle-list vision-list"></div>
                 </div>
 
@@ -389,9 +396,9 @@
             <div class="panel-heading">
               <div>
                 <p class="eyebrow">// GODEYE //</p>
-                <h2>OpenStreetMap current location view</h2>
+                <h2>Location overlay stack</h2>
               </div>
-              <p class="panel-meta">A local map centered on your current location once geolocation is granted.</p>
+              <p class="panel-meta">OpenStreetMap tiles now, with modular overlay slots for WiGLE and aircraft tracks.</p>
             </div>
 
             <div class="godeye-layout">
@@ -417,6 +424,21 @@
                 <button id="locationBtn" class="btn btn-primary sensor-action" type="button">Enable location</button>
 
                 <div class="geo-card">
+                  <p class="sensor-label">Map stack</p>
+                  <p>The map uses OpenStreetMap tiles for now; MapLibre is the likely swap if the overlay stack needs more control later.</p>
+                </div>
+
+                <div class="geo-card">
+                  <p class="sensor-label">Overlay slots</p>
+                  <p>FlightRadar24 and other live tracks can be layered here without changing the map core.</p>
+                  <div class="overlay-slot-list">
+                    <span class="source-chip source-chip-live">WiGLE radius</span>
+                    <span class="source-chip">FlightRadar24 scaffold</span>
+                    <span class="source-chip">MapLibre-ready</span>
+                  </div>
+                </div>
+
+                <div class="geo-card">
                   <p class="sensor-label">WiGLE sources</p>
                   <label class="wigle-field" for="wigleEndpointInput">
                     <span>Live run endpoint</span>
@@ -436,7 +458,7 @@
                   </label>
                   <div class="wigle-action-row">
                     <button id="wigleConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect live stream</button>
-                    <button id="wigleDemoBtn" class="btn btn-secondary sensor-action" type="button">Load demo data</button>
+                    <button id="wigleSampleBtn" class="btn btn-secondary sensor-action" type="button">Load sample data</button>
                   </div>
                   <p id="wigleStatusText">Local WiGLE database is ready.</p>
                 </div>
