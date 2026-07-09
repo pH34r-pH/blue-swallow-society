@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -12,6 +13,21 @@ function jsonResponse(body, { status = 200 } = {}) {
     json: async () => body,
   };
 }
+
+test('api/tzeentch function.json exposes an anonymous GET trigger', () => {
+  const raw = readFileSync(new URL('../api/tzeentch/function.json', import.meta.url), 'utf8');
+  assert.ok(raw.trim().length > 0, 'function.json should not be empty');
+
+  const config = JSON.parse(raw);
+  const httpTrigger = config.bindings.find((binding) => binding.type === 'httpTrigger');
+  const httpOutput = config.bindings.find((binding) => binding.type === 'http');
+
+  assert.ok(httpTrigger, 'expected an httpTrigger binding');
+  assert.ok(httpOutput, 'expected an http output binding');
+  assert.equal(httpTrigger.authLevel, 'anonymous');
+  assert.deepEqual(httpTrigger.methods, ['get']);
+  assert.equal(httpTrigger.route, 'tzeentch');
+});
 
 test('api/tzeentch returns a public read-only payload', async () => {
   const originalFetch = globalThis.fetch;
