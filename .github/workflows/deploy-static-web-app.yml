@@ -165,18 +165,17 @@ jobs:
           output_location: ""
 
       - name: Configure custom domains
-        env:
-          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          SWA_DEFAULT_HOSTNAME: ${{ needs.deploy-infra.outputs.staticWebAppDefaultHostname }}
         run: |
           swa_name=$(jq -r '.parameters.staticWebAppName.value' infra/main.parameters.json)
-          python3 scripts/wireup-custom-domains.py \
-            "$swa_name" \
-            "$RESOURCE_GROUP" \
-            "$DNS_ZONE_RESOURCE_GROUP" \
-            "$DNS_ZONE_NAME" \
-            "$SWA_DEFAULT_HOSTNAME" \
-            "$APEX_DOMAIN" \
-            "$WWW_DOMAIN"
+          state=$(az deployment group create \
+            --name custom-domains \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file infra/custom-domains.bicep \
+            --parameters staticWebAppName="$swa_name" \
+            --parameters staticWebAppResourceGroup="$RESOURCE_GROUP" \
+            --parameters dnsZoneName="$DNS_ZONE_NAME" \
+            --parameters dnsZoneResourceGroup="$DNS_ZONE_RESOURCE_GROUP" \
+            --parameters apexHostname="$APEX_DOMAIN" \
+            --parameters wwwHostname="$WWW_DOMAIN" \
+            --query properties.provisioningState -o tsv)
+          echo "Custom domain deployment: $state"

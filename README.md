@@ -55,6 +55,8 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 │   └── vm-echo-wiring.md
 ├── infra/
 │   ├── main.bicep                  # single entrypoint, composes VM + optional OpenAI
+│   ├── custom-domains.bicep        # custom-domain bindings for the Static Web App
+│   ├── custom-domains-dns.bicep    # Azure DNS records for apex/www
 │   ├── main.parameters.json
 │   ├── vm-echo-lab.bicep           # VM + NSG + cloud-init + auto-shutdown
 │   └── modules/
@@ -62,7 +64,7 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 └── scripts/
     ├── local-dev.ps1
     ├── print-next-steps.sh
-    ├── wireup-custom-domains.py
+    ├── wireup-custom-domains.py    # manual/helper script (CI uses infra/custom-domains.bicep)
     └── wireup-backend-url.sh
 ```
 
@@ -96,7 +98,7 @@ The **Deploy Infra + App** workflow will:
 2. Run `az deployment group create` against `infra/main.bicep` (SWA + VM echo lab; OpenAI optional).
 3. Set `BACKEND_ECHO_BASE_URL` on the Static Web App using the Bicep output.
 4. Deploy `app/` and `api/` to the Static Web App.
-5. Wire the apex `blueswallow.co.in` and `www.blueswallow.co.in` hostnames through Azure DNS in `rg-blue-swallow`.
+5. Wire the apex `blueswallow.co.in` and `www.blueswallow.co.in` hostnames through the custom-domain Bicep deployment and Azure DNS in `rg-blue-swallow`.
 
 > Azure DNS usually propagates within about an hour, but apex-domain changes can still take up to 72 hours in the worst case.
 
