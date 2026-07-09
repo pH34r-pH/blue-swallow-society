@@ -2371,3 +2371,228 @@ strong {
     grid-column: 1 / -1;
   }
 }
+
+
+#tzeentchApplications {
+  min-height: 0;
+}
+
+.tzeentch-carousel-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.tzeentch-carousel-header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.tzeentch-subtabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tzeentch-subtab {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(10, 14, 24, 0.65);
+  color: inherit;
+  border-radius: 999px;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.tzeentch-subtab.is-active {
+  background: linear-gradient(135deg, rgba(118, 214, 255, 0.24), rgba(142, 118, 255, 0.28));
+  border-color: rgba(118, 214, 255, 0.45);
+  box-shadow: 0 0 0 1px rgba(118, 214, 255, 0.16) inset;
+}
+
+.tzeentch-carousel-viewport {
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+.tzeentch-carousel-track {
+  display: flex;
+  width: 100%;
+  transition: transform 220ms ease;
+  will-change: transform;
+}
+
+.tzeentch-carousel-panel {
+  flex: 0 0 100%;
+  min-width: 100%;
+  padding: 0.25rem 0 0.5rem;
+}
+
+.tzeentch-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.tzeentch-panel-header {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.tzeentch-panel-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.tzeentch-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.metric-card-small {
+  padding: 0.9rem;
+}
+
+.cluster-strip,
+.tzeentch-mini-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tzeentch-feed-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.crypto-asset-grid {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.crypto-asset-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(8, 12, 20, 0.72);
+}
+
+.crypto-asset-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.crypto-asset-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+  flex: none;
+}
+
+.crypto-asset-icon-placeholder {
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+}
+
+.crypto-asset-title-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.crypto-asset-price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.crypto-view-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.crypto-view-card {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.crypto-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sparkline-figure {
+  margin: 0;
+}
+
+.sparkline-figure svg {
+  width: 100%;
+  height: 64px;
+  display: block;
+}
+
+.sparkline-fill {
+  fill: currentColor;
+  opacity: 0.12;
+}
+
+.sparkline-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sparkline-up {
+  color: #7ef3a0;
+}
+
+.sparkline-down {
+  color: #ff7a9d;
+}
+
+.actionable-justification-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.source-chip-live {
+  border-color: rgba(126, 243, 160, 0.35);
+  color: #c7ffda;
+}
+
+.source-chip-muted {
+  border-color: rgba(255, 255, 255, 0.18);
+  opacity: 0.8;
+}
+
+.source-chip-danger {
+  border-color: rgba(255, 122, 157, 0.35);
+  color: #ffd2dd;
+}
+
+.murmurs-hero-card,
+.market-card,
+.actionable-card {
+  background: rgba(8, 12, 20, 0.7);
+}

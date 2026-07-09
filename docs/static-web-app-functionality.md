@@ -58,6 +58,16 @@ The frontend communicates with the following backend endpoints:
 - Wide-screen breakpoint at 2560px with max-width container
 - `prefers-reduced-motion` media query disables non-essential animations
 
+
+### Tzeentch Market Surface
+- `/api/tzeentch` serves a public read-only dashboard payload for the Tzeentch tab.
+- The surface is organized into swipeable sub-tabs: **Murmurs**, **Crypto**, **Polymarket**, and **Actionable Intel**.
+- CoinGecko and Polymarket Gamma are consumed as public sources; no API keys, tokens, or account credentials are stored or embedded in the client.
+- Any future live trading or bet-placement flow must use user-mediated sign-in / on-behalf-of authorization so the user authenticates directly with the target service.
+- Crypto views present the top 10 assets by trading volume with last-24-hour and last-5-day chart slices derived from public price history.
+- Polymarket shows new markets and recently resolved markets without requiring an account for browsing.
+- Actionable Intel remains paper-only: proposed buys and sells must include rationale, evidence, and source links for review/iteration.
+
 ## Current Limitations
 - Monitoring and Experiments tabs are placeholders
 - Agent responses are simulated (would call `/api/agent` in production)
