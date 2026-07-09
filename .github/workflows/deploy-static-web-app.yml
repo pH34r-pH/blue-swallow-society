@@ -31,7 +31,6 @@ jobs:
     outputs:
       backendEchoBaseUrl: ${{ steps.deploy.outputs.backendEchoBaseUrl }}
       staticWebAppDefaultHostname: ${{ steps.deploy.outputs.staticWebAppDefaultHostname }}
-      staticWebAppResourceId: ${{ steps.deploy.outputs.staticWebAppResourceId }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -115,10 +114,8 @@ jobs:
           fi
           backend=$(echo "$out" | jq -r '.backendEchoBaseUrl.value')
           swa_default_hostname=$(echo "$out" | jq -r '.staticWebAppDefaultHostname.value')
-          swa_resource_id=$(echo "$out" | jq -r '.staticWebAppResourceId.value')
           echo "backendEchoBaseUrl=$backend" >> "$GITHUB_OUTPUT"
           echo "staticWebAppDefaultHostname=$swa_default_hostname" >> "$GITHUB_OUTPUT"
-          echo "staticWebAppResourceId=$swa_resource_id" >> "$GITHUB_OUTPUT"
 
       - name: Wire BACKEND_ECHO_BASE_URL into SWA app settings
         run: |
@@ -169,8 +166,8 @@ jobs:
 
       - name: Configure custom domains
         env:
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           SWA_DEFAULT_HOSTNAME: ${{ needs.deploy-infra.outputs.staticWebAppDefaultHostname }}
-          SWA_RESOURCE_ID: ${{ needs.deploy-infra.outputs.staticWebAppResourceId }}
         run: |
           swa_name=$(jq -r '.parameters.staticWebAppName.value' infra/main.parameters.json)
           python3 scripts/wireup-custom-domains.py \
@@ -179,6 +176,5 @@ jobs:
             "$DNS_ZONE_RESOURCE_GROUP" \
             "$DNS_ZONE_NAME" \
             "$SWA_DEFAULT_HOSTNAME" \
-            "$SWA_RESOURCE_ID" \
             "$APEX_DOMAIN" \
             "$WWW_DOMAIN"

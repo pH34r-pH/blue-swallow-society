@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -63,7 +64,10 @@ def tsv(args: list[str]) -> str:
 
 
 def subscription_id() -> str:
-    return tsv(["account", "show", "--query", "id"])
+    sub_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    if not sub_id:
+        raise RuntimeError("AZURE_SUBSCRIPTION_ID environment variable is required.")
+    return sub_id
 
 
 def custom_domain_url(
@@ -206,7 +210,6 @@ def configure_apex(
     dns_zone_resource_group: str,
     dns_zone_name: str,
     apex_hostname: str,
-    static_web_app_resource_id: str,
 ) -> None:
     preexisting = get_custom_domain(sub_id, resource_group, static_web_app_name, apex_hostname)
 
@@ -251,7 +254,13 @@ def configure_apex(
         "@",
         {
             "TTL": TTL,
-            "targetResource": {"id": static_web_app_resource_id},
+            "targetResource": {
+                "id": (
+                    f"/subscriptions/{sub_id}"
+                    f"/resourceGroups/{resource_group}"
+                    f"/providers/Microsoft.Web/staticSites/{static_web_app_name}"
+                )
+            },
         },
     )
     print(f"ALIAS configured for apex domain: {apex_hostname}")
@@ -264,7 +273,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("dns_zone_resource_group", help="Resource group containing the Azure DNS zone")
     parser.add_argument("dns_zone_name", help="Azure DNS zone name (for example, blueswallow.co.in)")
     parser.add_argument("default_hostname", help="Static Web App default hostname")
-    parser.add_argument("static_web_app_resource_id", help="Static Web App resource ID")
     parser.add_argument("apex_hostname", help="Canonical apex hostname")
     parser.add_argument("www_hostname", help="WWW hostname")
     return parser.parse_args()
@@ -290,7 +298,6 @@ def main() -> int:
         args.dns_zone_resource_group,
         args.dns_zone_name,
         args.apex_hostname,
-        args.static_web_app_resource_id,
     )
 
     print("Custom domain wiring requested successfully.")
