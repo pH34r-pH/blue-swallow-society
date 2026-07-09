@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import socket
 import sys
 import time
 from functools import lru_cache
@@ -33,7 +34,50 @@ def subscription_id() -> str:
     return sub_id
 
 
-@lru_cache(maxsize=1)
+def host_resolves(hostname: str) -> bool:
+    try:
+        socket.getaddrinfo(hostname, None)
+    except socket.gaierror:
+        return False
+    return True
+
+
+def dns_zone_name_servers(resource_group: str, dns_zone_name: str) -> list[str]:
+    zone = arm_request_json(
+        "GET",
+        f"https://management.azure.com/subscriptions/{subscription_id()}/resourceGroups/{resource_group}/providers/Microsoft.Network/dnsZones/{dns_zone_name}?api-version={DNS_API_VERSION}",
+    )
+    name_servers = zone.get("properties", {}).get("nameServers") or []
+    return [str(name_server).strip() for name_server in name_servers if str(name_server).strip()]
+
+
+
+def ensure_public_dns_delegation(
+    dns_zone_resource_group: str,
+    dns_zone_name: str,
+    apex_hostname: str,
+    www_hostname: str,
+) -> None:
+    unresolved = [hostname for hostname in (apex_hostname, www_hostname) if not host_resolves(hostname)]
+    if not unresolved:
+        return
+
+    try:
+        name_servers = dns_zone_name_servers(dns_zone_resource_group, dns_zone_name)
+    except RuntimeError as exc:
+        raise RuntimeError(
+            f"Public DNS for {', '.join(unresolved)} does not resolve from this runner, and the Azure DNS zone lookup failed."
+        ) from exc
+
+    nameserver_text = ", ".join(name_servers) if name_servers else "(no name servers returned by Azure DNS)"
+    raise RuntimeError(
+        f"Public DNS for {', '.join(unresolved)} does not resolve from this runner. "
+        f"The Azure DNS zone {dns_zone_name!r} is not publicly delegated (or delegation is still propagating). "
+        f"Update the registrar nameservers to: {nameserver_text}"
+    )
+
+
+
 def management_access_token() -> str:
     client_id = os.environ.get("AZURE_CLIENT_ID", "").strip()
     tenant_id = os.environ.get("AZURE_TENANT_ID", "").strip()
@@ -259,6 +303,7 @@ def configure_apex(
     www_hostname: str,
 ) -> None:
     default_hostname, static_web_app_id = get_default_hostname_and_id(resource_group, static_web_app_name)
+    ensure_public_dns_delegation(dns_zone_resource_group, dns_zone_name, apex_hostname, www_hostname)
     token = create_custom_domain_and_token(resource_group, static_web_app_name, apex_hostname, "dns-txt-token")
     upsert_txt_record(dns_zone_resource_group, dns_zone_name, token)
     upsert_alias_a_record(dns_zone_resource_group, dns_zone_name, "@", static_web_app_id)

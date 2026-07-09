@@ -98,7 +98,7 @@ The **Deploy Infra + App** workflow will:
 2. Run `az deployment group create` against `infra/main.bicep` (SWA + VM echo lab; OpenAI optional).
 3. Set `BACKEND_ECHO_BASE_URL` on the Static Web App using the Bicep output.
 4. Deploy `app/` and `api/` to the Static Web App.
-5. Wire the apex `blueswallow.co.in` and `www.blueswallow.co.in` hostnames through the custom-domain helper script and Azure DNS in `rg-blue-swallow`.
+5. Wire the apex `blueswallow.co.in` and `www.blueswallow.co.in` hostnames through the custom-domain helper script and Azure DNS in `rg-blue-swallow` (the domain must already be delegated at the registrar to the Azure DNS nameservers).
 
 > Azure DNS usually propagates within about an hour, but apex-domain changes can still take up to 72 hours in the worst case.
 
