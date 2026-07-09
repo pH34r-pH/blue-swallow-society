@@ -72,6 +72,7 @@ module openAiModule 'modules/openai.bicep' = if (deployOpenAi) {
 }
 
 output staticWebAppDefaultHostname string = swa.properties.defaultHostname
+output staticWebAppResourceId string = swa.id
 output backendEchoBaseUrl string = vmModule.outputs.backendEchoBaseUrl
 output vmPublicIp string = vmModule.outputs.publicIpAddress
 output openAiDeployed bool = deployOpenAi

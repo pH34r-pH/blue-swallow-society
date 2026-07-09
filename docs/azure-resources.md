@@ -1,7 +1,7 @@
 # Azure Resources Specification
 
 ## Overview
-This document specifies the Azure infrastructure resources deployed for the Blue Swallow Society project using Bicep templates. The architecture includes Azure Static Web Apps, Ubuntu VM with echo service, networking components, and optional Azure OpenAI integration.
+This document specifies the Azure infrastructure resources deployed for the Blue Swallow Society project using Bicep templates. The architecture includes Azure Static Web Apps, custom-domain wiring through Azure DNS, Ubuntu VM with echo service, networking components, and optional Azure OpenAI integration.
 
 ## Resource Groups
 
@@ -19,6 +19,7 @@ This document specifies the Azure infrastructure resources deployed for the Blue
 - **Properties**: Minimal (relies on linked APIs and app settings)
 - **Outputs**: 
   - `defaultHostname`: Static web app URL
+  - `resourceId`: Static web app ARM resource ID (used by the apex alias record)
 
 ### 2. Virtual Machine Echo Lab
 - **Module**: `vm-echo-lab.bicep`
@@ -100,6 +101,7 @@ The VM uses cloud-init to automatically configure the echo service:
 | Output Name | Type | Description |
 |-------------|------|-------------|
 | `staticWebAppDefaultHostname` | string | URL of the deployed Static Web App |
+| `staticWebAppResourceId` | string | ARM resource ID of the deployed Static Web App |
 | `backendEchoBaseUrl` | string | HTTP URL of the VM echo service (http://`<public-ip>`:8080) |
 | `vmPublicIp` | string | Public IP address of the VM |
 | `openAiDeployed` | bool | Whether Azure OpenAI was deployed |
@@ -112,6 +114,9 @@ The VM uses cloud-init to automatically configure the echo service:
    - Auto-shutdown schedule deployed alongside VM
 4. Optional OpenAI account deployed conditionally
 5. Static Web App updated with `BACKEND_ECHO_BASE_URL` app setting from VM output
+6. Custom domains wired after the SWA deployment using the existing Azure DNS zone:
+   - apex `blueswallow.co.in`
+   - `www.blueswallow.co.in`
 
 ## Configuration Files
 

@@ -25,7 +25,9 @@ Next steps:
        - deploys infra/main.bicep (SWA + VM echo lab, optional OpenAI)
        - sets BACKEND_ECHO_BASE_URL on the SWA
        - uploads the app + API
+       - wires blueswallow.co.in and www.blueswallow.co.in through Azure DNS
      Redeployments are idempotent — running the workflow again will
      update existing resources without destroying state.
+
   7. Browse to the Static Web App default hostname and exercise /api/echo.
 EOF

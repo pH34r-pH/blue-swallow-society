@@ -3,7 +3,7 @@
 This starter repo gives you:
 
 - A **publicly accessible website** on **Azure Static Web Apps**
-- **GitHub Actions CI/CD** for the frontend, managed API, and infrastructure
+- **GitHub Actions CI/CD** for the frontend, managed API, infrastructure, and custom-domain wiring
 - A small **Azure Functions proxy API** exposed as `/api/echo`, `/api/profile`, and `/api/agent`
 - An **Ubuntu VM** that hosts a simple **echo service**, bootstrapped via cloud-init
 - A clean place to add **local model experiments** later on the VM
@@ -33,7 +33,7 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 ├── .github/
 │   ├── copilot-instructions.md
 │   └── workflows/
-│       ├── deploy-static-web-app.yml          # canonical CI: infra + app
+│       ├── deploy-static-web-app.yml          # canonical CI: infra + app + custom domains
 │       ├── infra-whatif.yml                   # manual what-if (RG scope, OIDC)
 │       ├── azure-static-web-apps-wonderful-pond-0623ed81e.yml  # disabled
 │       └── setup-azure-creds.md
@@ -62,6 +62,7 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 └── scripts/
     ├── local-dev.ps1
     ├── print-next-steps.sh
+    ├── wireup-custom-domains.py
     └── wireup-backend-url.sh
 ```
 
@@ -95,6 +96,9 @@ The **Deploy Infra + App** workflow will:
 2. Run `az deployment group create` against `infra/main.bicep` (SWA + VM echo lab; OpenAI optional).
 3. Set `BACKEND_ECHO_BASE_URL` on the Static Web App using the Bicep output.
 4. Deploy `app/` and `api/` to the Static Web App.
+5. Wire the apex `blueswallow.co.in` and `www.blueswallow.co.in` hostnames through Azure DNS in `rg-blue-swallow`.
+
+> Azure DNS usually propagates within about an hour, but apex-domain changes can still take up to 72 hours in the worst case.
 
 ### 3. (Optional) Enable Azure OpenAI
 

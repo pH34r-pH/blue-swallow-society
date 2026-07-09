@@ -20,13 +20,18 @@ concurrency:
 env:
   RESOURCE_GROUP: rg-blue-swallow
   LOCATION: westus2
+  DNS_ZONE_RESOURCE_GROUP: rg-blue-swallow
+  DNS_ZONE_NAME: blueswallow.co.in
+  APEX_DOMAIN: blueswallow.co.in
+  WWW_DOMAIN: www.blueswallow.co.in
 
 jobs:
   deploy-infra:
     runs-on: ubuntu-latest
     outputs:
       backendEchoBaseUrl: ${{ steps.deploy.outputs.backendEchoBaseUrl }}
-      staticWebAppName: ${{ steps.deploy.outputs.staticWebAppName }}
+      staticWebAppDefaultHostname: ${{ steps.deploy.outputs.staticWebAppDefaultHostname }}
+      staticWebAppResourceId: ${{ steps.deploy.outputs.staticWebAppResourceId }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -109,9 +114,11 @@ jobs:
             exit $rc
           fi
           backend=$(echo "$out" | jq -r '.backendEchoBaseUrl.value')
-          swa=$(echo "$out" | jq -r '.staticWebAppDefaultHostname.value')
+          swa_default_hostname=$(echo "$out" | jq -r '.staticWebAppDefaultHostname.value')
+          swa_resource_id=$(echo "$out" | jq -r '.staticWebAppResourceId.value')
           echo "backendEchoBaseUrl=$backend" >> "$GITHUB_OUTPUT"
-          echo "staticWebAppName=$swa" >> "$GITHUB_OUTPUT"
+          echo "staticWebAppDefaultHostname=$swa_default_hostname" >> "$GITHUB_OUTPUT"
+          echo "staticWebAppResourceId=$swa_resource_id" >> "$GITHUB_OUTPUT"
 
       - name: Wire BACKEND_ECHO_BASE_URL into SWA app settings
         run: |
@@ -159,3 +166,19 @@ jobs:
           app_location: "app"
           api_location: "api"
           output_location: ""
+
+      - name: Configure custom domains
+        env:
+          SWA_DEFAULT_HOSTNAME: ${{ needs.deploy-infra.outputs.staticWebAppDefaultHostname }}
+          SWA_RESOURCE_ID: ${{ needs.deploy-infra.outputs.staticWebAppResourceId }}
+        run: |
+          swa_name=$(jq -r '.parameters.staticWebAppName.value' infra/main.parameters.json)
+          python3 scripts/wireup-custom-domains.py \
+            "$swa_name" \
+            "$RESOURCE_GROUP" \
+            "$DNS_ZONE_RESOURCE_GROUP" \
+            "$DNS_ZONE_NAME" \
+            "$SWA_DEFAULT_HOSTNAME" \
+            "$SWA_RESOURCE_ID" \
+            "$APEX_DOMAIN" \
+            "$WWW_DOMAIN"
