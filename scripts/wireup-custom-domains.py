@@ -17,7 +17,9 @@ import os
 import subprocess
 import sys
 import time
+from functools import lru_cache
 from typing import Any
+from urllib import error as urllib_error, request as urllib_request
 from urllib.parse import quote
 
 TTL = 300
@@ -154,18 +156,41 @@ def dns_record_set_url(resource_group: str, zone_name: str, record_type: str, re
     )
 
 
-def arm_put(url: str, body: dict[str, Any]) -> None:
-    run_az(
+@lru_cache(maxsize=1)
+def management_access_token() -> str:
+    proc = run_az(
         [
-            "rest",
-            "--method",
-            "put",
-            "--url",
-            url,
-            "--body",
-            json.dumps(body, separators=(",", ":")),
+            "account",
+            "get-access-token",
+            "--resource",
+            "https://management.azure.com/",
+            "--query",
+            "accessToken",
+            "-o",
+            "tsv",
         ]
     )
+    token = proc.stdout.strip()
+    if not token:
+        raise RuntimeError("Azure CLI did not return a management access token.")
+    return token
+
+
+def arm_put(url: str, body: dict[str, Any]) -> None:
+    payload = json.dumps(body, separators=(",", ":")).encode("utf-8")
+    request = urllib_request.Request(url, data=payload, method="PUT")
+    request.add_header("Authorization", f"Bearer {management_access_token()}")
+    request.add_header("Content-Type", "application/json")
+    try:
+        with urllib_request.urlopen(request, timeout=60) as response:
+            response.read()
+    except urllib_error.HTTPError as exc:
+        error_body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(
+            f"ARM request failed for {url} (HTTP {exc.code}).\nSTDERR: {error_body.strip()}"
+        ) from exc
+    except urllib_error.URLError as exc:
+        raise RuntimeError(f"ARM request failed for {url}: {exc.reason}") from exc
 
 
 def upsert_cname_record(resource_group: str, zone_name: str, hostname: str, cname: str) -> None:
