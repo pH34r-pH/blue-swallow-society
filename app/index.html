@@ -177,6 +177,17 @@
             <p id="tzeentchStatus" class="dashboard-status">Load a target to fan out across public sources.</p>
             <div id="tzeentchSources" class="dashboard-chip-row" aria-label="Supported source families"></div>
 
+            <article class="result-card result-card-wide application-lane-card">
+              <div class="panel-heading panel-heading-compact">
+                <div>
+                  <p class="eyebrow">// APPLICATIONS //</p>
+                  <h3>Crypto and prediction markets</h3>
+                </div>
+                <p class="panel-meta">CoinGecko spot data and Polymarket liquidity boards in one glance.</p>
+              </div>
+              <div id="tzeentchApplications" class="application-list"></div>
+            </article>
+
             <section class="dashboard-metrics" aria-label="Dashboard metrics">
               <article class="metric-card">
                 <span class="metric-label">Target type</span>
@@ -288,41 +299,51 @@
 
             <div class="ar-layout">
               <div id="arFrame" class="ar-camera-frame" aria-label="Camera passthrough viewport">
-                <video id="arVideo" class="ar-video" autoplay muted playsinline></video>
-                <div id="arFallback" class="ar-fallback">
-                  <p>Tap enable to start the camera passthrough.</p>
-                </div>
-                <div class="camera-vignette" aria-hidden="true"></div>
-                <div class="camera-corners" aria-hidden="true"></div>
-                <div class="motion-overlay" aria-hidden="true">
-                  <div class="motion-edge motion-edge-top-left">
-                    <span class="motion-tag">STATUS</span>
-                    <p id="arStatusText">Camera idle. Tap enable to start passthrough.</p>
+                <div id="arStage" class="ar-stage">
+                  <video id="arVideo" class="ar-video" autoplay muted playsinline></video>
+                  <div id="arFallback" class="ar-fallback">
+                    <p>Tap enable to start the camera passthrough.</p>
                   </div>
-                  <div class="motion-edge motion-edge-top-right">
-                    <span class="motion-tag">ORIENTATION</span>
-                    <p id="arAttitude">α — · β — · γ —</p>
+                  <div class="camera-vignette" aria-hidden="true"></div>
+                  <div class="camera-corners" aria-hidden="true"></div>
+                  <div class="motion-overlay" aria-hidden="true">
+                    <div class="motion-edge motion-edge-top-left">
+                      <span class="motion-tag">STATUS</span>
+                      <p id="arStatusText">Camera idle. Tap enable to start passthrough.</p>
+                    </div>
+                    <div class="motion-edge motion-edge-top-right">
+                      <span class="motion-tag">ORIENTATION</span>
+                      <p id="arAttitude">α — · β — · γ —</p>
+                    </div>
+                    <div class="motion-edge motion-edge-bottom-right">
+                      <span class="motion-tag">ACCEL / SPIN</span>
+                      <p id="arAcceleration">accel — · — · —</p>
+                      <p id="arRotation">spin — · — · —</p>
+                    </div>
+                    <div class="motion-glyph" aria-hidden="true">
+                      <div class="motion-glyph-ring"></div>
+                      <div class="motion-glyph-needle"></div>
+                      <div class="motion-glyph-horizon"></div>
+                      <div class="motion-glyph-pip"></div>
+                    </div>
                   </div>
-                  <div class="motion-edge motion-edge-bottom-right">
-                    <span class="motion-tag">ACCEL / SPIN</span>
-                    <p id="arAcceleration">accel — · — · —</p>
-                    <p id="arRotation">spin — · — · —</p>
-                  </div>
-                  <div class="motion-glyph" aria-hidden="true">
-                    <div class="motion-glyph-ring"></div>
-                    <div class="motion-glyph-needle"></div>
-                    <div class="motion-glyph-horizon"></div>
-                    <div class="motion-glyph-pip"></div>
-                  </div>
+                  <div id="arWigleCandidates" class="ar-candidate-layer" aria-hidden="true"></div>
                 </div>
               </div>
 
               <aside class="sensor-panel">
                 <button id="arEnableBtn" class="btn btn-primary sensor-action" type="button">Enable camera &amp; motion</button>
+                <button id="arFullscreenBtn" class="btn btn-secondary sensor-action" type="button">Fullscreen feed</button>
 
                 <div class="sensor-card">
                   <p class="sensor-label">Overlay</p>
                   <p>Orientation and acceleration readouts float over the passthrough feed as a proof of concept.</p>
+                </div>
+
+                <div class="sensor-card">
+                  <p class="sensor-label">WiGLE candidates</p>
+                  <p id="arWigleStatusText">WiGLE demo data is loaded until a live run or local database is connected.</p>
+                  <div id="arCandidateList" class="wigle-list"></div>
                 </div>
 
                 <div class="sensor-card">
@@ -357,6 +378,7 @@
                     <span class="map-marker-core"></span>
                     <span class="map-marker-head"></span>
                   </div>
+                  <div id="godeyeWigleMarkers" class="map-wigle-markers" aria-hidden="true"></div>
                   <div class="map-label">
                     <span class="map-label-title">Current fix</span>
                     <span id="godeyeCoords">Awaiting geolocation permission.</span>
@@ -368,8 +390,39 @@
                 <button id="locationBtn" class="btn btn-primary sensor-action" type="button">Enable location</button>
 
                 <div class="geo-card">
+                  <p class="sensor-label">WiGLE sources</p>
+                  <label class="wigle-field" for="wigleEndpointInput">
+                    <span>Live run endpoint</span>
+                    <input
+                      id="wigleEndpointInput"
+                      class="input dashboard-input"
+                      type="url"
+                      placeholder="http://device.local:8787/api/wigle"
+                      autocomplete="off"
+                      autocapitalize="none"
+                      spellcheck="false"
+                    />
+                  </label>
+                  <label class="wigle-field" for="wigleFileInput">
+                    <span>Local database file</span>
+                    <input id="wigleFileInput" class="input dashboard-input" type="file" accept=".json,.csv,.ndjson,application/json,text/csv,text/plain" />
+                  </label>
+                  <div class="wigle-action-row">
+                    <button id="wigleConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect live run</button>
+                    <button id="wigleDemoBtn" class="btn btn-secondary sensor-action" type="button">Load demo data</button>
+                  </div>
+                  <p id="wigleStatusText">WiGLE demo data is ready.</p>
+                </div>
+
+                <div class="geo-card">
                   <p class="sensor-label">Location status</p>
                   <p id="geoStatusText">Geolocation permission has not been requested yet.</p>
+                </div>
+
+                <div class="geo-card">
+                  <p class="sensor-label">WiGLE map readout</p>
+                  <p id="godeyeWigleStatus">The map will mirror live WiGLE and local database signals here.</p>
+                  <div id="godeyeWigleList" class="wigle-list"></div>
                 </div>
 
                 <dl class="geo-metrics">

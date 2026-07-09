@@ -55,6 +55,7 @@ const server = http.createServer((req, res) => {
       const contentTypes = {
         '.html': 'text/html',
         '.js': 'text/javascript',
+        '.mjs': 'text/javascript',
         '.css': 'text/css',
         '.json': 'application/json',
         '.svg': 'image/svg+xml',

@@ -1483,13 +1483,227 @@ strong {
   gap: 0.35rem;
 }
 
-.motion-values span {
-  padding: 0.35rem 0.6rem;
-  border-radius: 0.8rem;
-  background: rgba(8, 13, 26, 0.92);
+.ar-stage {
+  position: absolute;
+  inset: 0;
+  transform-origin: center center;
+  transform: translate3d(var(--ar-slide-x, 0px), var(--ar-slide-y, 0px), 0) rotate(var(--ar-rotation, 0deg));
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease;
+  will-change: transform;
+}
+
+.ar-camera-frame.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  max-height: none;
+  border-radius: 0;
+}
+
+.ar-camera-frame.is-fullscreen .ar-stage {
+  border-radius: 0;
+}
+
+.ar-candidate-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ar-candidate {
+  position: absolute;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(114, 255, 159, 0.28);
+  border-radius: 0.95rem;
+  background: rgba(3, 7, 18, 0.72);
+  color: var(--text-0);
+  backdrop-filter: blur(10px) saturate(110%);
+  box-shadow: 0 0 0 1px rgba(85, 232, 255, 0.08);
+}
+
+.ar-candidate strong {
+  color: var(--neon-lime);
+  font-size: 0.95rem;
+}
+
+.ar-candidate .candidate-meta {
+  color: var(--neon-cyan);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.ar-candidate span {
   color: var(--text-1);
-  font-size: 0.82rem;
-  letter-spacing: 0.06em;
+  font-size: 0.78rem;
+}
+
+.application-list,
+.wigle-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.application-card {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem;
+  border: 1px solid rgba(122, 159, 255, 0.16);
+  border-radius: var(--radius-md);
+  background: rgba(8, 13, 26, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.application-card-header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.application-card-header h4 {
+  margin: 0;
+  color: var(--text-0);
+  font-size: 1.1rem;
+}
+
+.application-headline,
+.application-summary {
+  margin: 0;
+  color: var(--text-1);
+  line-height: 1.6;
+}
+
+.application-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.application-status,
+.application-source-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.application-status-live {
+  background: rgba(114, 255, 159, 0.12);
+  color: var(--neon-lime);
+}
+
+.application-status-idle {
+  background: rgba(85, 232, 255, 0.12);
+  color: var(--neon-cyan);
+}
+
+.application-source-count {
+  background: rgba(255, 79, 216, 0.12);
+  color: var(--neon-magenta);
+}
+
+.application-resource-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.wigle-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.wigle-field span {
+  color: var(--neon-cyan);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.wigle-action-row {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.wigle-list {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+.wigle-item {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(122, 159, 255, 0.16);
+  border-radius: var(--radius-md);
+  background: rgba(8, 13, 26, 0.72);
+}
+
+.wigle-item-title {
+  color: var(--text-0);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.wigle-item-meta {
+  color: var(--neon-cyan);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.wigle-item-detail {
+  margin: 0;
+  color: var(--text-1);
+  line-height: 1.55;
+}
+
+.map-wigle-markers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.map-wigle-marker {
+  position: absolute;
+  display: grid;
+  gap: 0.25rem;
+  min-width: 8rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(85, 232, 255, 0.16);
+  border-radius: 0.85rem;
+  background: rgba(3, 7, 18, 0.74);
+  color: var(--text-0);
+  backdrop-filter: blur(10px) saturate(115%);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 1px rgba(114, 255, 159, 0.06);
+}
+
+.map-wigle-marker strong {
+  color: var(--neon-lime);
+  font-size: 0.95rem;
+}
+
+.map-wigle-marker span {
+  color: var(--text-1);
+  font-size: 0.78rem;
+}
+
+.map-wigle-marker .marker-meta {
+  color: var(--neon-cyan);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.application-lane-card {
+  margin-top: var(--space-4);
 }
 
 .sensor-panel,

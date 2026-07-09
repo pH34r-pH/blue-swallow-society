@@ -1,3 +1,5 @@
+import { buildTzeentchApplications } from './osint-applications.mjs';
+
 const STORAGE_KEY = 'blue-swallow-society:tzeentch:recent-queries';
 const MAX_RECENT = 6;
 
@@ -99,7 +101,17 @@ async function runScan(query, mode, { recordRecent = true, focus = false } = {})
       throw new Error(`OSINT endpoint returned HTTP ${response.status}`);
     }
 
-    const payload = await response.json();
+    const contentType = response.headers.get('content-type') || '';
+    let payload;
+    try {
+      payload = await response.json();
+    } catch (error) {
+      if (!contentType.includes('json')) {
+        throw new Error('OSINT backend is not mounted in this local server.');
+      }
+
+      throw new Error('OSINT backend returned invalid JSON.');
+    }
     if (!payload || payload.ok !== true) {
       throw new Error(payload?.error || 'OSINT endpoint returned an empty payload.');
     }
@@ -143,6 +155,7 @@ function renderPayload(payload, requestMeta) {
 
   renderSourceChips(payload.supportedSources || []);
   renderSourceCards(payload.sources || []);
+  renderApplications(buildTzeentchApplications(payload).applications);
   renderRows('tzeentchProfile', payload.sections?.profile || []);
   renderRows('tzeentchNetwork', payload.sections?.network || []);
   renderRows('tzeentchSocial', payload.sections?.social || []);
@@ -161,6 +174,7 @@ function renderFailure(message) {
   setText('tzeentchMetricRefreshNote', 'Waiting for input.');
   renderSourceChips([]);
   renderSourceCards([]);
+  renderApplications(buildTzeentchApplications().applications);
   renderRows('tzeentchProfile', [{ label: 'Status', value: 'No data', detail: message }]);
   renderRows('tzeentchNetwork', []);
   renderRows('tzeentchSocial', []);
@@ -173,7 +187,9 @@ function renderSourceChips(sources) {
   if (!container) return;
 
   const fragment = document.createDocumentFragment();
-  const displaySources = sources.length ? sources : ['RDAP / WHOIS', 'DNS', 'crt.sh', 'Wayback Machine', 'GitHub', 'Reddit', 'Wikipedia', 'Hacker News'];
+  const displaySources = sources.length
+    ? sources
+    : ['RDAP / WHOIS', 'DNS', 'crt.sh', 'Wayback Machine', 'GitHub', 'Reddit', 'Wikipedia', 'Hacker News', 'CoinGecko', 'Polymarket Gamma'];
 
   displaySources.forEach((source) => {
     const chip = document.createElement('span');
@@ -210,6 +226,113 @@ function renderSourceCards(cards) {
     article.appendChild(detail);
 
     fragment.appendChild(article);
+  });
+
+  container.replaceChildren(fragment);
+}
+
+function renderApplications(applications) {
+  const container = $('tzeentchApplications');
+  if (!container) return;
+
+  if (!applications.length) {
+    container.replaceChildren(createEmptyState('Application lanes will appear here.'));
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  applications.forEach((application) => {
+    const card = document.createElement('article');
+    card.className = 'application-card';
+
+    const header = document.createElement('div');
+    header.className = 'application-card-header';
+
+    const chip = document.createElement('span');
+    chip.className = 'source-chip';
+    chip.textContent = application.chip || application.name || 'Application';
+    header.appendChild(chip);
+
+    const heading = document.createElement('h4');
+    heading.textContent = application.name || 'Application';
+    header.appendChild(heading);
+
+    card.appendChild(header);
+
+    if (application.headline) {
+      const headline = document.createElement('p');
+      headline.className = 'application-headline';
+      headline.textContent = application.headline;
+      card.appendChild(headline);
+    }
+
+    if (application.summary) {
+      const summary = document.createElement('p');
+      summary.className = 'application-summary';
+      summary.textContent = application.summary;
+      card.appendChild(summary);
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'application-meta';
+
+    const status = document.createElement('span');
+    status.className = `application-status application-status-${application.resources?.some((resource) => resource.tone === 'live') ? 'live' : 'idle'}`;
+    status.textContent = application.status || 'Ready';
+    meta.appendChild(status);
+
+    const sourceCount = document.createElement('span');
+    sourceCount.className = 'application-source-count';
+    const sourceFamilyCount = application.sourceCount ?? 0;
+    sourceCount.textContent = `${sourceFamilyCount} source ${sourceFamilyCount === 1 ? 'family' : 'families'}`;
+    meta.appendChild(sourceCount);
+
+    card.appendChild(meta);
+
+    const list = document.createElement('div');
+    list.className = 'application-resource-list';
+
+    const resources = Array.isArray(application.resources) ? application.resources : [];
+    if (!resources.length) {
+      list.appendChild(createEmptyState('No application resources available.'));
+    } else {
+      resources.forEach((resource) => {
+        const row = document.createElement('article');
+        row.className = 'result-row application-resource';
+
+        const label = document.createElement('span');
+        label.className = 'result-row-label';
+        label.textContent = resource.label || 'Resource';
+        row.appendChild(label);
+
+        if (resource.href) {
+          const value = document.createElement('a');
+          value.className = 'result-row-value result-row-link';
+          value.href = resource.href;
+          value.target = '_blank';
+          value.rel = 'noreferrer';
+          value.textContent = resource.value || '—';
+          row.appendChild(value);
+        } else {
+          const value = document.createElement('div');
+          value.className = 'result-row-value';
+          value.textContent = resource.value || '—';
+          row.appendChild(value);
+        }
+
+        if (resource.detail) {
+          const detail = document.createElement('p');
+          detail.className = 'result-row-detail';
+          detail.textContent = resource.detail;
+          row.appendChild(detail);
+        }
+
+        list.appendChild(row);
+      });
+    }
+
+    card.appendChild(list);
+    fragment.appendChild(card);
   });
 
   container.replaceChildren(fragment);

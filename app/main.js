@@ -5,6 +5,13 @@ import {
   metersPerPixel,
 } from './map-math.mjs';
 import { initTzeentchDashboard, stopTzeentchDashboard } from './tzeentch.mjs';
+import {
+  buildArCandidateBoxes,
+  buildWigleMapState,
+  createDemoWigleDataset,
+  mergeWigleRecords,
+  parseWiglePayload,
+} from './wigle.mjs';
 
 const PASSCODE_FALLBACK = 'blue-swallow';
 const TILE_BASE_URL = 'https://tile.openstreetmap.org';
@@ -24,6 +31,9 @@ const state = {
   tabSystemBound: false,
   arBound: false,
   arReady: false,
+  arFullscreen: false,
+  arOrientationAngle: 0,
+  arOrientationBound: false,
   cameraStream: null,
   motionBound: false,
   motionReady: false,
@@ -45,6 +55,12 @@ const state = {
   godeyeRenderFrame: 0,
   godeyeResizeObserver: null,
   godeyeResizeBound: false,
+  wigleBound: false,
+  wigleRenderFrame: 0,
+  wigleData: createDemoWigleDataset(),
+  wigleEndpoint: '',
+  wigleStatus: 'Demo WiGLE data is ready.',
+  wigleSourceLabel: 'demo',
 };
 
 function init() {
@@ -195,11 +211,27 @@ function resetConsoleToLogin() {
   stopArFeed();
   stopGodeyeFeed();
   state.currentLocation = null;
+  state.wigleData = createDemoWigleDataset();
+  state.wigleEndpoint = '';
+  state.wigleStatus = 'Demo WiGLE data is ready.';
+  state.wigleSourceLabel = 'demo';
+  state.arFullscreen = false;
+  const endpointInput = $('wigleEndpointInput');
+  if (endpointInput) {
+    endpointInput.value = '/api/wigle';
+  }
+  const fileInput = $('wigleFileInput');
+  if (fileInput) {
+    fileInput.value = '';
+  }
   setText('arStatusText', 'Camera idle. Tap enable to start passthrough.');
   setText('geoStatusText', 'Geolocation permission has not been requested yet.');
+  setText('wigleStatusText', state.wigleStatus);
   renderArHud();
   renderGodeyeFields();
   renderGodeyeMap();
+  renderWigleViews();
+  updateArFullscreenState(false);
   resetTabSelection();
 }
 
@@ -229,8 +261,10 @@ function initTabDefaults() {
   initTzeentchDashboard();
   initArTab();
   initGodeyeTab();
+  updateArOrientation();
   renderArHud();
   renderGodeyeMap();
+  renderWigleViews();
 }
 
 function handleLogout() {
@@ -362,16 +396,28 @@ function handleTabKeydown(event, index) {
 }
 
 function initArTab() {
-  if (state.arBound) {
-    return;
+  if (!state.arBound) {
+    const enableBtn = $('arEnableBtn');
+    if (enableBtn) {
+      enableBtn.addEventListener('click', startArFeed);
+    }
+
+    const fullscreenBtn = $('arFullscreenBtn');
+    if (fullscreenBtn) {
+      fullscreenBtn.addEventListener('click', toggleArFullscreen);
+    }
+
+    if (!state.arOrientationBound) {
+      window.addEventListener('resize', updateArOrientation);
+      window.addEventListener('orientationchange', updateArOrientation);
+      document.addEventListener('fullscreenchange', updateArFullscreenState);
+      state.arOrientationBound = true;
+    }
+
+    state.arBound = true;
   }
 
-  const enableBtn = $('arEnableBtn');
-  if (enableBtn) {
-    enableBtn.addEventListener('click', startArFeed);
-  }
-
-  state.arBound = true;
+  updateArOrientation();
   renderArHud();
 }
 
@@ -414,6 +460,99 @@ async function startArFeed() {
   }
 
   renderArHud();
+  renderWigleViews();
+}
+
+async function toggleArFullscreen() {
+  const frame = $('arFrame');
+  if (!frame) {
+    return;
+  }
+
+  try {
+    if (document.fullscreenElement === frame) {
+      await document.exitFullscreen();
+    } else {
+      await frame.requestFullscreen();
+    }
+  } catch (error) {
+    console.warn('Fullscreen unavailable', error);
+  } finally {
+    updateArFullscreenState();
+  }
+}
+
+function updateArFullscreenState() {
+  const frame = $('arFrame');
+  const isFullscreen = document.fullscreenElement === frame;
+  state.arFullscreen = isFullscreen;
+
+  if (frame) {
+    frame.classList.toggle('is-fullscreen', isFullscreen);
+  }
+
+  const button = $('arFullscreenBtn');
+  if (button) {
+    button.textContent = isFullscreen ? 'Exit fullscreen' : 'Fullscreen feed';
+  }
+
+  renderArHud();
+}
+
+function updateArOrientation() {
+  state.arOrientationAngle = getScreenOrientationAngle();
+  const stage = $('arStage');
+  if (stage) {
+    const slide = getOrientationSlide(state.arOrientationAngle);
+    stage.style.setProperty('--ar-rotation', `-${state.arOrientationAngle}deg`);
+    stage.style.setProperty('--ar-slide-x', slide.x);
+    stage.style.setProperty('--ar-slide-y', slide.y);
+    stage.dataset.orientation = getOrientationMode(state.arOrientationAngle);
+  }
+
+  renderArHud();
+}
+
+function getScreenOrientationAngle() {
+  if (window.screen?.orientation && typeof window.screen.orientation.angle === 'number') {
+    return normalizeAngle(window.screen.orientation.angle);
+  }
+
+  if (typeof window.orientation === 'number') {
+    return normalizeAngle(window.orientation);
+  }
+
+  return state.arOrientationAngle || 0;
+}
+
+function getOrientationSlide(angle) {
+  const normalized = normalizeAngle(angle);
+  if (normalized === 90) {
+    return { x: '8px', y: '0px' };
+  }
+
+  if (normalized === 270) {
+    return { x: '-8px', y: '0px' };
+  }
+
+  if (normalized === 180) {
+    return { x: '0px', y: '6px' };
+  }
+
+  return { x: '0px', y: '0px' };
+}
+
+function getOrientationMode(angle) {
+  const normalized = normalizeAngle(angle);
+  if (normalized === 90 || normalized === 270) {
+    return 'landscape';
+  }
+
+  return 'portrait';
+}
+
+function normalizeAngle(angle) {
+  return ((Math.round(angle || 0) % 360) + 360) % 360;
 }
 
 async function ensureCameraStream() {
@@ -538,7 +677,17 @@ function stopArFeed() {
     frame.style.removeProperty('--pitch');
     frame.style.removeProperty('--roll');
     frame.style.removeProperty('--pitch-offset');
+    frame.style.removeProperty('--ar-rotation');
+    frame.style.removeProperty('--ar-slide-x');
+    frame.style.removeProperty('--ar-slide-y');
+    frame.dataset.orientation = 'portrait';
   }
+
+  if (document.fullscreenElement === frame && typeof document.exitFullscreen === 'function') {
+    void document.exitFullscreen().catch(() => {});
+  }
+
+  updateArFullscreenState();
 
   const fallback = $('arFallback');
   if (fallback) {
@@ -555,9 +704,13 @@ function stopArFeed() {
 
 function renderArHud() {
   const frame = $('arFrame');
+  const stage = $('arStage');
   const attitude = $('arAttitude');
   const acceleration = $('arAcceleration');
   const rotation = $('arRotation');
+  const orientationAngle = state.arOrientationAngle;
+  const orientationMode = getOrientationMode(orientationAngle);
+  const slide = getOrientationSlide(orientationAngle);
 
   const alpha = formatAngle(state.motion.alpha);
   const beta = formatAngle(state.motion.beta);
@@ -570,10 +723,18 @@ function renderArHud() {
   const rotationGamma = formatAxis(state.motion.rotationGamma);
 
   if (frame) {
+    frame.dataset.orientation = orientationMode;
     frame.style.setProperty('--yaw', `${numberOrZero(state.motion.alpha)}deg`);
     frame.style.setProperty('--pitch', `${clamp(numberOrZero(state.motion.beta), -90, 90)}deg`);
     frame.style.setProperty('--roll', `${numberOrZero(state.motion.gamma)}deg`);
     frame.style.setProperty('--pitch-offset', `${clamp(numberOrZero(state.motion.beta), -45, 45) * 0.35}px`);
+  }
+
+  if (stage) {
+    stage.dataset.orientation = orientationMode;
+    stage.style.setProperty('--ar-rotation', `-${orientationAngle}deg`);
+    stage.style.setProperty('--ar-slide-x', slide.x);
+    stage.style.setProperty('--ar-slide-y', slide.y);
   }
 
   if (attitude) {
@@ -587,31 +748,111 @@ function renderArHud() {
   if (rotation) {
     rotation.textContent = `spin ${rotationAlpha} · ${rotationBeta} · ${rotationGamma}`;
   }
+
+  renderArCandidateLayer();
 }
 
-function initGodeyeTab() {
-  if (state.godeyeBound) {
+function renderArCandidateLayer() {
+  const overlay = $('arWigleCandidates');
+  const list = $('arCandidateList');
+  const status = $('arWigleStatusText');
+  const frame = $('arFrame');
+  const records = state.wigleData?.accessPoints || [];
+  const sourceLabel = state.wigleSourceLabel || state.wigleData?.source || 'demo';
+  const summary = `${state.wigleStatus} · ${records.length} access point${records.length === 1 ? '' : 's'} · ${sourceLabel}`;
+
+  if (status) {
+    status.textContent = summary;
+  }
+
+  if (list) {
+    renderWigleList(list, records);
+  }
+
+  if (!overlay) {
     return;
   }
 
-  const locationBtn = $('locationBtn');
-  if (locationBtn) {
-    locationBtn.addEventListener('click', startGodeyeFeed);
+  if (!records.length) {
+    const empty = document.createElement('p');
+    empty.className = 'dashboard-empty-state';
+    empty.textContent = 'WiGLE candidates will populate here.';
+    overlay.replaceChildren(empty);
+    return;
   }
 
-  if (!state.godeyeResizeBound) {
-    window.addEventListener('resize', scheduleGodeyeRender);
-    state.godeyeResizeBound = true;
+  const width = frame?.clientWidth || 1080;
+  const height = frame?.clientHeight || 1920;
+  const activeLocation = state.currentLocation || state.wigleData?.location || createDemoWigleDataset().location;
+  const candidatePlan = buildArCandidateBoxes({
+    accessPoints: records,
+    viewportWidth: width,
+    viewportHeight: height,
+    orientationAngle: state.arOrientationAngle,
+  });
+
+  const fragment = document.createDocumentFragment();
+  candidatePlan.boxes.forEach((box) => {
+    const candidate = document.createElement('article');
+    candidate.className = `ar-candidate ar-candidate-${box.signalBand || 'unknown'}`;
+    candidate.style.left = `${box.x}px`;
+    candidate.style.top = `${box.y}px`;
+    candidate.style.width = `${box.width}px`;
+    candidate.style.height = `${box.height}px`;
+    candidate.style.transform = `translate(0, 0) rotate(${box.rotation || 0}deg)`;
+
+    const meta = document.createElement('div');
+    meta.className = 'candidate-meta';
+    meta.textContent = `${box.confidence}% confidence · ${box.signalBand || 'unknown'}`;
+    candidate.appendChild(meta);
+
+    const label = document.createElement('strong');
+    label.textContent = box.label;
+    candidate.appendChild(label);
+
+    const subtitle = document.createElement('span');
+    subtitle.textContent = box.subtitle || box.detail;
+    candidate.appendChild(subtitle);
+
+    const detail = document.createElement('span');
+    detail.textContent = `${box.rangeText || 'unknown range'} · ${box.signalDbm ?? '—'} dBm`;
+    candidate.appendChild(detail);
+
+    fragment.appendChild(candidate);
+  });
+
+  overlay.replaceChildren(fragment);
+
+  if (frame && activeLocation) {
+    frame.dataset.wigleCenter = formatCoordinatePair(activeLocation.lat, activeLocation.lon);
+  }
+}
+
+function initGodeyeTab() {
+  if (!state.godeyeBound) {
+    const locationBtn = $('locationBtn');
+    if (locationBtn) {
+      locationBtn.addEventListener('click', startGodeyeFeed);
+    }
+
+    bindWigleControls();
+
+    if (!state.godeyeResizeBound) {
+      window.addEventListener('resize', scheduleGodeyeRender);
+      state.godeyeResizeBound = true;
+    }
+
+    const viewport = $('godeyeMap');
+    if (viewport && typeof ResizeObserver !== 'undefined') {
+      state.godeyeResizeObserver = new ResizeObserver(() => scheduleGodeyeRender());
+      state.godeyeResizeObserver.observe(viewport);
+    }
+
+    state.godeyeBound = true;
   }
 
-  const viewport = $('godeyeMap');
-  if (viewport && typeof ResizeObserver !== 'undefined') {
-    state.godeyeResizeObserver = new ResizeObserver(() => scheduleGodeyeRender());
-    state.godeyeResizeObserver.observe(viewport);
-  }
-
-  state.godeyeBound = true;
   renderGodeyeFields();
+  renderWigleViews();
   renderGodeyeMap();
 }
 
@@ -643,6 +884,200 @@ async function startGodeyeFeed() {
   }
 }
 
+function bindWigleControls() {
+  if (state.wigleBound) {
+    return;
+  }
+
+  const endpointInput = $('wigleEndpointInput');
+  const connectBtn = $('wigleConnectBtn');
+  const demoBtn = $('wigleDemoBtn');
+  const fileInput = $('wigleFileInput');
+
+  if (endpointInput) {
+    endpointInput.value = state.wigleEndpoint || endpointInput.value || '/api/wigle';
+    endpointInput.addEventListener('change', () => {
+      state.wigleEndpoint = endpointInput.value.trim();
+    });
+  }
+
+  if (connectBtn) {
+    connectBtn.addEventListener('click', () => {
+      const endpoint = endpointInput?.value.trim() || state.wigleEndpoint || '/api/wigle';
+      loadWigleEndpoint(endpoint);
+    });
+  }
+
+  if (demoBtn) {
+    demoBtn.addEventListener('click', () => {
+      loadDemoWigleData();
+    });
+  }
+
+  if (fileInput) {
+    fileInput.addEventListener('change', handleWigleFileChange);
+  }
+
+  state.wigleBound = true;
+}
+
+async function loadDemoWigleData() {
+  applyWigleDataset(createDemoWigleDataset(), {
+    sourceLabel: 'demo',
+    message: 'Demo WiGLE data loaded.',
+    merge: false,
+  });
+}
+
+async function loadWigleEndpoint(endpoint) {
+  const target = (endpoint || '').trim() || '/api/wigle';
+  state.wigleEndpoint = target;
+
+  setWigleStatus(`Connecting to ${target}…`);
+
+  try {
+    const response = await fetch(target, {
+      headers: {
+        Accept: 'application/json, text/plain, */*',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const text = await response.text();
+    const parsed = parseWiglePayload(text, { source: 'live' });
+    applyWigleDataset(parsed, {
+      sourceLabel: target,
+      message: `Loaded ${parsed.accessPoints.length} WiGLE records from ${target}.`,
+      merge: true,
+    });
+  } catch (error) {
+    console.error('Failed to load WiGLE endpoint', error);
+    applyWigleDataset(createDemoWigleDataset(), {
+      sourceLabel: 'demo',
+      message: `Live WiGLE unavailable (${error.message}); demo data loaded.`,
+      merge: false,
+    });
+  }
+}
+
+async function handleWigleFileChange(event) {
+  const file = event.target.files?.[0];
+  if (!file) {
+    return;
+  }
+
+  try {
+    const text = await file.text();
+    const parsed = parseWiglePayload(text, { source: 'database' });
+    applyWigleDataset(parsed, {
+      sourceLabel: file.name,
+      message: `Loaded ${parsed.accessPoints.length} WiGLE records from ${file.name}.`,
+      merge: true,
+    });
+  } catch (error) {
+    console.error('Failed to load local WiGLE database', error);
+    setWigleStatus(`Local WiGLE database unavailable: ${error.message}`);
+  } finally {
+    event.target.value = '';
+  }
+}
+
+function applyWigleDataset(payload, { sourceLabel = 'demo', message = '', merge = true } = {}) {
+  const parsed = payload && typeof payload === 'object' && Array.isArray(payload.accessPoints)
+    ? payload
+    : parseWiglePayload(payload, { source: sourceLabel });
+
+  const currentRecords = Array.isArray(state.wigleData?.accessPoints) ? state.wigleData.accessPoints : [];
+  const nextRecords = merge ? mergeWigleRecords(currentRecords, parsed.accessPoints) : mergeWigleRecords(parsed.accessPoints);
+  const nextLocation = parsed.location || state.currentLocation || state.wigleData?.location || createDemoWigleDataset().location;
+
+  state.wigleData = {
+    location: nextLocation,
+    accessPoints: nextRecords,
+    source: sourceLabel,
+    updatedAt: parsed.updatedAt || new Date().toISOString(),
+  };
+  state.wigleSourceLabel = sourceLabel;
+
+  setWigleStatus(message || `Loaded ${nextRecords.length} WiGLE records.`);
+  renderWigleViews();
+}
+
+function setWigleStatus(message) {
+  state.wigleStatus = message;
+  setText('wigleStatusText', message);
+  setText('godeyeWigleStatus', message);
+}
+
+function renderWigleViews() {
+  renderGodeyeMap();
+  renderGodeyeWigleList();
+  renderArCandidateLayer();
+}
+
+function renderWigleList(container, records, limit = 6) {
+  if (!container) {
+    return;
+  }
+
+  const limitedRecords = records.slice(0, limit);
+  if (!limitedRecords.length) {
+    const empty = document.createElement('p');
+    empty.className = 'dashboard-empty-state';
+    empty.textContent = 'WiGLE data will appear here when available.';
+    container.replaceChildren(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  limitedRecords.forEach((record, index) => {
+    const item = document.createElement('article');
+    item.className = 'wigle-item';
+
+    const title = document.createElement('strong');
+    title.className = 'wigle-item-title';
+    title.textContent = `${index + 1}. ${record.ssid || record.bssid || 'Unknown network'}`;
+    item.appendChild(title);
+
+    const meta = document.createElement('div');
+    meta.className = 'wigle-item-meta';
+    meta.textContent = [
+      record.signalDbm === null || record.signalDbm === undefined ? null : `${record.signalDbm} dBm`,
+      record.channel ? `ch ${record.channel}` : null,
+      record.signalBand || null,
+      record.source || null,
+    ].filter(Boolean).join(' · ') || 'WiGLE network';
+    item.appendChild(meta);
+
+    const detail = document.createElement('p');
+    detail.className = 'wigle-item-detail';
+    detail.textContent = [
+      record.vendor || null,
+      record.security || null,
+      record.estimatedRange?.label || null,
+      Number.isFinite(record.lat) && Number.isFinite(record.lon) ? formatCoordinatePair(record.lat, record.lon) : null,
+    ].filter(Boolean).join(' · ') || 'Signal hint only';
+    item.appendChild(detail);
+
+    fragment.appendChild(item);
+  });
+
+  container.replaceChildren(fragment);
+}
+
+function renderGodeyeWigleList() {
+  const list = $('godeyeWigleList');
+  const records = state.wigleData?.accessPoints || [];
+  if (!list) {
+    return;
+  }
+
+  renderWigleList(list, records);
+}
+
 function getCurrentPosition() {
   return new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(resolve, reject, GEO_OPTIONS);
@@ -669,6 +1104,7 @@ function handleGeoPosition(position) {
   };
 
   renderGodeyeFields();
+  renderWigleViews();
   scheduleGodeyeRender();
 }
 
@@ -692,7 +1128,7 @@ function stopGodeyeFeed() {
   }
 
   renderGodeyeFields();
-  renderGodeyeMap();
+  renderWigleViews();
 }
 
 function scheduleGodeyeRender() {
@@ -707,22 +1143,22 @@ function scheduleGodeyeRender() {
 }
 
 function renderGodeyeFields() {
-  const location = state.currentLocation;
+  const location = state.currentLocation || state.wigleData?.location || createDemoWigleDataset().location;
 
   setText('geoLat', location ? location.lat.toFixed(6) : '—');
   setText('geoLon', location ? location.lon.toFixed(6) : '—');
-  setText('geoAccuracy', location ? `${Math.round(location.accuracy)} m` : '—');
+  setText('geoAccuracy', location ? `${Math.round(location.accuracy || 0)} m` : '—');
   setText('geoHeading', location && location.heading !== null ? `${Math.round(location.heading)}°` : '—');
   setText('geoSpeed', location && location.speed !== null ? `${location.speed.toFixed(1)} m/s` : '—');
 
   const coords = $('godeyeCoords');
   if (coords) {
-    coords.textContent = location
-      ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy)}m`
-      : 'Awaiting geolocation permission.';
+    coords.textContent = state.currentLocation
+      ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy || 0)}m`
+      : `Demo fix ${formatCoordinatePair(location.lat, location.lon)} · WiGLE data loaded`;
   }
 
-  if (!location && state.authenticated) {
+  if (!state.currentLocation && state.authenticated) {
     updateGodeyeStatus('Tap enable to request GPS and center the map on your current fix.');
   }
 }
@@ -731,10 +1167,11 @@ function renderGodeyeMap() {
   const viewport = $('godeyeMap');
   const tilesLayer = $('godeyeTiles');
   const marker = $('godeyeMarker');
+  const wigleMarkers = $('godeyeWigleMarkers');
   const accuracy = $('godeyeAccuracy');
-  const location = state.currentLocation;
+  const location = state.currentLocation || state.wigleData?.location || createDemoWigleDataset().location;
 
-  if (!viewport || !tilesLayer || !marker || !accuracy) {
+  if (!viewport || !tilesLayer || !marker || !accuracy || !wigleMarkers) {
     return;
   }
 
@@ -742,14 +1179,6 @@ function renderGodeyeMap() {
   const height = viewport.clientHeight;
 
   if (!width || !height) {
-    return;
-  }
-
-  if (!location) {
-    viewport.classList.remove('has-fix');
-    tilesLayer.replaceChildren();
-    marker.style.opacity = '0';
-    accuracy.style.opacity = '0';
     return;
   }
 
@@ -793,9 +1222,53 @@ function renderGodeyeMap() {
   accuracy.style.width = `${accuracyRadius * 2}px`;
   accuracy.style.height = `${accuracyRadius * 2}px`;
 
+  const mapState = buildWigleMapState({
+    location,
+    accessPoints: state.wigleData?.accessPoints || [],
+    viewportWidth: width,
+    viewportHeight: height,
+    zoom: MAP_ZOOM,
+  });
+
+  const markerFragment = document.createDocumentFragment();
+  mapState.markers.forEach((ap) => {
+    const network = document.createElement('article');
+    network.className = `map-wigle-marker map-wigle-marker-${ap.signalBand || 'unknown'}`;
+    network.style.left = `${ap.left}px`;
+    network.style.top = `${ap.top}px`;
+    network.style.width = `${clamp(ap.rangeRadiusPx, 120, 240)}px`;
+
+    const title = document.createElement('strong');
+    title.textContent = ap.label;
+    network.appendChild(title);
+
+    const meta = document.createElement('div');
+    meta.className = 'marker-meta';
+    meta.textContent = `${ap.signalDbm ?? '—'} dBm · ${ap.signalBand || 'unknown'} · ${ap.source || 'live'}`;
+    network.appendChild(meta);
+
+    const detail = document.createElement('span');
+    detail.textContent = `${ap.detail || 'WiGLE network'}${ap.bearing !== null && ap.bearing !== undefined ? ` · ${Math.round(ap.bearing)}°` : ''}`;
+    network.appendChild(detail);
+
+    markerFragment.appendChild(network);
+  });
+
+  wigleMarkers.replaceChildren(markerFragment);
+
   const coords = $('godeyeCoords');
   if (coords) {
-    coords.textContent = `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy)}m`;
+    coords.textContent = state.currentLocation
+      ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy)}m`
+      : `Demo fix ${formatCoordinatePair(location.lat, location.lon)} · WiGLE overlay active`;
+  }
+
+  const status = $('godeyeWigleStatus');
+  if (status) {
+    const strongest = mapState.stats.strongest;
+    status.textContent = strongest
+      ? `${state.wigleStatus} · ${mapState.stats.total} networks · strongest ${strongest.ssid} ${strongest.signalDbm} dBm · ${strongest.signalBand}`
+      : `${state.wigleStatus} · WiGLE markers will appear here when a live run or database is loaded.`;
   }
 }
 
@@ -854,4 +1327,8 @@ function numberOrZero(value) {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-window.addEventListener('DOMContentLoaded', init);
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', init, { once: true });
+} else {
+  init();
+}
