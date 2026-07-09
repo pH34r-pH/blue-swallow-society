@@ -25,6 +25,7 @@ TOKEN_RETRIES = 12
 TOKEN_SLEEP_SECONDS = 5
 WWW_DOMAIN_RETRIES = 60
 WWW_DOMAIN_SLEEP_SECONDS = 10
+TXT_RECORD_NAME = "_dnsauth.www"
 
 
 def subscription_id() -> str:
@@ -250,7 +251,7 @@ def create_custom_domain_with_retry(
 def upsert_txt_record(resource_group: str, dns_zone_name: str, token: str) -> None:
     arm_request_json(
         "PUT",
-        dns_record_set_url(resource_group, dns_zone_name, "TXT", "@"),
+        dns_record_set_url(resource_group, dns_zone_name, "TXT", TXT_RECORD_NAME),
         {
             "properties": {
                 "TTL": 300,

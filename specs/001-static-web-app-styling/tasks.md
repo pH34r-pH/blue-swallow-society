@@ -76,9 +76,9 @@
 
 ### Tests for User Story 2
 
-- [ ] T017 [P] [US2] DevTools responsive mode: mobile (< 640px) shows stacked layout
-- [ ] T018 [P] [US2] DevTools responsive mode: tablet (640px–1024px) uses adjusted columns
-- [ ] T019 [P] [US2] DevTools responsive mode: desktop (> 1024px) shows multi-column layout
+- [x] T017 [P] [US2] DevTools responsive mode: mobile (< 640px) shows stacked layout
+- [x] T018 [P] [US2] DevTools responsive mode: tablet (640px–1024px) uses adjusted columns
+- [x] T019 [P] [US2] DevTools responsive mode: desktop (> 1024px) shows multi-column layout
 
 ### Implementation for User Story 2
 
@@ -153,7 +153,7 @@
 - [x] T047 [P] Audit and reduce CSS specificity where possible
 - [x] T048 [P] Add print styles or `display: none` for non-essential decorative elements in `app/styles.css`
 - [x] T049 [P] Verify no inline styles exist in HTML; all styling is in `app/styles.css`
-- [ ] T050 Run quickstart validation: visual inspection on mobile, tablet, desktop
+- [x] T050 Run quickstart validation: visual inspection on mobile, tablet, desktop
 
 ---
 

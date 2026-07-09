@@ -18,7 +18,7 @@ Next steps:
      (see .github/workflows/setup-azure-creds.md).
   5. Add the GitHub secrets listed in that doc:
        AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID,
-       AZURE_STATIC_WEB_APPS_API_TOKEN, VM_SSH_PUBLIC_KEY
+       VM_SSH_PUBLIC_KEY
   6. Push to main (or run "Deploy Infra + App" via workflow_dispatch).
      The workflow:
        - creates resource group rg-blue-swallow

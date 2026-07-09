@@ -2,18 +2,38 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Agent Lab</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#050810" />
+    <title>Agent Lab | Blue Swallow Society</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main class="container" role="main" aria-label="Agent laboratory">
-      <h1>Agent Lab</h1>
-      <div class="row gap-sm wrap center top-space">
-        <input id="prompt" class="input" placeholder="Ask the agent..." aria-label="Agent prompt input" />
-        <button id="runButton" class="btn btn-primary" aria-label="Run agent query">Run agent</button>
-      </div>
-      <pre id="out" class="top-space" aria-live="polite" aria-label="Agent response output">Press &ldquo;Run agent&rdquo;.</pre>
+    <main class="container agent-shell" role="main" aria-label="Agent laboratory">
+      <section class="panel agent-hero">
+        <p class="eyebrow">// AGENT LAB //</p>
+        <h1>Agent Lab</h1>
+        <p class="lede">Mobile-friendly prompt sandbox for the <code>/api/agent</code> route.</p>
+        <p class="panel-meta">Built to read cleanly on a phone first, with the same cyberpunk shell as the main console.</p>
+      </section>
+
+      <section class="panel tab-panel">
+        <div class="chat-input-area agent-input-area">
+          <label class="visually-hidden" for="prompt">Agent prompt</label>
+          <input
+            id="prompt"
+            class="input"
+            placeholder="Ask the agent..."
+            aria-label="Agent prompt input"
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+            enterkeyhint="send"
+          />
+          <button id="runButton" class="btn btn-primary" type="button" aria-label="Run agent query">RUN</button>
+        </div>
+        <pre id="out" class="agent-output top-space" aria-live="polite" aria-label="Agent response output">Press “Run agent”.</pre>
+      </section>
     </main>
     <script src="/agent.js" type="module"></script>
   </body>

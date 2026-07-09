@@ -89,7 +89,7 @@ The CI pipeline drives everything. You only run shell commands when bootstrappin
 Follow [.github/workflows/setup-azure-creds.md](.github/workflows/setup-azure-creds.md) to:
 - create the `blue-swallow-deployer` service principal scoped to `rg-blue-swallow`
 - add an OIDC federated credential for `repo:<you>/blue-swallow-society:ref:refs/heads/main`
-- set GitHub secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_STATIC_WEB_APPS_API_TOKEN`, `VM_SSH_PUBLIC_KEY`
+- set GitHub secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `VM_SSH_PUBLIC_KEY`
 
 ### 2. Push to `main`
 

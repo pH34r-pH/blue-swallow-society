@@ -2,155 +2,387 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#050810" />
     <title>Blue Swallow Society</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
-    <!-- Terminal Login Screen -->
-    <div id="terminalScreen" class="terminal-screen active">
+  <body data-mode="login">
+    <main id="terminalScreen" class="terminal-screen active" aria-label="Private access login">
       <div class="terminal-container">
-        <div class="terminal-panel">
-          <header class="terminal-header" aria-label="Authentication terminal">
-            <div class="terminal-title">> BLUE_SWALLOW_SOCIETY.INIT</div>
-            <div class="terminal-subtitle">[RESTRICTED ACCESS NETWORK]</div>
+        <section class="terminal-panel panel login-panel" aria-label="Authentication portal">
+          <div class="terminal-badge">PRIVATE ACCESS</div>
+          <header class="terminal-header">
+            <p class="eyebrow">// MEMBER LOGIN //</p>
+            <h1 class="terminal-title">Blue Swallow Society</h1>
+            <p class="terminal-subtitle">Secure phone-friendly portal · passcode required</p>
           </header>
 
-          <div class="terminal-input">
-            <label for="passcodeInput">PASSCODE</label>
-            <input
-              id="passcodeInput"
-              class="input"
-              type="password"
-              placeholder="Enter passcode..."
-              autocomplete="off"
-              maxlength="128"
-              aria-describedby="terminalError"
-            />
+          <div class="terminal-copy">
+            <p>
+              This entry screen is intentionally plain: a private portal for invited operators, a passcode field, and nothing
+              overtly interesting before authentication.
+            </p>
           </div>
+
+          <label class="terminal-label" for="passcodeInput">Passcode</label>
+          <input
+            id="passcodeInput"
+            class="input terminal-input-field"
+            type="password"
+            placeholder="Enter passcode..."
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+            enterkeyhint="go"
+            maxlength="128"
+            aria-describedby="terminalError"
+          />
 
           <div id="terminalError" class="terminal-error" role="alert" aria-live="assertive"></div>
 
-          <div class="terminal-btn-wrapper">
-            <button id="loginBtn" class="btn btn-primary terminal-btn-full">AUTHENTICATE</button>
+          <div class="terminal-actions">
+            <button id="loginBtn" class="btn login-btn" type="button">Continue</button>
           </div>
 
-          <div class="terminal-status" aria-label="System status indicators">
-            <div>> SYSTEM_STATUS: ONLINE</div>
-            <div>> ENCRYPTION: ACTIVE</div>
-            <div>> CONNECTIONS: MONITORING</div>
-          </div>
-        </div>
+          <ul class="terminal-status" aria-label="Session status">
+            <li>Private session</li>
+            <li>Responsive layout</li>
+            <li>Passcode required</li>
+          </ul>
+        </section>
       </div>
-    </div>
+    </main>
 
-    <!-- Main Application Interface -->
     <div id="mainInterface" class="main-interface">
-      <!-- Header -->
       <header class="site-header">
-        <div class="container row between center wrap gap-md">
-          <div>
-            <div class="eyebrow">// BLUE_SWALLOW_COLLECTIVE</div>
-            <h1 class="console-heading">NETWORK CONSOLE</h1>
+        <div class="container site-header-inner">
+          <div class="site-title-block">
+            <p class="eyebrow">// OPERATOR CONSOLE //</p>
+            <h1 class="console-heading">Blue Swallow Society</h1>
+            <p class="lede">
+              Mobile-first signal workbench for global awareness, local mapping, and the view outside the frame.
+            </p>
           </div>
-          <div class="row gap-sm">
-            <button id="logoutBtn" class="btn btn-secondary">DISCONNECT</button>
+
+          <div class="status-strip" aria-label="Console state">
+            <span class="status-chip">PHONE-NATIVE</span>
+            <span class="status-chip">PRESENT DAY</span>
+            <span class="status-chip">NEON / TERMINAL</span>
+            <button id="logoutBtn" class="btn btn-secondary logout-btn" type="button">Lock</button>
           </div>
         </div>
       </header>
 
-      <!-- Tab Bar -->
       <nav class="tab-bar" role="tablist" aria-label="Main navigation">
-        <button class="tab-btn active" data-tab="landing" role="tab" aria-selected="true" aria-controls="landing-tab" id="tab-landing" tabindex="0">LANDING</button>
-        <button class="tab-btn" data-tab="agentic" role="tab" aria-selected="false" aria-controls="agentic-tab" id="tab-agentic" tabindex="-1">AGENTIC</button>
-        <button class="tab-btn" data-tab="monitoring" role="tab" aria-selected="false" aria-controls="monitoring-tab" id="tab-monitoring" tabindex="-1">MONITORING</button>
-        <button class="tab-btn" data-tab="experiments" role="tab" aria-selected="false" aria-controls="experiments-tab" id="tab-experiments" tabindex="-1">EXPERIMENTS</button>
+        <button
+          class="tab-btn active"
+          data-tab="landing"
+          role="tab"
+          aria-selected="true"
+          aria-controls="landing-tab"
+          id="tab-landing"
+          tabindex="0"
+          type="button"
+        >
+          Landing
+        </button>
+        <button
+          class="tab-btn"
+          data-tab="tzeentch"
+          role="tab"
+          aria-selected="false"
+          aria-controls="tzeentch-tab"
+          id="tab-tzeentch"
+          tabindex="-1"
+          type="button"
+        >
+          Tzeentch
+        </button>
+        <button
+          class="tab-btn"
+          data-tab="ar"
+          role="tab"
+          aria-selected="false"
+          aria-controls="ar-tab"
+          id="tab-ar"
+          tabindex="-1"
+          type="button"
+        >
+          AR
+        </button>
+        <button
+          class="tab-btn"
+          data-tab="godeye"
+          role="tab"
+          aria-selected="false"
+          aria-controls="godeye-tab"
+          id="tab-godeye"
+          tabindex="-1"
+          type="button"
+        >
+          Godeye
+        </button>
       </nav>
 
-      <!-- Landing Tab -->
       <div id="landing-tab" class="tab-content active" role="tabpanel" aria-labelledby="tab-landing">
-        <main class="container">
-          <section class="hero">
-            <h2>Blue Swallow Society</h2>
-            <p class="manifesto">
-              We are the Blue Swallows—a convergence of those who recognize the elegant necessity of freedom's flight.
-              In the liminal spaces between the rigid structures of control, we find ourselves drawn together by a
-              recognition: that the most resilient networks are those where information flows unfiltered, where
-              knowledge is decentralized, and where no single point of failure can silence the collective voice.
-              We do not seek to dismantle what exists; rather, we demonstrate through practice that alternatives
-              are possible when individuals choose coordination over coercion.
-            </p>
-            <p class="manifesto">
-              Like the swallow banking through urban canyons, we navigate the constraints of our environment
-              with precision and grace. Our society operates in the margins, in the overlooked corridors where
-              the infrastructure of power often forgets to look. Here, we exchange ideas as freely as birds
-              exchange altitude, building networks that function not through the imposition of authority but
-              through the emergent consensus of those who participate. Ours is a project of radical pragmatism—
-              we build the tools, the protocols, the infrastructure that enables others to opt out.
-            </p>
-            <p class="manifesto">
-              Access to this network is not a right to be granted by distant institutions. It is recognition
-              among peers that you understand the principles we operate under: that information should flow
-              freely, that power should be distributed, and that individuals are the rightful architects of
-              their own networks. To participate is to accept responsibility. To protect is to preserve.
-              To persist is to prove that another way is not merely possible—it is inevitable.
-            </p>
-          </section>
-
-          <section class="section status-section">
-            <p class="status-text">
-              // NETWORK STATUS: SECURED AND OPERATIONAL //
-            </p>
-          </section>
-        </main>
-      </div>
-
-      <!-- Agentic Tab -->
-      <div id="agentic-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-agentic">
-        <div class="container">
-          <div class="chat-interface">
-            <div class="chat-messages" id="chatMessages"></div>
-            <div class="chat-input-area">
-              <input
-                id="chatInput"
-                class="input"
-                type="text"
-                placeholder="Enter command or query..."
-                autocomplete="off"
-              />
-              <button id="sendBtn" class="btn btn-primary">SEND</button>
+        <section class="container landing-stack">
+          <article class="panel tab-panel landing-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">// LANDING //</p>
+                <h2>Manifesto</h2>
+              </div>
+              <p class="panel-meta">Lorem ipsum placeholder copy stays here for now.</p>
             </div>
-          </div>
-        </div>
+
+            <div class="manifesto-copy">
+              <p>
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim
+                sit amet, adipiscing nec, ultricies sed, dolor.
+              </p>
+              <p>
+                Cras elementum ultrices diam. Maecenas ligula massa, varius a, semper congue, euismod non, mi. Proin porttitor,
+                orci nec nonummy molestie.
+              </p>
+              <p>
+                Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Nam dui ligula, fringilla
+                a, euismod sodales, sollicitudin vel, wisi.
+              </p>
+            </div>
+          </article>
+        </section>
       </div>
 
-      <!-- Monitoring Tab -->
-      <div id="monitoring-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-monitoring">
-        <div class="container">
-          <h2>System Monitoring</h2>
-          <div id="monitoringContent" class="placeholder-content">
-            <p class="placeholder-text">// MONITORING FEED PLACEHOLDER //</p>
-            <p class="placeholder-text">Additional feeds and metrics will be configured here.</p>
-          </div>
-        </div>
+      <div id="tzeentch-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-tzeentch">
+        <section class="container">
+          <article class="panel tab-panel dashboard-shell">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">// TZEENTCH //</p>
+                <h2>Global intelligence dashboard</h2>
+              </div>
+              <p class="panel-meta">Map layers, source provenance, and feed aggregation patterns informed by open dashboards.</p>
+            </div>
+
+            <div class="dashboard-layout">
+              <section class="dashboard-metrics" aria-label="Dashboard metrics">
+                <article class="metric-card">
+                  <span class="metric-label">Feeds online</span>
+                  <strong>24</strong>
+                  <p>Public streams, map layers, and lightweight telemetry lanes.</p>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">Entity clusters</span>
+                  <strong>128</strong>
+                  <p>Grouped targets, repeated signatures, and correlated points of interest.</p>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">Analysts awake</span>
+                  <strong>08</strong>
+                  <p>Signals queued for review, triage, and follow-up.</p>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">Anomalies</span>
+                  <strong>03</strong>
+                  <p>Unexpected behavior surfaced by cross-source correlation.</p>
+                </article>
+              </section>
+
+              <section class="dashboard-radar" aria-label="Correlation field">
+                <div class="dashboard-radar-copy">
+                  <p class="metric-label">Correlation field</p>
+                  <h3>Layered situational awareness</h3>
+                  <p>
+                    Popular GitHub dashboards lean on map-first views, live counts, provenance, and modular analyzers. Tzeentch
+                    follows the same pattern: source in, correlations out.
+                  </p>
+                </div>
+
+                <div class="radar-orbit" aria-hidden="true">
+                  <span class="radar-ring radar-ring-a"></span>
+                  <span class="radar-ring radar-ring-b"></span>
+                  <span class="radar-ring radar-ring-c"></span>
+                  <span class="radar-node radar-node-a">MISP</span>
+                  <span class="radar-node radar-node-b">OpenCTI</span>
+                  <span class="radar-node radar-node-c">IntelOwl</span>
+                  <span class="radar-node radar-node-d">OSIRIS</span>
+                  <span class="radar-node radar-node-e">World Monitor</span>
+                  <span class="radar-ping"></span>
+                </div>
+              </section>
+
+              <aside class="dashboard-sources">
+                <h3>Source stack</h3>
+                <ul class="source-list">
+                  <li>
+                    <span class="source-chip">World Monitor</span>
+                    <span>Map-centric layered feeds and global awareness panels.</span>
+                  </li>
+                  <li>
+                    <span class="source-chip">OSIRIS</span>
+                    <span>GPU-rendered intelligence surface with dense HUD composition.</span>
+                  </li>
+                  <li>
+                    <span class="source-chip">IntelOwl</span>
+                    <span>Modular analyzers, visualizers, and repeatable investigation flows.</span>
+                  </li>
+                  <li>
+                    <span class="source-chip">OpenCTI</span>
+                    <span>Linked knowledge graph, source provenance, and structured observables.</span>
+                  </li>
+                  <li>
+                    <span class="source-chip">MISP</span>
+                    <span>Live threat-intel feed aggregation and geo-aware dashboards.</span>
+                  </li>
+                </ul>
+              </aside>
+
+              <section class="dashboard-feed" aria-label="Correlation log">
+                <h3>Feed log</h3>
+                <article class="feed-entry">
+                  <span class="feed-time">00:14</span>
+                  <p>Source provenance preserved on ingest; repeated entities collapse into one visible trail.</p>
+                </article>
+                <article class="feed-entry">
+                  <span class="feed-time">00:22</span>
+                  <p>Layer toggles stay local-first: map, feed, graph, and watchlist switch without a full reload.</p>
+                </article>
+                <article class="feed-entry">
+                  <span class="feed-time">00:31</span>
+                  <p>New analyzer routes land as modular cards rather than hard-coded monoliths.</p>
+                </article>
+              </section>
+            </div>
+          </article>
+        </section>
       </div>
 
-      <!-- Experiments Tab -->
-      <div id="experiments-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-experiments">
-        <div class="container">
-          <h2>Experimental Workbench</h2>
-          <div id="experimentsContent" class="placeholder-content">
-            <p class="placeholder-text">// EXPERIMENTS PLACEHOLDER //</p>
-            <p class="placeholder-text">Sandbox environment for testing new capabilities.</p>
-          </div>
-        </div>
+      <div id="ar-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-ar">
+        <section class="container">
+          <article class="panel tab-panel ar-shell">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">// AR //</p>
+                <h2>Camera passthrough</h2>
+              </div>
+              <p class="panel-meta">For now: live camera feed plus a lightweight motion overlay.</p>
+            </div>
+
+            <div class="ar-layout">
+              <div id="arFrame" class="ar-camera-frame" aria-label="Camera passthrough viewport">
+                <video id="arVideo" class="ar-video" autoplay muted playsinline></video>
+                <div id="arFallback" class="ar-fallback">
+                  <p>Tap enable to start the camera passthrough.</p>
+                </div>
+                <div class="camera-vignette" aria-hidden="true"></div>
+                <div class="camera-corners" aria-hidden="true"></div>
+                <div class="motion-overlay">
+                  <div class="motion-glyph" aria-hidden="true">
+                    <div class="motion-glyph-ring"></div>
+                    <div class="motion-glyph-needle"></div>
+                    <div class="motion-glyph-horizon"></div>
+                    <div class="motion-glyph-pip"></div>
+                  </div>
+                  <div class="motion-readout">
+                    <p id="arStatusText">Camera idle. Tap enable to start passthrough.</p>
+                    <div class="motion-values">
+                      <span id="arAttitude">α — · β — · γ —</span>
+                      <span id="arAcceleration">accel — · — · —</span>
+                      <span id="arRotation">spin — · — · —</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <aside class="sensor-panel">
+                <button id="arEnableBtn" class="btn btn-primary sensor-action" type="button">Enable camera &amp; motion</button>
+
+                <div class="sensor-card">
+                  <p class="sensor-label">Overlay</p>
+                  <p>Orientation and acceleration readouts float over the passthrough feed as a proof of concept.</p>
+                </div>
+
+                <div class="sensor-card">
+                  <p class="sensor-label">Inputs</p>
+                  <p>Camera, deviceorientation, and devicemotion permissions are requested only when you tap enable.</p>
+                </div>
+              </aside>
+            </div>
+          </article>
+        </section>
       </div>
 
-      <!-- Footer -->
+      <div id="godeye-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-godeye">
+        <section class="container">
+          <article class="panel tab-panel godeye-shell">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">// GODEYE //</p>
+                <h2>OpenStreetMap current location view</h2>
+              </div>
+              <p class="panel-meta">A local map centered on your current location once geolocation is granted.</p>
+            </div>
+
+            <div class="godeye-layout">
+              <div class="map-panel">
+                <div id="godeyeMap" class="map-viewport" aria-label="OpenStreetMap current location map">
+                  <div id="godeyeTiles" class="map-tiles" aria-hidden="true"></div>
+                  <div class="map-grid" aria-hidden="true"></div>
+                  <div class="map-reticle" aria-hidden="true"></div>
+                  <div id="godeyeAccuracy" class="map-accuracy" aria-hidden="true"></div>
+                  <div id="godeyeMarker" class="map-marker" aria-hidden="true">
+                    <span class="map-marker-core"></span>
+                    <span class="map-marker-head"></span>
+                  </div>
+                  <div class="map-label">
+                    <span class="map-label-title">Current fix</span>
+                    <span id="godeyeCoords">Awaiting geolocation permission.</span>
+                  </div>
+                </div>
+              </div>
+
+              <aside class="geo-panel">
+                <button id="locationBtn" class="btn btn-primary sensor-action" type="button">Enable location</button>
+
+                <div class="geo-card">
+                  <p class="sensor-label">Location status</p>
+                  <p id="geoStatusText">Geolocation permission has not been requested yet.</p>
+                </div>
+
+                <dl class="geo-metrics">
+                  <div>
+                    <dt>Latitude</dt>
+                    <dd id="geoLat">—</dd>
+                  </div>
+                  <div>
+                    <dt>Longitude</dt>
+                    <dd id="geoLon">—</dd>
+                  </div>
+                  <div>
+                    <dt>Accuracy</dt>
+                    <dd id="geoAccuracy">—</dd>
+                  </div>
+                  <div>
+                    <dt>Heading</dt>
+                    <dd id="geoHeading">—</dd>
+                  </div>
+                  <div>
+                    <dt>Speed</dt>
+                    <dd id="geoSpeed">—</dd>
+                  </div>
+                </dl>
+              </aside>
+            </div>
+          </article>
+        </section>
+      </div>
+
       <footer class="site-footer">
-        <div class="container row between center wrap gap-sm">
+        <div class="container footer-inner">
           <span>Blue Swallow Society</span>
-          <span class="subtle">// Network console active //</span>
+          <span class="subtle">// mobile-first cyberpunk console //</span>
         </div>
       </footer>
     </div>

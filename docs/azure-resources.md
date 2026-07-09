@@ -133,7 +133,7 @@ The VM uses cloud-init to automatically configure the echo service:
 - `allowedSourceIp` carries metadata warning against `'*'` in production
 - Currently configured for:
   - Location: westus2
-  - Static web app name: blue-swallow-swa
+  - Static web app name: wonderful-pond-0623ed81e
   - Prefix: blue-swallow
   - Allowed source IP: * (open — must be restricted before production)
   - OpenAI deployment: false

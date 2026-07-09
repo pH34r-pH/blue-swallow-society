@@ -3,7 +3,7 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "location": { "value": "westus2" },
-    "staticWebAppName": { "value": "blue-swallow-swa" },
+    "staticWebAppName": { "value": "wonderful-pond-0623ed81e" },
     "prefix": { "value": "blue-swallow" },
     "allowedSourceIp": {
       "value": "*",

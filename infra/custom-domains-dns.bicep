@@ -22,7 +22,7 @@ resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' existing = {
 
 resource apexTxtRecord 'Microsoft.Network/dnsZones/TXT@2018-05-01' = {
   parent: dnsZone
-  name: '@'
+  name: '_dnsauth.www'
   properties: {
     TTL: 300
     TXTRecords: [

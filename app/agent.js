@@ -1,7 +1,23 @@
+let isRunning = false;
+
 async function runAgent() {
+  if (isRunning) return;
+
   const promptEl = document.getElementById("prompt");
   const outEl = document.getElementById("out");
-  const prompt = promptEl ? promptEl.value : "";
+  const runBtn = document.getElementById("runButton");
+  const prompt = promptEl ? promptEl.value.trim() : "";
+
+  if (!outEl) return;
+
+  if (!prompt) {
+    outEl.textContent = "Enter a prompt to query the agent.";
+    return;
+  }
+
+  isRunning = true;
+  if (runBtn) runBtn.disabled = true;
+
   outEl.textContent = "Running...";
   try {
     const res = await fetch(`/api/agent?prompt=${encodeURIComponent(prompt)}`);
@@ -13,8 +29,18 @@ async function runAgent() {
     }
   } catch (err) {
     outEl.textContent = `Agent call failed: ${err.message}`;
+  } finally {
+    isRunning = false;
+    if (runBtn) runBtn.disabled = false;
   }
 }
 
 const runBtn = document.getElementById("runButton");
+const promptEl = document.getElementById("prompt");
+
 if (runBtn) runBtn.addEventListener("click", runAgent);
+if (promptEl) {
+  promptEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") runAgent();
+  });
+}

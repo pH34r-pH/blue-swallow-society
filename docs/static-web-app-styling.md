@@ -54,7 +54,7 @@ The Blue Swallow Society static web application implements a cyberpunk/terminal-
 
 ### Breakpoints
 - **Mobile**: < 640px (stacked layouts, full-width elements)
-- **Tablet**: 640px - 1024px (adjusted column layouts)
+- **Tablet**: 640px - 1024px (adjusted column layouts; header stays stacked until ~900px for readability)
 - **Desktop**: > 1024px (multi-column layouts, side-by-side elements)
 
 ## Component Styles
