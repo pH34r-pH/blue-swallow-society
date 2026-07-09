@@ -25,7 +25,6 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
-from urllib.parse import quote
 
 TTL = 300
 TOKEN_RETRIES = 12
@@ -70,34 +69,43 @@ def subscription_id() -> str:
     return sub_id
 
 
-def custom_domain_url(
+def custom_domain_resource_id(
     sub_id: str,
     resource_group: str,
     static_web_app_name: str,
     hostname: str,
 ) -> str:
-    hostname_enc = quote(hostname, safe="")
+    hostname_enc = hostname
     return (
-        f"https://management.azure.com/subscriptions/{sub_id}"
+        f"/subscriptions/{sub_id}"
         f"/resourceGroups/{resource_group}"
         f"/providers/Microsoft.Web/staticSites/{static_web_app_name}"
-        f"/customDomains/{hostname_enc}?api-version={API_VERSION}"
+        f"/customDomains/{hostname_enc}"
     )
 
 
-def get_custom_domain(
+def show_custom_domain(
     sub_id: str,
     resource_group: str,
     static_web_app_name: str,
     hostname: str,
 ) -> dict[str, object] | None:
     result = run_az(
-        ["rest", "--method", "get", "--uri", custom_domain_url(sub_id, resource_group, static_web_app_name, hostname)],
+        [
+            "resource",
+            "show",
+            "--ids",
+            custom_domain_resource_id(sub_id, resource_group, static_web_app_name, hostname),
+            "--api-version",
+            API_VERSION,
+            "-o",
+            "json",
+        ],
         check=False,
     )
     if result.returncode != 0:
         stderr = result.stderr.lower()
-        if "status code: 404" in stderr or "notfound" in stderr or "resource not found" in stderr:
+        if "not found" in stderr or "could not be found" in stderr or "resource not found" in stderr:
             return None
         raise RuntimeError(f"Failed to query custom domain {hostname}: {result.stderr.strip()}")
     if not result.stdout.strip():
@@ -105,17 +113,17 @@ def get_custom_domain(
     return json.loads(result.stdout)
 
 
-def upsert_custom_domain(
+def create_or_update_custom_domain(
     sub_id: str,
     resource_group: str,
     static_web_app_name: str,
     hostname: str,
     validation_method: str,
 ) -> dict[str, object]:
-    url = custom_domain_url(sub_id, resource_group, static_web_app_name, hostname)
+    resource_id = custom_domain_resource_id(sub_id, resource_group, static_web_app_name, hostname)
     body = {"properties": {"validationMethod": validation_method}}
     result = run_az(
-        ["rest", "--method", "put", "--uri", url, "--body", json.dumps(body)],
+        ["resource", "create", "--id", resource_id, "--api-version", API_VERSION, "--properties", json.dumps(body), "-o", "json"],
     )
     if not result.stdout.strip():
         return {}
@@ -143,7 +151,7 @@ def poll_validation_token(
     sleep_seconds: int = TOKEN_SLEEP_SECONDS,
 ) -> str:
     for attempt in range(1, retries + 1):
-        payload = get_custom_domain(sub_id, resource_group, static_web_app_name, hostname)
+        payload = show_custom_domain(sub_id, resource_group, static_web_app_name, hostname)
         token = extract_validation_token(payload)
         if token and token.lower() != "null":
             return token
@@ -160,15 +168,15 @@ def put_record_set(
     record_name: str,
     properties: dict[str, object],
 ) -> None:
-    record_name_enc = quote(record_name, safe="")
-    url = (
-        f"https://management.azure.com/subscriptions/{sub_id}"
+    record_name_enc = record_name
+    resource_id = (
+        f"/subscriptions/{sub_id}"
         f"/resourceGroups/{dns_zone_resource_group}"
         f"/providers/Microsoft.Network/dnsZones/{dns_zone_name}"
-        f"/{record_type}/{record_name_enc}?api-version=2018-05-01"
+        f"/{record_type}/{record_name_enc}"
     )
     body = json.dumps({"properties": properties})
-    run_az(["rest", "--method", "put", "--uri", url, "--body", body])
+    run_az(["resource", "create", "--id", resource_id, "--api-version", "2018-05-01", "--properties", body, "-o", "json"])
 
 
 def configure_www(
@@ -192,7 +200,7 @@ def configure_www(
         },
     )
 
-    upsert_custom_domain(
+    create_or_update_custom_domain(
         sub_id,
         resource_group,
         static_web_app_name,
@@ -211,9 +219,9 @@ def configure_apex(
     dns_zone_name: str,
     apex_hostname: str,
 ) -> None:
-    preexisting = get_custom_domain(sub_id, resource_group, static_web_app_name, apex_hostname)
+    preexisting = show_custom_domain(sub_id, resource_group, static_web_app_name, apex_hostname)
 
-    payload = upsert_custom_domain(
+    payload = create_or_update_custom_domain(
         sub_id,
         resource_group,
         static_web_app_name,
