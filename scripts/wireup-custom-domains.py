@@ -22,6 +22,8 @@ CUSTOM_DOMAINS_API_VERSION = "2024-11-01"
 DNS_API_VERSION = "2018-05-01"
 TOKEN_RETRIES = 12
 TOKEN_SLEEP_SECONDS = 5
+WWW_DOMAIN_RETRIES = 18
+WWW_DOMAIN_SLEEP_SECONDS = 10
 
 
 def subscription_id() -> str:
@@ -171,6 +173,32 @@ def create_custom_domain_and_token(resource_group: str, static_web_app_name: str
     raise RuntimeError(f"Unable to obtain a validation token for {hostname!r} after {TOKEN_RETRIES} attempts.")
 
 
+def create_custom_domain_with_retry(
+    resource_group: str,
+    static_web_app_name: str,
+    hostname: str,
+    validation_method: str,
+    *,
+    retries: int = WWW_DOMAIN_RETRIES,
+    sleep_seconds: int = WWW_DOMAIN_SLEEP_SECONDS,
+) -> dict[str, Any]:
+    url = custom_domain_url(resource_group, static_web_app_name, hostname)
+    last_error: RuntimeError | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            return arm_request_json("PUT", url, {"properties": {"validationMethod": validation_method}})
+        except RuntimeError as exc:
+            last_error = exc
+            message = str(exc)
+            if validation_method == "cname-delegation" and "CNAME Record is invalid" in message:
+                if attempt < retries:
+                    time.sleep(sleep_seconds)
+                    continue
+            raise
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f"Unable to create custom domain {hostname!r} after {retries} attempts.")
+
 def upsert_txt_record(resource_group: str, dns_zone_name: str, token: str) -> None:
     arm_request_json(
         "PUT",
@@ -231,10 +259,11 @@ def configure_apex(
     upsert_txt_record(dns_zone_resource_group, dns_zone_name, token)
     upsert_alias_a_record(dns_zone_resource_group, dns_zone_name, "@", static_web_app_id)
     upsert_cname_record(dns_zone_resource_group, dns_zone_name, "www", default_hostname)
-    arm_request_json(
-        "PUT",
-        custom_domain_url(resource_group, static_web_app_name, www_hostname),
-        {"properties": {"validationMethod": "cname-delegation"}},
+    create_custom_domain_with_retry(
+        resource_group,
+        static_web_app_name,
+        www_hostname,
+        "cname-delegation",
     )
 
 
