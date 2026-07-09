@@ -35,7 +35,7 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 │   └── workflows/
 │       ├── deploy-static-web-app.yml          # canonical CI: infra + app + custom domains
 │       ├── infra-whatif.yml                   # manual what-if (RG scope, OIDC)
-│       ├── azure-static-web-apps-wonderful-pond-0623ed81e.yml  # disabled
+│       ├── azure-static-web-apps-wonderful-pond-0623ed81e.yml  # disabled legacy workflow; delete after cutover to blue-swallow-swa
 │       └── setup-azure-creds.md
 ├── api/
 │   ├── echo/
@@ -95,10 +95,10 @@ Follow [.github/workflows/setup-azure-creds.md](.github/workflows/setup-azure-cr
 
 The **Deploy Infra + App** workflow will:
 1. Create the resource group `rg-blue-swallow` if it does not exist.
-2. Run `az deployment group create` against `infra/main.bicep` (SWA + VM echo lab; OpenAI optional).
+2. Run `az deployment group create` against `infra/main.bicep` (SWA resource `blue-swallow-swa` + VM echo lab; OpenAI optional).
 3. Set `BACKEND_ECHO_BASE_URL` on the Static Web App using the Bicep output.
 4. Deploy `app/` and `api/` to the Static Web App.
-5. Wire the apex `blueswallow.co.in` and `www.blueswallow.co.in` hostnames through the custom-domain helper script and Azure DNS in `rg-blue-swallow` (the domain must already be delegated at the registrar to the Azure DNS nameservers).
+5. Wire the apex `blueswallow.co.in` and `www.blueswallow.co.in` hostnames through the custom-domain helper script and Azure DNS in `rg-blue-swallow` (the DNS zone is referenced as an existing resource in `infra/custom-domains-dns.bicep`; the canonical SWA is `blue-swallow-swa`, and legacy SWAs `blue-swallow-society` and `wonderful-pond-0623ed81e` should be deleted after cutover).
 
 > Azure DNS usually propagates within about an hour, but apex-domain changes can still take up to 72 hours in the worst case.
 

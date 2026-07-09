@@ -4,6 +4,7 @@ import {
   formatCoordinatePair,
   metersPerPixel,
 } from './map-math.mjs';
+import { initTzeentchDashboard, stopTzeentchDashboard } from './tzeentch.mjs';
 
 const PASSCODE_FALLBACK = 'blue-swallow';
 const TILE_BASE_URL = 'https://tile.openstreetmap.org';
@@ -190,6 +191,7 @@ function resetConsoleToLogin() {
   }
 
   hideTerminalError();
+  stopTzeentchDashboard();
   stopArFeed();
   stopGodeyeFeed();
   state.currentLocation = null;
@@ -224,6 +226,7 @@ function bindTabSystem() {
 }
 
 function initTabDefaults() {
+  initTzeentchDashboard();
   initArTab();
   initGodeyeTab();
   renderArHud();
@@ -231,6 +234,7 @@ function initTabDefaults() {
 }
 
 function handleLogout() {
+  stopTzeentchDashboard();
   stopArFeed();
   stopGodeyeFeed();
   resetConsoleToLogin();
@@ -284,6 +288,10 @@ function activateTabByIndex(index, { focus = false, tabButtons = getTabButtons()
 
   if (state.activeTab === 'godeye' && nextTabKey !== 'godeye') {
     stopGodeyeFeed();
+  }
+
+  if (nextTabKey === 'tzeentch') {
+    initTzeentchDashboard();
   }
 
   setTabAria(tabButtons, tabPanels, normalizedIndex);

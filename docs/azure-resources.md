@@ -127,13 +127,19 @@ The VM uses cloud-init to automatically configure the echo service:
 - Defines all parameters and outputs
 - Links static web app to VM echo service via app setting
 
+### custom-domains.bicep / custom-domains-dns.bicep
+- Import the existing Static Web App and Azure DNS zone with `existing` resource declarations
+- Create only the custom-domain bindings and DNS record sets
+- The DNS zone itself is not recreated by the stack
+
 ### main.parameters.json
 - **Environment-specific values**
 - Includes `_comments` parameter documenting validation rules
 - `allowedSourceIp` carries metadata warning against `'*'` in production
 - Currently configured for:
   - Location: westus2
-  - Static web app name: wonderful-pond-0623ed81e
+  - Static web app name: blue-swallow-swa
+  - Legacy SWA resources to delete after cutover: blue-swallow-society, wonderful-pond-0623ed81e
   - Prefix: blue-swallow
   - Allowed source IP: * (open — must be restricted before production)
   - OpenAI deployment: false
@@ -144,6 +150,7 @@ The VM uses cloud-init to automatically configure the echo service:
 - Includes `az deployment group what-if` dry-run instructions
 - Reminds operators to set `allowedSourceIp` to their developer IP
 - Documents deployment idempotency (re-runs update without destroying state)
+- Reminds operators to delete the legacy SWA resources after cutover so only `blue-swallow-swa` remains connected to `blueswallow.co.in`
 
 ### vm-echo-lab.bicep
 - **Encapsulates VM and networking**

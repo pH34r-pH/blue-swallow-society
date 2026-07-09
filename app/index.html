@@ -12,26 +12,13 @@
     <main id="terminalScreen" class="terminal-screen active" aria-label="Private access login">
       <div class="terminal-container">
         <section class="terminal-panel panel login-panel" aria-label="Authentication portal">
-          <div class="terminal-badge">PRIVATE ACCESS</div>
-          <header class="terminal-header">
-            <p class="eyebrow">// MEMBER LOGIN //</p>
-            <h1 class="terminal-title">Blue Swallow Society</h1>
-            <p class="terminal-subtitle">Secure phone-friendly portal · passcode required</p>
-          </header>
-
-          <div class="terminal-copy">
-            <p>
-              This entry screen is intentionally plain: a private portal for invited operators, a passcode field, and nothing
-              overtly interesting before authentication.
-            </p>
-          </div>
-
+          <h1 class="terminal-title">Blue Swallow Society</h1>
           <label class="terminal-label" for="passcodeInput">Passcode</label>
           <input
             id="passcodeInput"
             class="input terminal-input-field"
             type="password"
-            placeholder="Enter passcode..."
+            placeholder="Password"
             autocomplete="off"
             autocapitalize="none"
             spellcheck="false"
@@ -43,14 +30,8 @@
           <div id="terminalError" class="terminal-error" role="alert" aria-live="assertive"></div>
 
           <div class="terminal-actions">
-            <button id="loginBtn" class="btn login-btn" type="button">Continue</button>
+            <button id="loginBtn" class="btn login-btn" type="button">Unlock</button>
           </div>
-
-          <ul class="terminal-status" aria-label="Session status">
-            <li>Private session</li>
-            <li>Responsive layout</li>
-            <li>Passcode required</li>
-          </ul>
         </section>
       </div>
     </main>
@@ -62,14 +43,11 @@
             <p class="eyebrow">// OPERATOR CONSOLE //</p>
             <h1 class="console-heading">Blue Swallow Society</h1>
             <p class="lede">
-              Mobile-first signal workbench for global awareness, local mapping, and the view outside the frame.
+              Mobile-first signal workbench for local analysis, overlays, and location-aware context.
             </p>
           </div>
 
-          <div class="status-strip" aria-label="Console state">
-            <span class="status-chip">PHONE-NATIVE</span>
-            <span class="status-chip">PRESENT DAY</span>
-            <span class="status-chip">NEON / TERMINAL</span>
+          <div class="site-header-actions">
             <button id="logoutBtn" class="btn btn-secondary logout-btn" type="button">Lock</button>
           </div>
         </div>
@@ -161,100 +139,138 @@
             <div class="panel-heading">
               <div>
                 <p class="eyebrow">// TZEENTCH //</p>
-                <h2>Global intelligence dashboard</h2>
+                <h2>Open-source intelligence dashboard</h2>
               </div>
-              <p class="panel-meta">Map layers, source provenance, and feed aggregation patterns informed by open dashboards.</p>
+              <p class="panel-meta">Domains, IPs, handles, archive snapshots, and live public feeds.</p>
             </div>
 
-            <div class="dashboard-layout">
-              <section class="dashboard-metrics" aria-label="Dashboard metrics">
-                <article class="metric-card">
-                  <span class="metric-label">Feeds online</span>
-                  <strong>24</strong>
-                  <p>Public streams, map layers, and lightweight telemetry lanes.</p>
-                </article>
-                <article class="metric-card">
-                  <span class="metric-label">Entity clusters</span>
-                  <strong>128</strong>
-                  <p>Grouped targets, repeated signatures, and correlated points of interest.</p>
-                </article>
-                <article class="metric-card">
-                  <span class="metric-label">Analysts awake</span>
-                  <strong>08</strong>
-                  <p>Signals queued for review, triage, and follow-up.</p>
-                </article>
-                <article class="metric-card">
-                  <span class="metric-label">Anomalies</span>
-                  <strong>03</strong>
-                  <p>Unexpected behavior surfaced by cross-source correlation.</p>
-                </article>
-              </section>
+            <div class="dashboard-intake">
+              <label class="dashboard-field" for="tzeentchQuery">
+                <span>Target</span>
+                <input
+                  id="tzeentchQuery"
+                  class="input dashboard-input"
+                  type="text"
+                  placeholder="example.com, @handle, 8.8.8.8, or a URL"
+                  autocomplete="off"
+                  autocapitalize="none"
+                  spellcheck="false"
+                />
+              </label>
 
-              <section class="dashboard-radar" aria-label="Correlation field">
-                <div class="dashboard-radar-copy">
-                  <p class="metric-label">Correlation field</p>
-                  <h3>Layered situational awareness</h3>
-                  <p>
-                    Popular GitHub dashboards lean on map-first views, live counts, provenance, and modular analyzers. Tzeentch
-                    follows the same pattern: source in, correlations out.
-                  </p>
-                </div>
+              <label class="dashboard-field" for="tzeentchMode">
+                <span>Mode</span>
+                <select id="tzeentchMode" class="input dashboard-input dashboard-select">
+                  <option value="auto">Auto</option>
+                  <option value="domain">Domain</option>
+                  <option value="url">URL</option>
+                  <option value="ip">IP</option>
+                  <option value="handle">Handle</option>
+                  <option value="email">Email</option>
+                </select>
+              </label>
 
-                <div class="radar-orbit" aria-hidden="true">
-                  <span class="radar-ring radar-ring-a"></span>
-                  <span class="radar-ring radar-ring-b"></span>
-                  <span class="radar-ring radar-ring-c"></span>
-                  <span class="radar-node radar-node-a">MISP</span>
-                  <span class="radar-node radar-node-b">OpenCTI</span>
-                  <span class="radar-node radar-node-c">IntelOwl</span>
-                  <span class="radar-node radar-node-d">OSIRIS</span>
-                  <span class="radar-node radar-node-e">World Monitor</span>
-                  <span class="radar-ping"></span>
-                </div>
-              </section>
-
-              <aside class="dashboard-sources">
-                <h3>Source stack</h3>
-                <ul class="source-list">
-                  <li>
-                    <span class="source-chip">World Monitor</span>
-                    <span>Map-centric layered feeds and global awareness panels.</span>
-                  </li>
-                  <li>
-                    <span class="source-chip">OSIRIS</span>
-                    <span>GPU-rendered intelligence surface with dense HUD composition.</span>
-                  </li>
-                  <li>
-                    <span class="source-chip">IntelOwl</span>
-                    <span>Modular analyzers, visualizers, and repeatable investigation flows.</span>
-                  </li>
-                  <li>
-                    <span class="source-chip">OpenCTI</span>
-                    <span>Linked knowledge graph, source provenance, and structured observables.</span>
-                  </li>
-                  <li>
-                    <span class="source-chip">MISP</span>
-                    <span>Live threat-intel feed aggregation and geo-aware dashboards.</span>
-                  </li>
-                </ul>
-              </aside>
-
-              <section class="dashboard-feed" aria-label="Correlation log">
-                <h3>Feed log</h3>
-                <article class="feed-entry">
-                  <span class="feed-time">00:14</span>
-                  <p>Source provenance preserved on ingest; repeated entities collapse into one visible trail.</p>
-                </article>
-                <article class="feed-entry">
-                  <span class="feed-time">00:22</span>
-                  <p>Layer toggles stay local-first: map, feed, graph, and watchlist switch without a full reload.</p>
-                </article>
-                <article class="feed-entry">
-                  <span class="feed-time">00:31</span>
-                  <p>New analyzer routes land as modular cards rather than hard-coded monoliths.</p>
-                </article>
-              </section>
+              <button id="tzeentchSearchBtn" class="btn btn-primary dashboard-action" type="button">Scan</button>
+              <button id="tzeentchClearBtn" class="btn btn-secondary dashboard-action" type="button">Overview</button>
             </div>
+
+            <p id="tzeentchStatus" class="dashboard-status">Load a target to fan out across public sources.</p>
+            <div id="tzeentchSources" class="dashboard-chip-row" aria-label="Supported source families"></div>
+
+            <section class="dashboard-metrics" aria-label="Dashboard metrics">
+              <article class="metric-card">
+                <span class="metric-label">Target type</span>
+                <strong id="tzeentchMetricType">—</strong>
+                <p id="tzeentchMetricTypeNote">Awaiting query.</p>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">Sources queried</span>
+                <strong id="tzeentchMetricSources">0</strong>
+                <p>RDAP, DNS, archive, GitHub, Reddit, Wikipedia, and live feeds.</p>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">Findings</span>
+                <strong id="tzeentchMetricFindings">0</strong>
+                <p id="tzeentchMetricFindingsNote">No scan yet.</p>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">Last refresh</span>
+                <strong id="tzeentchMetricRefresh">—</strong>
+                <p id="tzeentchMetricRefreshNote">Waiting for input.</p>
+              </article>
+            </section>
+
+            <section class="dashboard-results">
+              <article class="result-card">
+                <div class="panel-heading panel-heading-compact">
+                  <div>
+                    <p class="eyebrow">// PROFILE //</p>
+                    <h3>Target profile</h3>
+                  </div>
+                </div>
+                <div id="tzeentchProfile" class="result-list"></div>
+              </article>
+
+              <article class="result-card">
+                <div class="panel-heading panel-heading-compact">
+                  <div>
+                    <p class="eyebrow">// NETWORK //</p>
+                    <h3>Domain and network surface</h3>
+                  </div>
+                </div>
+                <div id="tzeentchNetwork" class="result-list"></div>
+              </article>
+
+              <article class="result-card">
+                <div class="panel-heading panel-heading-compact">
+                  <div>
+                    <p class="eyebrow">// SOCIAL //</p>
+                    <h3>Public traces</h3>
+                  </div>
+                </div>
+                <div id="tzeentchSocial" class="result-list"></div>
+              </article>
+
+              <article class="result-card">
+                <div class="panel-heading panel-heading-compact">
+                  <div>
+                    <p class="eyebrow">// ARCHIVE //</p>
+                    <h3>Archive and provenance</h3>
+                  </div>
+                </div>
+                <div id="tzeentchArchive" class="result-list"></div>
+              </article>
+
+              <article class="result-card result-card-wide">
+                <div class="panel-heading panel-heading-compact">
+                  <div>
+                    <p class="eyebrow">// SOURCES //</p>
+                    <h3>Source coverage</h3>
+                  </div>
+                </div>
+                <div id="tzeentchSourcesList" class="source-result-list"></div>
+              </article>
+
+              <article class="result-card result-card-wide">
+                <div class="panel-heading panel-heading-compact">
+                  <div>
+                    <p class="eyebrow">// SIGNALS //</p>
+                    <h3>Live public feeds</h3>
+                  </div>
+                </div>
+                <div id="tzeentchSignals" class="signal-feed-list"></div>
+              </article>
+
+              <article class="result-card result-card-wide">
+                <div class="panel-heading panel-heading-compact">
+                  <div>
+                    <p class="eyebrow">// RECENT //</p>
+                    <h3>Recent queries</h3>
+                  </div>
+                </div>
+                <div id="tzeentchRecent" class="recent-query-list"></div>
+              </article>
+            </section>
           </article>
         </section>
       </div>
@@ -278,20 +294,25 @@
                 </div>
                 <div class="camera-vignette" aria-hidden="true"></div>
                 <div class="camera-corners" aria-hidden="true"></div>
-                <div class="motion-overlay">
+                <div class="motion-overlay" aria-hidden="true">
+                  <div class="motion-edge motion-edge-top-left">
+                    <span class="motion-tag">STATUS</span>
+                    <p id="arStatusText">Camera idle. Tap enable to start passthrough.</p>
+                  </div>
+                  <div class="motion-edge motion-edge-top-right">
+                    <span class="motion-tag">ORIENTATION</span>
+                    <p id="arAttitude">α — · β — · γ —</p>
+                  </div>
+                  <div class="motion-edge motion-edge-bottom-right">
+                    <span class="motion-tag">ACCEL / SPIN</span>
+                    <p id="arAcceleration">accel — · — · —</p>
+                    <p id="arRotation">spin — · — · —</p>
+                  </div>
                   <div class="motion-glyph" aria-hidden="true">
                     <div class="motion-glyph-ring"></div>
                     <div class="motion-glyph-needle"></div>
                     <div class="motion-glyph-horizon"></div>
                     <div class="motion-glyph-pip"></div>
-                  </div>
-                  <div class="motion-readout">
-                    <p id="arStatusText">Camera idle. Tap enable to start passthrough.</p>
-                    <div class="motion-values">
-                      <span id="arAttitude">α — · β — · γ —</span>
-                      <span id="arAcceleration">accel — · — · —</span>
-                      <span id="arRotation">spin — · — · —</span>
-                    </div>
                   </div>
                 </div>
               </div>

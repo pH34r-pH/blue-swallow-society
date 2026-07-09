@@ -25,7 +25,8 @@ Next steps:
        - deploys infra/main.bicep (SWA + VM echo lab, optional OpenAI)
        - sets BACKEND_ECHO_BASE_URL on the SWA
        - uploads the app + API
-       - wires blueswallow.co.in and www.blueswallow.co.in through Azure DNS
+       - wires blueswallow.co.in and www.blueswallow.co.in through Azure DNS to the canonical blue-swallow-swa Static Web App
+     After cutover, delete the legacy Static Web Apps blue-swallow-society and wonderful-pond-0623ed81e so only blue-swallow-swa remains connected.
      Redeployments are idempotent — running the workflow again will
      update existing resources without destroying state.
 
