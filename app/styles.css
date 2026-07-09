@@ -1359,8 +1359,11 @@ strong {
   height: 100%;
   min-height: inherit;
   object-fit: cover;
+  object-position: center center;
+  transform: scale(var(--ar-video-scale, 1));
+  transform-origin: center center;
   opacity: 0;
-  transition: opacity 180ms ease;
+  transition: opacity 180ms ease, transform 180ms ease;
   filter: contrast(1.08) saturate(1.15);
 }
 
@@ -1408,6 +1411,7 @@ strong {
 .motion-overlay {
   position: absolute;
   inset: auto 1rem 1rem;
+  z-index: 3;
   display: grid;
   gap: 1rem;
   padding: 1rem;
@@ -1501,6 +1505,7 @@ strong {
   min-height: 100vh;
   max-height: none;
   border-radius: 0;
+  --ar-video-scale: 1;
 }
 
 .ar-camera-frame.is-fullscreen .ar-stage {
@@ -1510,6 +1515,14 @@ strong {
 .ar-candidate-layer {
   position: absolute;
   inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.ar-detection-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   pointer-events: none;
 }
 
@@ -1526,11 +1539,55 @@ strong {
   box-shadow: 0 0 0 1px rgba(85, 232, 255, 0.08);
 }
 
+.ar-detection {
+  position: absolute;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(255, 173, 58, 0.28);
+  border-radius: 0.95rem;
+  background: rgba(3, 7, 18, 0.76);
+  color: var(--text-0);
+  backdrop-filter: blur(10px) saturate(110%);
+  box-shadow: 0 0 0 1px rgba(255, 79, 216, 0.08);
+}
+
+.ar-detection-high {
+  border-color: rgba(114, 255, 159, 0.34);
+  box-shadow: 0 0 0 1px rgba(114, 255, 159, 0.12);
+}
+
+.ar-detection-medium {
+  border-color: rgba(255, 173, 58, 0.34);
+  box-shadow: 0 0 0 1px rgba(255, 173, 58, 0.12);
+}
+
+.ar-detection-low {
+  border-color: rgba(255, 79, 216, 0.24);
+  box-shadow: 0 0 0 1px rgba(255, 79, 216, 0.1);
+}
+
+.ar-detection strong {
+  color: var(--neon-magenta);
+  font-size: 0.95rem;
+}
+
+.ar-detection .detection-meta {
+  color: var(--neon-cyan);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.ar-detection span {
+  color: var(--text-1);
+  font-size: 0.78rem;
+}
+
 .ar-candidate strong {
   color: var(--neon-lime);
   font-size: 0.95rem;
 }
-
 .ar-candidate .candidate-meta {
   color: var(--neon-cyan);
   font-size: 0.68rem;
@@ -1715,6 +1772,23 @@ strong {
 .sensor-action {
   width: 100%;
 }
+
+.sensor-toggle {
+  text-align: center;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sensor-toggle[aria-pressed='true'] {
+  border-color: rgba(77, 255, 184, 0.45);
+  background: linear-gradient(180deg, rgba(16, 71, 52, 0.96), rgba(10, 29, 23, 0.92));
+  box-shadow: 0 0 0 1px rgba(77, 255, 184, 0.2) inset, 0 0 24px rgba(77, 255, 184, 0.18);
+}
+
+.sensor-toggle[aria-pressed='false'] {
+  color: var(--text-1);
+}
+
 
 .sensor-card,
 .geo-card {

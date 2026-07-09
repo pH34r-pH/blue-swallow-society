@@ -78,7 +78,10 @@ The home page includes:
 The Azure Function proxy at `/api/echo` forwards to the VM using the SWA app setting:
 - `BACKEND_ECHO_BASE_URL` → e.g. `http://<vm-public-ip>:8080`
 
-The proxy appends `/echo?msg=...` to that base, matching the path the VM cloud-init service serves.
+The WiGLE proxy at `/api/wigle` supports:
+- `WIGLE_LIVE_BRIDGE_URL` → a live bridge or phone-local snapshot endpoint for the AR stream
+- `WIGLE_API_NAME` + `WIGLE_API_TOKEN` → fallback to the public WiGLE search API when geolocation is available
+- `WIGLE_LOCAL_DB_PATH` or `WIGLE_LOCAL_DB_URL` → a local WiGLE database snapshot for the Godeye view
 
 ## Deployment sequence
 

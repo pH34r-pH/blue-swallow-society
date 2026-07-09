@@ -294,7 +294,7 @@
                 <p class="eyebrow">// AR //</p>
                 <h2>Camera passthrough</h2>
               </div>
-              <p class="panel-meta">For now: live camera feed plus a lightweight motion overlay.</p>
+              <p class="panel-meta">Camera passthrough gated by a live WiGLE stream.</p>
             </div>
 
             <div class="ar-layout">
@@ -309,7 +309,7 @@
                   <div class="motion-overlay" aria-hidden="true">
                     <div class="motion-edge motion-edge-top-left">
                       <span class="motion-tag">STATUS</span>
-                      <p id="arStatusText">Camera idle. Tap enable to start passthrough.</p>
+                      <p id="arStatusText">Camera feed off. Toggle on to request permissions and check the live WiGLE stream.</p>
                     </div>
                     <div class="motion-edge motion-edge-top-right">
                       <span class="motion-tag">ORIENTATION</span>
@@ -328,11 +328,12 @@
                     </div>
                   </div>
                   <div id="arWigleCandidates" class="ar-candidate-layer" aria-hidden="true"></div>
+                  <div id="arDetections" class="ar-detection-layer" aria-hidden="true"></div>
                 </div>
               </div>
 
               <aside class="sensor-panel">
-                <button id="arEnableBtn" class="btn btn-primary sensor-action" type="button">Enable camera &amp; motion</button>
+                <button id="arEnableBtn" class="btn btn-primary sensor-action sensor-toggle" type="button" aria-pressed="false">Camera feed: OFF</button>
                 <button id="arFullscreenBtn" class="btn btn-secondary sensor-action" type="button">Fullscreen feed</button>
 
                 <div class="sensor-card">
@@ -342,8 +343,34 @@
 
                 <div class="sensor-card">
                   <p class="sensor-label">WiGLE candidates</p>
-                  <p id="arWigleStatusText">WiGLE demo data is loaded until a live run or local database is connected.</p>
+                  <p id="arWigleStatusText">Live WiGLE stream is idle until the camera feed is toggled on.</p>
                   <div id="arCandidateList" class="wigle-list"></div>
+                </div>
+
+                <div class="sensor-card">
+                  <p class="sensor-label">Object detections</p>
+                  <label class="wigle-field" for="visionEndpointInput">
+                    <span>Live model endpoint</span>
+                    <input
+                      id="visionEndpointInput"
+                      class="input dashboard-input"
+                      type="url"
+                      placeholder="http://device.local:8787/api/ar-detections"
+                      autocomplete="off"
+                      autocapitalize="none"
+                      spellcheck="false"
+                    />
+                  </label>
+                  <label class="wigle-field" for="visionFileInput">
+                    <span>Local detection file</span>
+                    <input id="visionFileInput" class="input dashboard-input" type="file" accept=".json,.ndjson,.csv,.txt,application/json,text/csv,text/plain" />
+                  </label>
+                  <div class="wigle-action-row">
+                    <button id="visionConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect live model</button>
+                    <button id="visionDemoBtn" class="btn btn-secondary sensor-action" type="button">Load demo detections</button>
+                  </div>
+                  <p id="visionStatusText">Demo object detections are ready.</p>
+                  <div id="arDetectionList" class="wigle-list vision-list"></div>
                 </div>
 
                 <div class="sensor-card">
@@ -408,10 +435,10 @@
                     <input id="wigleFileInput" class="input dashboard-input" type="file" accept=".json,.csv,.ndjson,application/json,text/csv,text/plain" />
                   </label>
                   <div class="wigle-action-row">
-                    <button id="wigleConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect live run</button>
+                    <button id="wigleConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect live stream</button>
                     <button id="wigleDemoBtn" class="btn btn-secondary sensor-action" type="button">Load demo data</button>
                   </div>
-                  <p id="wigleStatusText">WiGLE demo data is ready.</p>
+                  <p id="wigleStatusText">Local WiGLE database is ready.</p>
                 </div>
 
                 <div class="geo-card">
@@ -421,7 +448,7 @@
 
                 <div class="geo-card">
                   <p class="sensor-label">WiGLE map readout</p>
-                  <p id="godeyeWigleStatus">The map will mirror live WiGLE and local database signals here.</p>
+                  <p id="godeyeWigleStatus">The map will show local WiGLE records within 100m of the current fix.</p>
                   <div id="godeyeWigleList" class="wigle-list"></div>
                 </div>
 

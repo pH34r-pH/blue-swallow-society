@@ -9,9 +9,17 @@ import {
   buildArCandidateBoxes,
   buildWigleMapState,
   createDemoWigleDataset,
+  filterWigleRecordsByRadius,
+  isLiveWigleSnapshot,
   mergeWigleRecords,
   parseWiglePayload,
 } from './wigle.mjs';
+import {
+  buildArDetectionBoxes,
+  createDemoVisionDataset,
+  mergeVisionDetections,
+  parseVisionPayload,
+} from './vision.mjs';
 
 const PASSCODE_FALLBACK = 'blue-swallow';
 const TILE_BASE_URL = 'https://tile.openstreetmap.org';
@@ -31,9 +39,11 @@ const state = {
   tabSystemBound: false,
   arBound: false,
   arReady: false,
+  arEnabled: false,
   arFullscreen: false,
   arOrientationAngle: 0,
   arOrientationBound: false,
+  arLivePollId: 0,
   cameraStream: null,
   motionBound: false,
   motionReady: false,
@@ -58,9 +68,20 @@ const state = {
   wigleBound: false,
   wigleRenderFrame: 0,
   wigleData: createDemoWigleDataset(),
+  wigleLiveData: null,
+  wigleLiveReady: false,
+  wigleLiveStatus: 'Live WiGLE stream is not connected yet.',
+  wigleLiveSourceLabel: 'live',
+  wigleLivePollId: 0,
   wigleEndpoint: '',
-  wigleStatus: 'Demo WiGLE data is ready.',
+  wigleStatus: 'Local WiGLE database is ready.',
   wigleSourceLabel: 'demo',
+  visionBound: false,
+  visionRenderFrame: 0,
+  visionData: createDemoVisionDataset(),
+  visionEndpoint: '',
+  visionStatus: 'Demo object detections are ready.',
+  visionSourceLabel: 'demo',
 };
 
 function init() {
@@ -212,9 +233,18 @@ function resetConsoleToLogin() {
   stopGodeyeFeed();
   state.currentLocation = null;
   state.wigleData = createDemoWigleDataset();
+  state.wigleLiveData = null;
+  state.wigleLiveReady = false;
+  state.wigleLiveStatus = 'Live WiGLE stream is not connected yet.';
+  state.wigleLiveSourceLabel = 'live';
   state.wigleEndpoint = '';
-  state.wigleStatus = 'Demo WiGLE data is ready.';
+  state.wigleStatus = 'Local WiGLE database is ready.';
   state.wigleSourceLabel = 'demo';
+  state.visionData = createDemoVisionDataset();
+  state.visionEndpoint = '';
+  state.visionStatus = 'Demo object detections are ready.';
+  state.visionSourceLabel = 'demo';
+  state.arEnabled = false;
   state.arFullscreen = false;
   const endpointInput = $('wigleEndpointInput');
   if (endpointInput) {
@@ -224,9 +254,19 @@ function resetConsoleToLogin() {
   if (fileInput) {
     fileInput.value = '';
   }
-  setText('arStatusText', 'Camera idle. Tap enable to start passthrough.');
+  const visionEndpointInput = $('visionEndpointInput');
+  if (visionEndpointInput) {
+    visionEndpointInput.value = '/api/ar-detections';
+  }
+  const visionFileInput = $('visionFileInput');
+  if (visionFileInput) {
+    visionFileInput.value = '';
+  }
+  setText('arStatusText', 'Camera feed off. Toggle on to request permissions and check the live WiGLE stream.');
   setText('geoStatusText', 'Geolocation permission has not been requested yet.');
   setText('wigleStatusText', state.wigleStatus);
+  setText('visionStatusText', state.visionStatus);
+  syncArFeedToggle();
   renderArHud();
   renderGodeyeFields();
   renderGodeyeMap();
@@ -399,13 +439,15 @@ function initArTab() {
   if (!state.arBound) {
     const enableBtn = $('arEnableBtn');
     if (enableBtn) {
-      enableBtn.addEventListener('click', startArFeed);
+      enableBtn.addEventListener('click', toggleArFeed);
     }
 
     const fullscreenBtn = $('arFullscreenBtn');
     if (fullscreenBtn) {
       fullscreenBtn.addEventListener('click', toggleArFullscreen);
     }
+
+    bindVisionControls();
 
     if (!state.arOrientationBound) {
       window.addEventListener('resize', updateArOrientation);
@@ -417,13 +459,49 @@ function initArTab() {
     state.arBound = true;
   }
 
+  syncArFeedToggle();
   updateArOrientation();
   renderArHud();
 }
 
-async function startArFeed() {
+function syncArFeedToggle() {
+  const button = $('arEnableBtn');
+  if (!button) {
+    return;
+  }
+
+  button.classList.toggle('is-on', state.arEnabled);
+  button.setAttribute('aria-pressed', state.arEnabled ? 'true' : 'false');
+  button.textContent = state.arEnabled ? 'Camera feed: ON' : 'Camera feed: OFF';
+}
+
+function buildWigleEndpointUrl(endpoint, params = {}) {
+  const url = new URL(endpoint, window.location.origin);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') {
+      return;
+    }
+
+    url.searchParams.set(key, String(value));
+  });
+  return url.toString();
+}
+
+async function toggleArFeed() {
+  if (state.arEnabled) {
+    disableArFeed();
+    return;
+  }
+
+  await enableArFeed();
+}
+
+async function enableArFeed() {
   const status = $('arStatusText');
   const enableBtn = $('arEnableBtn');
+
+  state.arEnabled = true;
+  syncArFeedToggle();
 
   if (enableBtn) {
     enableBtn.disabled = true;
@@ -441,6 +519,16 @@ async function startArFeed() {
   } catch (error) {
     console.error('Camera unavailable', error);
     messages.push(`camera unavailable: ${error.message}`);
+    state.arEnabled = false;
+    stopArFeed();
+    if (enableBtn) {
+      enableBtn.disabled = false;
+    }
+    if (status) {
+      status.textContent = messages.join(' · ');
+    }
+    syncArFeedToggle();
+    return;
   }
 
   try {
@@ -450,6 +538,10 @@ async function startArFeed() {
     console.error('Motion unavailable', error);
     messages.push(`motion unavailable: ${error.message}`);
   }
+
+  const live = await refreshLiveWigleFeed();
+  messages.push(live ? 'live WiGLE stream connected' : state.wigleLiveStatus || 'live WiGLE stream unavailable');
+  startWigleLivePolling();
 
   if (status) {
     status.textContent = messages.join(' · ') || 'AR feed ready.';
@@ -461,6 +553,114 @@ async function startArFeed() {
 
   renderArHud();
   renderWigleViews();
+}
+
+function disableArFeed() {
+  stopArFeed();
+  syncArFeedToggle();
+  renderArHud();
+  renderWigleViews();
+}
+
+function startWigleLivePolling() {
+  stopWigleLivePolling();
+  if (!state.arEnabled) {
+    return;
+  }
+
+  state.arLivePollId = window.setInterval(() => {
+    if (!state.arEnabled) {
+      return;
+    }
+
+    void refreshLiveWigleFeed({ quiet: true });
+  }, 10000);
+}
+
+function stopWigleLivePolling() {
+  if (state.arLivePollId) {
+    window.clearInterval(state.arLivePollId);
+    state.arLivePollId = 0;
+  }
+}
+
+async function refreshLiveWigleFeed({ quiet = false } = {}) {
+  const endpointInput = $('wigleEndpointInput');
+  const target = (endpointInput?.value.trim() || state.wigleEndpoint || '/api/wigle').trim();
+
+  if (!target) {
+    setLiveWigleStatus('Live WiGLE endpoint is not configured.');
+    state.wigleLiveReady = false;
+    state.wigleLiveData = null;
+    renderArCandidateLayer();
+    return false;
+  }
+
+  state.wigleEndpoint = target;
+  if (!quiet) {
+    setLiveWigleStatus(`Checking live WiGLE from ${target}…`);
+  }
+
+  try {
+    const url = buildWigleEndpointUrl(target, {
+      mode: 'live',
+      limit: 12,
+      ...(state.currentLocation
+        ? {
+            lat: state.currentLocation.lat,
+            lon: state.currentLocation.lon,
+            radiusMeters: 100,
+          }
+        : {}),
+    });
+
+    const response = await fetch(url, {
+      headers: {
+        Accept: 'application/json, text/plain, */*',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    let payload;
+    if (contentType.includes('application/json')) {
+      payload = await response.json();
+    } else {
+      const text = await response.text();
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = text;
+      }
+    }
+
+    const live = typeof payload === 'string' || Array.isArray(payload) || isLiveWigleSnapshot(payload);
+    const parsed = parseWiglePayload(payload, { source: live ? 'live' : 'database' });
+    const sourceLabel = parsed.source || payload?.source || target;
+
+    applyWigleDataset(parsed, {
+      target: 'live',
+      sourceLabel,
+      message: live
+        ? `Live WiGLE stream connected from ${sourceLabel}.`
+        : `WiGLE response from ${sourceLabel} is not marked live.`,
+      merge: false,
+      live,
+    });
+
+    return live;
+  } catch (error) {
+    console.error('Failed to load live WiGLE feed', error);
+    state.wigleLiveData = null;
+    state.wigleLiveReady = false;
+    state.wigleLiveSourceLabel = target;
+    setLiveWigleStatus(`Live WiGLE unavailable: ${error.message}`);
+    renderArCandidateLayer();
+    return false;
+  }
 }
 
 async function toggleArFullscreen() {
@@ -548,7 +748,30 @@ function getOrientationMode(angle) {
     return 'landscape';
   }
 
+  const viewportLandscape = typeof window !== 'undefined'
+    && Number.isFinite(window.innerWidth)
+    && Number.isFinite(window.innerHeight)
+    && window.innerWidth > window.innerHeight;
+
+  if (viewportLandscape) {
+    return 'landscape';
+  }
+
   return 'portrait';
+}
+
+function getArVideoScale(orientationMode) {
+  if (!state.arFullscreen || orientationMode !== 'landscape') {
+    return 1;
+  }
+
+  const viewportWidth = window.visualViewport?.width || window.innerWidth || 0;
+  const viewportHeight = window.visualViewport?.height || window.innerHeight || 0;
+  if (!viewportWidth || !viewportHeight) {
+    return 1;
+  }
+
+  return clamp(viewportWidth / viewportHeight, 1, 4);
 }
 
 function normalizeAngle(angle) {
@@ -579,7 +802,15 @@ async function ensureCameraStream() {
   if (video) {
     video.srcObject = stream;
     try {
-      await video.play();
+      const playPromise = video.play();
+      if (playPromise && typeof playPromise.then === 'function') {
+        await Promise.race([
+          playPromise.catch((error) => {
+            throw error;
+          }),
+          new Promise((resolve) => setTimeout(resolve, 1500)),
+        ]);
+      }
     } catch (error) {
       console.warn('Camera autoplay blocked', error);
     }
@@ -665,6 +896,9 @@ function stopArFeed() {
     state.cameraStream = null;
   }
 
+  state.arEnabled = false;
+  stopWigleLivePolling();
+
   const video = $('arVideo');
   if (video) {
     video.srcObject = null;
@@ -680,6 +914,7 @@ function stopArFeed() {
     frame.style.removeProperty('--ar-rotation');
     frame.style.removeProperty('--ar-slide-x');
     frame.style.removeProperty('--ar-slide-y');
+    frame.style.removeProperty('--ar-video-scale');
     frame.dataset.orientation = 'portrait';
   }
 
@@ -696,9 +931,10 @@ function stopArFeed() {
 
   const status = $('arStatusText');
   if (status && state.authenticated) {
-    status.textContent = 'Camera idle. Tap enable to start passthrough.';
+    status.textContent = 'Camera feed off. Toggle on to request permissions and check the live WiGLE stream.';
   }
 
+  syncArFeedToggle();
   renderArHud();
 }
 
@@ -735,6 +971,7 @@ function renderArHud() {
     stage.style.setProperty('--ar-rotation', `-${orientationAngle}deg`);
     stage.style.setProperty('--ar-slide-x', slide.x);
     stage.style.setProperty('--ar-slide-y', slide.y);
+    stage.style.setProperty('--ar-video-scale', `${getArVideoScale(orientationMode)}`);
   }
 
   if (attitude) {
@@ -750,6 +987,7 @@ function renderArHud() {
   }
 
   renderArCandidateLayer();
+  renderVisionViews();
 }
 
 function renderArCandidateLayer() {
@@ -757,9 +995,13 @@ function renderArCandidateLayer() {
   const list = $('arCandidateList');
   const status = $('arWigleStatusText');
   const frame = $('arFrame');
-  const records = state.wigleData?.accessPoints || [];
-  const sourceLabel = state.wigleSourceLabel || state.wigleData?.source || 'demo';
-  const summary = `${state.wigleStatus} · ${records.length} access point${records.length === 1 ? '' : 's'} · ${sourceLabel}`;
+  const records = state.arEnabled && state.wigleLiveReady ? (state.wigleLiveData?.accessPoints || []) : [];
+  const sourceLabel = state.wigleLiveSourceLabel || state.wigleLiveData?.source || 'live';
+  const summary = state.arEnabled
+    ? (state.wigleLiveReady
+        ? `${state.wigleLiveStatus} · ${records.length} access point${records.length === 1 ? '' : 's'} · ${sourceLabel}`
+        : state.wigleLiveStatus || 'Live WiGLE stream is not available yet.')
+    : 'Camera feed off. Toggle on to request permissions and check the live WiGLE stream.';
 
   if (status) {
     status.textContent = summary;
@@ -773,17 +1015,23 @@ function renderArCandidateLayer() {
     return;
   }
 
-  if (!records.length) {
+  if (!state.arEnabled || !state.wigleLiveReady || !records.length) {
     const empty = document.createElement('p');
     empty.className = 'dashboard-empty-state';
-    empty.textContent = 'WiGLE candidates will populate here.';
+    if (!state.arEnabled) {
+      empty.textContent = 'Toggle the camera feed on to check the live WiGLE stream.';
+    } else if (!state.wigleLiveReady) {
+      empty.textContent = 'Live WiGLE stream is not online yet.';
+    } else {
+      empty.textContent = 'Live WiGLE stream is online, but no detections have been reported yet.';
+    }
     overlay.replaceChildren(empty);
     return;
   }
 
   const width = frame?.clientWidth || 1080;
   const height = frame?.clientHeight || 1920;
-  const activeLocation = state.currentLocation || state.wigleData?.location || createDemoWigleDataset().location;
+  const activeLocation = state.currentLocation || state.wigleLiveData?.location || createDemoWigleDataset().location;
   const candidatePlan = buildArCandidateBoxes({
     accessPoints: records,
     viewportWidth: width,
@@ -826,6 +1074,273 @@ function renderArCandidateLayer() {
   if (frame && activeLocation) {
     frame.dataset.wigleCenter = formatCoordinatePair(activeLocation.lat, activeLocation.lon);
   }
+}
+
+function bindVisionControls() {
+  if (state.visionBound) {
+    return;
+  }
+
+  const endpointInput = $('visionEndpointInput');
+  const connectBtn = $('visionConnectBtn');
+  const demoBtn = $('visionDemoBtn');
+  const fileInput = $('visionFileInput');
+
+  if (endpointInput) {
+    endpointInput.value = state.visionEndpoint || endpointInput.value || '/api/ar-detections';
+    endpointInput.addEventListener('change', () => {
+      state.visionEndpoint = endpointInput.value.trim();
+    });
+  }
+
+  if (connectBtn) {
+    connectBtn.addEventListener('click', () => {
+      const endpoint = endpointInput?.value.trim() || state.visionEndpoint || '/api/ar-detections';
+      loadVisionEndpoint(endpoint);
+    });
+  }
+
+  if (demoBtn) {
+    demoBtn.addEventListener('click', () => {
+      loadDemoVisionData();
+    });
+  }
+
+  if (fileInput) {
+    fileInput.addEventListener('change', handleVisionFileChange);
+  }
+
+  state.visionBound = true;
+}
+
+async function loadDemoVisionData() {
+  applyVisionDataset(createDemoVisionDataset(), {
+    sourceLabel: 'demo',
+    message: 'Demo object detections loaded.',
+    merge: false,
+  });
+}
+
+async function loadVisionEndpoint(endpoint) {
+  const target = (endpoint || '').trim() || '/api/ar-detections';
+  state.visionEndpoint = target;
+
+  setVisionStatus(`Connecting to ${target}…`);
+
+  try {
+    const response = await fetch(target, {
+      headers: {
+        Accept: 'application/json, text/plain, */*',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const text = await response.text();
+    const parsed = parseVisionPayload(text, { source: 'live' });
+    applyVisionDataset(parsed, {
+      sourceLabel: target,
+      message: `Loaded ${parsed.detections.length} detections from ${target}.`,
+      merge: true,
+    });
+  } catch (error) {
+    console.error('Failed to load object detections', error);
+    applyVisionDataset(createDemoVisionDataset(), {
+      sourceLabel: 'demo',
+      message: `Live object detections unavailable (${error.message}); demo data loaded.`,
+      merge: false,
+    });
+  }
+}
+
+async function handleVisionFileChange(event) {
+  const file = event.target.files?.[0];
+  if (!file) {
+    return;
+  }
+
+  try {
+    const text = await file.text();
+    const parsed = parseVisionPayload(text, { source: 'file' });
+    applyVisionDataset(parsed, {
+      sourceLabel: file.name,
+      message: `Loaded ${parsed.detections.length} detections from ${file.name}.`,
+      merge: true,
+    });
+  } catch (error) {
+    console.error('Failed to load local vision dataset', error);
+    setVisionStatus(`Local detection feed unavailable: ${error.message}`);
+  } finally {
+    event.target.value = '';
+  }
+}
+
+function applyVisionDataset(payload, { sourceLabel = 'demo', message = '', merge = true } = {}) {
+  const parsed = payload && typeof payload === 'object' && Array.isArray(payload.detections)
+    ? payload
+    : parseVisionPayload(payload, { source: sourceLabel });
+
+  const currentDetections = Array.isArray(state.visionData?.detections) ? state.visionData.detections : [];
+  const nextDetections = merge ? mergeVisionDetections(currentDetections, parsed.detections) : mergeVisionDetections(parsed.detections);
+  const nextFrame = parsed.frame || state.visionData?.frame || createDemoVisionDataset().frame;
+
+  state.visionData = {
+    frame: nextFrame,
+    detections: nextDetections,
+    source: sourceLabel,
+    updatedAt: parsed.updatedAt || new Date().toISOString(),
+  };
+  state.visionSourceLabel = sourceLabel;
+
+  setVisionStatus(message || `Loaded ${nextDetections.length} detections.`);
+  renderVisionViews();
+}
+
+function setVisionStatus(message) {
+  state.visionStatus = message;
+  setText('visionStatusText', message);
+}
+
+function renderVisionViews() {
+  renderArDetectionLayer();
+}
+
+function renderArDetectionLayer() {
+  const overlay = $('arDetections');
+  const list = $('arDetectionList');
+  const status = $('visionStatusText');
+  const frame = $('arFrame');
+  const records = state.visionData?.detections || [];
+  const sourceLabel = state.visionSourceLabel || state.visionData?.source || 'demo';
+  const summary = `${state.visionStatus} · ${records.length} detection${records.length === 1 ? '' : 's'} · ${sourceLabel}`;
+
+  if (status) {
+    status.textContent = summary;
+  }
+
+  if (list) {
+    renderVisionList(list, records);
+  }
+
+  if (!overlay) {
+    return;
+  }
+
+  if (!records.length) {
+    const empty = document.createElement('p');
+    empty.className = 'dashboard-empty-state';
+    empty.textContent = 'Object detections will populate here.';
+    overlay.replaceChildren(empty);
+    return;
+  }
+
+  const width = frame?.clientWidth || 1080;
+  const height = frame?.clientHeight || 1920;
+  const detectionPlan = buildArDetectionBoxes({
+    detections: records,
+    viewportWidth: width,
+    viewportHeight: height,
+    orientationAngle: state.arOrientationAngle,
+    maxBoxes: 8,
+  });
+
+  const fragment = document.createDocumentFragment();
+  detectionPlan.boxes.forEach((box) => {
+    const detection = document.createElement('article');
+    detection.className = `ar-detection ar-detection-${getDetectionConfidenceBand(box.confidence)}`;
+    detection.style.left = `${box.x}px`;
+    detection.style.top = `${box.y}px`;
+    detection.style.width = `${box.width}px`;
+    detection.style.height = `${box.height}px`;
+    detection.style.transform = `translate(0, 0) rotate(${box.rotation || 0}deg)`;
+
+    const meta = document.createElement('div');
+    meta.className = 'detection-meta';
+    meta.textContent = `${box.confidence}% confidence · ${box.source || 'live'}`;
+    detection.appendChild(meta);
+
+    const label = document.createElement('strong');
+    label.textContent = box.label;
+    detection.appendChild(label);
+
+    const subtitle = document.createElement('span');
+    subtitle.textContent = box.subtitle || box.detail;
+    detection.appendChild(subtitle);
+
+    const detail = document.createElement('span');
+    detail.textContent = `${box.width}px × ${box.height}px · ${box.x}, ${box.y}`;
+    detection.appendChild(detail);
+
+    fragment.appendChild(detection);
+  });
+
+  overlay.replaceChildren(fragment);
+}
+
+function renderVisionList(container, detections, limit = 6) {
+  if (!container) {
+    return;
+  }
+
+  const limitedDetections = detections.slice(0, limit);
+  if (!limitedDetections.length) {
+    const empty = document.createElement('p');
+    empty.className = 'dashboard-empty-state';
+    empty.textContent = 'Vision detections will appear here when available.';
+    container.replaceChildren(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  limitedDetections.forEach((detection, index) => {
+    const item = document.createElement('article');
+    item.className = 'wigle-item vision-item';
+
+    const title = document.createElement('strong');
+    title.className = 'wigle-item-title';
+    title.textContent = `${index + 1}. ${detection.label || 'Object'}`;
+    item.appendChild(title);
+
+    const meta = document.createElement('div');
+    meta.className = 'wigle-item-meta';
+    meta.textContent = [
+      Number.isFinite(detection.confidence) ? `${detection.confidence}% confidence` : null,
+      detection.source || null,
+      detection.box?.normalized ? 'normalized' : 'pixel',
+    ].filter(Boolean).join(' · ') || 'Vision detection';
+    item.appendChild(meta);
+
+    const detail = document.createElement('p');
+    detail.className = 'wigle-item-detail';
+    detail.textContent = [
+      detection.detail || null,
+      detection.box ? `${detection.box.normalized ? 'normalized' : 'pixel'} box` : null,
+      detection.trackId ? `track ${detection.trackId}` : null,
+    ].filter(Boolean).join(' · ') || 'Camera overlay ready';
+    item.appendChild(detail);
+
+    fragment.appendChild(item);
+  });
+
+  container.replaceChildren(fragment);
+}
+
+function getDetectionConfidenceBand(confidence) {
+  if (!Number.isFinite(confidence)) {
+    return 'unknown';
+  }
+
+  if (confidence >= 85) {
+    return 'high';
+  }
+
+  if (confidence >= 65) {
+    return 'medium';
+  }
+
+  return 'low';
 }
 
 function initGodeyeTab() {
@@ -924,43 +1439,17 @@ function bindWigleControls() {
 async function loadDemoWigleData() {
   applyWigleDataset(createDemoWigleDataset(), {
     sourceLabel: 'demo',
-    message: 'Demo WiGLE data loaded.',
+    message: 'Demo local WiGLE database loaded.',
     merge: false,
+    target: 'local',
   });
 }
 
 async function loadWigleEndpoint(endpoint) {
   const target = (endpoint || '').trim() || '/api/wigle';
   state.wigleEndpoint = target;
-
-  setWigleStatus(`Connecting to ${target}…`);
-
-  try {
-    const response = await fetch(target, {
-      headers: {
-        Accept: 'application/json, text/plain, */*',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const text = await response.text();
-    const parsed = parseWiglePayload(text, { source: 'live' });
-    applyWigleDataset(parsed, {
-      sourceLabel: target,
-      message: `Loaded ${parsed.accessPoints.length} WiGLE records from ${target}.`,
-      merge: true,
-    });
-  } catch (error) {
-    console.error('Failed to load WiGLE endpoint', error);
-    applyWigleDataset(createDemoWigleDataset(), {
-      sourceLabel: 'demo',
-      message: `Live WiGLE unavailable (${error.message}); demo data loaded.`,
-      merge: false,
-    });
-  }
+  setLiveWigleStatus(`Connecting to ${target}…`);
+  return refreshLiveWigleFeed({ quiet: false });
 }
 
 async function handleWigleFileChange(event) {
@@ -976,6 +1465,7 @@ async function handleWigleFileChange(event) {
       sourceLabel: file.name,
       message: `Loaded ${parsed.accessPoints.length} WiGLE records from ${file.name}.`,
       merge: true,
+      target: 'local',
     });
   } catch (error) {
     console.error('Failed to load local WiGLE database', error);
@@ -985,24 +1475,46 @@ async function handleWigleFileChange(event) {
   }
 }
 
-function applyWigleDataset(payload, { sourceLabel = 'demo', message = '', merge = true } = {}) {
+function applyWigleDataset(payload, { sourceLabel = 'demo', message = '', merge = true, target = 'local', live = target === 'live' } = {}) {
   const parsed = payload && typeof payload === 'object' && Array.isArray(payload.accessPoints)
     ? payload
     : parseWiglePayload(payload, { source: sourceLabel });
 
-  const currentRecords = Array.isArray(state.wigleData?.accessPoints) ? state.wigleData.accessPoints : [];
-  const nextRecords = merge ? mergeWigleRecords(currentRecords, parsed.accessPoints) : mergeWigleRecords(parsed.accessPoints);
-  const nextLocation = parsed.location || state.currentLocation || state.wigleData?.location || createDemoWigleDataset().location;
+  if (target === 'live') {
+    const currentRecords = Array.isArray(state.wigleLiveData?.accessPoints) ? state.wigleLiveData.accessPoints : [];
+    const nextRecords = merge ? mergeWigleRecords(currentRecords, parsed.accessPoints) : mergeWigleRecords(parsed.accessPoints);
+    const nextLocation = parsed.location || state.currentLocation || state.wigleLiveData?.location || createDemoWigleDataset().location;
 
-  state.wigleData = {
-    location: nextLocation,
-    accessPoints: nextRecords,
-    source: sourceLabel,
-    updatedAt: parsed.updatedAt || new Date().toISOString(),
-  };
-  state.wigleSourceLabel = sourceLabel;
+    state.wigleLiveData = {
+      location: nextLocation,
+      accessPoints: nextRecords,
+      source: sourceLabel,
+      updatedAt: parsed.updatedAt || new Date().toISOString(),
+      live,
+      mode: live ? 'live' : 'database',
+    };
+    state.wigleLiveReady = live;
+    state.wigleLiveSourceLabel = sourceLabel;
 
-  setWigleStatus(message || `Loaded ${nextRecords.length} WiGLE records.`);
+    setLiveWigleStatus(message || (live
+      ? `Live WiGLE stream ready from ${sourceLabel}.`
+      : `WiGLE response from ${sourceLabel} is not marked live.`));
+  } else {
+    const currentRecords = Array.isArray(state.wigleData?.accessPoints) ? state.wigleData.accessPoints : [];
+    const nextRecords = merge ? mergeWigleRecords(currentRecords, parsed.accessPoints) : mergeWigleRecords(parsed.accessPoints);
+    const nextLocation = parsed.location || state.currentLocation || state.wigleData?.location || createDemoWigleDataset().location;
+
+    state.wigleData = {
+      location: nextLocation,
+      accessPoints: nextRecords,
+      source: sourceLabel,
+      updatedAt: parsed.updatedAt || new Date().toISOString(),
+    };
+    state.wigleSourceLabel = sourceLabel;
+
+    setWigleStatus(message || `Loaded ${nextRecords.length} WiGLE records.`);
+  }
+
   renderWigleViews();
 }
 
@@ -1011,6 +1523,12 @@ function setWigleStatus(message) {
   setText('wigleStatusText', message);
   setText('godeyeWigleStatus', message);
 }
+
+function setLiveWigleStatus(message) {
+  state.wigleLiveStatus = message;
+  setText('arWigleStatusText', message);
+}
+
 
 function renderWigleViews() {
   renderGodeyeMap();
@@ -1059,6 +1577,7 @@ function renderWigleList(container, records, limit = 6) {
       record.security || null,
       record.estimatedRange?.label || null,
       Number.isFinite(record.lat) && Number.isFinite(record.lon) ? formatCoordinatePair(record.lat, record.lon) : null,
+      Number.isFinite(record.distanceMeters) ? `${Math.round(record.distanceMeters)} m away` : null,
     ].filter(Boolean).join(' · ') || 'Signal hint only';
     item.appendChild(detail);
 
@@ -1071,11 +1590,13 @@ function renderWigleList(container, records, limit = 6) {
 function renderGodeyeWigleList() {
   const list = $('godeyeWigleList');
   const records = state.wigleData?.accessPoints || [];
+  const location = state.currentLocation || state.wigleData?.location || createDemoWigleDataset().location;
+  const nearbyRecords = filterWigleRecordsByRadius(records, location, 100);
   if (!list) {
     return;
   }
 
-  renderWigleList(list, records);
+  renderWigleList(list, nearbyRecords);
 }
 
 function getCurrentPosition() {
@@ -1154,8 +1675,8 @@ function renderGodeyeFields() {
   const coords = $('godeyeCoords');
   if (coords) {
     coords.textContent = state.currentLocation
-      ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy || 0)}m`
-      : `Demo fix ${formatCoordinatePair(location.lat, location.lon)} · WiGLE data loaded`;
+      ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy || 0)}m · 100m WiGLE radius`
+      : `Demo fix ${formatCoordinatePair(location.lat, location.lon)} · local WiGLE database loaded`;
   }
 
   if (!state.currentLocation && state.authenticated) {
@@ -1228,6 +1749,7 @@ function renderGodeyeMap() {
     viewportWidth: width,
     viewportHeight: height,
     zoom: MAP_ZOOM,
+    radiusMeters: 100,
   });
 
   const markerFragment = document.createDocumentFragment();
@@ -1248,7 +1770,7 @@ function renderGodeyeMap() {
     network.appendChild(meta);
 
     const detail = document.createElement('span');
-    detail.textContent = `${ap.detail || 'WiGLE network'}${ap.bearing !== null && ap.bearing !== undefined ? ` · ${Math.round(ap.bearing)}°` : ''}`;
+    detail.textContent = `${ap.detail || 'WiGLE network'}${Number.isFinite(ap.distanceMeters) ? ` · ${Math.round(ap.distanceMeters)} m away` : ''}${ap.bearing !== null && ap.bearing !== undefined ? ` · ${Math.round(ap.bearing)}°` : ''}`;
     network.appendChild(detail);
 
     markerFragment.appendChild(network);
@@ -1267,8 +1789,8 @@ function renderGodeyeMap() {
   if (status) {
     const strongest = mapState.stats.strongest;
     status.textContent = strongest
-      ? `${state.wigleStatus} · ${mapState.stats.total} networks · strongest ${strongest.ssid} ${strongest.signalDbm} dBm · ${strongest.signalBand}`
-      : `${state.wigleStatus} · WiGLE markers will appear here when a live run or database is loaded.`;
+      ? `${state.wigleStatus} · ${mapState.stats.total} local network${mapState.stats.total === 1 ? '' : 's'} within 100m · strongest ${strongest.ssid} ${strongest.signalDbm} dBm · ${strongest.signalBand}`
+      : `${state.wigleStatus} · No local WiGLE records within 100m of this fix.`;
   }
 }
 

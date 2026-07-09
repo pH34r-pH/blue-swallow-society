@@ -307,9 +307,14 @@ export function buildWigleMapState({
   viewportWidth = DEFAULT_VIEWPORT.width,
   viewportHeight = DEFAULT_VIEWPORT.height,
   zoom = DEFAULT_VIEWPORT.zoom,
+  radiusMeters = null,
 } = {}) {
   const normalizedAccessPoints = mergeWigleRecords(accessPoints);
   const center = normalizeLocation(location) || inferCenterFromAccessPoints(normalizedAccessPoints) || DEMO_LOCATION;
+  const mappedAccessPoints = Number.isFinite(radiusMeters)
+    ? filterWigleRecordsByRadius(normalizedAccessPoints, center, radiusMeters)
+    : normalizedAccessPoints;
+
   const tileGrid = buildTileGrid({
     lat: center.lat,
     lon: center.lon,
@@ -318,7 +323,7 @@ export function buildWigleMapState({
     height: viewportHeight,
   });
 
-  const markers = normalizedAccessPoints.map((ap) => {
+  const markers = mappedAccessPoints.map((ap) => {
     const projection = projectAccessPoint(ap, tileGrid, zoom, center);
     return {
       ...ap,
@@ -338,7 +343,7 @@ export function buildWigleMapState({
     };
   });
 
-  const strongest = markers[0] || null;
+  const strongest = [...markers].sort((left, right) => scoreRecord(right) - scoreRecord(left))[0] || null;
   const sourceCounts = markers.reduce((counts, marker) => {
     const key = marker.source || 'live';
     counts[key] = (counts[key] || 0) + 1;
@@ -435,8 +440,65 @@ export function createDemoWigleDataset() {
     location: { ...DEMO_LOCATION },
     accessPoints: DEMO_ACCESS_POINTS.map((entry) => ({ ...entry })),
     source: 'demo',
+    mode: 'demo',
+    live: false,
+    streamState: 'demo',
     updatedAt: DEMO_LOCATION.timestamp,
   };
+}
+
+export function filterWigleRecordsByRadius(records = [], center = null, radiusMeters = 100) {
+  const normalizedCenter = normalizeLocation(center);
+  const maxRadius = Number.isFinite(radiusMeters) ? Math.max(0, radiusMeters) : null;
+
+  if (!normalizedCenter || maxRadius === null) {
+    return mergeWigleRecords(records).map((record) => ({ ...record }));
+  }
+
+  return mergeWigleRecords(records)
+    .map((record) => {
+      if (!Number.isFinite(record.lat) || !Number.isFinite(record.lon)) {
+        return null;
+      }
+
+      const distanceMeters = haversineDistance(normalizedCenter.lat, normalizedCenter.lon, record.lat, record.lon);
+      if (distanceMeters > maxRadius) {
+        return null;
+      }
+
+      return {
+        ...record,
+        distanceMeters,
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => {
+      const leftDistance = Number.isFinite(left.distanceMeters) ? left.distanceMeters : Number.POSITIVE_INFINITY;
+      const rightDistance = Number.isFinite(right.distanceMeters) ? right.distanceMeters : Number.POSITIVE_INFINITY;
+      if (leftDistance !== rightDistance) {
+        return leftDistance - rightDistance;
+      }
+
+      return scoreRecord(right) - scoreRecord(left);
+    });
+}
+
+export function isLiveWigleSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return false;
+  }
+
+  if (snapshot.live === true) {
+    return true;
+  }
+
+  const mode = cleanString(snapshot.mode || snapshot.streamState || '').toLowerCase();
+  if (mode === 'live' || mode === 'realtime' || mode === 'bridge') {
+    return true;
+  }
+
+  const source = cleanString(snapshot.source || '').toLowerCase();
+  return ['live', 'bridge', 'api'].includes(source);
 }
 
 function normalizeLocation(location, fallback = null) {

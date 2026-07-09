@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {
   buildArCandidateBoxes,
   buildWigleMapState,
+  filterWigleRecordsByRadius,
+  isLiveWigleSnapshot,
   normalizeWigleRecord,
 } from '../app/wigle.mjs';
 
@@ -25,6 +27,71 @@ test('normalizeWigleRecord standardizes WiGLE-like inputs', () => {
   assert.equal(record.signalDbm, -54);
   assert.equal(record.signalBand, 'good');
   assert.ok(record.estimatedRange.max > record.estimatedRange.min);
+});
+
+test('filterWigleRecordsByRadius keeps the local database inside a 100m radius', () => {
+  const center = { lat: 47.6205, lon: -122.3493 };
+  const records = [
+    {
+      ssid: 'Near AP',
+      bssid: 'aa:bb:cc:dd:ee:55',
+      lat: 47.62058,
+      lon: -122.34918,
+      signalDbm: -51,
+    },
+    {
+      ssid: 'Far AP',
+      bssid: 'aa:bb:cc:dd:ee:66',
+      lat: 47.6226,
+      lon: -122.3600,
+      signalDbm: -68,
+    },
+  ];
+
+  const filtered = filterWigleRecordsByRadius(records, center, 100);
+
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].ssid, 'Near AP');
+  assert.ok(filtered[0].distanceMeters > 0);
+  assert.ok(filtered[0].distanceMeters <= 100);
+});
+
+test('isLiveWigleSnapshot only promotes explicit live snapshots', () => {
+  assert.equal(isLiveWigleSnapshot({ live: true, accessPoints: [] }), true);
+  assert.equal(isLiveWigleSnapshot({ mode: 'live', accessPoints: [] }), true);
+  assert.equal(isLiveWigleSnapshot({ streamState: 'bridge', accessPoints: [] }), true);
+  assert.equal(isLiveWigleSnapshot({ mode: 'database', accessPoints: [] }), false);
+  assert.equal(isLiveWigleSnapshot({ source: 'demo', accessPoints: [] }), false);
+});
+
+test('buildWigleMapState keeps the Godeye map inside a 100m local radius', () => {
+  const layout = buildWigleMapState({
+    location: { lat: 47.6205, lon: -122.3493 },
+    accessPoints: [
+      {
+        ssid: 'Near AP',
+        bssid: 'aa:bb:cc:dd:ee:55',
+        lat: 47.62058,
+        lon: -122.34918,
+        signalDbm: -51,
+      },
+      {
+        ssid: 'Far AP',
+        bssid: 'aa:bb:cc:dd:ee:66',
+        lat: 47.6226,
+        lon: -122.3600,
+        signalDbm: -68,
+      },
+    ],
+    viewportWidth: 1024,
+    viewportHeight: 768,
+    zoom: 17,
+    radiusMeters: 100,
+  });
+
+  assert.equal(layout.markers.length, 1);
+  assert.equal(layout.markers[0].label, 'Near AP');
+  assert.equal(layout.stats.total, 1);
 });
 
 test('buildWigleMapState projects nearby access points into viewport coordinates', () => {
