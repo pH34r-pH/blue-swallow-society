@@ -22,7 +22,7 @@ CUSTOM_DOMAINS_API_VERSION = "2024-11-01"
 DNS_API_VERSION = "2018-05-01"
 TOKEN_RETRIES = 12
 TOKEN_SLEEP_SECONDS = 5
-WWW_DOMAIN_RETRIES = 18
+WWW_DOMAIN_RETRIES = 60
 WWW_DOMAIN_SLEEP_SECONDS = 10
 
 
@@ -192,6 +192,10 @@ def create_custom_domain_with_retry(
             message = str(exc)
             if validation_method == "cname-delegation" and "CNAME Record is invalid" in message:
                 if attempt < retries:
+                    print(
+                        f"CNAME for {hostname!r} not ready yet (attempt {attempt}/{retries}); retrying in {sleep_seconds}s.",
+                        file=sys.stderr,
+                    )
                     time.sleep(sleep_seconds)
                     continue
             raise
