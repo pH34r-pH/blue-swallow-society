@@ -3,6 +3,10 @@
 
 This script uses raw ARM HTTPS calls plus GitHub OIDC to avoid depending on
 Azure CLI subcommands that are not available in the runner image.
+
+If public DNS delegation has not landed yet, the script logs a warning and
+returns success so app deployments can keep flowing until the registrar is
+updated.
 """
 
 from __future__ import annotations
@@ -53,15 +57,15 @@ def dns_zone_name_servers(resource_group: str, dns_zone_name: str) -> list[str]:
 
 
 
-def ensure_public_dns_delegation(
+def public_dns_delegation_is_live(
     dns_zone_resource_group: str,
     dns_zone_name: str,
     apex_hostname: str,
     www_hostname: str,
-) -> None:
+) -> bool:
     unresolved = [hostname for hostname in (apex_hostname, www_hostname) if not host_resolves(hostname)]
     if not unresolved:
-        return
+        return True
 
     try:
         name_servers = dns_zone_name_servers(dns_zone_resource_group, dns_zone_name)
@@ -71,11 +75,13 @@ def ensure_public_dns_delegation(
         ) from exc
 
     nameserver_text = ", ".join(name_servers) if name_servers else "(no name servers returned by Azure DNS)"
-    raise RuntimeError(
+    print(
         f"Public DNS for {', '.join(unresolved)} does not resolve from this runner. "
-        f"The Azure DNS zone {dns_zone_name!r} is not publicly delegated (or delegation is still propagating). "
-        f"Update the registrar nameservers to: {nameserver_text}"
+        f"The Azure DNS zone {dns_zone_name!r} is not publicly delegated yet (or delegation is still propagating). "
+        f"Update the registrar nameservers to: {nameserver_text}",
+        file=sys.stderr,
     )
+    return False
 
 
 
@@ -302,9 +308,10 @@ def configure_apex(
     dns_zone_name: str,
     apex_hostname: str,
     www_hostname: str,
-) -> None:
+) -> bool:
     default_hostname, static_web_app_id = get_default_hostname_and_id(resource_group, static_web_app_name)
-    ensure_public_dns_delegation(dns_zone_resource_group, dns_zone_name, apex_hostname, www_hostname)
+    if not public_dns_delegation_is_live(dns_zone_resource_group, dns_zone_name, apex_hostname, www_hostname):
+        return False
     token = create_custom_domain_and_token(resource_group, static_web_app_name, apex_hostname, "dns-txt-token")
     upsert_txt_record(dns_zone_resource_group, dns_zone_name, token)
     upsert_alias_a_record(dns_zone_resource_group, dns_zone_name, "@", static_web_app_id)
@@ -315,6 +322,7 @@ def configure_apex(
         www_hostname,
         "cname-delegation",
     )
+    return True
 
 
 def parse_args() -> argparse.Namespace:
@@ -337,7 +345,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
 
-    configure_apex(
+    configured = configure_apex(
         args.resource_group,
         args.static_web_app_name,
         args.dns_zone_resource_group,
@@ -345,9 +353,14 @@ def main() -> int:
         args.apex_hostname,
         args.www_hostname,
     )
-    print(
-        f"Configured {args.apex_hostname} and {args.www_hostname} for Static Web App {args.static_web_app_name!r} in {args.resource_group!r}."
-    )
+    if configured:
+        print(
+            f"Configured {args.apex_hostname} and {args.www_hostname} for Static Web App {args.static_web_app_name!r} in {args.resource_group!r}."
+        )
+    else:
+        print(
+            f"Skipped custom-domain wiring for {args.apex_hostname} and {args.www_hostname} until public DNS delegation is live."
+        )
     return 0
 
 
