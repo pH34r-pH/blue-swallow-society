@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const handler = require('../api/validate-passcode/index.js');
+const { createOperatorToken, verifyOperatorRequest } = require('../api/_lib/operator-auth.js');
 
 function makeContext() {
   return { log: { warn: () => {}, error: () => {} } };
@@ -104,5 +105,21 @@ test('validate-passcode rate limits repeated failures per caller', async () => {
     const limited = await invoke('correct horse', { ip: '198.51.100.23' });
     assert.equal(limited.status, 429);
     assert.equal(limited.body.ok, false);
+  });
+});
+
+test('operator token header takes precedence over SWA platform authorization', async () => {
+  const digest = crypto.createHash('sha256').update('tzeentch platform auth').digest('hex');
+  await withEnv({ BLUE_SWALLOW_PASSCODE_SHA256: digest }, async () => {
+    const session = createOperatorToken({ now: Date.UTC(2026, 0, 1), ttlMs: 60_000 });
+    const verified = verifyOperatorRequest({
+      headers: {
+        authorization: 'Bearer platform-injected-token',
+        'x-blue-swallow-operator-token': session.token,
+      },
+    }, { now: Date.UTC(2026, 0, 1) + 1000 });
+
+    assert.equal(verified.ok, true);
+    assert.equal(verified.token.sub, 'operator');
   });
 });

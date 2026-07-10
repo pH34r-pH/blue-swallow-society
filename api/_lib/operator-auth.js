@@ -119,13 +119,14 @@ function verifyOperatorRequest(req, { now = Date.now() } = {}) {
 }
 
 function extractBearerToken(req) {
-  const authorization = toHeader(req, 'authorization');
-  const match = authorization.match(/^Bearer\s+(.+)$/i);
-  if (match) {
-    return match[1].trim();
+  const explicitOperatorToken = toHeader(req, 'x-blue-swallow-operator-token').trim();
+  if (explicitOperatorToken) {
+    return explicitOperatorToken;
   }
 
-  return toHeader(req, 'x-blue-swallow-operator-token').trim();
+  const authorization = toHeader(req, 'authorization');
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : '';
 }
 
 function toHeader(req, name) {
