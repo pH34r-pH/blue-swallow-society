@@ -9,8 +9,8 @@ param vnetName string
 @description('Virtual network address space for the Cybermap backend.')
 param vnetAddressPrefix string = '10.40.0.0/16'
 
-@description('Subnet name for the VM/API gateway.')
-param appSubnetName string = 'app-subnet'
+@description('Subnet name for the VM/API gateway. Defaults to the existing lab subnet name so repeat deployments do not move the NIC off the live subnet.')
+param appSubnetName string = 'default'
 
 @description('Subnet CIDR for the VM/API gateway.')
 param appSubnetAddressPrefix string = '10.40.0.0/24'

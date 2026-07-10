@@ -28,7 +28,7 @@ This document specifies the Azure infrastructure resources deployed for the Blue
   - **Name**: `${prefix}-vm-vnet` (kept for continuity with the existing lab VNet)
   - **Address space**: `10.40.0.0/16`
 - **Subnets**:
-  - `app-subnet`: `10.40.0.0/24` for the VM/API gateway NIC
+  - `default`: `10.40.0.0/24` for the VM/API gateway NIC. The shared network module keeps this existing lab subnet name so repeat deployments do not move the VM NIC.
   - `postgres-subnet`: `10.40.1.0/28`, delegated to `Microsoft.DBforPostgreSQL/flexibleServers`
 - **Private DNS**:
   - Zone: `${prefix}.postgres.database.azure.com` (Azure private-access zones must end with `.postgres.database.azure.com` and must not equal the server name)
@@ -47,7 +47,7 @@ This document specifies the Azure infrastructure resources deployed for the Blue
     - SSH access (port 22) from `allowedSourceIp` CIDR
     - Echo scaffold access (port 8080) from `allowedSourceIp` CIDR until the Cybermap API gateway task moves product ingress to HTTPS/443
     - Default deny all other inbound traffic
-  - **Network Interface**: Connects VM to the shared `app-subnet` with NSG and public IP
+  - **Network Interface**: Connects VM to the shared `default` app subnet with NSG and public IP
   - **Virtual Machine**:
     - **Image**: Canonical Ubuntu Server 22.04 LTS Gen2
     - **Size**: Standard_B1ms by default for Cybermap headroom; API-only/lab deployments may explicitly override to Standard_B1s
@@ -135,7 +135,7 @@ The VM uses cloud-init to automatically configure the echo service:
 2. Static Web App deployed first (provides hostname for API configuration)
 3. Shared network module creates or updates:
    - VNet `${prefix}-vm-vnet` with `10.40.0.0/16`
-   - `app-subnet` (`10.40.0.0/24`) for the VM/API gateway
+   - `default` (`10.40.0.0/24`) for the VM/API gateway
    - `postgres-subnet` (`10.40.1.0/28`) delegated to PostgreSQL Flexible Server
    - PostgreSQL private DNS zone and VNet link
 4. VM infrastructure consumes `appSubnetId` from the shared network module:
@@ -185,7 +185,7 @@ The VM uses cloud-init to automatically configure the echo service:
 
 ### modules/network.bicep
 - **Encapsulates shared Cybermap network topology**
-- Creates/updates `${prefix}-vm-vnet`, `app-subnet`, delegated `postgres-subnet`, PostgreSQL private DNS zone, and VNet link
+- Creates/updates `${prefix}-vm-vnet`, the existing VM/API `default` subnet, delegated `postgres-subnet`, PostgreSQL private DNS zone, and VNet link
 - Outputs subnet and DNS IDs consumed by the VM and PostgreSQL modules
 
 ### vm-echo-lab.bicep
@@ -204,7 +204,7 @@ The VM uses cloud-init to automatically configure the echo service:
 - Uses prefix parameter for consistent naming:
   - VM: `${prefix}-vm`
   - VNet: `${prefix}-vm-vnet`
-  - App subnet: `app-subnet` (`10.40.0.0/24`)
+  - App subnet: `default` (`10.40.0.0/24`)
   - PostgreSQL subnet: `postgres-subnet` (`10.40.1.0/28`, delegated)
   - PostgreSQL private DNS zone: `${prefix}.postgres.database.azure.com`
   - PostgreSQL private DNS VNet link: `${prefix}-vm-vnet-postgres-link`
@@ -221,7 +221,7 @@ The VM uses cloud-init to automatically configure the echo service:
 
 ### Idempotency and migration notes
 - The shared network module keeps the existing lab VNet name `${prefix}-vm-vnet` to avoid introducing a second VNet.
-- New deployments create `app-subnet` and `postgres-subnet` directly. Existing deployments that already have a `default` subnet at `10.40.0.0/24` must run `az deployment group what-if` before apply: Azure may report deletion of `default` and a NIC subnet move to `app-subnet`. Do not apply if what-if shows VM replacement; migrate the NIC/subnet plan manually first.
+- New and existing deployments keep the VM/API subnet named `default` and add `postgres-subnet` alongside it. Run `az deployment group what-if` before apply and do not proceed if Azure predicts VM replacement or a NIC subnet move.
 - PostgreSQL Flexible Server must be added to `postgres-subnet` with private DNS only. Public PostgreSQL ingress is out of policy.
 
 ### Production Considerations
