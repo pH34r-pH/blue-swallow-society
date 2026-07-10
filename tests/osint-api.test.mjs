@@ -4,11 +4,10 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const handler = require('../api/osint/index.js');
+const safety = require('../api/osint/safety.js');
+const classifier = require('../api/osint/classifier.js');
 
-test('osint internals reject private, link-local, and reserved IP targets', () => {
-  const internals = handler._internals;
-  assert.ok(internals, 'osint handler should expose testable safety internals');
-
+test('osint safety module rejects private, link-local, and reserved IP targets', () => {
   [
     'localhost',
     'router.local',
@@ -29,17 +28,36 @@ test('osint internals reject private, link-local, and reserved IP targets', () =
     'fd00::1',
     '2001:db8::1',
   ].forEach((target) => {
-    assert.equal(internals.isUnsafeHostName(target), true, `${target} should be unsafe`);
+    assert.equal(safety.isUnsafeHostName(target), true, `${target} should be unsafe`);
   });
 
-  assert.equal(internals.isUnsafeHostName('8.8.8.8'), false);
-  assert.equal(internals.isUnsafeHostName('example.com'), false);
+  assert.equal(safety.isUnsafeHostName('8.8.8.8'), false);
+  assert.equal(safety.isUnsafeHostName('example.com'), false);
+});
+
+test('osint target classifier module normalizes reusable scan modes', () => {
+  assert.deepEqual(classifier.classifyTarget('HTTPS://Example.COM/Path?q=1', 'auto'), {
+    kind: 'url',
+    label: 'URL',
+    normalized: 'https://example.com/Path?q=1',
+    summary: 'URL + domain intelligence',
+    headline: 'URL scan for example.com',
+    signalQuery: 'example.com',
+  });
+
+  assert.deepEqual(classifier.classifyTarget('@BlueSwallow', 'auto'), {
+    kind: 'handle',
+    label: 'Handle',
+    normalized: 'BlueSwallow',
+    summary: 'Public username traces',
+    headline: 'Handle scan for BlueSwallow',
+    signalQuery: 'BlueSwallow',
+  });
 });
 
 test('osint web probe rejects DNS resolutions to private addresses before fetch', async () => {
-  const internals = handler._internals;
-  assert.ok(internals?.setDnsLookupForTests, 'expected DNS injection test hook');
-  assert.ok(internals?.probePublicUrl, 'expected probePublicUrl test hook');
+  assert.ok(safety.setDnsLookupForTests, 'expected DNS injection test hook');
+  assert.ok(safety.probePublicUrl, 'expected probePublicUrl test hook');
 
   const originalFetch = globalThis.fetch;
   let fetchCalled = false;
@@ -47,23 +65,22 @@ test('osint web probe rejects DNS resolutions to private addresses before fetch'
     fetchCalled = true;
     return new Response('<title>bad</title>', { status: 200, headers: { 'content-type': 'text/html' } });
   };
-  internals.setDnsLookupForTests(async () => [{ address: '127.0.0.1', family: 4 }]);
+  safety.setDnsLookupForTests(async () => [{ address: '127.0.0.1', family: 4 }]);
 
   try {
-    await assert.rejects(() => internals.probePublicUrl('https://example.test/'), /private|reserved|public/i);
+    await assert.rejects(() => safety.probePublicUrl('https://example.test/'), /private|reserved|public/i);
     assert.equal(fetchCalled, false, 'fetch must not run after private DNS resolution');
   } finally {
     globalThis.fetch = originalFetch;
-    internals.resetDnsLookupForTests?.();
+    safety.resetDnsLookupForTests?.();
   }
 });
 
 test('osint web probe manually revalidates redirect targets before following', async () => {
-  const internals = handler._internals;
   const originalFetch = globalThis.fetch;
   const fetched = [];
 
-  internals.setDnsLookupForTests(async (hostname) => {
+  safety.setDnsLookupForTests(async (hostname) => {
     if (hostname === 'public.example') {
       return [{ address: '93.184.216.34', family: 4 }];
     }
@@ -82,10 +99,10 @@ test('osint web probe manually revalidates redirect targets before following', a
   };
 
   try {
-    await assert.rejects(() => internals.probePublicUrl('https://public.example/start'), /private|reserved|public/i);
+    await assert.rejects(() => safety.probePublicUrl('https://public.example/start'), /private|reserved|public/i);
     assert.deepEqual(fetched, ['https://public.example/start']);
   } finally {
     globalThis.fetch = originalFetch;
-    internals.resetDnsLookupForTests?.();
+    safety.resetDnsLookupForTests?.();
   }
 });

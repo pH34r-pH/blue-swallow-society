@@ -1,3 +1,6 @@
+const crypto = require('node:crypto');
+const { dirname } = require('node:path');
+const { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } = require('node:fs');
 const { requireOperatorToken } = require('../_lib/operator-auth');
 
 const USER_AGENT = 'BlueSwallowSociety/1.0 (+https://blueswallow.co.in)';
@@ -29,6 +32,7 @@ const PAPER_STRATEGIES = [
   },
 ];
 const paperBookState = new Map();
+let paperLedgerLoaded = false;
 
 module.exports = async function (context, req) {
   const auth = requireOperatorToken(context, req);
@@ -37,12 +41,12 @@ module.exports = async function (context, req) {
   }
 
   try {
-    const payload = await buildDashboardPayload();
+    const payload = await buildDashboardPayload(auth.token);
     context.res = {
       status: 200,
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
+        'Cache-Control': 'no-store',
       },
       body: {
         ok: true,
@@ -62,7 +66,7 @@ module.exports = async function (context, req) {
   }
 };
 
-async function buildDashboardPayload() {
+async function buildDashboardPayload(operatorToken = {}) {
   const warnings = [];
   const [murmurs, crypto, polymarket] = await Promise.all([
     buildMurmurs({ warnings }),
@@ -70,7 +74,7 @@ async function buildDashboardPayload() {
     buildPolymarket({ warnings }),
   ]);
 
-  const paperBooks = buildPaperBooks({ murmurs, crypto, polymarket });
+  const paperBooks = buildPaperBooks({ murmurs, crypto, polymarket, operator: operatorFromToken(operatorToken) });
 
   return {
     updatedAt: new Date().toISOString(),
@@ -164,13 +168,14 @@ async function buildPolymarket({ warnings }) {
   };
 }
 
-function buildPaperBooks({ crypto = {}, polymarket = {} } = {}) {
+function buildPaperBooks({ crypto = {}, polymarket = {}, operator = operatorFromToken() } = {}) {
   const now = new Date().toISOString();
   const cryptoMarkets = Array.isArray(crypto.markets) ? crypto.markets.filter((market) => market?.id && Number.isFinite(market.currentPrice)) : [];
   const activeMarkets = Array.isArray(polymarket.newMarkets) ? polymarket.newMarkets.filter((market) => market?.id) : [];
   const benchmark = buildPaperBenchmark(cryptoMarkets);
+  const ledger = getPaperBookLedger(operator.operatorScope, operator.operatorId);
   const books = PAPER_STRATEGIES.map((strategy) => {
-    const previous = paperBookState.get(strategy.id) || createPaperBook(strategy, now);
+    const previous = ledger.books.get(strategy.id) || createPaperBook(strategy, now);
     const book = clonePaperBook(previous);
     book.updatedAt = now;
     book.iteration = (book.iteration || 0) + 1;
@@ -183,12 +188,15 @@ function buildPaperBooks({ crypto = {}, polymarket = {} } = {}) {
     }
     markPaperBook(book, { cryptoMarkets, activeMarkets, benchmark });
 
-    paperBookState.set(strategy.id, clonePaperBook(book));
+    ledger.books.set(strategy.id, clonePaperBook(book));
     return publicPaperBook(book);
   });
+  persistPaperLedger();
 
   return {
     updatedAt: now,
+    operatorId: operator.operatorId,
+    operatorScope: operator.operatorScope,
     paperOnly: true,
     summary: `${books.length} paper books running in parallel against public feeds.`,
     loop: {
@@ -200,6 +208,82 @@ function buildPaperBooks({ crypto = {}, polymarket = {} } = {}) {
     benchmark,
     books,
   };
+}
+
+function operatorFromToken(token = {}) {
+  const operatorId = cleanString(token.operatorId || process.env.BLUE_SWALLOW_OPERATOR_ID || 'operator');
+  const scopedId = operatorId || 'operator';
+  return {
+    operatorId: scopedId,
+    operatorScope: `operator:${crypto.createHash('sha256').update(scopedId, 'utf8').digest('hex').slice(0, 16)}`,
+  };
+}
+
+function getPaperBookLedger(operatorScope, operatorId) {
+  ensurePaperLedgerLoaded();
+  const scope = cleanString(operatorScope) || operatorFromToken({ operatorId }).operatorScope;
+  let ledger = paperBookState.get(scope);
+  if (!ledger) {
+    ledger = { operatorId: cleanString(operatorId) || 'operator', books: new Map() };
+    paperBookState.set(scope, ledger);
+  }
+  if (operatorId) {
+    ledger.operatorId = cleanString(operatorId) || ledger.operatorId;
+  }
+  return ledger;
+}
+
+function ensurePaperLedgerLoaded() {
+  if (paperLedgerLoaded) {
+    return;
+  }
+  paperLedgerLoaded = true;
+  const ledgerPath = getPaperLedgerPath();
+  if (!ledgerPath || !existsSync(ledgerPath)) {
+    return;
+  }
+
+  try {
+    const raw = JSON.parse(readFileSync(ledgerPath, 'utf8'));
+    const operators = raw && typeof raw === 'object' ? raw.operators || {} : {};
+    for (const [operatorScope, entry] of Object.entries(operators)) {
+      const books = new Map();
+      const rawBooks = entry?.books && typeof entry.books === 'object' ? entry.books : {};
+      for (const [strategyId, book] of Object.entries(rawBooks)) {
+        if (book && typeof book === 'object') {
+          books.set(strategyId, clonePaperBook(book));
+        }
+      }
+      paperBookState.set(operatorScope, {
+        operatorId: cleanString(entry?.operatorId) || 'operator',
+        books,
+      });
+    }
+  } catch {
+    paperBookState.clear();
+  }
+}
+
+function persistPaperLedger() {
+  const ledgerPath = getPaperLedgerPath();
+  if (!ledgerPath) {
+    return;
+  }
+
+  const operators = {};
+  for (const [operatorScope, entry] of paperBookState.entries()) {
+    operators[operatorScope] = {
+      operatorId: entry.operatorId,
+      books: Object.fromEntries(Array.from(entry.books.entries()).map(([strategyId, book]) => [strategyId, clonePaperBook(book)])),
+    };
+  }
+
+  mkdirSync(dirname(ledgerPath), { recursive: true });
+  writeFileSync(ledgerPath, JSON.stringify({ version: 1, updatedAt: new Date().toISOString(), operators }, null, 2));
+}
+
+function getPaperLedgerPath() {
+  return cleanString(process.env.BLUE_SWALLOW_PAPER_LEDGER_PATH);
 }
 
 function createPaperBook(strategy, now) {
@@ -767,5 +851,15 @@ const STOP_WORDS = new Set([
   'hot',
 ]);
 
-module.exports._resetPaperBooksForTests = () => paperBookState.clear();
+module.exports._resetPaperBooksForTests = ({ memoryOnly = false, deleteLedger = false } = {}) => {
+  paperBookState.clear();
+  paperLedgerLoaded = false;
+  const ledgerPath = getPaperLedgerPath();
+  if (deleteLedger && ledgerPath) {
+    rmSync(ledgerPath, { force: true });
+  }
+  if (!memoryOnly && !deleteLedger) {
+    // Memory reset only by default; production ledgers remain intact unless tests ask to delete them.
+  }
+};
 module.exports._internals = { buildPaperBooks };

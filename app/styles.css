@@ -2546,15 +2546,18 @@ strong {
 
 .tzeentch-subtabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
-  overflow-x: auto;
+  overflow-x: visible;
   padding-bottom: 0.2rem;
-  scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch;
 }
 
 .tzeentch-subtab {
-  flex: 0 0 auto;
+  flex: 1 1 8.5rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(10, 14, 24, 0.72);
   color: var(--text-1);

@@ -1,9 +1,17 @@
-import { buildTzeentchDashboardModel } from './tzeentch-dashboard.mjs';
+import { buildTzeentchDashboardModel, formatRelativeTime, formatTokenPrice } from './tzeentch-dashboard.mjs';
 
 const STORAGE_KEY = 'blue-swallow-society:tzeentch:recent-queries';
 const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
 const MAX_RECENT = 6;
 const TZEENTCH_SOURCE_FAMILIES = ['Hacker News', 'Reddit', 'CoinGecko', 'Polymarket Gamma'];
+
+export const TZEENTCH_SURFACES = [
+  { key: 'seek', label: 'Seek', subtitle: 'Targeted public-source lookup' },
+  { key: 'murmurs', label: 'Murmurs', subtitle: 'Virality and current events' },
+  { key: 'crypto', label: 'Crypto', subtitle: 'Top 10 by trading volume' },
+  { key: 'polymarket', label: 'Polymarket', subtitle: 'New bets and recent resolutions' },
+  { key: 'intel', label: 'Actionable Intel', subtitle: 'Paper-only signals and thesis notes' },
+];
 
 const state = {
   bound: false,
@@ -12,10 +20,7 @@ const state = {
   abortController: null,
   recent: loadRecentQueries(),
   marketModel: null,
-  marketTab: 'murmurs',
-  marketTouch: null,
   marketFetchPromise: null,
-  marketBound: false,
   surfaceTab: 'seek',
   surfaceBound: false,
 };
@@ -97,14 +102,12 @@ function bindTzeentchSurfaceTabs() {
 }
 
 function setTzeentchSurface(key) {
-  if (key !== 'seek' && key !== 'murmurs' && key !== 'crypto' && key !== 'polymarket' && key !== 'intel') {
+  const nextSurface = TZEENTCH_SURFACES.find((surface) => surface.key === key);
+  if (!nextSurface) {
     return;
   }
 
-  state.surfaceTab = key;
-  if (key !== 'seek') {
-    state.marketTab = key;
-  }
+  state.surfaceTab = nextSurface.key;
   syncTzeentchSurfaceVisibility();
   renderApplications();
 }
@@ -293,6 +296,21 @@ function renderSourceCards(cards) {
   });
 
   container.replaceChildren(fragment);
+}
+
+function renderTzeentchPanel(surfaceKey, model) {
+  switch (surfaceKey) {
+    case 'murmurs':
+      return renderMurmursPanel(model);
+    case 'crypto':
+      return renderCryptoPanel(model);
+    case 'polymarket':
+      return renderPolymarketPanel(model);
+    case 'intel':
+      return renderActionablePanel(model);
+    default:
+      return renderMurmursPanel(model);
+  }
 }
 
 function renderApplications() {
@@ -633,13 +651,6 @@ function renderPayloadForDebug() {
 
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const TZEENTCH_MARKET_TABS = [
-  { key: 'murmurs', label: 'Murmurs', subtitle: 'Virality and current events' },
-  { key: 'crypto', label: 'Crypto', subtitle: 'Top 10 by trading volume' },
-  { key: 'polymarket', label: 'Polymarket', subtitle: 'New bets and recent resolutions' },
-  { key: 'intel', label: 'Actionable Intel', subtitle: 'Paper-only signals and thesis notes' },
-];
-
 function createEmptyTzeentchPayload(warning = 'Live Tzeentch feed has not loaded yet.') {
   const updatedAt = new Date().toISOString();
   return {
@@ -732,176 +743,6 @@ async function loadTzeentchMarketFeed({ refresh = false } = {}) {
   })();
 
   return state.marketFetchPromise;
-}
-
-function renderTzeentchMarketSurface() {
-  const container = $('tzeentchApplications');
-  if (!container) return;
-
-  const model = getTzeentchMarketModel();
-  const tabs = TZEENTCH_MARKET_TABS;
-  if (!tabs.some((tab) => tab.key === state.marketTab)) {
-    state.marketTab = tabs[0].key;
-  }
-
-  const activeIndex = Math.max(0, tabs.findIndex((tab) => tab.key === state.marketTab));
-  const shell = document.createElement('section');
-  shell.className = 'tzeentch-carousel-shell';
-
-  const header = document.createElement('div');
-  header.className = 'tzeentch-carousel-header';
-
-  const headingBlock = document.createElement('div');
-  headingBlock.className = 'section-heading';
-
-  const eyebrow = document.createElement('p');
-  eyebrow.className = 'eyebrow';
-  eyebrow.textContent = '// MARKETS /';
-  headingBlock.appendChild(eyebrow);
-
-  const title = document.createElement('h3');
-  title.textContent = 'Market surfaces';
-  headingBlock.appendChild(title);
-
-  header.appendChild(headingBlock);
-
-  const meta = document.createElement('p');
-  meta.className = 'panel-meta';
-  meta.textContent = model.accessNotes?.[0] || 'Public feeds only.';
-  header.appendChild(meta);
-
-  if (state.marketError) {
-    const errorNote = document.createElement('p');
-    errorNote.className = 'panel-meta';
-    errorNote.textContent = `Live feed status: ${state.marketError}`;
-    header.appendChild(errorNote);
-  }
-
-  shell.appendChild(header);
-  shell.appendChild(renderTzeentchMarketTabs(tabs, state.marketTab));
-
-  const viewport = document.createElement('div');
-  viewport.className = 'tzeentch-carousel-viewport';
-
-  const track = document.createElement('div');
-  track.className = 'tzeentch-carousel-track';
-  track.style.transform = `translateX(-${activeIndex * 100}%)`;
-
-  tabs.forEach((tab) => {
-    const panel = document.createElement('article');
-    panel.className = 'tzeentch-carousel-panel';
-    if (tab.key === state.marketTab) {
-      panel.classList.add('is-active');
-    }
-    panel.appendChild(renderTzeentchPanel(tab.key, model));
-    track.appendChild(panel);
-  });
-
-  viewport.appendChild(track);
-  shell.appendChild(viewport);
-  container.replaceChildren(shell);
-  bindTzeentchCarouselGestures(container);
-}
-
-function bindTzeentchCarouselGestures(container) {
-  if (state.marketBound) {
-    return;
-  }
-
-  let startX = 0;
-  let startY = 0;
-  let active = false;
-
-  container.addEventListener('touchstart', (event) => {
-    if (event.touches.length !== 1) {
-      return;
-    }
-    const touch = event.touches[0];
-    startX = touch.clientX;
-    startY = touch.clientY;
-    active = true;
-  }, { passive: true });
-
-  container.addEventListener('touchend', (event) => {
-    if (!active) {
-      return;
-    }
-    active = false;
-    const touch = event.changedTouches[0];
-    if (!touch) {
-      return;
-    }
-    const deltaX = touch.clientX - startX;
-    const deltaY = touch.clientY - startY;
-    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) < Math.abs(deltaY)) {
-      return;
-    }
-    moveTzeentchMarketTab(deltaX < 0 ? 1 : -1);
-  }, { passive: true });
-
-  container.addEventListener('touchcancel', () => {
-    active = false;
-  }, { passive: true });
-
-  state.marketBound = true;
-}
-
-function setTzeentchMarketTab(key) {
-  const tab = TZEENTCH_MARKET_TABS.find((entry) => entry.key === key);
-  if (!tab) {
-    return;
-  }
-  state.marketTab = tab.key;
-  renderTzeentchMarketSurface();
-}
-
-function moveTzeentchMarketTab(delta) {
-  const tabs = TZEENTCH_MARKET_TABS;
-  const currentIndex = Math.max(0, tabs.findIndex((tab) => tab.key === state.marketTab));
-  const nextIndex = (currentIndex + delta + tabs.length) % tabs.length;
-  const nextTab = tabs[nextIndex];
-  if (nextTab) {
-    state.marketTab = nextTab.key;
-    renderTzeentchMarketSurface();
-  }
-}
-
-function renderTzeentchMarketTabs(tabs, activeKey) {
-  const nav = document.createElement('div');
-  nav.className = 'tzeentch-subtabs';
-  nav.setAttribute('role', 'tablist');
-  nav.setAttribute('aria-label', 'Tzeentch sub-tabs');
-
-  tabs.forEach((tab) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = `tzeentch-subtab${tab.key === activeKey ? ' is-active' : ''}`;
-    button.setAttribute('role', 'tab');
-    button.setAttribute('aria-selected', String(tab.key === activeKey));
-    button.textContent = tab.label;
-    if (tab.subtitle) {
-      button.title = tab.subtitle;
-    }
-    button.addEventListener('click', () => setTzeentchMarketTab(tab.key));
-    nav.appendChild(button);
-  });
-
-  return nav;
-}
-
-function renderTzeentchPanel(tabKey, model) {
-  switch (tabKey) {
-    case 'murmurs':
-      return renderMurmursPanel(model);
-    case 'crypto':
-      return renderCryptoPanel(model);
-    case 'polymarket':
-      return renderPolymarketPanel(model);
-    case 'intel':
-      return renderActionablePanel(model);
-    default:
-      return createEmptyState('Unknown sub-tab.');
-  }
 }
 
 function renderPanelHeader(eyebrowText, titleText, metaText) {

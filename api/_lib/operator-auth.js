@@ -32,7 +32,7 @@ function verifyPasscode(passcode) {
   return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
 }
 
-function createOperatorToken({ now = Date.now(), ttlMs = getTokenTtlMs() } = {}) {
+function createOperatorToken({ now = Date.now(), ttlMs = getTokenTtlMs(), operatorId = getOperatorId() } = {}) {
   const digest = getConfiguredDigest();
   if (!digest) {
     const error = new Error('Passcode validation is not configured.');
@@ -45,6 +45,7 @@ function createOperatorToken({ now = Date.now(), ttlMs = getTokenTtlMs() } = {})
   const payload = {
     v: TOKEN_VERSION,
     sub: 'operator',
+    operatorId: normalizeOperatorId(operatorId),
     iat: issuedAt,
     exp: expiresAt,
     nonce: crypto.randomBytes(12).toString('hex'),
@@ -175,6 +176,15 @@ function headerValueToString(value) {
 function getTokenTtlMs() {
   const parsed = Number.parseInt(process.env.BLUE_SWALLOW_OPERATOR_TOKEN_TTL_MS || '', 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TOKEN_TTL_MS;
+}
+
+function getOperatorId() {
+  return normalizeOperatorId(process.env.BLUE_SWALLOW_OPERATOR_ID || 'operator');
+}
+
+function normalizeOperatorId(value) {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  return normalized || 'operator';
 }
 
 function signPayload(encodedPayload, digest) {

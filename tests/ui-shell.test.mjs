@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 
 const indexHtml = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
 const mainJs = readFileSync(new URL('../app/main.js', import.meta.url), 'utf8');
+const tzeentchJs = readFileSync(new URL('../app/tzeentch.mjs', import.meta.url), 'utf8');
+const stylesCss = readFileSync(new URL('../app/styles.css', import.meta.url), 'utf8');
 
 test('login shell is stripped to the bare passcode form', () => {
   assert.match(indexHtml, /<button id="loginBtn" class="btn login-btn" type="button">login<\/button>/);
@@ -27,6 +29,25 @@ test('tzeentch shell exposes the restored sub-tabs', () => {
   assert.ok(indexHtml.includes('Actionable Intel'));
   assert.ok(!indexHtml.includes('data-surface="markets"'));
   assert.ok(!indexHtml.includes('tzeentchSurfaceMarkets'));
+});
+
+test('tzeentch client uses one surface manifest and no legacy market carousel state', () => {
+  assert.match(tzeentchJs, /export const TZEENTCH_SURFACES\s*=\s*\[/);
+  assert.doesNotMatch(tzeentchJs, /TZEENTCH_MARKET_TABS/);
+  assert.doesNotMatch(tzeentchJs, /\bmarketTab\b/);
+  assert.doesNotMatch(tzeentchJs, /\bmarketTouch\b/);
+  assert.doesNotMatch(tzeentchJs, /renderTzeentchMarketTabs/);
+  assert.doesNotMatch(tzeentchJs, /renderTzeentchMarketSurface/);
+});
+
+test('tzeentch sub-tabs wrap instead of hiding overflow off-canvas', () => {
+  const subtabsRule = stylesCss.match(/\.tzeentch-subtabs\s*\{(?<body>[\s\S]*?)\}/)?.groups.body || '';
+  const subtabRule = stylesCss.match(/\.tzeentch-subtab\s*\{(?<body>[\s\S]*?)\}/)?.groups.body || '';
+
+  assert.match(subtabsRule, /flex-wrap:\s*wrap\s*;/);
+  assert.doesNotMatch(subtabsRule, /overflow-x:\s*auto\s*;/);
+  assert.doesNotMatch(subtabsRule, /scroll-snap-type\s*:/);
+  assert.doesNotMatch(subtabRule, /flex:\s*0\s+0\s+auto\s*;/);
 });
 
 test('AR tab is removed while Godeye remains the hosted viewer', () => {

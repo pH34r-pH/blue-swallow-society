@@ -749,7 +749,14 @@ function calculateTrendScore(change24h, change5d, rank) {
 }
 
 function findMurmurMentions(asset, murmurs) {
-  const items = Array.isArray(murmurs) ? murmurs : [];
+  const items = Array.isArray(murmurs)
+    ? murmurs
+    : Array.isArray(murmurs?.items)
+      ? murmurs.items
+      : [
+          ...(Array.isArray(murmurs?.hackerNews) ? murmurs.hackerNews : []),
+          ...(Array.isArray(murmurs?.reddit) ? murmurs.reddit : []),
+        ];
   const needles = [asset.symbol, asset.name, asset.topicKey]
     .map((value) => cleanString(value).toLowerCase())
     .filter(Boolean);
@@ -843,7 +850,7 @@ function formatSignedUsd(value) {
   return `${prefix}${formatCompactUsd(Math.abs(value))}`;
 }
 
-function formatTokenPrice(value) {
+export function formatTokenPrice(value) {
   if (!Number.isFinite(value)) {
     return '—';
   }
@@ -874,7 +881,7 @@ function formatPercent(value) {
   return `${(value * 100).toFixed(0)}%`;
 }
 
-function formatRelativeTime(iso, now = Date.now()) {
+export function formatRelativeTime(iso, now = Date.now()) {
   const timestamp = Date.parse(iso || '');
   if (!Number.isFinite(timestamp)) {
     return 'recent';
