@@ -169,7 +169,7 @@ The VM uses cloud-init to automatically configure the echo service:
 - Currently configured for:
   - Location: westus2
   - Static web app name: blue-swallow-swa
-  - Legacy SWA resources to delete after cutover: blue-swallow-society, wonderful-pond-0623ed81e
+  - Legacy SWA resources deleted after cutover: blue-swallow-society, wonderful-pond-0623ed81e
   - Prefix: blue-swallow
   - Allowed source IP: * (open — must be restricted before production)
   - VM size: Standard_B1ms (override to Standard_B1s only for explicit API-only/lab deployments)
@@ -181,7 +181,7 @@ The VM uses cloud-init to automatically configure the echo service:
 - Includes `az deployment group what-if` dry-run instructions
 - Reminds operators to set `allowedSourceIp` to their developer IP
 - Documents deployment idempotency (re-runs update without destroying state)
-- Reminds operators to delete the legacy SWA resources after cutover so only `blue-swallow-swa` remains connected to `blueswallow.co.in`
+- Notes that the legacy SWA resources were deleted after cutover so only `blue-swallow-swa` remains connected to `blueswallow.co.in`
 
 ### modules/network.bicep
 - **Encapsulates shared Cybermap network topology**

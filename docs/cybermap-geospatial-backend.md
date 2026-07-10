@@ -58,7 +58,7 @@ Recommendation: start with **VM B1ms + PostgreSQL Flexible Server B1MS**. Drop t
 rg-blue-swallow
 ├── blue-swallow-swa                    # public frontend
 ├── blue-swallow-vnet 10.40.0.0/16
-│   ├── app-subnet 10.40.0.0/24         # VM/API
+│   ├── default 10.40.0.0/24            # existing VM/API subnet
 │   └── postgres-subnet 10.40.1.0/28    # delegated to PostgreSQL Flexible Server
 ├── blue-swallow-vm                     # B1ms preferred
 │   ├── caddy/nginx :443                # TLS + reverse proxy
