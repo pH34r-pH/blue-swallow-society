@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Manual fallback when you deploy the VM lab outside the main workflow.
-# The deploy-static-web-app.yml workflow already sets BACKEND_ECHO_BASE_URL
+# Manual fallback when you deploy the VM API gateway outside the main workflow.
+# The deploy-static-web-app.yml workflow already sets BACKEND_API_BASE_URL
 # automatically using the Bicep output.
 set -euo pipefail
 
 if [ "$#" -lt 3 ]; then
-  echo "Usage: $0 <resource-group> <static-web-app-name> <backend-echo-base-url>"
+  echo "Usage: $0 <resource-group> <static-web-app-name> <backend-api-base-url>"
   exit 1
 fi
 
@@ -16,4 +16,4 @@ BACKEND_URL="$3"
 az staticwebapp appsettings set \
   --name "$SWA_NAME" \
   --resource-group "$RG" \
-  --setting-names "BACKEND_ECHO_BASE_URL=$BACKEND_URL"
+  --setting-names "BACKEND_API_BASE_URL=$BACKEND_URL"

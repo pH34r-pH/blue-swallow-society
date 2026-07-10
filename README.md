@@ -1,11 +1,11 @@
-# Personal Site Starter on Azure Static Web Apps + VM Echo Backend
+# Blue Swallow Society on Azure Static Web Apps + Cybermap VM Gateway
 
 This starter repo gives you:
 
 - A **publicly accessible website** on **Azure Static Web Apps**
 - **GitHub Actions CI/CD** for the frontend, managed API, infrastructure, and custom-domain wiring
-- A small **Azure Functions proxy API** exposed as `/api/echo`, `/api/profile`, and `/api/agent`
-- An **Ubuntu VM** currently hosting a simple echo service, with a target path to become the Cybermap API gateway
+- A small **Azure Functions API** for profile, agent, OSINT, Tzeentch, and future Cybermap proxy routes
+- An **Ubuntu VM** hosting the Node 20 Cybermap API gateway scaffold behind HTTPS 443
 - A **Cybermap-first geospatial backend design** using Azure Database for PostgreSQL Flexible Server B1MS + PostGIS
 - A clean place to add **local model experiments** later on the VM
 - An optional **Azure OpenAI** account, gated by a single Bicep parameter
@@ -20,7 +20,7 @@ Azure Static Web App (public frontend: Godeye/Tzeentch)
   ↓
 /api/* (managed Azure Functions proxy)
   ↓
-VM API gateway on Ubuntu (current scaffold: echo service)
+VM API gateway on Ubuntu (nginx HTTPS 443 -> cybermap-api localhost:8000)
   ↓
 Azure Database for PostgreSQL Flexible Server B1MS + PostGIS (target Cybermap store)
 ```
@@ -41,9 +41,10 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 │       ├── azure-static-web-apps-wonderful-pond-0623ed81e.yml  # disabled legacy workflow; delete after cutover to blue-swallow-swa
 │       └── setup-azure-creds.md
 ├── api/
-│   ├── echo/
 │   ├── profile/
-│   └── agent/
+│   ├── agent/
+│   ├── osint/
+│   └── tzeentch/
 ├── app/
 │   ├── index.html
 │   ├── agent.html
@@ -58,13 +59,14 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 │   ├── external-id-setup-checklist.md
 │   ├── mosaic-and-murmurs-operating-doctrine.md
 │   ├── mosaic-and-murmurs-s0-sensorium-proposal.md
-│   └── vm-echo-wiring.md
+│   ├── vm-api.md
+│   └── vm-echo-wiring.md            # historical echo note; not product wiring
 ├── infra/
 │   ├── main.bicep                  # single entrypoint, composes VM + optional OpenAI
 │   ├── custom-domains.bicep        # custom-domain bindings for the Static Web App
 │   ├── custom-domains-dns.bicep    # Azure DNS records for apex/www
 │   ├── main.parameters.json
-│   ├── vm-echo-lab.bicep           # VM + NSG + cloud-init + auto-shutdown
+│   ├── vm-echo-lab.bicep           # historical filename; Cybermap VM gateway + NSG + cloud-init
 │   └── modules/
 │       └── openai.bicep            # optional Azure OpenAI account
 └── scripts/
@@ -79,10 +81,8 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 The home page includes:
 - sign in / sign out buttons (Easy Auth, AAD)
 - a protected profile call that hits `/api/profile`
-- an **Echo Lab** section that calls `/api/echo`
-
-The Azure Function proxy at `/api/echo` forwards to the VM using the SWA app setting:
-- `BACKEND_ECHO_BASE_URL` → e.g. `http://<vm-public-ip>:8080`
+- same-origin operator/API calls through the Static Web App
+- Cybermap VM gateway wiring via `BACKEND_API_BASE_URL` for future `/api/v1/*` proxy routes
 
 The WiGLE proxy at `/api/wigle` supports:
 - `mode=current` → AR current-state path. Reads the device-local WiGLE database/export through `WIGLE_LOCAL_DB_PATH` or `WIGLE_LOCAL_DB_URL`, filters to recent rows (`maxAgeSeconds`, default 45), and orders candidates by signal strength.
@@ -120,8 +120,8 @@ Follow [.github/workflows/setup-azure-creds.md](.github/workflows/setup-azure-cr
 
 The **Deploy Infra + App** workflow will:
 1. Create the resource group `rg-blue-swallow` if it does not exist.
-2. Run `az deployment group create` against `infra/main.bicep` (SWA resource `blue-swallow-swa` + VM echo lab; OpenAI optional).
-3. Set `BACKEND_ECHO_BASE_URL` and the canonical `BLUE_SWALLOW_PASSCODE_SHA256` runtime hash on the Static Web App.
+2. Run `az deployment group create` against `infra/main.bicep` (SWA resource `blue-swallow-swa` + Cybermap VM API gateway; OpenAI optional).
+3. Set `BACKEND_API_BASE_URL` and the canonical `BLUE_SWALLOW_PASSCODE_SHA256` runtime hash on the Static Web App.
 4. Deploy `app/` and `api/` to the Static Web App.
 5. Wire the apex `blueswallow.co.in` and `www.blueswallow.co.in` hostnames through the custom-domain helper script and Azure DNS in `rg-blue-swallow` (the DNS zone is referenced as an existing resource in `infra/custom-domains-dns.bicep`; the canonical SWA is `blue-swallow-swa`; legacy SWAs `blue-swallow-society` and `wonderful-pond-0623ed81e` have been deleted after cutover). The helper stages the Azure DNS apex A alias and `www` CNAME even before public delegation is live; final SWA custom-domain binding still requires the domain to be registered and delegated at the registrar to the Azure DNS nameservers.
 
@@ -133,15 +133,15 @@ Set `deployOpenAi` to `true` in [`infra/main.parameters.json`](./infra/main.para
 
 ### 4. (Optional) Tighten access
 
-Replace `"allowedSourceIp": "*"` with your developer IP `/32` to restrict the VM NSG to SSH + 8080 from your address only. The VM auto-shutdown defaults to 02:00 Pacific to cap cost.
+Replace `"allowedSourceIp": "*"` with your developer IP `/32` to restrict direct SSH. The Cybermap product ingress is HTTPS 443 with API-layer auth hooks. The VM auto-shutdown defaults to 02:00 Pacific to cap cost.
 
 ## Notes on security
 
 This scaffold is intentionally simple so you can focus on experiments.
 
-For the VM starter, the echo service listens on a public IP and port 8080. That is **good for short experiments**, but not the hardened end state. Hardening steps already supported:
+For the VM starter, nginx exposes HTTPS 443 and proxies to `cybermap-api` on `localhost:8000`; 8080 is not product ingress. Hardening steps already supported:
 
-- `allowedSourceIp` parameter restricts the NSG to your CIDR (default `*` is open).
+- `allowedSourceIp` parameter restricts SSH to your CIDR (default `*` is open and should be tightened).
 - Daily auto-shutdown schedule (DevTestLab) caps idle cost.
 - SWA `globalHeaders` set CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy`.
 - Authentication uses Easy Auth (AAD) with `/api/profile` requiring an authenticated principal.

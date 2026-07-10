@@ -1,46 +1,46 @@
-# Implementation Plan: VM Echo API
+# Implementation Plan: Cybermap VM API Gateway
 
-**Branch**: `002-vm-api` | **Date**: 2026-05-23 | **Spec**: [spec.md](./spec.md)
+**Branch**: `002-vm-api` | **Date**: 2026-07-10 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `/specs/002-vm-api/spec.md`
 
-**Note**: This template is filled in by the `__SPECKIT_COMMAND_PLAN__` command. See `.specify/templates/plan-template.md` for the execution workflow.
+> Legacy note: this plan supersedes the earlier VM echo draft. Echo/8080 material is historical scaffold context only; the product path is Cybermap API over HTTPS 443.
 
 ## Summary
 
-Deploy a simple Python echo service on an Ubuntu 22.04 LTS VM and expose it through the Azure Static Web App at `/api/echo` via an Azure Function proxy layer. The service validates end-to-end connectivity from the SWA frontend through the Function proxy to the VM, with automated provisioning via cloud-init, systemd service management, and NSG-based network hardening.
+Provision the Blue Swallow Society VM as a rebuildable Cybermap API gateway host. The VM runs a Node 20 `cybermap-api` process on `127.0.0.1:8000`, nginx on HTTPS 443 as the public product ingress, a `cybermap-worker` systemd scaffold, and PgBouncer placeholder config for later private PostgreSQL wiring. Health is DB-independent, readiness is an explicit placeholder, and `/api/v1/*` fails closed behind runtime token configuration.
 
 ## Technical Context
 
-**Language/Version**: Python 3.10 (VM service), Node.js 18 (Azure Function proxy)
+**Language/Version**: Node.js 20 for VM API and worker; Bicep for Azure infrastructure; nginx for reverse proxy
 
-**Primary Dependencies**: Python `http.server` (stdlib), Azure Functions v4 (Node.js), systemd
+**Primary Dependencies**: Node stdlib HTTP server, systemd, nginx, PgBouncer, Azure VM cloud-init
 
-**Storage**: None (stateless echo service)
+**Storage**: None in this task. PostgreSQL/PostGIS and DB-backed readiness land in the follow-on DB connection task.
 
-**Testing**: curl/manual HTTP tests, nmap for port scanning, Azure portal validation for NSG rules
+**Testing**: `node --test tests/*.test.mjs`; `az bicep build --file infra/main.bicep`; source inspection for cloud-init/systemd units and secret-free placeholders
 
-**Target Platform**: Azure VM (Ubuntu 22.04 LTS) + Azure Static Web App + Azure Functions
+**Target Platform**: Azure Ubuntu 22.04 VM inside the shared app subnet; product ingress on public HTTPS 443
 
-**Project Type**: web-service (backend API + proxy)
+**Project Type**: infrastructure + VM service scaffold
 
-**Performance Goals**: Echo round-trip < 2s under normal conditions; proxy timeout enforced at 5s
+**Performance Goals**: Health/readiness respond quickly without DB dependency; API body limit defaults to 1 MiB; PgBouncer placeholder caps future DB connection pressure
 
-**Constraints**: Backend IP must be injected into SWA app settings post-deployment; NSG restricts ports 22 and 8080 to `allowedSourceIp`; no TLS on VM (terminated at SWA)
+**Constraints**: No committed database credentials or connection strings; `/api/v1/*` auth required by default; public 8080 is not a product ingress; local service binds to `127.0.0.1:8000`
 
-**Scale/Scope**: Single VM (`Standard_B1s`), single-threaded echo service, low-traffic experimentation
+**Scale/Scope**: Single low-cost VM gateway (`Standard_B1ms` default) with API and worker scaffolds; no DB query implementation in this task
 
 ## Constitution Check
 
 | Principle | Assessment | Notes |
 |-----------|------------|-------|
-| Security-First | PASS | NSG hardening, SSH-key-only auth, input reflection is JSON-escaped |
-| Privacy/Anonymity | PASS | Echo service logs no PII; no user tracking in proxy |
-| Defense in Depth | PASS | Network-level (NSG) + application-level (404 on unknown paths) + proxy timeout |
-| Secure Defaults | PASS | VM allows inbound only from specified IP; password auth disabled |
-| Continuous Monitoring | PARTIAL | No logging agent on VM yet; Azure Activity Logs capture NSG changes |
+| Security-First | PASS | HTTPS 443 ingress, auth gate for `/api/v1/*`, body-size limits, no public 8080 product path |
+| Privacy/Anonymity | PASS | Health/readiness avoid DB details and secrets; logs are structured operational events |
+| Defense in Depth | PASS | NSG + nginx + local-only API bind + systemd hardening + auth fail-closed behavior |
+| Secure Defaults | PASS | Runtime secrets only through environment files; PgBouncer config is placeholder-only |
+| Continuous Monitoring | PARTIAL | Structured JSON logs exist; shipping/retention is a later ops task |
 
-**Action Required**: Add application-level access logging to the echo service and proxy for security event visibility.
+**Action Required**: Later tasks must inject DB/API secrets through operator-controlled secret paths and add log shipping/alerting if productionized.
 
 ## Project Structure
 
@@ -48,31 +48,40 @@ Deploy a simple Python echo service on an Ubuntu 22.04 LTS VM and expose it thro
 
 ```text
 specs/002-vm-api/
-├── spec.md              # Feature specification
-├── plan.md              # This file
-├── research.md          # Phase 0 output (cloud-init, systemd, Azure Function proxy patterns)
-├── data-model.md        # N/A (stateless service)
-├── contracts/           # Phase 1 output (EchoRequest, EchoResponse, ProxyResponse schemas)
-└── tasks.md             # Phase 2 output
+├── spec.md
+├── plan.md
+└── tasks.md
 ```
 
 ### Source Code (repository root)
 
 ```text
-api/
-└── echo/
-    ├── function.json    # Azure Function binding
-    └── index.js         # Proxy implementation with timeout + error handling
-
 infra/
-└── vm-echo-lab.bicep  # VM, VNet, NSG, Public IP, NIC provisioning
+├── main.bicep
+└── vm-echo-lab.bicep        # Retained filename; now provisions Cybermap gateway services
 
-scripts/
-└── wireup-backend-url.sh  # Post-deployment SWA app-setting update
+vm/
+├── cybermap-api/
+│   ├── package.json
+│   ├── server.mjs
+│   └── README.md
+└── cybermap-worker/
+    ├── package.json
+    ├── worker.mjs
+    └── README.md
+
+docs/
+├── vm-api.md
+├── azure-resources.md
+├── vm-echo-wiring.md        # Historical scaffold note, not production path
+└── static-web-app-functionality.md
+
+tests/
+└── cybermap-vm-gateway.test.mjs
 ```
 
-**Structure Decision**: The echo service code lives as a cloud-init inline script inside `vm-echo-lab.bicep` (or as a separate file referenced by the template). The Azure Function proxy lives in `api/echo/`. This separation keeps infrastructure-as-code in `infra/` and compute in `api/`.
+**Structure Decision**: Keep the existing `infra/vm-echo-lab.bicep` filename for deployment continuity, but make the cloud-init payload and docs explicitly Cybermap-oriented. Service source also lives under `vm/` so it is testable outside Bicep inline cloud-init.
 
 ## Complexity Tracking
 
-> The choice to host the echo service on a VM rather than inside Azure Functions directly introduces a second compute tier. This is justified because: (1) the society needs a persistent Linux environment for experimentation beyond serverless limits, and (2) the VM enables future services (agents, models) that require long-running processes.
+The VM remains a second compute tier, but it is now justified as the Cybermap gateway boundary rather than an echo lab. The added nginx/systemd/PgBouncer scaffolding is accepted because it makes the host rebuildable, DB-connection-aware, and safer to expose over HTTPS while later tasks fill in PostgreSQL-backed routes.

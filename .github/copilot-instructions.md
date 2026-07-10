@@ -2,16 +2,17 @@ You are working on the Blue Swallow Society project.
 
 Architecture:
 - Static Web App frontend (app/)
-- Azure Functions managed API (api/echo, api/profile, api/agent)
-- Ubuntu VM echo backend (infra/vm-echo-lab.bicep)
+- Azure Functions managed API (api/profile, api/agent, api/osint, api/tzeentch)
+- Ubuntu VM Cybermap API gateway (infra/vm-echo-lab.bicep; historical filename)
+- Cybermap API/worker services under vm/
 - Optional Azure OpenAI (infra/modules/openai.bicep, gated by deployOpenAi)
 
 Rules:
-- NEVER call the VM directly from the frontend; always go through /api/*.
-- Keep BACKEND_ECHO_BASE_URL the only backend wiring secret in the SWA app settings.
-- Keep costs minimal: B1s VM, Standard_LRS disk, daily auto-shutdown, no GPUs, no provisioned throughput.
+- NEVER call the VM directly from the frontend; always go through same-origin /api/* unless a field device is explicitly using the authenticated VM HTTPS gateway.
+- Keep BACKEND_API_BASE_URL as backend wiring; keep tokens and DB settings out of repo files.
+- Keep costs minimal: B1ms/B1s VM, Standard_LRS disk, daily auto-shutdown, no GPUs, no provisioned throughput.
 - Prefer VM-first experimentation; reach for Azure OpenAI only for selective calls.
-- Never widen NSG rules to 0.0.0.0/0 without an explicit short-lived reason; prefer setting allowedSourceIp to a /32.
+- Public VM product ingress is HTTPS 443; SSH must stay restricted by allowedSourceIp.
 - Auth is GitHub OIDC — do not introduce AZURE_CREDENTIALS or SDK-auth JSON secrets.
 
 Deployment:

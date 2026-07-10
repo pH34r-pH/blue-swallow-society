@@ -13,7 +13,7 @@ param prefix string = 'blue-swallow'
 @secure()
 param sshPublicKey string
 
-@description('CIDR allowed to reach SSH (22) and the echo port (8080). Use your developer IP (e.g. 203.0.113.5/32). Default "*" is wide open — only acceptable for short-lived experiments.')
+@description('CIDR allowed to reach SSH (22). Cybermap product ingress is HTTPS 443 on the VM and is protected by API authentication/rate-limit hooks.')
 param allowedSourceIp string = '*'
 
 @description('VM size. Cybermap defaults to Standard_B1ms; API-only/lab deployments may explicitly override to Standard_B1s.')
@@ -60,10 +60,10 @@ module networkModule 'modules/network.bicep' = {
 }
 
 /*
- * VM consumes the shared app subnet; it no longer creates an isolated VNet.
+ * VM consumes the shared app subnet; it hosts nginx on HTTPS 443 and proxies to cybermap-api on localhost:8000.
  */
 module vmModule 'vm-echo-lab.bicep' = {
-  name: 'vm-echo-lab'
+  name: 'vm-cybermap-api-gateway'
   params: {
     location: location
     vmName: '${prefix}-vm'
@@ -89,7 +89,7 @@ module openAiModule 'modules/openai.bicep' = if (deployOpenAi) {
 
 output staticWebAppDefaultHostname string = swa.properties.defaultHostname
 output staticWebAppResourceId string = swa.id
-output backendEchoBaseUrl string = vmModule.outputs.backendEchoBaseUrl
+output backendApiBaseUrl string = vmModule.outputs.backendApiBaseUrl
 output vmPublicIp string = vmModule.outputs.publicIpAddress
 output vnetId string = networkModule.outputs.vnetId
 output appSubnetId string = networkModule.outputs.appSubnetId
