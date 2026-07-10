@@ -48,7 +48,8 @@ export function buildTzeentchDashboardModel(raw = {}, { now = Date.now(), crypto
   const murmurs = buildMurmursModel(raw.murmurs || {}, now);
   const crypto = buildCryptoModel(raw.crypto || {}, { now, cryptoView, murmurs });
   const polymarket = buildPolymarketModel(raw.polymarket || {}, now);
-  const actionable = buildActionableIntelModel({ murmurs, crypto, polymarket }, now);
+  const paperBooks = buildPaperBooksModel(raw.paperBooks || {}, now);
+  const actionable = buildActionableIntelModel({ murmurs, crypto, polymarket, paperBooks }, now);
   const chainedDaemon = buildChainedDaemonLoopState(raw.chainedDaemon?.observations || raw.chainedDaemon || [], { now });
 
   return {
@@ -66,6 +67,7 @@ export function buildTzeentchDashboardModel(raw = {}, { now = Date.now(), crypto
     murmurs,
     crypto,
     polymarket,
+    paperBooks,
     actionable,
     chainedDaemon,
   };
@@ -102,10 +104,13 @@ export function scoreVirality(item = {}, clusterCount = 1, now = Date.now()) {
   return clamp(Math.round(rawScore), 0, 100);
 }
 
-export function buildActionableIntelModel({ murmurs, crypto, polymarket } = {}, now = Date.now()) {
+export function buildActionableIntelModel({ murmurs, crypto, polymarket, paperBooks } = {}, now = Date.now()) {
   const cryptoAssets = Array.isArray(crypto?.assets) ? crypto.assets.slice() : [];
   const murmursItems = Array.isArray(murmurs?.items) ? murmurs.items.slice() : [];
   const activeMarkets = Array.isArray(polymarket?.newMarkets) ? polymarket.newMarkets.slice() : [];
+  const paperBookProposals = Array.isArray(paperBooks?.books)
+    ? paperBooks.books.map((book) => buildPaperBookProposal(book)).filter(Boolean)
+    : [];
 
   const buyCandidates = cryptoAssets
     .filter((asset) => !asset.isStablecoin)
@@ -133,6 +138,7 @@ export function buildActionableIntelModel({ murmurs, crypto, polymarket } = {}, 
   if (marketPick) {
     proposals.push(buildPolymarketProposal(marketPick, murmursItems, now));
   }
+  proposals.push(...paperBookProposals);
 
   const deduped = dedupeProposals(proposals)
     .sort((left, right) => right.confidence - left.confidence)
@@ -145,7 +151,153 @@ export function buildActionableIntelModel({ murmurs, crypto, polymarket } = {}, 
       ? `${deduped.length} paper candidates queued for review.`
       : 'No strong paper candidates yet; keep gathering public signals.',
     loopNote: 'Paper-only loop: record thesis, watch outcomes, and promote only net-positive patterns.',
+    paperBooks: paperBooks || buildPaperBooksModel({}, now),
     proposals: deduped,
+  };
+}
+
+function buildPaperBooksModel(raw = {}, now = Date.now()) {
+  const books = Array.isArray(raw.books) ? raw.books.map((book) => normalizePaperBook(book)).filter(Boolean) : [];
+  const totalEquity = books.reduce((total, book) => total + (book.equity || 0), 0);
+  const totalPnl = books.reduce((total, book) => total + (book.totalPnl || 0), 0);
+  const bestBook = books.slice().sort((left, right) => (right.totalReturnPct || 0) - (left.totalReturnPct || 0))[0] || null;
+
+  return {
+    updatedAt: raw.updatedAt || new Date(now).toISOString(),
+    paperOnly: raw.paperOnly !== false,
+    summary: cleanString(raw.summary) || (books.length ? `${books.length} paper books running in parallel.` : 'No paper books have reported yet.'),
+    loop: raw.loop || null,
+    benchmark: normalizePaperBenchmark(raw.benchmark),
+    metrics: [
+      { label: 'Paper books', value: String(books.length), detail: 'Parallel strategy ledgers' },
+      { label: 'Net equity', value: formatCompactUsd(totalEquity), detail: 'Marked paper equity' },
+      { label: 'Net P/L', value: formatSignedUsd(totalPnl), detail: 'Realized + unrealized' },
+      { label: 'Best book', value: bestBook?.name || '—', detail: bestBook ? bestBook.returnLabel : 'Waiting for marks' },
+    ],
+    books,
+  };
+}
+
+function normalizePaperBook(book) {
+  if (!book || typeof book !== 'object') {
+    return null;
+  }
+
+  const totalReturnPct = toNumber(book.totalReturnPct) || 0;
+  const benchmarkReturnPct = toNumber(book.benchmarkReturnPct) || 0;
+  const alphaPct = toNumber(book.alphaPct) || totalReturnPct - benchmarkReturnPct;
+  const equity = toNumber(book.equity) || 0;
+  const totalPnl = toNumber(book.totalPnl) || 0;
+  const pendingOrders = Array.isArray(book.pendingOrders) ? book.pendingOrders.slice(0, 5).map(normalizePaperOrder).filter(Boolean) : [];
+  const positions = Array.isArray(book.positions) ? book.positions.slice(0, 8).map(normalizePaperPosition).filter(Boolean) : [];
+  const tradeLog = Array.isArray(book.tradeLog) ? book.tradeLog.slice(0, 8).map(normalizePaperOrder).filter(Boolean) : [];
+
+  return {
+    ...book,
+    id: cleanString(book.id) || cleanString(book.name) || 'paper-book',
+    name: cleanString(book.name) || 'Paper Book',
+    account: cleanString(book.account),
+    strategy: cleanString(book.strategy),
+    iteration: toNumber(book.iteration) || 0,
+    cash: toNumber(book.cash) || 0,
+    equity,
+    realizedPnl: toNumber(book.realizedPnl) || 0,
+    unrealizedPnl: toNumber(book.unrealizedPnl) || 0,
+    totalPnl,
+    totalReturnPct,
+    benchmarkReturnPct,
+    alphaPct,
+    equityLabel: formatCompactUsd(equity),
+    cashLabel: formatCompactUsd(toNumber(book.cash) || 0),
+    pnlLabel: formatSignedUsd(totalPnl),
+    returnLabel: formatSignedPercent(totalReturnPct),
+    benchmarkReturnLabel: formatSignedPercent(benchmarkReturnPct),
+    alphaLabel: formatSignedPercent(alphaPct),
+    positions,
+    pendingOrders,
+    tradeLog,
+  };
+}
+
+function normalizePaperBenchmark(benchmark = {}) {
+  const returnPct = toNumber(benchmark.returnPct) || 0;
+  const mark = toNumber(benchmark.mark);
+  return {
+    ...benchmark,
+    label: cleanString(benchmark.label) || 'No benchmark',
+    returnPct,
+    returnLabel: formatSignedPercent(returnPct),
+    mark,
+    markLabel: Number.isFinite(mark) ? formatTokenPrice(mark) : '—',
+  };
+}
+
+function normalizePaperPosition(position) {
+  if (!position || typeof position !== 'object') {
+    return null;
+  }
+  const gainPct = toNumber(position.gainPct) || 0;
+  const marketValue = toNumber(position.marketValue) || 0;
+  return {
+    ...position,
+    title: cleanString(position.title || position.name || position.symbol) || 'Position',
+    symbol: cleanString(position.symbol || position.outcome),
+    quantity: toNumber(position.quantity) || 0,
+    marketValue,
+    gainPct,
+    marketValueLabel: formatCompactUsd(marketValue),
+    gainLabel: formatSignedPercent(gainPct),
+  };
+}
+
+function normalizePaperOrder(order) {
+  if (!order || typeof order !== 'object') {
+    return null;
+  }
+  const notional = toNumber(order.notional) || 0;
+  return {
+    ...order,
+    title: cleanString(order.title || order.symbol || order.marketId || order.assetId) || 'Paper order',
+    actionText: cleanString(order.actionText) || `${cleanString(order.side).toUpperCase() || 'PAPER'} ${cleanString(order.symbol) || ''}`.trim(),
+    reason: cleanString(order.reason),
+    status: cleanString(order.status),
+    notional,
+    notionalLabel: formatCompactUsd(notional),
+  };
+}
+
+function buildPaperBookProposal(book) {
+  if (!book) {
+    return null;
+  }
+
+  const topPosition = Array.isArray(book.positions) ? book.positions[0] : null;
+  const latestOrder = Array.isArray(book.pendingOrders) ? book.pendingOrders[0] : null;
+  const confidence = clamp(Math.round(62 + Math.abs(book.alphaPct || 0) * 3 + Math.min(18, (book.iteration || 0) * 2)), 35, 97);
+  return {
+    id: `paper-book:${book.id}`,
+    side: (book.alphaPct || 0) >= 0 ? 'buy' : 'sell',
+    instrumentType: 'paper-book',
+    assetId: book.id,
+    title: `Review ${book.name}`,
+    label: book.name,
+    subtitle: book.account || 'paper ledger',
+    thesis: book.strategy || 'Parallel paper strategy is accumulating marks against live public feeds.',
+    justification: [
+      `${book.returnLabel} total return versus ${book.benchmarkReturnLabel} benchmark (${book.alphaLabel} alpha).`,
+      `${book.equityLabel} equity with ${book.pnlLabel} paper P/L.`,
+      latestOrder ? `Latest paper order: ${latestOrder.actionText} ${latestOrder.title}.` : 'No pending paper order this loop.',
+    ],
+    evidence: [
+      `Iteration ${book.iteration}`,
+      `Cash ${book.cashLabel}`,
+      topPosition ? `Top position: ${topPosition.title} ${topPosition.gainLabel}` : 'No open positions',
+    ],
+    confidence,
+    paperOnly: true,
+    horizon: 'next loop mark',
+    actionText: 'Review book',
+    sourceLinks: [],
   };
 }
 
@@ -681,6 +833,14 @@ function formatCompactUsd(value) {
     return `$${(value / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
   }
   return formatTokenPrice(value);
+}
+
+function formatSignedUsd(value) {
+  if (!Number.isFinite(value)) {
+    return '—';
+  }
+  const prefix = value > 0 ? '+' : value < 0 ? '-' : '';
+  return `${prefix}${formatCompactUsd(Math.abs(value))}`;
 }
 
 function formatTokenPrice(value) {

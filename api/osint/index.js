@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const net = require('node:net');
 const dns = require('node:dns').promises;
+const { requireOperatorToken } = require('../_lib/operator-auth');
 
 const USER_AGENT = 'BlueSwallowSociety/1.0 (+https://blueswallow.co.in)';
 const DEFAULT_TIMEOUT_MS = 9000;
@@ -21,6 +22,11 @@ const COMMON_SOURCES = [
 ];
 
 module.exports = async function (context, req) {
+  const auth = requireOperatorToken(context, req);
+  if (!auth.ok) {
+    return;
+  }
+
   const body = req?.body && typeof req.body === 'object' ? req.body : {};
   const query = toCleanString(body.query ?? '').trim();
   const requestedMode = toCleanString(body.mode ?? 'auto')

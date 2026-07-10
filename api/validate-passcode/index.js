@@ -1,4 +1,8 @@
-const crypto = require('node:crypto');
+const {
+  createOperatorToken,
+  getConfiguredDigest,
+  verifyPasscode,
+} = require('../_lib/operator-auth');
 
 const DEFAULT_MAX_ATTEMPTS = 5;
 const DEFAULT_WINDOW_MS = 5 * 60 * 1000;
@@ -31,7 +35,11 @@ module.exports = async function (context, req) {
   const ok = verifyPasscode(passcode);
   if (ok) {
     failuresByCaller.delete(callerKey);
-    context.res = jsonResponse(200, { ok: true });
+    const session = createOperatorToken();
+    context.res = jsonResponse(200, {
+      ok: true,
+      operatorSession: session,
+    });
     return;
   }
 
@@ -45,38 +53,12 @@ module.exports = async function (context, req) {
 function jsonResponse(status, body) {
   return {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
     body,
   };
-}
-
-function verifyPasscode(passcode) {
-  const configuredDigest = getConfiguredDigest();
-  if (!configuredDigest || typeof passcode !== 'string' || !passcode) {
-    return false;
-  }
-
-  const expected = Buffer.from(configuredDigest, 'hex');
-  if (expected.length !== 32) {
-    return false;
-  }
-
-  const actual = crypto.createHash('sha256').update(passcode, 'utf8').digest();
-  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
-}
-
-function getConfiguredDigest() {
-  const digest = (process.env.BLUE_SWALLOW_PASSCODE_SHA256 || '').trim().toLowerCase();
-  if (/^[a-f0-9]{64}$/.test(digest)) {
-    return digest;
-  }
-
-  const legacyPlaintext = process.env.BLUE_SWALLOW_PASSCODE;
-  if (typeof legacyPlaintext === 'string' && legacyPlaintext.length > 0) {
-    return crypto.createHash('sha256').update(legacyPlaintext, 'utf8').digest('hex');
-  }
-
-  return '';
 }
 
 function getCallerKey(req) {

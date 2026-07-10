@@ -28,6 +28,40 @@ test('buildTzeentchDashboardModel shapes the Murmurs, Crypto, Polymarket, and Ac
   assert.ok(model.crypto.views['5d'].assets[0].sparkline.fill.length > 0);
 });
 
+test('buildTzeentchDashboardModel threads paper books into Actionable Intel', () => {
+  const now = Date.parse('2026-07-09T12:00:00Z');
+  const raw = createDemoDashboardDataset(now);
+  raw.paperBooks = {
+    updatedAt: '2026-07-09T12:00:00Z',
+    paperOnly: true,
+    summary: '3 paper books running in parallel against public feeds.',
+    benchmark: { label: 'BTC 24h proxy', returnPct: 2.5 },
+    books: [
+      {
+        id: 'murmur-momentum',
+        name: 'Murmur Momentum',
+        account: 'paper-momentum-001',
+        strategy: 'Buy high-volume crypto assets showing positive public-feed momentum.',
+        equity: 10325,
+        totalPnl: 325,
+        totalReturnPct: 3.25,
+        benchmarkReturnPct: 2.5,
+        alphaPct: 0.75,
+        cash: 8125,
+        positions: [{ title: 'Bitcoin', symbol: 'BTC', gainPct: 1.9, marketValue: 2200 }],
+        pendingOrders: [{ title: 'Bitcoin', actionText: 'Paper buy', reason: 'Momentum score 4.2' }],
+      },
+    ],
+  };
+
+  const model = buildTzeentchDashboardModel(raw, { now });
+
+  assert.equal(model.paperBooks.books.length, 1);
+  assert.equal(model.paperBooks.books[0].returnLabel, '+3.25%');
+  assert.ok(model.actionable.paperBooks.books.length > 0);
+  assert.ok(model.actionable.proposals.some((proposal) => proposal.instrumentType === 'paper-book'));
+});
+
 test('buildSparklinePath returns svg path data for a simple series', () => {
   const sparkline = buildSparklinePath([
     { t: 1, p: 10 },

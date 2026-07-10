@@ -27,6 +27,7 @@ const GEO_OPTIONS = {
   maximumAge: 5000,
   timeout: 10000,
 };
+const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
 
 const $ = (id) => document.getElementById(id);
 const $$ = (selector) => document.querySelectorAll(selector);
@@ -119,11 +120,12 @@ async function handleLogin() {
   }
 
   try {
-    const isValid = await validatePasscode(passcode);
-    if (!isValid) {
+    const session = await validatePasscode(passcode);
+    if (!session) {
       return;
     }
 
+    persistOperatorSession(session);
     unlockConsole();
   } catch (error) {
     console.error('Login failed', error);
@@ -148,11 +150,19 @@ async function validatePasscode(passcode) {
   }
 
   const data = await response.json();
-  if (data && typeof data.ok === 'boolean') {
-    return data.ok;
+  if (data?.ok === true && data.operatorSession?.token) {
+    return data.operatorSession;
   }
 
-  return false;
+  return null;
+}
+
+function persistOperatorSession(session) {
+  try {
+    sessionStorage.setItem(OPERATOR_SESSION_KEY, JSON.stringify(session));
+  } catch {
+    // Session storage is best-effort; API calls will fail closed without a bearer token.
+  }
 }
 
 function unlockConsole() {
@@ -251,6 +261,11 @@ function resetConsoleToLogin() {
   renderGodeyeMap();
   renderWigleViews();
   updateArFullscreenState(false);
+  try {
+    sessionStorage.removeItem(OPERATOR_SESSION_KEY);
+  } catch {
+    // no-op
+  }
   resetTabSelection();
 }
 

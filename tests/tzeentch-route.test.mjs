@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const handler = require('../api/tzeentch/index.js');
+const { createOperatorToken } = require('../api/_lib/operator-auth.js');
 
 function jsonResponse(body, { status = 200 } = {}) {
   return {
@@ -12,6 +14,37 @@ function jsonResponse(body, { status = 200 } = {}) {
     status,
     json: async () => body,
   };
+}
+
+function withOperatorEnv(fn) {
+  const previous = {
+    BLUE_SWALLOW_PASSCODE_SHA256: process.env.BLUE_SWALLOW_PASSCODE_SHA256,
+    BLUE_SWALLOW_PASSCODE: process.env.BLUE_SWALLOW_PASSCODE,
+    BLUE_SWALLOW_OPERATOR_TOKEN_TTL_MS: process.env.BLUE_SWALLOW_OPERATOR_TOKEN_TTL_MS,
+  };
+  const digest = crypto.createHash('sha256').update('tzeentch-test-passcode').digest('hex');
+  delete process.env.BLUE_SWALLOW_PASSCODE;
+  process.env.BLUE_SWALLOW_PASSCODE_SHA256 = digest;
+  process.env.BLUE_SWALLOW_OPERATOR_TOKEN_TTL_MS = '60000';
+  handler._resetPaperBooksForTests?.();
+
+  return Promise.resolve()
+    .then(fn)
+    .finally(() => {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+      handler._resetPaperBooksForTests?.();
+    });
+}
+
+function authorizationHeader() {
+  const { token } = createOperatorToken();
+  return { authorization: `Bearer ${token}` };
 }
 
 test('api/tzeentch function.json exposes an anonymous GET trigger', () => {
@@ -29,7 +62,28 @@ test('api/tzeentch function.json exposes an anonymous GET trigger', () => {
   assert.equal(httpTrigger.route, 'tzeentch');
 });
 
-test('api/tzeentch returns a public read-only payload', async () => {
+test('api/tzeentch rejects requests without a passcode-issued operator session', async () => {
+  await withOperatorEnv(async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => {
+      throw new Error('fetch should not run before auth passes');
+    };
+
+    const context = { log: { error: () => {} } };
+    try {
+      await handler(context, { headers: {} });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    assert.equal(context.res.status, 403);
+    assert.equal(context.res.body.ok, false);
+    assert.match(context.res.body.error, /operator session/i);
+  });
+});
+
+test('api/tzeentch returns a bearer-token protected read-only payload', async () => {
+  await withOperatorEnv(async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url) => {
     const href = String(url);
@@ -146,7 +200,7 @@ test('api/tzeentch returns a public read-only payload', async () => {
 
   const context = { log: { error: () => {} } };
   try {
-    await handler(context, {});
+    await handler(context, { headers: authorizationHeader() });
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -159,5 +213,8 @@ test('api/tzeentch returns a public read-only payload', async () => {
   assert.equal(context.res.body.crypto.markets.length, 1);
   assert.equal(context.res.body.polymarket.newMarkets.length, 1);
   assert.equal(context.res.body.polymarket.resolvedMarkets.length, 1);
+  assert.equal(context.res.body.paperBooks.books.length, 3);
+  assert.ok(context.res.body.paperBooks.books.some((book) => book.pendingOrders.length > 0));
   assert.match(context.res.body.crypto.markets[0].symbol, /BTC/);
+  });
 });

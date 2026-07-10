@@ -1,6 +1,7 @@
 import { buildTzeentchDashboardModel } from './tzeentch-dashboard.mjs';
 
 const STORAGE_KEY = 'blue-swallow-society:tzeentch:recent-queries';
+const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
 const MAX_RECENT = 6;
 const TZEENTCH_SOURCE_FAMILIES = ['Hacker News', 'Reddit', 'CoinGecko', 'Polymarket Gamma'];
 
@@ -101,6 +102,9 @@ function setTzeentchSurface(key) {
   }
 
   state.surfaceTab = key;
+  if (key !== 'seek') {
+    state.marketTab = key;
+  }
   syncTzeentchSurfaceVisibility();
   renderApplications();
 }
@@ -144,13 +148,14 @@ async function runScan(query, mode, { recordRecent = true, focus = false } = {})
       ? { query, mode: mode || 'auto', limit: 5 }
       : { mode: 'overview', limit: 5 };
 
+    const headers = buildOperatorHeaders();
+    headers.Accept = 'application/json';
+    headers['Content-Type'] = 'application/json';
+
     const response = await fetch(new URL('/api/osint', window.location.origin).toString(), {
       method: 'POST',
       signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(requestBody),
     });
 
@@ -669,6 +674,23 @@ function getTzeentchMarketModel() {
   return state.marketModel;
 }
 
+function readOperatorSession() {
+  try {
+    const raw = sessionStorage.getItem(OPERATOR_SESSION_KEY);
+    const session = raw ? JSON.parse(raw) : null;
+    return typeof session?.token === 'string' && session.token ? session : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildOperatorHeaders() {
+  const session = readOperatorSession();
+  return session?.token
+    ? { Authorization: `Bearer ${session.token}` }
+    : {};
+}
+
 async function loadTzeentchMarketFeed({ refresh = false } = {}) {
   if (state.marketFetchPromise) {
     return state.marketFetchPromise;
@@ -676,8 +698,11 @@ async function loadTzeentchMarketFeed({ refresh = false } = {}) {
 
   state.marketFetchPromise = (async () => {
     try {
+      const headers = buildOperatorHeaders();
+      headers.Accept = 'application/json';
+
       const response = await fetch(new URL('/api/tzeentch', window.location.origin).toString(), {
-        headers: { Accept: 'application/json' },
+        headers,
       });
 
       if (!response.ok) {

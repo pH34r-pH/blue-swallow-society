@@ -67,6 +67,9 @@ test('validate-passcode accepts SHA-256 configured passcodes and rejects wrong g
     const accepted = await invoke('s3cr3t passphrase');
     assert.equal(accepted.status, 200);
     assert.equal(accepted.body.ok, true);
+    assert.match(accepted.body.operatorSession.token, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+    assert.match(accepted.body.operatorSession.expiresAt, /^\d{4}-\d{2}-\d{2}T/);
+    assert.equal(accepted.headers['Cache-Control'], 'no-store');
 
     const rejected = await invoke('blue-swallow');
     assert.equal(rejected.status, 401);

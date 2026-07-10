@@ -1,3 +1,4 @@
+const { requireOperatorToken } = require('../_lib/operator-auth');
 
 const USER_AGENT = 'BlueSwallowSociety/1.0 (+https://blueswallow.co.in)';
 const DEFAULT_TIMEOUT_MS = 9000;
@@ -5,8 +6,36 @@ const HN_API = 'https://hacker-news.firebaseio.com/v0';
 const REDDIT_API = 'https://www.reddit.com/r/all/hot.json?limit=25';
 const COINGECKO_API = 'https://api.coingecko.com/api/v3';
 const POLYMARKET_API = 'https://gamma-api.polymarket.com';
+const PAPER_STARTING_CASH = 10_000;
+const PAPER_ORDER_FRACTION = 0.12;
+const PAPER_STRATEGIES = [
+  {
+    id: 'murmur-momentum',
+    account: 'paper-momentum-001',
+    name: 'Murmur Momentum',
+    strategy: 'Buy high-volume crypto assets showing positive public-feed momentum, then mark gains against spot.',
+  },
+  {
+    id: 'contrarian-reversion',
+    account: 'paper-reversion-001',
+    name: 'Contrarian Reversion',
+    strategy: 'Buy liquid drawdowns and trim crowded winners; assumes mean reversion over the next loop.',
+  },
+  {
+    id: 'prediction-arb',
+    account: 'paper-polymarket-001',
+    name: 'Prediction Arb',
+    strategy: 'Paper-buy liquid Polymarket outcomes near price discovery and track probability mark-to-market.',
+  },
+];
+const paperBookState = new Map();
 
 module.exports = async function (context, req) {
+  const auth = requireOperatorToken(context, req);
+  if (!auth.ok) {
+    return;
+  }
+
   try {
     const payload = await buildDashboardPayload();
     context.res = {
@@ -41,6 +70,8 @@ async function buildDashboardPayload() {
     buildPolymarket({ warnings }),
   ]);
 
+  const paperBooks = buildPaperBooks({ murmurs, crypto, polymarket });
+
   return {
     updatedAt: new Date().toISOString(),
     publicOnly: true,
@@ -49,6 +80,7 @@ async function buildDashboardPayload() {
     murmurs,
     crypto,
     polymarket,
+    paperBooks,
   };
 }
 
@@ -130,6 +162,328 @@ async function buildPolymarket({ warnings }) {
     resolvedMarkets: resolvedEvents.sort((left, right) => compareIso(right.resolvedAt || right.updatedAt, left.resolvedAt || left.updatedAt)),
     updatedAt: new Date().toISOString(),
   };
+}
+
+function buildPaperBooks({ crypto = {}, polymarket = {} } = {}) {
+  const now = new Date().toISOString();
+  const cryptoMarkets = Array.isArray(crypto.markets) ? crypto.markets.filter((market) => market?.id && Number.isFinite(market.currentPrice)) : [];
+  const activeMarkets = Array.isArray(polymarket.newMarkets) ? polymarket.newMarkets.filter((market) => market?.id) : [];
+  const benchmark = buildPaperBenchmark(cryptoMarkets);
+  const books = PAPER_STRATEGIES.map((strategy) => {
+    const previous = paperBookState.get(strategy.id) || createPaperBook(strategy, now);
+    const book = clonePaperBook(previous);
+    book.updatedAt = now;
+    book.iteration = (book.iteration || 0) + 1;
+    book.pendingOrders = [];
+
+    markPaperBook(book, { cryptoMarkets, activeMarkets, benchmark });
+    const order = buildPaperOrder(strategy.id, book, { cryptoMarkets, activeMarkets, now });
+    if (order) {
+      executePaperOrder(book, order, { cryptoMarkets, activeMarkets, now });
+    }
+    markPaperBook(book, { cryptoMarkets, activeMarkets, benchmark });
+
+    paperBookState.set(strategy.id, clonePaperBook(book));
+    return publicPaperBook(book);
+  });
+
+  return {
+    updatedAt: now,
+    paperOnly: true,
+    summary: `${books.length} paper books running in parallel against public feeds.`,
+    loop: {
+      cadence: 'per live feed refresh',
+      strategyCount: books.length,
+      iterationCount: books.reduce((max, book) => Math.max(max, book.iteration || 0), 0),
+      riskNote: 'No live orders. Books are warm-function paper ledgers and may cold-start if the serverless worker is recycled.',
+    },
+    benchmark,
+    books,
+  };
+}
+
+function createPaperBook(strategy, now) {
+  return {
+    id: strategy.id,
+    account: strategy.account,
+    name: strategy.name,
+    strategy: strategy.strategy,
+    createdAt: now,
+    updatedAt: now,
+    iteration: 0,
+    startingCash: PAPER_STARTING_CASH,
+    cash: PAPER_STARTING_CASH,
+    equity: PAPER_STARTING_CASH,
+    realizedPnl: 0,
+    unrealizedPnl: 0,
+    totalPnl: 0,
+    totalReturnPct: 0,
+    benchmarkReturnPct: 0,
+    alphaPct: 0,
+    positions: [],
+    pendingOrders: [],
+    tradeLog: [],
+  };
+}
+
+function buildPaperBenchmark(cryptoMarkets = []) {
+  const btc = cryptoMarkets.find((market) => market.id === 'bitcoin') || cryptoMarkets[0] || null;
+  const returnPct = toNumber(btc?.priceChange24h) || 0;
+  return {
+    label: btc ? `${btc.symbol || btc.name} 24h proxy` : 'No market benchmark',
+    assetId: btc?.id || null,
+    mark: toNumber(btc?.currentPrice),
+    returnPct: roundNumber(returnPct, 4),
+  };
+}
+
+function buildPaperOrder(strategyId, book, { cryptoMarkets = [], activeMarkets = [], now }) {
+  if (strategyId === 'murmur-momentum') {
+    const candidate = cryptoMarkets
+      .filter((market) => !isStablecoin(market.symbol) && (toNumber(market.priceChange24h) || 0) > 0)
+      .sort((left, right) => cryptoMomentumScore(right) - cryptoMomentumScore(left))[0];
+    if (!candidate) return null;
+    return cryptoPaperOrder('buy', candidate, book, now, `Momentum score ${roundNumber(cryptoMomentumScore(candidate), 2)} from public price/volume feeds.`);
+  }
+
+  if (strategyId === 'contrarian-reversion') {
+    const heldWinner = book.positions
+      .filter((position) => position.instrumentType === 'crypto')
+      .map((position) => ({ position, market: cryptoMarkets.find((market) => market.id === position.assetId) }))
+      .filter((entry) => entry.market && (toNumber(entry.market.priceChange24h) || 0) > 4)
+      .sort((left, right) => (toNumber(right.market.priceChange24h) || 0) - (toNumber(left.market.priceChange24h) || 0))[0];
+    if (heldWinner) {
+      return cryptoPaperOrder('sell', heldWinner.market, book, now, `Trim ${heldWinner.market.symbol} after ${formatSignedPercentApi(heldWinner.market.priceChange24h)} 24h run-up.`);
+    }
+
+    const drawdown = cryptoMarkets
+      .filter((market) => !isStablecoin(market.symbol) && (toNumber(market.priceChange24h) || 0) < 0)
+      .sort((left, right) => (toNumber(left.priceChange24h) || 0) - (toNumber(right.priceChange24h) || 0))[0];
+    if (!drawdown) return null;
+    return cryptoPaperOrder('buy', drawdown, book, now, `Mean-reversion entry after ${formatSignedPercentApi(drawdown.priceChange24h)} 24h drawdown.`);
+  }
+
+  if (strategyId === 'prediction-arb') {
+    const market = activeMarkets
+      .filter((entry) => Number.isFinite(entry.yesPrice) && entry.yesPrice > 0.12 && entry.yesPrice < 0.88)
+      .sort((left, right) => (toNumber(right.liquidity) || 0) - (toNumber(left.liquidity) || 0))[0];
+    if (!market) return null;
+    const outcome = market.yesPrice <= 0.5 ? 'YES' : 'NO';
+    const price = outcome === 'YES' ? market.yesPrice : market.noPrice;
+    if (!Number.isFinite(price) || price <= 0) return null;
+    const notional = clampNumber(book.cash * PAPER_ORDER_FRACTION, 50, Math.min(book.cash, 1_000));
+    return {
+      id: `paper-${book.id}-${Date.now()}-${market.id}`,
+      side: 'buy',
+      instrumentType: 'polymarket',
+      marketId: market.id,
+      symbol: outcome,
+      title: `${outcome} ${market.title || market.question || 'Polymarket event'}`,
+      mark: roundNumber(price, 4),
+      basis: roundNumber(price, 4),
+      notional: roundNumber(notional, 2),
+      quantity: roundNumber(notional / price, 6),
+      status: 'paper-open',
+      reason: `Liquid prediction-market entry at ${formatPercentApi(price)} probability mark.`,
+      createdAt: now,
+      sourceUrl: market.marketUrl || null,
+    };
+  }
+
+  return null;
+}
+
+function cryptoPaperOrder(side, market, book, now, reason) {
+  const price = toNumber(market.currentPrice);
+  if (!Number.isFinite(price) || price <= 0) return null;
+  const maxNotional = side === 'buy'
+    ? Math.min(book.cash, 1_000)
+    : Math.min(positionQuantity(book, market.id) * price, 1_000);
+  const notional = clampNumber(book.equity * PAPER_ORDER_FRACTION, 50, Math.max(0, maxNotional));
+  if (!Number.isFinite(notional) || notional <= 0) return null;
+
+  return {
+    id: `paper-${book.id}-${Date.now()}-${market.id}`,
+    side,
+    instrumentType: 'crypto',
+    assetId: market.id,
+    symbol: market.symbol,
+    title: market.name || market.symbol || market.id,
+    mark: roundNumber(price, 8),
+    basis: roundNumber(price, 8),
+    notional: roundNumber(notional, 2),
+    quantity: roundNumber(notional / price, 8),
+    status: 'paper-open',
+    reason,
+    createdAt: now,
+  };
+}
+
+function executePaperOrder(book, order, { now }) {
+  const executed = { ...order, executedAt: now, status: 'paper-filled' };
+  if (order.side === 'buy') {
+    if (book.cash < order.notional) {
+      book.pendingOrders.push({ ...order, status: 'skipped', reason: `${order.reason} Cash below order notional.` });
+      return;
+    }
+    book.cash = roundNumber(book.cash - order.notional, 2);
+    upsertPaperPosition(book, order);
+    book.tradeLog.unshift(executed);
+    book.pendingOrders.push(executed);
+    return;
+  }
+
+  const position = findPaperPosition(book, order);
+  if (!position || position.quantity <= 0) {
+    book.pendingOrders.push({ ...order, status: 'skipped', reason: `${order.reason} No matching paper position to sell.` });
+    return;
+  }
+
+  const sellQuantity = Math.min(position.quantity, order.quantity);
+  const proceeds = sellQuantity * order.mark;
+  const costBasis = sellQuantity * position.basis;
+  position.quantity = roundNumber(position.quantity - sellQuantity, 8);
+  book.cash = roundNumber(book.cash + proceeds, 2);
+  book.realizedPnl = roundNumber((book.realizedPnl || 0) + proceeds - costBasis, 2);
+  book.positions = book.positions.filter((entry) => entry.quantity > 0.00000001);
+  book.tradeLog.unshift({ ...executed, quantity: roundNumber(sellQuantity, 8), notional: roundNumber(proceeds, 2), realizedPnl: roundNumber(proceeds - costBasis, 2) });
+  book.pendingOrders.push(executed);
+}
+
+function upsertPaperPosition(book, order) {
+  const existing = findPaperPosition(book, order);
+  const quantity = toNumber(order.quantity) || 0;
+  const notional = toNumber(order.notional) || 0;
+  if (!existing) {
+    book.positions.push({
+      id: order.instrumentType === 'polymarket' ? `polymarket:${order.marketId}:${order.symbol}` : `crypto:${order.assetId}`,
+      instrumentType: order.instrumentType,
+      assetId: order.assetId || null,
+      marketId: order.marketId || null,
+      symbol: order.symbol || null,
+      title: order.title,
+      quantity,
+      basis: order.basis,
+      mark: order.mark,
+      marketValue: notional,
+      unrealizedPnl: 0,
+      gainPct: 0,
+      sourceUrl: order.sourceUrl || null,
+    });
+    return;
+  }
+
+  const oldCost = existing.quantity * existing.basis;
+  const newQuantity = existing.quantity + quantity;
+  const newBasis = newQuantity > 0 ? (oldCost + notional) / newQuantity : order.basis;
+  existing.quantity = roundNumber(newQuantity, 8);
+  existing.basis = roundNumber(newBasis, 8);
+  existing.mark = order.mark;
+  existing.marketValue = roundNumber(existing.quantity * order.mark, 2);
+}
+
+function markPaperBook(book, { cryptoMarkets = [], activeMarkets = [], benchmark = {} }) {
+  let marketValue = 0;
+  let unrealized = 0;
+  book.positions = book.positions.map((position) => {
+    const mark = currentMarkForPosition(position, { cryptoMarkets, activeMarkets });
+    const marketPositionValue = Number.isFinite(mark) ? position.quantity * mark : position.marketValue || 0;
+    const positionUnrealized = Number.isFinite(mark) ? position.quantity * (mark - position.basis) : 0;
+    marketValue += marketPositionValue;
+    unrealized += positionUnrealized;
+    return {
+      ...position,
+      mark: Number.isFinite(mark) ? roundNumber(mark, 8) : position.mark,
+      marketValue: roundNumber(marketPositionValue, 2),
+      unrealizedPnl: roundNumber(positionUnrealized, 2),
+      gainPct: position.basis ? roundNumber(((mark - position.basis) / position.basis) * 100, 4) : 0,
+    };
+  });
+
+  book.cash = roundNumber(book.cash, 2);
+  book.unrealizedPnl = roundNumber(unrealized, 2);
+  book.equity = roundNumber(book.cash + marketValue, 2);
+  book.totalPnl = roundNumber(book.equity - book.startingCash, 2);
+  book.totalReturnPct = roundNumber((book.totalPnl / book.startingCash) * 100, 4);
+  book.benchmarkReturnPct = roundNumber(benchmark.returnPct || 0, 4);
+  book.alphaPct = roundNumber(book.totalReturnPct - book.benchmarkReturnPct, 4);
+}
+
+function currentMarkForPosition(position, { cryptoMarkets = [], activeMarkets = [] }) {
+  if (position.instrumentType === 'crypto') {
+    const market = cryptoMarkets.find((entry) => entry.id === position.assetId || entry.symbol === position.symbol);
+    return toNumber(market?.currentPrice) ?? position.mark;
+  }
+  if (position.instrumentType === 'polymarket') {
+    const market = activeMarkets.find((entry) => entry.id === position.marketId);
+    if (!market) return position.mark;
+    return position.symbol === 'NO' ? toNumber(market.noPrice) ?? position.mark : toNumber(market.yesPrice) ?? position.mark;
+  }
+  return position.mark;
+}
+
+function findPaperPosition(book, order) {
+  return book.positions.find((position) => {
+    if (order.instrumentType === 'crypto') return position.instrumentType === 'crypto' && position.assetId === order.assetId;
+    if (order.instrumentType === 'polymarket') return position.instrumentType === 'polymarket' && position.marketId === order.marketId && position.symbol === order.symbol;
+    return false;
+  });
+}
+
+function positionQuantity(book, assetId) {
+  return book.positions
+    .filter((position) => position.instrumentType === 'crypto' && position.assetId === assetId)
+    .reduce((total, position) => total + (toNumber(position.quantity) || 0), 0);
+}
+
+function publicPaperBook(book) {
+  return {
+    ...book,
+    positions: book.positions.slice(0, 8),
+    pendingOrders: book.pendingOrders.slice(0, 5),
+    tradeLog: book.tradeLog.slice(0, 12),
+  };
+}
+
+function clonePaperBook(book) {
+  return JSON.parse(JSON.stringify(book));
+}
+
+function cryptoMomentumScore(market) {
+  const change24h = toNumber(market.priceChange24h) || 0;
+  const change7d = toNumber(market.priceChange7d) || 0;
+  const volume = toNumber(market.totalVolume) || 0;
+  const rankBias = market.marketCapRank ? Math.max(0, 12 - market.marketCapRank) : 0;
+  return change24h * 0.7 + change7d * 0.3 + Math.log10(volume + 1) * 0.1 + rankBias * 0.2;
+}
+
+function isStablecoin(symbol) {
+  return ['USDT', 'USDC', 'DAI', 'FDUSD', 'TUSD', 'USDP', 'USDD', 'PYUSD', 'FRAX', 'USDE'].includes(cleanString(symbol).toUpperCase());
+}
+
+function clampNumber(value, min, max) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return min;
+  if (max < min) return 0;
+  return Math.min(max, Math.max(min, parsed));
+}
+
+function roundNumber(value, digits = 2) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  const factor = 10 ** digits;
+  return Math.round(parsed * factor) / factor;
+}
+
+function formatSignedPercentApi(value) {
+  const parsed = toNumber(value) || 0;
+  const prefix = parsed > 0 ? '+' : '';
+  return `${prefix}${roundNumber(parsed, 2)}%`;
+}
+
+function formatPercentApi(value) {
+  const parsed = toNumber(value);
+  return Number.isFinite(parsed) ? `${roundNumber(parsed * 100, 1)}%` : '—';
 }
 
 async function fetchJson(url, { warnings } = {}) {
@@ -412,3 +766,6 @@ const STOP_WORDS = new Set([
   'live',
   'hot',
 ]);
+
+module.exports._resetPaperBooksForTests = () => paperBookState.clear();
+module.exports._internals = { buildPaperBooks };

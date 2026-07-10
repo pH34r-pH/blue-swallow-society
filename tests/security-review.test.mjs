@@ -20,17 +20,24 @@ function routeConfig(route) {
   return staticWebApp.routes.find((entry) => entry.route === route);
 }
 
-test('operator API routes are protected by Static Web Apps auth', () => {
-  ['/api/wigle', '/api/osint', '/api/agent', '/api/tzeentch'].forEach((route) => {
-    assert.deepEqual(routeConfig(route)?.allowedRoles, ['authenticated'], `${route} should require authentication`);
+test('operator APIs use SWA auth or passcode-issued bearer tokens', () => {
+  ['/api/wigle', '/api/agent'].forEach((route) => {
+    assert.deepEqual(routeConfig(route)?.allowedRoles, ['authenticated'], `${route} should require Static Web Apps authentication`);
   });
+
+  ['/api/osint', '/api/tzeentch'].forEach((route) => {
+    assert.deepEqual(routeConfig(route)?.allowedRoles, ['anonymous', 'authenticated'], `${route} should be reachable after passcode login`);
+  });
+
+  assert.ok(read('api/osint/index.js').includes('requireOperatorToken'));
+  assert.ok(read('api/tzeentch/index.js').includes('requireOperatorToken'));
 });
 
 test('passcode auth has no client fallback secret or local bypass', () => {
   assert.ok(!mainJs.includes('PASSCODE_FALLBACK'));
-  assert.ok(!mainJs.includes('blue-swallow'));
+  assert.ok(!mainJs.includes("passcode === 'blue-swallow'"));
   assert.ok(!mainJs.includes('Local fallback for development shells'));
-  assert.ok(!mainJs.includes('passcode ==='));
+  assert.ok(!mainJs.includes('1498079020c154198640fb47d5dba23a804f44ff805fac623c69202af9db2c80'));
 });
 
 test('deployment config wires the canonical passcode hash into SWA app settings', () => {
@@ -54,6 +61,8 @@ test('OSINT and agent prompts are sent via POST bodies, not URLs or persistent s
   assert.ok(!tzeentchJs.includes("url.searchParams.set('query'"));
   assert.ok(!tzeentchJs.includes('localStorage'));
   assert.ok(tzeentchJs.includes('sessionStorage'));
+  assert.ok(tzeentchJs.includes('buildOperatorHeaders()'));
+  assert.ok(tzeentchJs.includes('Authorization: `Bearer ${session.token}`'));
 
   assert.ok(agentJs.includes("fetch('/api/agent'"));
   assert.ok(agentJs.includes("method: 'POST'"));

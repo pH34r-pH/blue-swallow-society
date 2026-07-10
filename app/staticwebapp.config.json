@@ -28,6 +28,7 @@
     {
       "route": "/api/osint",
       "allowedRoles": [
+        "anonymous",
         "authenticated"
       ]
     },
@@ -40,6 +41,7 @@
     {
       "route": "/api/tzeentch",
       "allowedRoles": [
+        "anonymous",
         "authenticated"
       ]
     },
