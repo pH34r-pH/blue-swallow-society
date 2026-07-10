@@ -16,8 +16,8 @@ param sshPublicKey string
 @description('CIDR allowed to reach SSH (22) and the echo port (8080). Use your developer IP (e.g. 203.0.113.5/32). Default "*" is wide open — only acceptable for short-lived experiments.')
 param allowedSourceIp string = '*'
 
-@description('VM size. Keep this small for experimentation.')
-param vmSize string = 'Standard_B1s'
+@description('VM size. Cybermap defaults to Standard_B1ms; API-only/lab deployments may explicitly override to Standard_B1s.')
+param vmSize string = 'Standard_B1ms'
 
 @description('Set true to deploy an Azure OpenAI account alongside the rest of the stack.')
 param deployOpenAi bool = false
@@ -44,8 +44,23 @@ resource swa 'Microsoft.Web/staticSites@2023-01-01' = {
   }
 }
 
+var vnetName = '${prefix}-vm-vnet'
+var postgresPrivateDnsZoneName = '${prefix}.postgres.database.azure.com'
+
 /*
- * VM + networking via shared module — single source of truth for the echo lab.
+ * Shared network topology for VM/API gateway and private PostgreSQL.
+ */
+module networkModule 'modules/network.bicep' = {
+  name: 'network'
+  params: {
+    location: location
+    vnetName: vnetName
+    postgresPrivateDnsZoneName: postgresPrivateDnsZoneName
+  }
+}
+
+/*
+ * VM consumes the shared app subnet; it no longer creates an isolated VNet.
  */
 module vmModule 'vm-echo-lab.bicep' = {
   name: 'vm-echo-lab'
@@ -57,6 +72,7 @@ module vmModule 'vm-echo-lab.bicep' = {
     autoShutdownTime: autoShutdownTime
     autoShutdownTimeZone: autoShutdownTimeZone
     vmSize: vmSize
+    appSubnetId: networkModule.outputs.appSubnetId
   }
 }
 
@@ -75,5 +91,11 @@ output staticWebAppDefaultHostname string = swa.properties.defaultHostname
 output staticWebAppResourceId string = swa.id
 output backendEchoBaseUrl string = vmModule.outputs.backendEchoBaseUrl
 output vmPublicIp string = vmModule.outputs.publicIpAddress
+output vnetId string = networkModule.outputs.vnetId
+output appSubnetId string = networkModule.outputs.appSubnetId
+output postgresSubnetId string = networkModule.outputs.postgresSubnetId
+output postgresPrivateDnsZoneId string = networkModule.outputs.postgresPrivateDnsZoneId
+output postgresPrivateDnsZoneName string = networkModule.outputs.postgresPrivateDnsZoneName
+output postgresPrivateDnsZoneVirtualNetworkLinkId string = networkModule.outputs.postgresPrivateDnsZoneVirtualNetworkLinkId
 output openAiDeployed bool = deployOpenAi
-output openAiEndpoint string = deployOpenAi ? openAiModule.outputs.endpoint : ''
+output openAiEndpoint string = deployOpenAi ? openAiModule!.outputs.endpoint : ''

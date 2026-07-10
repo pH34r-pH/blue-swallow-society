@@ -11,7 +11,7 @@
         "description": "WARNING: '*' exposes ports 22 and 8080 to the entire internet. Set to your IP before production."
       }
     },
-    "vmSize": { "value": "Standard_B1s" },
+    "vmSize": { "value": "Standard_B1ms" },
     "deployOpenAi": { "value": false },
     "autoShutdownTime": { "value": "0200" },
     "autoShutdownTimeZone": { "value": "Pacific Standard Time" }
