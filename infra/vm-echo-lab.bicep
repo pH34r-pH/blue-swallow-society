@@ -28,7 +28,17 @@ param autoShutdownTime string = '0200'
 @description('Time zone for the auto-shutdown schedule (Windows ID, e.g. "Pacific Standard Time").')
 param autoShutdownTimeZone string = 'Pacific Standard Time'
 
-var cloudInit = '''#cloud-config
+var cybermapApiPackage = loadTextContent('../vm/cybermap-api/package.json')
+var cybermapApiServer = loadTextContent('../vm/cybermap-api/server.mjs')
+var cybermapApiDb = loadTextContent('../vm/cybermap-api/db.mjs')
+var cybermapApiMigrate = loadTextContent('../vm/cybermap-api/migrate.mjs')
+var cybermapCoreMigration = loadTextContent('../vm/cybermap-api/db/migrations/0001_cybermap_core.sql')
+var cybermapWorkerPackage = loadTextContent('../vm/cybermap-worker/package.json')
+var cybermapWorkerSource = loadTextContent('../vm/cybermap-worker/worker.mjs')
+
+#disable-next-line prefer-interpolation
+var cloudInit = concat(
+  '''#cloud-config
 package_update: true
 packages:
   - ca-certificates
@@ -41,99 +51,68 @@ write_files:
   - path: /opt/cybermap-api/package.json
     permissions: '0644'
     defer: true
-    content: |
-      {"name":"cybermap-api","version":"0.1.0","private":true,"type":"module","scripts":{"start":"node server.mjs"},"engines":{"node":">=20"}}
+    encoding: b64
+    content: ''',
+  base64(cybermapApiPackage),
+  '''
   - path: /opt/cybermap-api/server.mjs
     permissions: '0644'
     defer: true
-    content: |
-      import http from 'node:http';
-      import { randomUUID } from 'node:crypto';
-
-      const host = process.env.CYBERMAP_API_HOST || '127.0.0.1';
-      const port = Number.parseInt(process.env.CYBERMAP_API_PORT || '8000', 10);
-      const authTokens = [process.env.CYBERMAP_API_TOKEN, process.env.CYBERMAP_API_TOKENS, process.env.BLUE_SWALLOW_OPERATOR_TOKEN].filter(Boolean).flatMap((value) => value.split(',')).map((value) => value.trim()).filter(Boolean);
-      const bodyLimitBytes = Number.parseInt(process.env.CYBERMAP_BODY_LIMIT_BYTES || '1048576', 10);
-      const rateLimitHook = async () => ({allowed:true});
-
-      function send(res, statusCode, requestId, body) {
-        const payload = JSON.stringify(body);
-        res.writeHead(statusCode, {'Content-Type':'application/json; charset=utf-8','Content-Length':Buffer.byteLength(payload),'Cache-Control':'no-store','X-Request-Id':requestId});
-        res.end(payload);
-      }
-
-      function bearer(req) {
-        const authorization = req.headers.authorization || '';
-        const match = authorization.match(/^Bearer\s+(.+)$/i);
-        return (match && match[1]) || req.headers['x-blue-swallow-operator-token'] || req.headers['x-cybermap-token'] || '';
-      }
-
-      const server = http.createServer(async (req, res) => {
-        const startedAt = Date.now();
-        const requestId = req.headers['x-request-id'] || randomUUID();
-        const url = new URL(req.url || '/', 'http://localhost');
-        res.on('finish', () => console.log(JSON.stringify({service:'cybermap-api',structured:true,requestId,method:req.method,path:url.pathname,statusCode:res.statusCode,durationMs:Date.now() - startedAt})));
-
-        const rateLimitDecision = await rateLimitHook({req,requestId,path:url.pathname});
-        if (rateLimitDecision?.allowed === false) {
-          send(res, 429, requestId, {ok:false,error:{code:'rate_limited',message:rateLimitDecision.message || 'Request rejected by rate limit hook.'}});
-          return;
-        }
-
-        if (req.method === 'GET' && url.pathname === '/healthz') {
-          send(res, 200, requestId, {ok:true,service:'cybermap-api',version:'0.1.0',time:new Date().toISOString()});
-          return;
-        }
-
-        if (req.method === 'GET' && url.pathname === '/readyz') {
-          send(res, 503, requestId, {ok:false,service:'cybermap-api',dependencies:{postgres:{status:'pending-db-task',detail:'Readiness becomes DB-backed in the database connection task.'}}});
-          return;
-        }
-
-        if (url.pathname.startsWith('/api/v1/')) {
-          const token = bearer(req);
-          if (!authTokens.length) {
-            send(res, 503, requestId, {ok:false,error:{code:'auth_not_configured',message:'Cybermap API token configuration is pending.'}});
-            return;
-          }
-          if (!token) {
-            send(res, 401, requestId, {ok:false,error:{code:'auth_required',message:'Bearer token required for /api/v1 endpoints.'}});
-            return;
-          }
-          if (!authTokens.includes(token)) {
-            send(res, 403, requestId, {ok:false,error:{code:'auth_forbidden',message:'Bearer token was not accepted.'}});
-            return;
-          }
-          const length = Number.parseInt(req.headers['content-length'] || '0', 10);
-          if (Number.isFinite(length) && length > bodyLimitBytes) {
-            req.resume();
-            send(res, 413, requestId, {ok:false,error:{code:'body_too_large',message:'Request body exceeds configured Cybermap API limit.'}});
-            return;
-          }
-          send(res, 501, requestId, {ok:false,service:'cybermap-api',error:{code:'not_implemented',message:'Cybermap API route scaffolded; DB-backed implementation lands later.'}});
-          return;
-        }
-
-        send(res, 404, requestId, {ok:false,error:{code:'not_found',message:'Route not found.'}});
-      });
-
-      server.listen(port, host, () => console.log(JSON.stringify({service:'cybermap-api',structured:true,event:'listening',host,port})));
+    encoding: b64
+    content: ''',
+  base64(cybermapApiServer),
+  '''
+  - path: /opt/cybermap-api/db.mjs
+    permissions: '0644'
+    defer: true
+    encoding: b64
+    content: ''',
+  base64(cybermapApiDb),
+  '''
+  - path: /opt/cybermap-api/migrate.mjs
+    permissions: '0755'
+    defer: true
+    encoding: b64
+    content: ''',
+  base64(cybermapApiMigrate),
+  '''
+  - path: /opt/cybermap-api/db/migrations/0001_cybermap_core.sql
+    permissions: '0644'
+    defer: true
+    encoding: b64
+    content: ''',
+  base64(cybermapCoreMigration),
+  '''
   - path: /opt/cybermap-worker/package.json
     permissions: '0644'
     defer: true
-    content: |
-      {"name":"cybermap-worker","version":"0.1.0","private":true,"type":"module","scripts":{"start":"node worker.mjs"},"engines":{"node":">=20"}}
+    encoding: b64
+    content: ''',
+  base64(cybermapWorkerPackage),
+  '''
   - path: /opt/cybermap-worker/worker.mjs
     permissions: '0644'
     defer: true
+    encoding: b64
+    content: ''',
+  base64(cybermapWorkerSource),
+  '''
+  - path: /etc/cybermap-api.env
+    permissions: '0640'
+    defer: true
     content: |
-      const pollIntervalMs = Number.parseInt(process.env.CYBERMAP_WORKER_POLL_INTERVAL_MS || '60000', 10);
-      function log(entry) { console.log(JSON.stringify({service:'cybermap-worker',structured:true,...entry})); }
-      function tick(reason = 'interval') { log({event:'tick',reason,pollIntervalMs,jobs:[{name:'greenfeed-polling',status:'pending-db-task'},{name:'cybermap-cell-materialization',status:'pending-db-task'}]}); }
-      const timer = setInterval(tick, pollIntervalMs);
-      tick('start');
-      process.on('SIGTERM', () => { clearInterval(timer); log({event:'shutdown',signal:'SIGTERM'}); process.exit(0); });
-      process.on('SIGINT', () => { clearInterval(timer); log({event:'shutdown',signal:'SIGINT'}); process.exit(0); });
+      # Operator-managed Cybermap API settings. Do not commit credentials.
+      # CYBERMAP_DATABASE_URL should normally point at local PgBouncer, not directly at Flexible Server.
+      # CYBERMAP_DATABASE_URL=postgresql://cybermap:***@127.0.0.1:6432/cybermap
+      CYBERMAP_DB_POOL_MAX=5
+      CYBERMAP_DB_CONNECT_TIMEOUT_MS=3000
+      CYBERMAP_DB_IDLE_TIMEOUT_MS=10000
+      CYBERMAP_EXPECTED_MIGRATION=0001_cybermap_core
+  - path: /opt/cybermap-api/README.runtime.md
+    permissions: '0644'
+    defer: true
+    content: |
+      Runtime env is loaded from /etc/cybermap-api.env. Required DB setting: CYBERMAP_DATABASE_URL. Readiness fails closed when it is absent.
   - path: /etc/systemd/system/cybermap-api.service
     permissions: '0644'
     defer: true
@@ -151,7 +130,11 @@ write_files:
       Environment=CYBERMAP_API_HOST=127.0.0.1
       Environment=CYBERMAP_API_PORT=8000
       Environment=CYBERMAP_BODY_LIMIT_BYTES=1048576
+      Environment=CYBERMAP_DB_POOL_MAX=5
+      Environment=CYBERMAP_DB_CONNECT_TIMEOUT_MS=3000
+      Environment=CYBERMAP_EXPECTED_MIGRATION=0001_cybermap_core
       EnvironmentFile=-/etc/cybermap-api.env
+      ExecStartPre=/usr/bin/node /opt/cybermap-api/migrate.mjs --if-configured
       ExecStart=/usr/bin/node /opt/cybermap-api/server.mjs
       Restart=always
       RestartSec=3
@@ -218,8 +201,9 @@ write_files:
     defer: true
     content: |
       [databases]
-      ; Placeholder only. DB connection task will replace this with the private PostgreSQL hostname.
-      ; cybermap = host=blue-swallow-pg.postgres.database.azure.com port=5432 dbname=cybermap auth_user=pgbouncer
+      ; Operator-managed placeholder. No DB credentials are committed by cloud-init.
+      ; After PostgreSQL Flexible Server exists, inject private host/user secrets and enable pgbouncer.
+      ; cybermap = host=<private-postgres-host> port=5432 dbname=cybermap auth_user=cybermap
 
       [pgbouncer]
       listen_addr = 127.0.0.1
@@ -235,14 +219,18 @@ write_files:
     permissions: '0640'
     defer: true
     content: |
-      ; Placeholder. Do not commit or cloud-init database credentials; inject via operator-controlled secret path in the DB task.
+      ; Operator-managed. Do not commit or cloud-init database credentials.
 runcmd:
-  - mkdir -p /opt/cybermap-api /opt/cybermap-worker /etc/nginx/ssl /var/log/cybermap
+  - mkdir -p /opt/cybermap-api/db/migrations /opt/cybermap-worker /etc/nginx/ssl /var/log/cybermap
   - useradd --system --home-dir /opt/cybermap-api --shell /usr/sbin/nologin cybermap || true
   - chown -R cybermap:cybermap /opt/cybermap-api /opt/cybermap-worker /var/log/cybermap
+  - chown root:cybermap /etc/cybermap-api.env /etc/pgbouncer/pgbouncer.ini /etc/pgbouncer/userlist.txt
+  - chmod 0640 /etc/cybermap-api.env /etc/pgbouncer/pgbouncer.ini /etc/pgbouncer/userlist.txt
   # NodeSource Node.js 20 bootstrap for Ubuntu 22.04.
   - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
   - apt-get install -y nodejs
+  - cd /opt/cybermap-api && npm install --omit=dev --ignore-scripts
+  - cd /opt/cybermap-worker && npm install --omit=dev --ignore-scripts
   - openssl req -x509 -nodes -newkey rsa:2048 -days 90 -keyout /etc/nginx/ssl/cybermap-api.key -out /etc/nginx/ssl/cybermap-api.crt -subj "/CN=cybermap-api.local"
   - ln -sf /etc/nginx/sites-available/cybermap-api /etc/nginx/sites-enabled/cybermap-api
   - rm -f /etc/nginx/sites-enabled/default
@@ -253,6 +241,8 @@ runcmd:
   - systemctl enable --now nginx
   - systemctl disable --now pgbouncer || true
 '''
+)
+
 
 resource pip 'Microsoft.Network/publicIPAddresses@2024-01-01' = {
   name: '${vmName}-pip'

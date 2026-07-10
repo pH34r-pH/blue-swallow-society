@@ -10,10 +10,17 @@ psql bss_cybermap_dev -v ON_ERROR_STOP=1 -f vm/cybermap-api/db/migrations/0001_c
 psql bss_cybermap_dev -c 'SELECT postgis_full_version();'
 ```
 
-Or point `DATABASE_URL` at an explicit libpq URL:
+Or point `CYBERMAP_DATABASE_URL` at an explicit libpq URL and use the checked-in runner:
 
 ```bash
-DATABASE_URL='postgresql://postgres:postgres@localhost:5432/bss_cybermap_dev'
+CYBERMAP_DATABASE_URL='postgresql://postgres:***@localhost:5432/bss_cybermap_dev' \
+  node vm/cybermap-api/migrate.mjs
+```
+
+Legacy direct `psql` application is still useful for disposable DB verification:
+
+```bash
+DATABASE_URL='postgresql://postgres:***@localhost:5432/bss_cybermap_dev'
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f vm/cybermap-api/db/migrations/0001_cybermap_core.sql
 ```
 

@@ -45,18 +45,21 @@ function request(server, options = {}) {
 test('VM Bicep provisions Cybermap API gateway services instead of public echo ingress', () => {
   const vmBicep = read('infra/vm-echo-lab.bicep');
   const mainBicep = read('infra/main.bicep');
+  const apiServer = read('vm/cybermap-api/server.mjs');
 
   assertIncludesAll(vmBicep, [
     'cybermap-api.service',
     'cybermap-worker.service',
     '/opt/cybermap-api/server.mjs',
+    '/opt/cybermap-api/db.mjs',
+    '/opt/cybermap-api/migrate.mjs',
     '/opt/cybermap-worker/worker.mjs',
     'NodeSource Node.js 20',
     'pgbouncer',
     '127.0.0.1:8000',
-    'rateLimitHook',
     'destinationPortRange: \'443\'',
   ], 'Cybermap VM cloud-init');
+  assertIncludesAll(apiServer, ['rateLimitHook', 'requestId', 'checkDatabaseReadiness'], 'Cybermap API source');
 
   assert.match(vmBicep, /allow-https/i);
   assert.doesNotMatch(vmBicep, /allow-echo/i);
@@ -67,7 +70,7 @@ test('VM Bicep provisions Cybermap API gateway services instead of public echo i
   assert.match(mainBicep, /backendApiBaseUrl/);
 });
 
-test('Cybermap API service exposes secret-free health, readiness placeholder, auth gate, request IDs, and body limits', async () => {
+test('Cybermap API service exposes secret-free health, DB readiness failure, auth gate, request IDs, and body limits', async () => {
   const { createCybermapApiServer } = await import('../vm/cybermap-api/server.mjs');
   const logs = [];
   const server = createCybermapApiServer({
@@ -90,7 +93,8 @@ test('Cybermap API service exposes secret-free health, readiness placeholder, au
     const ready = await request(server, { path: '/readyz' });
     assert.equal(ready.status, 503);
     assert.equal(ready.json.ok, false);
-    assert.equal(ready.json.dependencies.postgres.status, 'pending-db-task');
+    assert.equal(ready.json.dependencies.postgres.status, 'not_configured');
+    assert.deepEqual(ready.json.dependencies.postgres.missing, ['CYBERMAP_DATABASE_URL']);
     assert.doesNotMatch(ready.text, /postgres:\/\/|password|secret/i);
 
     const unauthorized = await request(server, { path: '/api/v1/cybermap/viewport' });

@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { checkDatabaseReadiness } from './db.mjs';
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 8000;
@@ -114,6 +115,9 @@ export function createCybermapApiServer(options = {}) {
   const now = options.now || (() => new Date());
   const rateLimitHook = options.rateLimitHook || (() => ({ allowed: true }));
   const serviceVersion = options.serviceVersion || process.env.CYBERMAP_API_VERSION || '0.1.0';
+  const env = options.env || process.env;
+  const dbPoolFactory = options.dbPoolFactory;
+  const expectedMigration = options.expectedMigration || env.CYBERMAP_EXPECTED_MIGRATION;
 
   return http.createServer(async (req, res) => {
     const startedAt = Date.now();
@@ -157,15 +161,17 @@ export function createCybermapApiServer(options = {}) {
       }
 
       if (req.method === 'GET' && url.pathname === '/readyz') {
-        respondJson(res, 503, requestId, {
-          ok: false,
+        const readiness = await checkDatabaseReadiness({
+          env,
+          poolFactory: dbPoolFactory,
+          expectedMigration,
+        });
+        respondJson(res, readiness.statusCode, requestId, {
+          ok: readiness.ok,
           service: 'cybermap-api',
           time: now().toISOString(),
           dependencies: {
-            postgres: {
-              status: 'pending-db-task',
-              detail: 'Readiness will check PgBouncer/PostgreSQL after the DB connection slice lands.',
-            },
+            postgres: readiness.postgres,
           },
         });
         return;
