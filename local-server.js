@@ -10,17 +10,6 @@ const server = http.createServer((req, res) => {
   const urlPath = url.pathname;
 
   if (urlPath.startsWith('/api/')) {
-    if (urlPath === '/api/echo') {
-      const msg = url.searchParams.get('msg') || 'empty';
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({
-        ok: true,
-        status: 200,
-        body: `Echo from local server: ${msg}`,
-      }));
-      return;
-    }
-
     res.writeHead(501, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       ok: false,
@@ -75,7 +64,7 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`\n✓ Local dev server running at http://localhost:${PORT}`);
   console.log(`✓ App directory: ${APP_DIR}`);
-  console.log(`✓ API echo endpoint available at http://localhost:${PORT}/api/echo?msg=test`);
+  console.log('✓ API routes return 501 JSON unless mounted by the SWA emulator');
   console.log('✓ Unmounted API routes return 501 JSON instead of SPA HTML');
   console.log('\nPress Ctrl+C to stop\n');
 });

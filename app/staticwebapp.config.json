@@ -53,13 +53,6 @@
       ]
     },
     {
-      "route": "/api/echo",
-      "allowedRoles": [
-        "anonymous",
-        "authenticated"
-      ]
-    },
-    {
       "route": "/agent",
       "rewrite": "/agent.html",
       "allowedRoles": [

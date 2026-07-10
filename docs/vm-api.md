@@ -1,364 +1,61 @@
-# VM API Specification
+# VM API Gateway Specification
 
 ## Overview
-The Blue Swallow Society VM currently hosts a simple echo service that serves as the backend connectivity proof for API calls from the Static Web App. This echo service is scaffold-only.
+The Blue Swallow Society VM is now the **Cybermap API gateway** host, not a product echo path. The gateway is rebuilt by Bicep/cloud-init and should remain replaceable: durable Cybermap state lives in Azure Database for PostgreSQL Flexible Server with PostGIS.
 
-The target VM service is the **Cybermap API gateway**: authenticated `/api/v1/*` endpoints for observation ingest, viewport queries, source catalogs, sensorium sessions, direct observation packets, and Mosaic/Murmurs memory sync. The durable datastore is Azure Database for PostgreSQL Flexible Server with PostGIS. See [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md) for the target design.
+Target request flow:
 
-## Target Cybermap API
-
-P0 endpoints replacing the echo lab:
-
-| Endpoint | Purpose |
-|---|---|
-| `GET /healthz` | VM/API health, no secrets |
-| `GET /readyz` | DB connectivity and migration state |
-| `POST /api/v1/observations/batch` | Wardriver/RaID/Greenfeed batch ingest with idempotency |
-| `GET /api/v1/cybermap/viewport?bbox=&zoom=&layers=&since=` | Godeye map viewport query |
-| `GET /api/v1/cybermap/cells/{h3Cell}` | Cell detail/provenance drilldown |
-| `GET /api/v1/entities/{id}` | Entity summary and observation links |
-| `GET /api/v1/sources?bbox=&class=` | Greenfeed/source catalog lookup |
-| `POST /api/v1/sensorium/sessions` | Start/end RaID or Greenfeed session record |
-| `POST /api/v1/direct-observations` | Claim-linked direct observation packet |
-| `GET /api/v1/memories?since=` | Mosaic/Murmurs memory sync pull |
-| `POST /api/v1/memories` | Distilled memory writeback |
-
-The sections below document the existing echo proof-of-connectivity state.
-
-## Service Architecture
-
-### Deployment
-- **Host**: Ubuntu 22.04 LTS VM deployed via Bicep + cloud-init
-- **Location**: `/opt/echo/echo_server.py` on the VM
-- **Process**: Managed by systemd as `echo-server.service`
-- **Port**: TCP 8080 (bound to 0.0.0.0 - all interfaces)
-- **Access**: Proxied via Azure Static Web App API (`/api/echo`) using `BACKEND_ECHO_BASE_URL` app setting
-
-### Technology Stack
-- **Language**: Python 3 (standard library only)
-- **HTTP Server**: `http.server` module (`BaseHTTPRequestHandler`, `HTTPServer`)
-- **Data Format**: JSON for all requests/responses
-- **Process Management**: systemd service with auto-restart
-- **Initialization**: cloud-init during VM provisioning
-
-## API Endpoints
-
-### Primary Endpoint: `/echo`
-- **Method**: GET
-- **Parameters**: 
-  - `msg` (query string, required): The message to echo back
-- **Success Response**:
-  - **Status**: 200 OK
-  - **Headers**: `Content-Type: application/json`
-  - **Body**: 
-    ```json
-    {
-      "ok": true,
-      "echo": "<original message>",
-      "host": "<hostname>",
-      "path": "/echo",
-      "query": {"msg": ["<original message>"]}
-    }
-    ```
-- **Error Responses**:
-  - **Missing msg parameter**: 
-    - Status: 200 OK (service treats empty as valid)
-    - Body: `{"ok": true, "echo": "", "host": "...", "path": "/echo", "query": {"msg": [""]}}`
-  - **Invalid path** (anything other than `/echo`):
-    - Status: 404 Not Found
-    - Body: `{"ok": false, "error": "Not found"}`
-
-### Example Requests
-```
-GET http://<vm-ip>:8080/echo?msg=hello
-```
-Response:
-```json
-{
-  "ok": true,
-  "echo": "hello",
-  "host": "blue-swallow-vm",
-  "path": "/echo",
-  "query": {"msg": ["hello"]}
-}
+```text
+Browser / Wardriver / Jetson
+  -> HTTPS 443 on the VM gateway or SWA /api/* proxy
+  -> nginx reverse proxy
+  -> cybermap-api on localhost:8000
+  -> PgBouncer on localhost:6432 (placeholder until DB wiring lands)
+  -> Azure PostgreSQL Flexible Server (future DB task)
 ```
 
-```
-GET http://<vm-ip>:8080/echo
-```
-Response:
-```json
-{
-  "ok": true,
-  "echo": "",
-  "host": "blue-swallow-vm",
-  "path": "/echo",
-  "query": {"msg": [""]}
-}
-```
+## Runtime services
 
-```
-GET http://<vm-ip>:8080/invalid
-```
-Response:
-```json
-{
-  "ok": false,
-  "error": "Not found"
-}
-```
+| Service | Location | Purpose |
+|---|---|---|
+| `nginx` | `/etc/nginx/sites-available/cybermap-api` | Terminates HTTPS 443 and proxies requests to `127.0.0.1:8000`. |
+| `cybermap-api.service` | `/opt/cybermap-api/server.mjs` | Node 20 API gateway scaffold. |
+| `cybermap-worker.service` | `/opt/cybermap-worker/worker.mjs` | Node 20 background worker scaffold for Greenfeed polling and cell materialization. |
+| `pgbouncer` | `/etc/pgbouncer/pgbouncer.ini` | Installed with a placeholder low-connection-count config; credentials/DB host are injected only in the DB connection task. |
 
-## Implementation Details
+The Bicep module file is still named `infra/vm-echo-lab.bicep` for continuity, but its cloud-init now provisions Cybermap gateway services. The old echo lab is retired as a production path and 8080 is not the long-term public API surface.
 
-### echo_server.py
-The core service implementation is a simple HTTP server:
+## Endpoints
 
-```python
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import urlparse, parse_qs
-import json, socket
+| Endpoint | Auth | Status in this slice | Notes |
+|---|---|---|---|
+| `GET /healthz` | none | implemented | Secret-free process health. Does not check PostgreSQL and does not expose dependency state. |
+| `GET /readyz` | none | placeholder | Returns `pending-db-task` until PgBouncer/PostgreSQL connectivity and migration checks land. |
+| `/api/v1/*` | bearer/operator token required | placeholder | Denies unauthenticated requests by default; authenticated requests receive a controlled `not_implemented` response until product routes land. |
 
-class Handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        parsed = urlparse(self.path)
-        if parsed.path != '/echo':
-            self.send_response(404)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({'ok': False, 'error': 'Not found'}).encode())
-            return
-        
-        query = parse_qs(parsed.query)
-        msg = query.get('msg', [''])[0]
-        body = {
-            'ok': True,
-            'echo': msg,
-            'host': socket.gethostname(),
-            'path': parsed.path,
-            'query': query
-        }
-        payload = json.dumps(body).encode()
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Content-Length', str(len(payload)))
-        self.end_headers()
-        self.wfile.write(payload)
+Planned `/api/v1/*` routes remain those in [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md): observation batch ingest, Cybermap viewport/cell/entity reads, source catalog lookup, sensorium sessions, direct observations, and Mosaic/Murmurs memory sync.
 
-HTTPServer(('0.0.0.0', 8080), Handler).serve_forever()
-```
+## Security posture
 
-### Systemd Service Configuration
-The service runs as a systemd service for reliability:
+- Public product ingress is **HTTPS 443** only.
+- The Node service listens on **localhost:8000** and is not exposed directly by the NSG.
+- `/healthz` and `/readyz` are the only unauthenticated routes; `/api/v1/*` requires auth by default.
+- Runtime tokens live in `/etc/cybermap-api.env` or an equivalent operator secret path, never in repo files.
+- Request bodies are capped (default 1 MiB) before DB-backed routes exist.
+- The API exposes a `rateLimitHook` seam so a later hardening task can enforce per-device/operator limits without rewriting handlers.
 
-```
-[Unit]
-Description=Simple Echo Server
-After=network.target
+## Observability
 
-[Service]
-Type=simple
-ExecStart=/usr/bin/python3 /opt/echo/echo_server.py
-Restart=always
-RestartSec=3
+- `cybermap-api` emits structured JSON logs with method, path, status, duration, and request ID.
+- Incoming `X-Request-Id` is preserved; otherwise the API generates one and returns it in the response header.
+- `cybermap-worker` emits structured JSON logs for startup, ticks, and shutdown.
 
-[Install]
-WantedBy=multi-user.target
-```
+## Deployment configuration
 
-### cloud-init Provisioning
-The VM is configured during first boot via cloud-init:
+- Bicep output: `backendApiBaseUrl` (`https://<vm-public-ip>`).
+- SWA app setting: `BACKEND_API_BASE_URL`, used by future managed function proxy routes.
+- PgBouncer placeholder listens on `127.0.0.1:6432`; DB host, username, and auth file content are intentionally absent until the DB connection task.
 
-1. **Package Updates**: Ensures latest packages
-2. **File Creation**:
-   - `/opt/echo/echo_server.py` (executable Python script)
-   - `/etc/systemd/system/echo-server.service` (systemd unit file)
-3. **Service Management**:
-   - Daemon reload
-   - Service enablement
-   - Service startup
+## Echo retirement note
 
-## Azure Functions Proxy Layer
-
-The VM echo service is not called directly from the browser. Instead, requests flow through:
-
-1. **Browser** → Azure Static Web App
-2. **Static Web App API** (`/api/echo`) → Azure Function
-3. **Azure Function** → VM echo service (using `BACKEND_ECHO_BASE_URL` app setting)
-4. **VM echo service** → Processes request and returns response
-5. **Azure Function** → Returns response to Static Web App
-6. **Static Web App** → Returns response to browser
-
-### Azure Function Implementation (`api/echo/index.js`)
-```javascript
-module.exports = async function (context, req) {
-  const base = process.env.BACKEND_ECHO_BASE_URL;
-
-  if (!base) {
-    context.res = {
-      status: 500,
-      body: { ok: false, error: 'Missing BACKEND_ECHO_BASE_URL' }
-    };
-    return;
-  }
-
-  // Strip trailing slash so we always produce `${base}/echo?...`.
-  const cleanBase = base.replace(/\\/+$/, '');
-  const msg = req.query.msg || 'empty';
-  const url = `${cleanBase}/echo?msg=${encodeURIComponent(msg)}`;
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    const response = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-
-    const text = await response.text();
-    context.res = {
-      status: response.status,
-      headers: { 'Content-Type': 'application/json' },
-      body: {
-        ok: response.ok,
-        status: response.status,
-        body: text
-      }
-    };
-  } catch (err) {
-    context.res = {
-      status: 502,
-      headers: { 'Content-Type': 'application/json' },
-      body: { ok: false, error: `Echo backend failed: ${err.message}` }
-    };
-  }
-};
-```
-
-## Security Considerations
-
-### Network Security
-- **NSG Rules**: Only ports 22 (SSH) and 8080 (echo) open to `allowedSourceIp` CIDR
-- **Default Deny**: All other inbound traffic blocked by Network Security Group
-- **Public IP**: VM has a public IP, but access is restricted by NSG
-
-### Service Security
-- **Input Validation**: Minimal (only path checking for `/echo`)
-- **Message Echo**: User input is reflected in JSON response but not executed
-- **No Shell Access**: Service does not provide command execution capabilities
-- **Information Disclosure**: Returns hostname and query parameters (low risk in this context)
-
-### Authentication & Authorization
-- **Current State**: No authentication on the echo service itself
-- **Proxy Protection**: Azure Function can add authentication if needed
-- **Network Layer**: Access controlled by NSG rules
-- **Future Enhancement**: Could add API key or token validation in the Azure Function
-
-## Reliability Features
-
-### Process Management
-- **Auto-restart**: systemd service configured with `Restart=always`
-- **Failure Detection**: Service restarted after 3 seconds if it crashes
-- **Boot Survival**: Service enabled to start on system boot
-
-### Error Handling
-- **HTTP Errors**: Proper status codes (404 for invalid paths, 200 for valid requests)
-- **Timeout Handling**: Azure Function implements 5-second timeout for VM requests
-- **Network Resilience**: Function catches network errors and returns 502 Bad Gateway
-
-### Resource Usage
-- **Lightweight**: Uses only Python standard library
-- **Low Memory**: Minimal footprint suitable for B1s VM
-- **CPU Efficient**: Simple request/response processing
-
-## Deployment & Configuration
-
-### Provisioning Process
-1. **Bicep Deployment**: Creates VM, networking, NSG, public IP
-2. **cloud-init**: Runs on first boot to install and configure echo service
-3. **Systemd**: Manages service lifecycle
-4. **Azure Function**: Configured with `BACKEND_ECHO_BASE_URL` app setting pointing to VM
-
-### Configuration Points
-- **VM Size**: Parameterized in Bicep (`vmSize`, default `Standard_B1s`)
-- **Access Control**: `allowedSourceIp` parameter (default `*` - should be restricted)
-- **Auto-shutdown**: Time and timezone parameters for cost control
-- **Echo Port**: Hardcoded to 8080 in cloud-init and NSG
-- **Hostname**: Set during VM provisioning (`computerName` in osProfile)
-
-### Scaling Considerations
-- **Vertical Scaling**: Change `vmSize` parameter for more powerful VM
-- **Horizontal Scaling**: Would require load balancer and multiple VM instances
-- **Service Duplication**: Multiple echo services could run on different ports
-- **Alternative Deployment**: Could containerize and deploy to Azure Container Instances or AKS
-
-## Current Limitations
-
-### Functional Limitations
-- **Single Endpoint**: Only provides `/echo` functionality
-- **HTTP Methods**: Only implements GET (no POST, PUT, etc.)
-- **Query Parsing**: Basic implementation, no support for complex nested queries
-- **Payload Size**: Limited by HTTP server capabilities (suitable for small messages)
-- **Concurrency**: Python's `HTTPServer` is single-threaded (handles one request at a time)
-
-### Operational Limitations
-- **Structured Logging**: Added via `context.log` in Azure Function proxy; systemd journal captures service logs
-- **No Metrics**: No built-in metrics collection or monitoring endpoints
-- **No Health Check**: Beyond basic endpoint responsiveness
-- **No TLS**: Plain HTTP only (could be added with reverse proxy or Azure Front Door)
-
-### Security Limitations
-- **No Authentication**: Open to anyone who can reach the VM on port 8080
-- **No Rate Limiting**: Vulnerable to abuse or accidental DoS
-- **Input Sanitization**: Minimal (JSON encoding prevents injection, but no validation)
-- **Information Exposure**: Returns internal hostname and query data
-
-## Enhancement Opportunities
-
-### Functional Enhancements
-- Add POST endpoint for JSON payload handling
-- Implement additional API endpoints (health, status, metrics)
-- Add support for different content types (plain text, HTML)
-- Implement query parameter validation and sanitization
-- Add request/response logging capabilities
-
-### Operational Enhancements
-- Add structured logging to stdout/journald
-- Implement Prometheus metrics endpoint
-- Add health check endpoint (`/health`)
-- Implement graceful shutdown handling
-- Add configuration via environment variables or config file
-
-### Security Enhancements
-- Add API key or token authentication in Azure Function layer
-- Implement rate limiting in Azure Function
-- Add input validation and length limits
-- Consider TLS termination at Azure Front Door or Application Gateway
-- Implement request/response size limits
-
-### Deployment Enhancements
-- Containerize the service for easier deployment
-- Add support for blue/green deployments
-- Implement backup/restore mechanisms for VM
-- Add monitoring and alerting via Azure Monitor
-- Implement automated patching for VM OS
-
-## Integration Points
-
-### With Static Web App
-- **App Setting**: `BACKEND_ECHO_BASE_URL` configured by Bicep deployment
-- **API Path**: `/api/echo` proxies to VM service
-- **Message Flow**: Frontend → SWA API → Azure Function → VM → Azure Function → SWA → Frontend
-
-### With Azure OpenAI (Optional)
-- While the echo service is independent, the overall architecture supports:
-  - VM-hosted local models for experimentation
-  - Azure OpenAI deployment via optional Bicep module
-  - Future integration where echo service could be replaced or augmented with AI capabilities
-
-## Current State
-The VM echo service provides a simple, reliable backend for testing connectivity between the Static Web App and the VM infrastructure. It fulfills its role as a proof-of-concept backend service that demonstrates:
-- Successful VM provisioning and configuration
-- Network connectivity between SWA and VM
-- Basic API request/response processing
-- Service reliability through systemd management
-- Cost control through auto-shutdown scheduling
-
-The service is intentionally simple to serve as a foundation for more complex backend services while validating the core infrastructure deployment pipeline.
+The previous echo service remains historical scaffolding only. Do not document or wire it as a production route, do not expose 8080, and do not add new frontend affordances that call the retired echo path.

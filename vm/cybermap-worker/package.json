@@ -1,0 +1,13 @@
+{
+  "name": "cybermap-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Blue Swallow Society Cybermap VM worker scaffold.",
+  "scripts": {
+    "start": "node worker.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -7,7 +7,7 @@ The Blue Swallow Society static web application provides a cyberpunk-themed term
 
 ### Authentication System
 - Terminal-style login interface with passcode validation
-- Simulated backend validation (fallback to hardcoded passcode "blue-swallow" for development)
+- Server-side passcode validation via `/api/validate-passcode`; no client fallback secret
 - Session state management (`isAuthenticated` flag)
 - Logout functionality that resets interface and chat history
 
@@ -23,7 +23,7 @@ Four main tabs accessible after authentication:
 - Timestamped messages
 - Auto-scrolling to latest message
 - Chat history persistence in session
-- Simulated backend communication via `/api/agent` endpoint
+- Server-mediated agent communication via `/api/agent`
 
 ### UI Components
 - Custom terminal-styled login screen
@@ -35,9 +35,10 @@ Four main tabs accessible after authentication:
 ### API Integration
 The frontend communicates with the following backend endpoints:
 - `/api/validate-passcode` (POST) - Passcode validation
-- `/api/agent?prompt={message}` (GET) - Agent chat responses
-- `/api/echo?msg={message}` (GET) - Echo lab functionality (via proxy)
+- `/api/agent` (POST) - Agent chat responses
 - `/api/profile` (GET) - Protected profile endpoint (requires auth)
+- `/api/osint` and `/api/tzeentch` (POST/GET) - Operator-token protected analysis/dashboard endpoints
+- Future `/api/v1/*` proxy routes target the Cybermap VM gateway via `BACKEND_API_BASE_URL`
 
 ## Technical Implementation
 
@@ -78,7 +79,7 @@ The frontend communicates with the following backend endpoints:
 
 ## Security Considerations
 - Authentication via Azure AD Easy Auth (in production)
-- Passcode validation should be backed by secure VM service
+- Passcode validation stays server-side; Cybermap VM routes require token-gated `/api/v1/*` access
 - API calls made to same-origin endpoints (via Static Web App routing)
 - No sensitive data stored in client-side storage
 - Input sanitization strips HTML tags and enforces max length on passcode field

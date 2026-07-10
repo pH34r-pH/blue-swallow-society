@@ -2,18 +2,32 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "location": { "value": "westus2" },
-    "staticWebAppName": { "value": "blue-swallow-swa" },
-    "prefix": { "value": "blue-swallow" },
+    "location": {
+      "value": "westus2"
+    },
+    "staticWebAppName": {
+      "value": "blue-swallow-swa"
+    },
+    "prefix": {
+      "value": "blue-swallow"
+    },
     "allowedSourceIp": {
       "value": "*",
       "metadata": {
-        "description": "WARNING: '*' exposes ports 22 and 8080 to the entire internet. Set to your IP before production."
+        "description": "WARNING: '*' exposes SSH 22 to the entire internet. Set to your operator IP before production; HTTPS 443 is the Cybermap product ingress."
       }
     },
-    "vmSize": { "value": "Standard_B1ms" },
-    "deployOpenAi": { "value": false },
-    "autoShutdownTime": { "value": "0200" },
-    "autoShutdownTimeZone": { "value": "Pacific Standard Time" }
+    "vmSize": {
+      "value": "Standard_B1ms"
+    },
+    "deployOpenAi": {
+      "value": false
+    },
+    "autoShutdownTime": {
+      "value": "0200"
+    },
+    "autoShutdownTimeZone": {
+      "value": "Pacific Standard Time"
+    }
   }
 }

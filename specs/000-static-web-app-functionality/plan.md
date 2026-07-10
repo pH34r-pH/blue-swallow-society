@@ -70,11 +70,13 @@ app/
 api/
 ├── validate-passcode/   # Azure Function: POST /api/validate-passcode
 ├── agent/               # Azure Function: POST /api/agent
-├── echo/                # Azure Function: GET /api/echo (see spec 002)
+├── osint/               # Azure Function: POST /api/osint
+├── tzeentch/            # Azure Function: GET /api/tzeentch
+├── wigle/               # Azure Function: GET /api/wigle
 └── profile/             # Azure Function: GET /api/profile
 ```
 
-**Structure Decision**: Single-project static web app with co-located Azure Functions. The `app/` directory is the frontend root; `api/` contains serverless backends. No separate backend service layer because compute is Function-hosted.
+**Structure Decision**: Single-project static web app with co-located Azure Functions. The `app/` directory is the frontend root; `api/` contains serverless backends. Future Cybermap `/api/v1/*` proxy routes target the VM gateway via `BACKEND_API_BASE_URL` rather than the retired echo scaffold.
 
 ## Complexity Tracking
 

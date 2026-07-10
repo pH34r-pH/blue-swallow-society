@@ -8,7 +8,7 @@
 
 ## Summary
 
-Deploy all Azure infrastructure for the Blue Swallow Society using Bicep templates. The deployment provisions a Static Web App (Standard SKU), an Ubuntu 22.04 LTS VM with cloud-init echo service, a Virtual Network (`10.40.0.0/16`), Public IP, NSG with least-privilege rules, an auto-shutdown schedule for cost control, and an optional Azure OpenAI account. All resources are parameterized for repeatable, one-click provisioning.
+Deploy all Azure infrastructure for the Blue Swallow Society using Bicep templates. The deployment provisions a Static Web App (Standard SKU), an Ubuntu 22.04 LTS VM with cloud-init Cybermap API gateway services, a Virtual Network (`10.40.0.0/16`), Public IP, NSG with least-privilege rules, an auto-shutdown schedule for cost control, and an optional Azure OpenAI account. All resources are parameterized for repeatable, one-click provisioning.
 
 ## Technical Context
 
