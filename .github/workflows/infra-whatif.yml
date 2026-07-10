@@ -32,10 +32,18 @@ jobs:
       - name: Run resource-group what-if
         env:
           SSH_KEY: ${{ secrets.VM_SSH_PUBLIC_KEY }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
         run: |
           ssh_key=$(printf '%s' "$SSH_KEY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          postgres_password=$(printf '%s' "$POSTGRES_PASSWORD" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [ -z "$postgres_password" ]; then
+            echo "::error::POSTGRES_ADMIN_PASSWORD secret is empty."
+            exit 1
+          fi
+          echo "::add-mask::$postgres_password"
           az deployment group what-if \
             --resource-group "$RESOURCE_GROUP" \
             --template-file infra/main.bicep \
             --parameters @infra/main.parameters.json \
-            --parameters sshPublicKey="$ssh_key"
+            --parameters sshPublicKey="$ssh_key" \
+            --parameters postgresAdministratorPassword="$postgres_password"

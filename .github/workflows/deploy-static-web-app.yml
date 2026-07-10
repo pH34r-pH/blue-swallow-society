@@ -49,7 +49,7 @@ jobs:
 
       - name: Ensure resource providers are registered
         run: |
-          for ns in Microsoft.Compute Microsoft.Network Microsoft.Web Microsoft.DevTestLab; do
+          for ns in Microsoft.Compute Microsoft.Network Microsoft.Web Microsoft.DevTestLab Microsoft.DBforPostgreSQL; do
             state=$(az provider show --namespace "$ns" --query registrationState -o tsv)
             if [ "$state" != "Registered" ]; then
               echo "Registering $ns (current state: $state)..."
@@ -76,13 +76,32 @@ jobs:
           esac
           echo "SSH public key looks well-formed (length=${#trimmed})."
 
+      - name: Validate PostgreSQL admin password secret
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+        run: |
+          postgres_password=$(printf '%s' "$POSTGRES_PASSWORD" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [ -z "$postgres_password" ]; then
+            echo "::error::POSTGRES_ADMIN_PASSWORD secret is empty."
+            exit 1
+          fi
+          if [ ${#postgres_password} -lt 8 ]; then
+            echo "::error::POSTGRES_ADMIN_PASSWORD must be at least 8 characters for Azure PostgreSQL Flexible Server."
+            exit 1
+          fi
+          echo "::add-mask::$postgres_password"
+          echo "PostgreSQL admin password secret is present."
+
       - name: Deploy infrastructure
         id: deploy
         env:
           SSH_KEY: ${{ secrets.VM_SSH_PUBLIC_KEY }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
         run: |
-          # Trim any stray whitespace/newlines from the secret before passing to az.
+          # Trim any stray whitespace/newlines from secrets before passing to az.
           ssh_key=$(printf '%s' "$SSH_KEY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          postgres_password=$(printf '%s' "$POSTGRES_PASSWORD" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          echo "::add-mask::$postgres_password"
           set +e
           out=$(az deployment group create \
             --resource-group "$RESOURCE_GROUP" \
@@ -90,6 +109,7 @@ jobs:
             --template-file infra/main.bicep \
             --parameters infra/main.parameters.json \
             --parameters sshPublicKey="$ssh_key" \
+            --parameters postgresAdministratorPassword="$postgres_password" \
             --query properties.outputs -o json 2>az_stderr.log)
           rc=$?
           set -e
@@ -108,6 +128,13 @@ jobs:
             az deployment operation group list \
               --resource-group "$RESOURCE_GROUP" \
               --name vm-echo-lab \
+              --query "[?properties.provisioningState=='Failed'].{resource:properties.targetResource.resourceName, type:properties.targetResource.resourceType, status:properties.statusMessage}" \
+              -o json || true
+            echo "::endgroup::"
+            echo "::group::Failed deployment operations (postgres-flexible module)"
+            az deployment operation group list \
+              --resource-group "$RESOURCE_GROUP" \
+              --name postgres-flexible \
               --query "[?properties.provisioningState=='Failed'].{resource:properties.targetResource.resourceName, type:properties.targetResource.resourceType, status:properties.statusMessage}" \
               -o json || true
             echo "::endgroup::"
