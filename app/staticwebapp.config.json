@@ -1,23 +1,91 @@
 {
   "routes": [
-    { "route": "/account/*", "allowedRoles": ["authenticated"] },
-    { "route": "/api/profile", "allowedRoles": ["authenticated"] },
-    { "route": "/api/wigle", "allowedRoles": ["authenticated"] },
-    { "route": "/api/osint", "allowedRoles": ["authenticated"] },
-    { "route": "/api/agent", "allowedRoles": ["authenticated"] },
-    { "route": "/api/tzeentch", "allowedRoles": ["authenticated"] },
-    { "route": "/api/validate-passcode", "allowedRoles": ["anonymous", "authenticated"] },
-    { "route": "/api/echo", "allowedRoles": ["anonymous", "authenticated"] },
-    { "route": "/agent", "rewrite": "/agent.html", "allowedRoles": ["authenticated"] },
-    { "route": "/login", "redirect": "/.auth/login/aad" },
-    { "route": "/logout", "redirect": "/.auth/logout" }
+    {
+      "route": "/downloads/*",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/account/*",
+      "allowedRoles": [
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/api/profile",
+      "allowedRoles": [
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/api/wigle",
+      "allowedRoles": [
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/api/osint",
+      "allowedRoles": [
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/api/agent",
+      "allowedRoles": [
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/api/tzeentch",
+      "allowedRoles": [
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/api/validate-passcode",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/api/echo",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/agent",
+      "rewrite": "/agent.html",
+      "allowedRoles": [
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/login",
+      "redirect": "/.auth/login/aad"
+    },
+    {
+      "route": "/logout",
+      "redirect": "/.auth/logout"
+    }
   ],
   "responseOverrides": {
-    "401": { "statusCode": 302, "redirect": "/.auth/login/aad" }
+    "401": {
+      "statusCode": 302,
+      "redirect": "/.auth/login/aad"
+    }
   },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/api/*", "/.auth/*", "/*.{css,js,svg,ico,png,jpg,jpeg,gif,webp}"]
+    "exclude": [
+      "/api/*",
+      "/.auth/*",
+      "/*.{css,js,mjs,json,svg,ico,png,jpg,jpeg,gif,webp,apk}"
+    ]
   },
   "globalHeaders": {
     "X-Content-Type-Options": "nosniff",

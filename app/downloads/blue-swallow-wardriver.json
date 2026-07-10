@@ -1,0 +1,17 @@
+{
+  "name": "Blue Swallow Wardriver",
+  "packageId": "co.blueswallow.wardriver",
+  "versionName": "2.109-bss.1",
+  "versionCode": 310,
+  "buildType": "debug",
+  "fileName": "blue-swallow-wardriver-2.109-bss.1-debug.apk",
+  "downloadPath": "/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk",
+  "sizeBytes": 64826299,
+  "sha256": "f50d2dcf726ef52297968e1a0af9119c7569b7692e1813d70a1ed0274ba95a0e",
+  "updatedAt": "2026-07-10T07:26:32Z",
+  "notes": [
+    "Branded co-installable WiGLE fork APK.",
+    "Debug build; Android may require sideload approval.",
+    "Local-only passive observation surface; no cloud upload path is required."
+  ]
+}

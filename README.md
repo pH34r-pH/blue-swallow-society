@@ -83,6 +83,14 @@ The WiGLE proxy at `/api/wigle` supports:
 - `mode=database` → Godeye/local snapshot path. Reads the same local database/export without AR recency gating.
 - `mode=live` → bridge/global fallback. Uses `WIGLE_LIVE_BRIDGE_URL`, then `WIGLE_API_NAME` + `WIGLE_API_TOKEN` for the public WiGLE search API when geolocation is available.
 
+## Android APK download
+
+The Static Web App publishes the branded Blue Swallow Wardriver debug APK from [`app/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk`](./app/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk). The landing page links to the APK and [`blue-swallow-wardriver.json`](./app/downloads/blue-swallow-wardriver.json) for checksum verification.
+
+- Package: `co.blueswallow.wardriver`
+- Version: `2.109-bss.1` / versionCode `310`
+- SHA-256: `f50d2dcf726ef52297968e1a0af9119c7569b7692e1813d70a1ed0274ba95a0e`
+
 The browser does **not** scan Wi-Fi directly and cannot read WiGLE's Android app-private sqlite database by itself. For AR, run a device-local process with file permission and expose JSON to the app, for example:
 
 ```bash

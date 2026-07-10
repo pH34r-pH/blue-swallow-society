@@ -76,18 +76,6 @@
         </button>
         <button
           class="tab-btn"
-          data-tab="ar"
-          role="tab"
-          aria-selected="false"
-          aria-controls="ar-tab"
-          id="tab-ar"
-          tabindex="-1"
-          type="button"
-        >
-          AR
-        </button>
-        <button
-          class="tab-btn"
           data-tab="godeye"
           role="tab"
           aria-selected="false"
@@ -126,6 +114,40 @@
               </p>
             </div>
           </article>
+
+          <article class="panel tab-panel landing-panel download-card" aria-labelledby="wardriverDownloadTitle">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">// DOWNLOAD //</p>
+                <h2 id="wardriverDownloadTitle">Blue Swallow Wardriver APK</h2>
+              </div>
+              <p class="panel-meta">Branded WiGLE fork for local-only passive observation and Godeye handoff.</p>
+            </div>
+
+            <div class="download-grid">
+              <div class="download-copy">
+                <p>
+                  Install the Android APK on the field device, keep WiGLE/Flipper captures local, then use Godeye here as the hosted viewer for map and overlay review.
+                </p>
+                <ul class="download-facts" aria-label="APK build facts">
+                  <li><span>Package</span><strong>co.blueswallow.wardriver</strong></li>
+                  <li><span>Version</span><strong>2.109-bss.1 / 310</strong></li>
+                  <li><span>Size</span><strong>61.82 MiB</strong></li>
+                  <li><span>Build</span><strong>debug sideload</strong></li>
+                </ul>
+              </div>
+
+              <div class="download-actions" aria-label="Wardriver download actions">
+                <a class="btn btn-primary download-link" href="/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk" download>
+                  Download APK
+                </a>
+                <a class="btn btn-secondary download-link" href="/downloads/blue-swallow-wardriver.json">
+                  Build metadata
+                </a>
+                <p class="apk-hash"><span>SHA-256</span><code>f50d2dcf726ef52297968e1a0af9119c7569b7692e1813d70a1ed0274ba95a0e</code></p>
+              </div>
+            </div>
+          </article>
         </section>
       </div>
 
@@ -135,9 +157,28 @@
             <div class="panel-heading">
               <div>
                 <p class="eyebrow">// TZEENTCH //</p>
-                <h2>Tzeentch workspace</h2>
+                <h2>Tzeentch OSINT workspace</h2>
               </div>
+              <p class="panel-meta">Public-source, read-only triage: overview first, filter next, evidence on demand.</p>
             </div>
+
+            <section class="tzeentch-operator-brief" aria-label="OSINT interaction model">
+              <article class="brief-card">
+                <span class="brief-step">01</span>
+                <strong>Set scope</strong>
+                <p>Enter a domain, URL, IP, email, or handle. Auto mode classifies the target before fan-out.</p>
+              </article>
+              <article class="brief-card">
+                <span class="brief-step">02</span>
+                <strong>Read provenance</strong>
+                <p>Facts stay tagged as public records, platform traces, archive hits, or derived normalization.</p>
+              </article>
+              <article class="brief-card">
+                <span class="brief-step">03</span>
+                <strong>Escalate carefully</strong>
+                <p>No private-source lookups, no persistent PII; use source links and session-only recents for review.</p>
+              </article>
+            </section>
 
             <div class="tzeentch-subtabs" role="tablist" aria-label="Tzeentch sub-tabs">
               <button id="tzeentchSurfaceSeek" class="tzeentch-subtab is-active" data-surface="seek" role="tab" aria-selected="true" aria-controls="tzeentchSeekPanel" type="button">
@@ -188,7 +229,14 @@
                 <button id="tzeentchClearBtn" class="btn btn-secondary dashboard-action" type="button">Overview</button>
               </div>
 
-              <p id="tzeentchStatus" class="dashboard-status">Load a target to fan out across public sources.</p>
+              <p id="tzeentchStatus" class="dashboard-status" role="status">Load a target to fan out across public sources.</p>
+              <details class="tzeentch-method-card">
+                <summary>Method and privacy boundaries</summary>
+                <div class="method-grid">
+                  <p><strong>Sources:</strong> RDAP, DNS, certificate transparency, archives, GitHub, Reddit, Wikipedia, and live public feeds.</p>
+                  <p><strong>Handling:</strong> query text is sent in a POST body, recent targets stay in session storage only, and displayed facts are evidence hints—not identity proof.</p>
+                </div>
+              </details>
               <div id="tzeentchSources" class="dashboard-chip-row" aria-label="Supported source families"></div>
 
               <section class="dashboard-metrics" aria-label="Dashboard metrics">
@@ -296,111 +344,15 @@
         </section>
       </div>
 
-      <div id="ar-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-ar">
-        <section class="container">
-          <article class="panel tab-panel ar-shell">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">// AR //</p>
-                <h2>Camera passthrough</h2>
-              </div>
-              <p class="panel-meta">Live object overlays driven by device sensors and device-local WiGLE current state.</p>
-            </div>
-
-            <div class="ar-layout">
-              <div id="arFrame" class="ar-camera-frame" aria-label="Camera passthrough viewport">
-                <div id="arStage" class="ar-stage">
-                  <video id="arVideo" class="ar-video" autoplay muted playsinline></video>
-                  <div id="arFallback" class="ar-fallback">
-                    <p>Tap enable to start the camera passthrough.</p>
-                  </div>
-                  <div class="camera-vignette" aria-hidden="true"></div>
-                  <div class="camera-corners" aria-hidden="true"></div>
-                  <div class="motion-overlay" aria-hidden="true">
-                    <div class="motion-edge motion-edge-top-left">
-                      <span class="motion-tag">STATUS</span>
-                      <p id="arStatusText">Camera feed off. Toggle on to request permissions, then query the device-local WiGLE current state.</p>
-                    </div>
-                    <div class="motion-edge motion-edge-top-right">
-                      <span class="motion-tag">ORIENTATION</span>
-                      <p id="arAttitude">α — · β — · γ —</p>
-                    </div>
-                    <div class="motion-edge motion-edge-bottom-right">
-                      <span class="motion-tag">ACCEL / SPIN</span>
-                      <p id="arAcceleration">accel — · — · —</p>
-                      <p id="arRotation">spin — · — · —</p>
-                    </div>
-                    <div class="motion-glyph" aria-hidden="true">
-                      <div class="motion-glyph-ring"></div>
-                      <div class="motion-glyph-needle"></div>
-                      <div class="motion-glyph-horizon"></div>
-                      <div class="motion-glyph-pip"></div>
-                    </div>
-                  </div>
-                  <div id="arWigleCandidates" class="ar-candidate-layer" aria-hidden="true"></div>
-                  <div id="arDetections" class="ar-detection-layer" aria-hidden="true"></div>
-                </div>
-              </div>
-
-              <aside class="sensor-panel">
-                <button id="arEnableBtn" class="btn btn-primary sensor-action sensor-toggle" type="button" aria-pressed="false">Camera feed: OFF</button>
-                <button id="arFullscreenBtn" class="btn btn-secondary sensor-action" type="button">Fullscreen feed</button>
-
-                <div class="sensor-card">
-                  <p class="sensor-label">Overlay</p>
-                  <p>Orientation, acceleration, and object detections float over the passthrough feed as a live overlay stack.</p>
-                </div>
-
-                <div class="sensor-card">
-                  <p class="sensor-label">WiGLE candidates</p>
-                  <p id="arWigleStatusText">WiGLE current-state records stay idle until the camera feed is enabled and a device-local endpoint is configured.</p>
-                  <div id="arCandidateList" class="wigle-list"></div>
-                </div>
-
-                <div class="sensor-card">
-                  <p class="sensor-label">Object detections</p>
-                  <label class="wigle-field" for="visionEndpointInput">
-                    <span>Live model endpoint</span>
-                    <input
-                      id="visionEndpointInput"
-                      class="input dashboard-input"
-                      type="url"
-                      placeholder="/api/ar-detections"
-                      autocomplete="off"
-                      autocapitalize="none"
-                      spellcheck="false"
-                    />
-                  </label>
-                  <label class="wigle-field" for="visionFileInput">
-                    <span>Local detection file</span>
-                    <input id="visionFileInput" class="input dashboard-input" type="file" accept=".json,.ndjson,.csv,.txt,application/json,text/csv,text/plain" />
-                  </label>
-                  <div class="wigle-action-row">
-                    <button id="visionConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect live model</button>
-                  </div>
-                  <p id="visionStatusText">Live object detections are not connected yet.</p>
-                  <div id="arDetectionList" class="wigle-list vision-list"></div>
-                </div>
-
-                <div class="sensor-card">
-                  <p class="sensor-label">Inputs</p>
-                  <p>Camera, deviceorientation, and devicemotion permissions are requested only when you tap enable.</p>
-                </div>
-              </aside>
-            </div>
-          </article>
-        </section>
-      </div>
-
       <div id="godeye-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-godeye">
         <section class="container">
           <article class="panel tab-panel godeye-shell">
             <div class="panel-heading">
               <div>
                 <p class="eyebrow">// GODEYE //</p>
-                <h2>Location overlay stack</h2>
+                <h2>Hosted viewer</h2>
               </div>
-              <p class="panel-meta">OpenStreetMap tiles now, with modular overlay slots for WiGLE and aircraft tracks.</p>
+              <p class="panel-meta">Hosted OpenStreetMap viewer for local WiGLE review, aircraft-track scaffolds, and non-camera overlays.</p>
             </div>
 
             <div class="godeye-layout">
@@ -432,7 +384,7 @@
 
                 <div class="geo-card">
                   <p class="sensor-label">Overlay slots</p>
-                  <p>FlightRadar24 and other live tracks can be layered here without changing the map core.</p>
+                  <p>FlightRadar24 and other live tracks can be layered here without bringing the camera/AR client back into the hosted shell.</p>
                   <div class="overlay-slot-list">
                     <span class="source-chip source-chip-live">WiGLE radius</span>
                     <span class="source-chip">FlightRadar24 scaffold</span>

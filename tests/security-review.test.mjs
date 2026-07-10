@@ -41,7 +41,7 @@ test('device-local endpoints stay same-origin under the production CSP', () => {
   const csp = staticWebApp.globalHeaders['Content-Security-Policy'];
   assert.match(csp, /connect-src 'self'(?:;|$)/);
   assert.ok(!indexHtml.includes('http://device.local'));
-  assert.ok(indexHtml.includes('placeholder="/api/ar-detections"'));
+  assert.ok(!indexHtml.includes('placeholder="/api/ar-detections"'));
   assert.ok(indexHtml.includes('placeholder="/api/wigle"'));
 });
 
@@ -59,6 +59,12 @@ test('OSINT and agent prompts are sent via POST bodies, not URLs or persistent s
   assert.ok(!agentJs.includes('/api/agent?prompt='));
   assert.ok(!agentApi.includes('req.query'));
   assert.ok(!agentApi.includes('prompt:'));
+});
+
+test('APK downloads are public static assets with binary fallback excluded', () => {
+  assert.deepEqual(routeConfig('/downloads/*')?.allowedRoles, ['anonymous', 'authenticated']);
+  assert.ok(staticWebApp.navigationFallback.exclude.some((entry) => entry.includes('apk')));
+  assert.ok(indexHtml.includes('/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk'));
 });
 
 test('Tzeentch network feeds are lazy-loaded only when the Tzeentch tab is opened', () => {

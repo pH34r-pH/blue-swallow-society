@@ -351,10 +351,57 @@ function renderRows(containerId, rows) {
       article.appendChild(detail);
     }
 
+    article.appendChild(renderEvidenceMeta(row));
     fragment.appendChild(article);
   });
 
   container.replaceChildren(fragment);
+}
+
+
+function renderEvidenceMeta(row) {
+  const meta = document.createElement('div');
+  meta.className = 'evidence-meta';
+
+  classifyEvidenceTags(row).forEach((tag) => {
+    const chip = document.createElement('span');
+    chip.className = `source-chip ${tag.className || ''}`.trim();
+    chip.textContent = tag.label;
+    meta.appendChild(chip);
+  });
+
+  return meta;
+}
+
+function classifyEvidenceTags(row = {}) {
+  const label = String(row.label || '').toLowerCase();
+  const value = String(row.value || '').toLowerCase();
+  const detail = String(row.detail || '').toLowerCase();
+  const text = `${label} ${value} ${detail}`;
+  const limited = /not applicable|probe skipped|no results|no data|unavailable|unsafe|unsupported/.test(text);
+  const tags = [{ label: 'public-only', className: 'source-chip-live' }];
+
+  if (/target|canonical|mode|scope|normalized|search surface/.test(label)) {
+    tags.push({ label: 'normalized input' });
+  } else if (/dns|rdap|whois|asn|ptr|reverse|registrar|nameserver|mx|txt|cname|ip/.test(text)) {
+    tags.push({ label: 'public record' });
+  } else if (/archive|wayback|crt|certificate|snapshot/.test(text)) {
+    tags.push({ label: 'archive trace' });
+  } else if (/github|reddit|wikipedia|gravatar|social|platform|avatar/.test(text)) {
+    tags.push({ label: 'platform trace' });
+  } else {
+    tags.push({ label: 'evidence hint' });
+  }
+
+  if (row.href) {
+    tags.push({ label: 'source link' });
+  } else if (limited) {
+    tags.push({ label: 'limited confidence', className: 'source-chip-muted' });
+  } else {
+    tags.push({ label: 'details on demand' });
+  }
+
+  return tags;
 }
 
 function renderSignalFeeds(feeds) {

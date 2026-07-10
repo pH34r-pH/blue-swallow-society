@@ -29,17 +29,17 @@ test('tzeentch shell exposes the restored sub-tabs', () => {
   assert.ok(!indexHtml.includes('tzeentchSurfaceMarkets'));
 });
 
-test('AR shell no longer advertises sample detections as the default state', () => {
-  assert.ok(indexHtml.includes('Live object detections are not connected yet.'));
-  assert.ok(!indexHtml.includes('visionSampleBtn'));
-  assert.ok(!mainJs.includes('Sample object detections are ready.'));
-  assert.ok(!mainJs.includes('visionSampleBtn'));
-  assert.ok(!mainJs.includes('createSampleVisionDataset()'));
+test('AR tab is removed while Godeye remains the hosted viewer', () => {
+  assert.ok(!indexHtml.includes('data-tab="ar"'));
+  assert.ok(!indexHtml.includes('id="ar-tab"'));
+  assert.ok(!indexHtml.includes('Camera passthrough'));
+  assert.ok(indexHtml.includes('data-tab="godeye"'));
+  assert.ok(indexHtml.includes('Hosted viewer'));
+  assert.ok(indexHtml.includes('Godeye'));
 });
 
-test('AR WiGLE polling uses the device-local current-state mode', () => {
-  assert.ok(mainJs.includes("mode: 'current'"));
-  assert.ok(mainJs.includes('maxAgeSeconds: 45'));
-  assert.ok(indexHtml.includes('device-local WiGLE current state'));
-  assert.ok(!indexHtml.includes('browser Wi-Fi scan'));
+test('Wardriver APK download is linked from the landing page', () => {
+  assert.ok(indexHtml.includes('/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk'));
+  assert.ok(indexHtml.includes('/downloads/blue-swallow-wardriver.json'));
+  assert.ok(indexHtml.includes('f50d2dcf726ef52297968e1a0af9119c7569b7692e1813d70a1ed0274ba95a0e'));
 });
