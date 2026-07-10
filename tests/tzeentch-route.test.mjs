@@ -200,7 +200,7 @@ test('api/tzeentch returns a bearer-token protected read-only payload', async ()
 
   const context = { log: { error: () => {} } };
   try {
-    await handler(context, { headers: authorizationHeader() });
+    await handler(context, { headers: new Headers(authorizationHeader()) });
   } finally {
     globalThis.fetch = originalFetch;
   }

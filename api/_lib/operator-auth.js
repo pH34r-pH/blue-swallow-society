@@ -131,10 +131,42 @@ function extractBearerToken(req) {
 function toHeader(req, name) {
   const headers = req?.headers || {};
   const lowerName = name.toLowerCase();
+
+  if (typeof headers.get === 'function') {
+    return headerValueToString(headers.get(name) ?? headers.get(lowerName));
+  }
+
+  const direct = headers[name] ?? headers[lowerName] ?? headers[name.toUpperCase()];
+  if (direct !== undefined) {
+    return headerValueToString(direct);
+  }
+
   for (const [key, value] of Object.entries(headers)) {
     if (String(key).toLowerCase() === lowerName) {
-      return Array.isArray(value) ? String(value[0] || '') : String(value || '');
+      return headerValueToString(value);
     }
+  }
+  return '';
+}
+
+function headerValueToString(value) {
+  if (Array.isArray(value)) {
+    return headerValueToString(value[0]);
+  }
+  if (value === null || value === undefined) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (typeof value.value === 'string') {
+    return value.value;
+  }
+  if (typeof value.toString === 'function' && value.toString !== Object.prototype.toString) {
+    return value.toString();
   }
   return '';
 }

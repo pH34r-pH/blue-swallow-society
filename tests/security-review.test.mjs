@@ -63,6 +63,7 @@ test('OSINT and agent prompts are sent via POST bodies, not URLs or persistent s
   assert.ok(tzeentchJs.includes('sessionStorage'));
   assert.ok(tzeentchJs.includes('buildOperatorHeaders()'));
   assert.ok(tzeentchJs.includes('Authorization: `Bearer ${session.token}`'));
+  assert.ok(tzeentchJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
 
   assert.ok(agentJs.includes("fetch('/api/agent'"));
   assert.ok(agentJs.includes("method: 'POST'"));

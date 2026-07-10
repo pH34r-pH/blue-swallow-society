@@ -687,7 +687,10 @@ function readOperatorSession() {
 function buildOperatorHeaders() {
   const session = readOperatorSession();
   return session?.token
-    ? { Authorization: `Bearer ${session.token}` }
+    ? {
+        Authorization: `Bearer ${session.token}`,
+        'X-Blue-Swallow-Operator-Token': session.token,
+      }
     : {};
 }
 
