@@ -12,6 +12,7 @@ const agentJs = read('app/agent.js');
 const agentApi = read('api/agent/index.js');
 const localServer = read('local-server.js');
 const styles = read('app/styles.css');
+const deployWorkflow = read('.github/workflows/deploy-static-web-app.yml');
 
 function routeConfig(route) {
   return staticWebApp.routes.find((entry) => entry.route === route);
@@ -28,6 +29,12 @@ test('passcode auth has no client fallback secret or local bypass', () => {
   assert.ok(!mainJs.includes('blue-swallow'));
   assert.ok(!mainJs.includes('Local fallback for development shells'));
   assert.ok(!mainJs.includes('passcode ==='));
+});
+
+test('deployment config wires the canonical passcode hash into SWA app settings', () => {
+  assert.ok(deployWorkflow.includes('BLUE_SWALLOW_PASSCODE_SHA256'));
+  assert.ok(deployWorkflow.includes('1498079020c154198640fb47d5dba23a804f44ff805fac623c69202af9db2c80'));
+  assert.match(deployWorkflow, /az staticwebapp appsettings set[\s\S]*BLUE_SWALLOW_PASSCODE_SHA256=/);
 });
 
 test('device-local endpoints stay same-origin under the production CSP', () => {

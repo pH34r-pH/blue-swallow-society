@@ -74,6 +74,20 @@ test('validate-passcode accepts SHA-256 configured passcodes and rejects wrong g
   });
 });
 
+test('validate-passcode accepts the canonical blue-swallow passcode hash', async () => {
+  await withEnv({
+    BLUE_SWALLOW_PASSCODE_SHA256: '1498079020c154198640fb47d5dba23a804f44ff805fac623c69202af9db2c80',
+  }, async () => {
+    const accepted = await invoke('blue-swallow');
+    assert.equal(accepted.status, 200);
+    assert.equal(accepted.body.ok, true);
+
+    const rejected = await invoke('blue swallow');
+    assert.equal(rejected.status, 401);
+    assert.equal(rejected.body.ok, false);
+  });
+});
+
 test('validate-passcode rate limits repeated failures per caller', async () => {
   const digest = crypto.createHash('sha256').update('correct horse').digest('hex');
   await withEnv({

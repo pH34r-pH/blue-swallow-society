@@ -24,6 +24,8 @@ env:
   DNS_ZONE_NAME: blueswallow.co.in
   APEX_DOMAIN: blueswallow.co.in
   WWW_DOMAIN: www.blueswallow.co.in
+  # SHA-256("blue-swallow"). Keep the canonical passcode server-side only.
+  BLUE_SWALLOW_PASSCODE_SHA256: 1498079020c154198640fb47d5dba23a804f44ff805fac623c69202af9db2c80
 
 jobs:
   deploy-infra:
@@ -114,13 +116,15 @@ jobs:
           backend=$(echo "$out" | jq -r '.backendEchoBaseUrl.value')
           echo "backendEchoBaseUrl=$backend" >> "$GITHUB_OUTPUT"
 
-      - name: Wire BACKEND_ECHO_BASE_URL into SWA app settings
+      - name: Wire runtime app settings into SWA
         run: |
           swa_name=$(jq -r '.parameters.staticWebAppName.value' infra/main.parameters.json)
           az staticwebapp appsettings set \
             --name "$swa_name" \
             --resource-group "$RESOURCE_GROUP" \
-            --setting-names BACKEND_ECHO_BASE_URL="${{ steps.deploy.outputs.backendEchoBaseUrl }}"
+            --setting-names \
+              BACKEND_ECHO_BASE_URL="${{ steps.deploy.outputs.backendEchoBaseUrl }}" \
+              BLUE_SWALLOW_PASSCODE_SHA256="$BLUE_SWALLOW_PASSCODE_SHA256"
 
   deploy-app:
     runs-on: ubuntu-latest

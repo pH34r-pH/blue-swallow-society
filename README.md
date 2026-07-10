@@ -107,7 +107,7 @@ Follow [.github/workflows/setup-azure-creds.md](.github/workflows/setup-azure-cr
 The **Deploy Infra + App** workflow will:
 1. Create the resource group `rg-blue-swallow` if it does not exist.
 2. Run `az deployment group create` against `infra/main.bicep` (SWA resource `blue-swallow-swa` + VM echo lab; OpenAI optional).
-3. Set `BACKEND_ECHO_BASE_URL` on the Static Web App using the Bicep output.
+3. Set `BACKEND_ECHO_BASE_URL` and the canonical `BLUE_SWALLOW_PASSCODE_SHA256` runtime hash on the Static Web App.
 4. Deploy `app/` and `api/` to the Static Web App.
 5. Wire the apex `blueswallow.co.in` and `www.blueswallow.co.in` hostnames through the custom-domain helper script and Azure DNS in `rg-blue-swallow` (the DNS zone is referenced as an existing resource in `infra/custom-domains-dns.bicep`; the canonical SWA is `blue-swallow-swa`, and legacy SWAs `blue-swallow-society` and `wonderful-pond-0623ed81e` should be deleted after cutover).
 
