@@ -117,6 +117,7 @@ The VM uses cloud-init to automatically configure the echo service:
 6. Custom domains wired after the SWA deployment using the existing Azure DNS zone:
    - apex `blueswallow.co.in`
    - `www.blueswallow.co.in`
+   - Azure DNS stages apex A alias + `www` CNAME before public delegation; final SWA custom-domain binding requires registrar-side registration/delegation to `ns1-09.azure-dns.com`, `ns2-09.azure-dns.net`, `ns3-09.azure-dns.org`, and `ns4-09.azure-dns.info`.
 
 ## Configuration Files
 

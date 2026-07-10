@@ -4,9 +4,9 @@
 This script uses raw ARM HTTPS calls plus GitHub OIDC to avoid depending on
 Azure CLI subcommands that are not available in the runner image.
 
-If public DNS delegation has not landed yet, the script logs a warning and
-returns success so app deployments can keep flowing until the registrar is
-updated.
+If public DNS delegation has not landed yet, the script still stages the base
+Azure DNS records, logs a warning, and returns success so app deployments can
+keep flowing until the domain is registered/delegated at the registrar.
 """
 
 from __future__ import annotations
@@ -310,12 +310,16 @@ def configure_apex(
     www_hostname: str,
 ) -> bool:
     default_hostname, static_web_app_id = get_default_hostname_and_id(resource_group, static_web_app_name)
+    upsert_alias_a_record(dns_zone_resource_group, dns_zone_name, "@", static_web_app_id)
+    upsert_cname_record(dns_zone_resource_group, dns_zone_name, "www", default_hostname)
+    print(
+        f"Staged Azure DNS records for {apex_hostname} and {www_hostname}: "
+        f"apex A alias -> {static_web_app_name}, www CNAME -> {default_hostname}."
+    )
     if not public_dns_delegation_is_live(dns_zone_resource_group, dns_zone_name, apex_hostname, www_hostname):
         return False
     token = create_custom_domain_and_token(resource_group, static_web_app_name, apex_hostname, "dns-txt-token")
     upsert_txt_record(dns_zone_resource_group, dns_zone_name, token)
-    upsert_alias_a_record(dns_zone_resource_group, dns_zone_name, "@", static_web_app_id)
-    upsert_cname_record(dns_zone_resource_group, dns_zone_name, "www", default_hostname)
     create_custom_domain_with_retry(
         resource_group,
         static_web_app_name,
