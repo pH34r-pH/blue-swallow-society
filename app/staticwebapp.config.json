@@ -2,9 +2,13 @@
   "routes": [
     { "route": "/account/*", "allowedRoles": ["authenticated"] },
     { "route": "/api/profile", "allowedRoles": ["authenticated"] },
+    { "route": "/api/wigle", "allowedRoles": ["authenticated"] },
+    { "route": "/api/osint", "allowedRoles": ["authenticated"] },
+    { "route": "/api/agent", "allowedRoles": ["authenticated"] },
+    { "route": "/api/tzeentch", "allowedRoles": ["authenticated"] },
+    { "route": "/api/validate-passcode", "allowedRoles": ["anonymous", "authenticated"] },
     { "route": "/api/echo", "allowedRoles": ["anonymous", "authenticated"] },
-    { "route": "/api/agent", "allowedRoles": ["anonymous", "authenticated"] },
-    { "route": "/agent", "rewrite": "/agent.html", "allowedRoles": ["anonymous", "authenticated"] },
+    { "route": "/agent", "rewrite": "/agent.html", "allowedRoles": ["authenticated"] },
     { "route": "/login", "redirect": "/.auth/login/aad" },
     { "route": "/logout", "redirect": "/.auth/logout" }
   ],

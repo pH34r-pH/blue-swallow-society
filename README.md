@@ -79,9 +79,17 @@ The Azure Function proxy at `/api/echo` forwards to the VM using the SWA app set
 - `BACKEND_ECHO_BASE_URL` → e.g. `http://<vm-public-ip>:8080`
 
 The WiGLE proxy at `/api/wigle` supports:
-- `WIGLE_LIVE_BRIDGE_URL` → a live bridge or phone-local snapshot endpoint for the AR stream
-- `WIGLE_API_NAME` + `WIGLE_API_TOKEN` → fallback to the public WiGLE search API when geolocation is available
-- `WIGLE_LOCAL_DB_PATH` or `WIGLE_LOCAL_DB_URL` → a local WiGLE database snapshot for the Godeye view
+- `mode=current` → AR current-state path. Reads the device-local WiGLE database/export through `WIGLE_LOCAL_DB_PATH` or `WIGLE_LOCAL_DB_URL`, filters to recent rows (`maxAgeSeconds`, default 45), and orders candidates by signal strength.
+- `mode=database` → Godeye/local snapshot path. Reads the same local database/export without AR recency gating.
+- `mode=live` → bridge/global fallback. Uses `WIGLE_LIVE_BRIDGE_URL`, then `WIGLE_API_NAME` + `WIGLE_API_TOKEN` for the public WiGLE search API when geolocation is available.
+
+The browser does **not** scan Wi-Fi directly and cannot read WiGLE's Android app-private sqlite database by itself. For AR, run a device-local process with file permission and expose JSON to the app, for example:
+
+```bash
+python3 scripts/wigle-local-bridge.py --db /path/to/wiglewifi.sqlite --host 127.0.0.1 --port 8787
+```
+
+In local development, point the WiGLE endpoint field at `http://127.0.0.1:8787/api/wigle`. In the deployed Static Web App, the production CSP keeps browser calls same-origin; configure `/api/wigle` with a server-reachable `WIGLE_LOCAL_DB_PATH` or `WIGLE_LOCAL_DB_URL` instead of asking the hosted browser to read device-local storage.
 
 ## Deployment sequence
 

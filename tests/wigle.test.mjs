@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildArCandidateBoxes,
+  buildCurrentWigleState,
   buildWigleMapState,
   filterWigleRecordsByRadius,
   isLiveWigleSnapshot,
@@ -27,6 +28,92 @@ test('normalizeWigleRecord standardizes WiGLE-like inputs', () => {
   assert.equal(record.signalDbm, -54);
   assert.equal(record.signalBand, 'good');
   assert.ok(record.estimatedRange.max > record.estimatedRange.min);
+});
+
+test('normalizeWigleRecord accepts WiGLE sqlite/export field names', () => {
+  const record = normalizeWigleRecord({
+    MAC: 'aa:bb:cc:dd:ee:10',
+    SSID: 'WiGLE Export AP',
+    AuthMode: '[WPA2-PSK-CCMP][ESS]',
+    RSSI: '-47',
+    Channel: '11',
+    CurrentLatitude: '47.62051',
+    CurrentLongitude: '-122.34931',
+    FirstSeen: '2026-07-09 12:00:07',
+    Type: 'WIFI',
+  });
+
+  assert.equal(record.bssid, 'aa:bb:cc:dd:ee:10');
+  assert.equal(record.ssid, 'WiGLE Export AP');
+  assert.equal(record.security, '[WPA2-PSK-CCMP][ESS]');
+  assert.equal(record.signalDbm, -47);
+  assert.equal(record.channel, 11);
+  assert.equal(record.lat, 47.62051);
+  assert.equal(record.lon, -122.34931);
+  assert.equal(record.lastSeen, '2026-07-09T12:00:07.000Z');
+  assert.equal(record.deviceClass, 'WIFI');
+});
+
+test('buildCurrentWigleState keeps recent local DB observations ordered by signal strength', () => {
+  const now = Date.parse('2026-07-09T12:00:30Z');
+  const snapshot = buildCurrentWigleState({
+    now,
+    maxAgeMs: 45_000,
+    accessPoints: [
+      {
+        ssid: 'Stale Strong AP',
+        bssid: 'aa:bb:cc:dd:ee:01',
+        signalDbm: -30,
+        lastSeen: '2026-07-09T11:57:00Z',
+      },
+      {
+        ssid: 'Recent Near AP',
+        bssid: 'aa:bb:cc:dd:ee:02',
+        signalDbm: -42,
+        lastSeen: '2026-07-09T12:00:18Z',
+      },
+      {
+        ssid: 'Recent Far AP',
+        bssid: 'aa:bb:cc:dd:ee:03',
+        signalDbm: -68,
+        lastSeen: '2026-07-09T12:00:24Z',
+      },
+    ],
+  });
+
+  assert.equal(snapshot.live, true);
+  assert.equal(snapshot.accessPoints.length, 2);
+  assert.deepEqual(snapshot.accessPoints.map((record) => record.ssid), ['Recent Near AP', 'Recent Far AP']);
+  assert.equal(snapshot.accessPoints[0].current, true);
+  assert.equal(snapshot.accessPoints[0].ageMs, 12_000);
+  assert.equal(snapshot.accessPoints[0].rangeText, 'very near · ~0-8m');
+});
+
+test('buildCurrentWigleState prefers newest observation for duplicate device identity', () => {
+  const now = Date.parse('2026-07-09T12:00:30Z');
+  const snapshot = buildCurrentWigleState({
+    now,
+    maxAgeMs: 45_000,
+    accessPoints: [
+      {
+        ssid: 'Moving AP',
+        bssid: 'aa:bb:cc:dd:ee:04',
+        signalDbm: -35,
+        lastSeen: '2026-07-09T12:00:04Z',
+      },
+      {
+        ssid: 'Moving AP',
+        bssid: 'aa:bb:cc:dd:ee:04',
+        signalDbm: -71,
+        lastSeen: '2026-07-09T12:00:26Z',
+      },
+    ],
+  });
+
+  assert.equal(snapshot.accessPoints.length, 1);
+  assert.equal(snapshot.accessPoints[0].signalDbm, -71);
+  assert.equal(snapshot.accessPoints[0].ageMs, 4_000);
+  assert.equal(snapshot.accessPoints[0].rangeText, 'far · ~25-75m');
 });
 
 test('filterWigleRecordsByRadius keeps the local database inside a 100m radius', () => {

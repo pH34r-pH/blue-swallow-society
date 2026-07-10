@@ -304,7 +304,7 @@
                 <p class="eyebrow">// AR //</p>
                 <h2>Camera passthrough</h2>
               </div>
-              <p class="panel-meta">Live object overlays driven by device sensors and a configured WiGLE bridge.</p>
+              <p class="panel-meta">Live object overlays driven by device sensors and device-local WiGLE current state.</p>
             </div>
 
             <div class="ar-layout">
@@ -319,7 +319,7 @@
                   <div class="motion-overlay" aria-hidden="true">
                     <div class="motion-edge motion-edge-top-left">
                       <span class="motion-tag">STATUS</span>
-                      <p id="arStatusText">Camera feed off. Toggle on to request permissions, then query the configured WiGLE bridge.</p>
+                      <p id="arStatusText">Camera feed off. Toggle on to request permissions, then query the device-local WiGLE current state.</p>
                     </div>
                     <div class="motion-edge motion-edge-top-right">
                       <span class="motion-tag">ORIENTATION</span>
@@ -353,7 +353,7 @@
 
                 <div class="sensor-card">
                   <p class="sensor-label">WiGLE candidates</p>
-                  <p id="arWigleStatusText">Live WiGLE records stay idle until the camera feed is enabled and an endpoint is configured.</p>
+                  <p id="arWigleStatusText">WiGLE current-state records stay idle until the camera feed is enabled and a device-local endpoint is configured.</p>
                   <div id="arCandidateList" class="wigle-list"></div>
                 </div>
 
@@ -365,7 +365,7 @@
                       id="visionEndpointInput"
                       class="input dashboard-input"
                       type="url"
-                      placeholder="http://device.local:8787/api/ar-detections"
+                      placeholder="/api/ar-detections"
                       autocomplete="off"
                       autocapitalize="none"
                       spellcheck="false"
@@ -443,12 +443,12 @@
                 <div class="geo-card">
                   <p class="sensor-label">WiGLE sources</p>
                   <label class="wigle-field" for="wigleEndpointInput">
-                    <span>Live run endpoint</span>
+                    <span>Device-local WiGLE endpoint</span>
                     <input
                       id="wigleEndpointInput"
                       class="input dashboard-input"
                       type="url"
-                      placeholder="http://device.local:8787/api/wigle"
+                      placeholder="/api/wigle"
                       autocomplete="off"
                       autocapitalize="none"
                       spellcheck="false"
@@ -459,10 +459,10 @@
                     <input id="wigleFileInput" class="input dashboard-input" type="file" accept=".json,.csv,.ndjson,application/json,text/csv,text/plain" />
                   </label>
                   <div class="wigle-action-row">
-                    <button id="wigleConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect live stream</button>
+                    <button id="wigleConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect current state</button>
                     <button id="wigleSampleBtn" class="btn btn-secondary sensor-action" type="button">Load sample data</button>
                   </div>
-                  <p id="wigleStatusText">Local WiGLE database is ready.</p>
+                  <p id="wigleStatusText">Sample/demo WiGLE dataset loaded.</p>
                 </div>
 
                 <div class="geo-card">

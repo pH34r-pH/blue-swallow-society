@@ -1,6 +1,12 @@
 import { buildTileGrid, clamp, latLonToTileXY, metersPerPixel } from './map-math.mjs';
 
 const DEFAULT_VIEWPORT = { width: 1024, height: 768, zoom: 17 };
+const DEFAULT_CURRENT_WIGLE_MAX_AGE_MS = 45_000;
+const DEFAULT_CURRENT_WIGLE_LIMIT = 12;
+const WIFI_FREQUENCY_CHANNELS = new Map([
+  [2412, 1], [2417, 2], [2422, 3], [2427, 4], [2432, 5], [2437, 6], [2442, 7],
+  [2447, 8], [2452, 9], [2457, 10], [2462, 11], [2467, 12], [2472, 13], [2484, 14],
+]);
 const SAMPLE_LOCATION = {
   lat: 47.6154,
   lon: -122.3362,
@@ -57,17 +63,20 @@ export function normalizeWigleRecord(record, { source = 'live' } = {}) {
     return null;
   }
 
-  const ssid = cleanString(firstDefined(record, ['ssid', 'SSID', 'networkName', 'name'])) || null;
-  const bssid = cleanString(firstDefined(record, ['bssid', 'BSSID', 'mac', 'macAddress'])) || null;
-  const lat = toNumber(firstDefined(record, ['lat', 'latitude', 'Lat', 'Latitude']));
-  const lon = toNumber(firstDefined(record, ['lon', 'lng', 'longitude', 'Lon', 'Longitude']));
-  const signalDbm = toNumber(firstDefined(record, ['signalDbm', 'signal_dbm', 'rssi', 'RSSI', 'signal']));
-  const channel = toNumber(firstDefined(record, ['channel', 'chan', 'Channel']));
-  const security = cleanString(firstDefined(record, ['security', 'encryption', 'Encryption', 'crypto'])) || null;
-  const vendor = cleanString(firstDefined(record, ['vendor', 'manufacturer', 'Manufacturer', 'oui'])) || null;
-  const lastSeen = cleanString(firstDefined(record, ['lastSeen', 'last_seen', 'updatedAt', 'seenAt', 'timestamp'])) || null;
-  const deviceClass = cleanString(firstDefined(record, ['deviceClass', 'device_class', 'type', 'kind'])) || inferDeviceClass(ssid, vendor);
-  const id = cleanString(firstDefined(record, ['id', 'bssid', 'BSSID', 'mac'])) || deriveRecordId(ssid, bssid, lat, lon);
+  const ssid = cleanString(firstDefined(record, ['ssid', 'SSID', 'networkName', 'name', 'Name'])) || null;
+  const bssid = cleanString(firstDefined(record, ['bssid', 'BSSID', 'mac', 'MAC', 'macAddress'])) || null;
+  const lat = toNumber(firstDefined(record, ['lat', 'latitude', 'Lat', 'Latitude', 'lastlat', 'lastLat', 'bestlat', 'bestLat', 'CurrentLatitude', 'currentLatitude']));
+  const lon = toNumber(firstDefined(record, ['lon', 'lng', 'longitude', 'Lon', 'Longitude', 'lastlon', 'lastLon', 'bestlon', 'bestLon', 'CurrentLongitude', 'currentLongitude']));
+  const signalDbm = toNumber(firstDefined(record, ['signalDbm', 'signal_dbm', 'rssi', 'RSSI', 'signal', 'Signal', 'level', 'Level', 'bestlevel', 'bestLevel']));
+  const channel = normalizeChannel(
+    firstDefined(record, ['channel', 'chan', 'Channel']),
+    firstDefined(record, ['frequency', 'freq', 'Frequency']),
+  );
+  const security = cleanString(firstDefined(record, ['security', 'encryption', 'Encryption', 'crypto', 'AuthMode', 'authMode', 'capabilities', 'Capabilities'])) || null;
+  const vendor = cleanString(firstDefined(record, ['vendor', 'manufacturer', 'Manufacturer', 'oui', 'MFGR', 'mfgr'])) || null;
+  const lastSeen = normalizeTimestamp(firstDefined(record, ['lastSeen', 'last_seen', 'updatedAt', 'seenAt', 'timestamp', 'lasttime', 'lastTime', 'time', 'Time', 'FirstSeen', 'firstSeen']));
+  const deviceClass = cleanString(firstDefined(record, ['deviceClass', 'device_class', 'type', 'Type', 'kind'])) || inferDeviceClass(ssid, vendor);
+  const id = cleanString(firstDefined(record, ['id', 'bssid', 'BSSID', 'mac', 'MAC'])) || deriveRecordId(ssid, bssid, lat, lon);
 
   const normalized = {
     id,
@@ -264,29 +273,47 @@ function mapCsvHeader(header) {
       return 'bssid';
     case 'lat':
     case 'latitude':
+    case 'currentlatitude':
+    case 'lastlat':
+    case 'bestlat':
       return 'latitude';
     case 'lon':
     case 'lng':
     case 'longitude':
+    case 'currentlongitude':
+    case 'lastlon':
+    case 'bestlon':
       return 'longitude';
     case 'signaldbm':
     case 'rssi':
     case 'signal':
+    case 'level':
+    case 'bestlevel':
       return 'signalDbm';
+    case 'frequency':
+    case 'freq':
+      return 'frequency';
     case 'channel':
     case 'chan':
       return 'channel';
     case 'security':
     case 'encryption':
     case 'crypto':
+    case 'authmode':
+    case 'capabilities':
       return 'security';
     case 'vendor':
     case 'manufacturer':
+    case 'mfgr':
       return 'vendor';
     case 'lastseen':
     case 'last_seen':
     case 'timestamp':
     case 'updatedat':
+    case 'seenat':
+    case 'firstseen':
+    case 'lasttime':
+    case 'time':
       return 'lastSeen';
     case 'source':
     case 'feedsource':
@@ -432,6 +459,46 @@ export function buildArCandidateBoxes({
       hint: 'Candidate overlays are ordered by WiGLE signal confidence.',
       rotationUpright: true,
     },
+  };
+}
+
+export function buildCurrentWigleState({
+  accessPoints = [],
+  location = null,
+  radiusMeters = null,
+  now = Date.now(),
+  maxAgeMs = DEFAULT_CURRENT_WIGLE_MAX_AGE_MS,
+  limit = DEFAULT_CURRENT_WIGLE_LIMIT,
+} = {}) {
+  const nowMs = coerceTimestampMs(now) ?? Date.now();
+  const ageLimit = Number.isFinite(Number(maxAgeMs))
+    ? Math.max(0, Number(maxAgeMs))
+    : DEFAULT_CURRENT_WIGLE_MAX_AGE_MS;
+  const normalizedLocation = normalizeLocation(location);
+  const maxRecords = Number.isFinite(Number(limit)) ? Math.max(0, Number(limit)) : DEFAULT_CURRENT_WIGLE_LIMIT;
+
+  const mergedRecords = mergeCurrentWigleRecords(accessPoints, nowMs);
+  const spatiallyRelevantRecords = normalizedLocation && Number.isFinite(radiusMeters)
+    ? filterWigleRecordsByRadius(mergedRecords, normalizedLocation, radiusMeters)
+    : mergedRecords;
+
+  const currentRecords = spatiallyRelevantRecords
+    .map((record) => annotateCurrentRecord(record, nowMs, ageLimit))
+    .filter((record) => record.current)
+    .sort(compareCurrentRecords)
+    .slice(0, maxRecords);
+  const latestSeenMs = currentRecords.reduce((latest, record) => {
+    const seenMs = coerceTimestampMs(record.lastSeen);
+    return Number.isFinite(seenMs) ? Math.max(latest, seenMs) : latest;
+  }, 0);
+
+  return {
+    location: normalizedLocation,
+    accessPoints: currentRecords,
+    live: currentRecords.length > 0,
+    current: currentRecords.length > 0,
+    maxAgeMs: ageLimit,
+    updatedAt: latestSeenMs ? new Date(latestSeenMs).toISOString() : new Date(nowMs).toISOString(),
   };
 }
 
@@ -651,6 +718,74 @@ function shouldPreferRecord(candidate, existing) {
   return (candidate.source || '').length < (existing.source || '').length;
 }
 
+function mergeCurrentWigleRecords(...collections) {
+  const map = new Map();
+
+  collections.flat().forEach((entry) => {
+    const normalized = normalizeWigleRecord(entry);
+    if (!normalized) {
+      return;
+    }
+
+    const key = normalized.bssid || normalized.id;
+    const existing = map.get(key);
+    if (!existing || shouldPreferCurrentRecord(normalized, existing)) {
+      map.set(key, normalized);
+    }
+  });
+
+  return Array.from(map.values());
+}
+
+function shouldPreferCurrentRecord(candidate, existing) {
+  const candidateSeen = coerceTimestampMs(candidate.lastSeen);
+  const existingSeen = coerceTimestampMs(existing.lastSeen);
+  if (Number.isFinite(candidateSeen) && Number.isFinite(existingSeen) && candidateSeen !== existingSeen) {
+    return candidateSeen > existingSeen;
+  }
+
+  if (Number.isFinite(candidateSeen) !== Number.isFinite(existingSeen)) {
+    return Number.isFinite(candidateSeen);
+  }
+
+  const candidateSignal = Number.isFinite(candidate.signalDbm) ? candidate.signalDbm : Number.NEGATIVE_INFINITY;
+  const existingSignal = Number.isFinite(existing.signalDbm) ? existing.signalDbm : Number.NEGATIVE_INFINITY;
+  if (candidateSignal !== existingSignal) {
+    return candidateSignal > existingSignal;
+  }
+
+  return (candidate.source || '').length < (existing.source || '').length;
+}
+
+function annotateCurrentRecord(record, nowMs, maxAgeMs) {
+  const seenMs = coerceTimestampMs(record.lastSeen);
+  const ageMs = Number.isFinite(seenMs) ? Math.max(0, nowMs - seenMs) : null;
+  const current = Number.isFinite(ageMs) && ageMs <= maxAgeMs;
+
+  return {
+    ...record,
+    ageMs,
+    current,
+    rangeText: formatRange(record.estimatedRange),
+  };
+}
+
+function compareCurrentRecords(left, right) {
+  const leftSignal = Number.isFinite(left.signalDbm) ? left.signalDbm : Number.NEGATIVE_INFINITY;
+  const rightSignal = Number.isFinite(right.signalDbm) ? right.signalDbm : Number.NEGATIVE_INFINITY;
+  if (leftSignal !== rightSignal) {
+    return rightSignal - leftSignal;
+  }
+
+  const leftAge = Number.isFinite(left.ageMs) ? left.ageMs : Number.POSITIVE_INFINITY;
+  const rightAge = Number.isFinite(right.ageMs) ? right.ageMs : Number.POSITIVE_INFINITY;
+  if (leftAge !== rightAge) {
+    return leftAge - rightAge;
+  }
+
+  return String(left.ssid || left.bssid || left.id || '').localeCompare(String(right.ssid || right.bssid || right.id || ''));
+}
+
 function scoreRecord(record) {
   const signal = Number.isFinite(record.signalDbm) ? clamp((100 + record.signalDbm) / 60, 0, 1) : 0.5;
   const recency = record.lastSeen ? clamp((Date.now() - Date.parse(record.lastSeen)) / (1000 * 60 * 60 * 24 * 30), 0, 1) : 0.5;
@@ -727,6 +862,84 @@ function firstDefined(object, keys) {
 
 function cleanString(value) {
   return value === null || value === undefined ? '' : String(value).trim();
+}
+
+function normalizeChannel(channelValue, frequencyValue = null) {
+  const explicitChannel = toNumber(channelValue);
+  if (Number.isFinite(explicitChannel) && explicitChannel > 0 && explicitChannel < 200) {
+    return explicitChannel;
+  }
+
+  const frequency = toNumber(frequencyValue);
+  if (!Number.isFinite(frequency)) {
+    return explicitChannel;
+  }
+
+  if (WIFI_FREQUENCY_CHANNELS.has(frequency)) {
+    return WIFI_FREQUENCY_CHANNELS.get(frequency);
+  }
+
+  if (frequency >= 5000 && frequency <= 5900) {
+    return Math.round((frequency - 5000) / 5);
+  }
+
+  if (frequency >= 5955 && frequency <= 7115) {
+    return Math.round((frequency - 5950) / 5);
+  }
+
+  return explicitChannel;
+}
+
+function normalizeTimestamp(value) {
+  const timestampMs = coerceTimestampMs(value);
+  if (Number.isFinite(timestampMs)) {
+    return new Date(timestampMs).toISOString();
+  }
+
+  return cleanString(value) || null;
+}
+
+function coerceTimestampMs(value) {
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isFinite(time) ? time : null;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return normalizeNumericTimestamp(value);
+  }
+
+  const text = cleanString(value);
+  if (!text) {
+    return null;
+  }
+
+  if (/^-?\d+(?:\.\d+)?$/.test(text)) {
+    return normalizeNumericTimestamp(Number(text));
+  }
+
+  const dateLike = /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(text)
+    ? `${text.replace(' ', 'T')}Z`
+    : text;
+  const parsed = Date.parse(dateLike);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeNumericTimestamp(value) {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  const absolute = Math.abs(value);
+  if (absolute >= 1_000_000_000_000) {
+    return value;
+  }
+
+  if (absolute >= 1_000_000_000) {
+    return value * 1000;
+  }
+
+  return value;
 }
 
 function toNumber(value) {

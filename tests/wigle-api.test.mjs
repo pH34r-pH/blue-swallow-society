@@ -106,6 +106,68 @@ test('wigle API exposes a local database snapshot clipped to 100m', async () => 
   }
 });
 
+test('wigle API exposes current local DB observations for AR from recent rows', async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'wigle-current-'));
+  const tempFile = path.join(tempDir, 'wigle.json');
+
+  try {
+    await writeFile(tempFile, JSON.stringify({
+      location: { lat: 47.6205, lon: -122.3493 },
+      accessPoints: [
+        {
+          ssid: 'Old Strong AP',
+          bssid: 'aa:bb:cc:dd:ee:81',
+          lat: 47.62058,
+          lon: -122.34918,
+          signalDbm: -31,
+          lastSeen: '2026-07-09T11:58:00Z',
+        },
+        {
+          ssid: 'Current Near AP',
+          bssid: 'aa:bb:cc:dd:ee:82',
+          lat: 47.62058,
+          lon: -122.34918,
+          signalDbm: -44,
+          lastSeen: '2026-07-09T12:00:20Z',
+        },
+      ],
+      updatedAt: '2026-07-09T12:00:25Z',
+    }), 'utf8');
+
+    const response = await invokeRoute(
+      {
+        query: {
+          mode: 'current',
+          lat: '47.6205',
+          lon: '-122.3493',
+          radiusMeters: '100',
+          limit: '10',
+          maxAgeSeconds: '45',
+          now: '2026-07-09T12:00:30Z',
+        },
+      },
+      {
+        WIGLE_LOCAL_DB_PATH: tempFile,
+        WIGLE_LIVE_BRIDGE_URL: undefined,
+        WIGLE_API_NAME: undefined,
+        WIGLE_API_TOKEN: undefined,
+      },
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.ok, true);
+    assert.equal(response.body.mode, 'current');
+    assert.equal(response.body.live, true);
+    assert.equal(response.body.source, 'local-db');
+    assert.equal(response.body.totalResults, 1);
+    assert.equal(response.body.accessPoints[0].ssid, 'Current Near AP');
+    assert.equal(response.body.accessPoints[0].current, true);
+    assert.equal(response.body.accessPoints[0].ageMs, 10_000);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('wigle API proxies a live bridge snapshot and keeps the live flag', async () => {
   const bridgePayload = {
     live: true,

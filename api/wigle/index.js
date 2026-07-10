@@ -188,14 +188,16 @@ async function buildSnapshot({
   location,
   radiusMeters,
   limit,
+  maxAgeMs,
+  now,
 }) {
-  const { parseWiglePayload, filterWigleRecordsByRadius, isLiveWigleSnapshot } = await getWigleModule();
+  const { parseWiglePayload, filterWigleRecordsByRadius, isLiveWigleSnapshot, buildCurrentWigleState } = await getWigleModule();
 
   let rawPayload = null;
   let source = null;
   let live = false;
 
-  if (mode === 'database') {
+  if (mode === 'database' || mode === 'current') {
     rawPayload = await readLocalSource();
     source = process.env.WIGLE_LOCAL_DB_PATH ? 'local-db' : 'local-url';
   } else {
@@ -216,7 +218,7 @@ async function buildSnapshot({
   }
 
   if (rawPayload === null || rawPayload === undefined) {
-    const sourceError = mode === 'database'
+    const sourceError = mode === 'database' || mode === 'current'
       ? 'Local WiGLE database not configured. Set WIGLE_LOCAL_DB_PATH or WIGLE_LOCAL_DB_URL.'
       : 'Live WiGLE is not configured. Set WIGLE_LIVE_BRIDGE_URL or WIGLE_API_NAME/WIGLE_API_TOKEN.';
     const error = new Error(sourceError);
@@ -225,32 +227,57 @@ async function buildSnapshot({
   }
 
   const normalizedPayload = normalizeUpstreamPayload(rawPayload);
-  const parseSource = mode === 'database' ? 'database' : 'live';
+  const parseSource = mode === 'database' ? 'database' : mode === 'current' ? 'current' : 'live';
   const parsed = parseWiglePayload(normalizedPayload, { source: parseSource });
   const effectiveLocation = location || parsed.location || null;
   const effectiveRadius = clampNumber(radiusMeters, 25, 5_000, 100);
-  const accessPoints = effectiveLocation
-    ? filterWigleRecordsByRadius(parsed.accessPoints, effectiveLocation, effectiveRadius)
-    : parsed.accessPoints.slice();
-  const limitedAccessPoints = Number.isFinite(limit) && limit > 0 ? accessPoints.slice(0, limit) : accessPoints;
-  const responseLocation = effectiveLocation || parsed.location || null;
-  const updatedAt = parsed.updatedAt || new Date().toISOString();
+  let responseLocation = effectiveLocation || parsed.location || null;
+  let updatedAt = parsed.updatedAt || new Date().toISOString();
+  let limitedAccessPoints;
+  let current = false;
+
+  if (mode === 'current') {
+    const currentState = buildCurrentWigleState({
+      accessPoints: parsed.accessPoints,
+      location: effectiveLocation,
+      radiusMeters: effectiveLocation ? effectiveRadius : null,
+      now,
+      maxAgeMs,
+      limit,
+    });
+    limitedAccessPoints = currentState.accessPoints;
+    live = currentState.live;
+    current = currentState.current;
+    responseLocation = responseLocation || currentState.location;
+    updatedAt = currentState.updatedAt || updatedAt;
+  } else {
+    const accessPoints = effectiveLocation
+      ? filterWigleRecordsByRadius(parsed.accessPoints, effectiveLocation, effectiveRadius)
+      : parsed.accessPoints.slice();
+    limitedAccessPoints = Number.isFinite(limit) && limit > 0 ? accessPoints.slice(0, limit) : accessPoints;
+  }
 
   return {
     ok: true,
     mode,
-    live: mode === 'live' ? live : false,
+    live: mode === 'live' ? live : mode === 'current' ? current : false,
+    current,
     source,
     location: responseLocation,
     radiusMeters: effectiveLocation ? effectiveRadius : null,
+    maxAgeMs: mode === 'current' ? maxAgeMs : undefined,
     totalResults: limitedAccessPoints.length,
     accessPoints: limitedAccessPoints,
     updatedAt,
     message: mode === 'database'
       ? 'Local WiGLE database snapshot ready.'
-      : live
-        ? 'Live WiGLE stream ready.'
-        : 'WiGLE feed returned a non-live snapshot.',
+      : mode === 'current'
+        ? (current
+            ? 'Current local WiGLE observations ready.'
+            : 'Local WiGLE database is configured, but no observations are recent enough for AR.')
+        : live
+          ? 'Live WiGLE stream ready.'
+          : 'WiGLE feed returned a non-live snapshot.',
   };
 }
 
@@ -269,9 +296,13 @@ function sendJson(context, status, body) {
 
 module.exports = async function wigle(context, req) {
   const requestMode = String(getRequestValue(req, 'mode', 'live') || 'live').toLowerCase();
-  const mode = requestMode === 'database' ? 'database' : 'live';
+  const mode = requestMode === 'database' || requestMode === 'current' ? requestMode : 'live';
   const radiusMeters = clampNumber(getRequestValue(req, 'radiusMeters'), 25, 5_000, 100);
   const limit = clampNumber(getRequestValue(req, 'limit'), 1, 100, 25);
+  const maxAgeFromSeconds = parseNumber(getRequestValue(req, 'maxAgeSeconds'));
+  const maxAgeFallback = Number.isFinite(maxAgeFromSeconds) ? maxAgeFromSeconds * 1000 : 45_000;
+  const maxAgeMs = clampNumber(getRequestValue(req, 'maxAgeMs'), 1_000, 300_000, maxAgeFallback);
+  const now = getRequestValue(req, 'now', undefined);
   const location = parseRequestedLocation(req);
 
   try {
@@ -281,6 +312,8 @@ module.exports = async function wigle(context, req) {
       location,
       radiusMeters,
       limit,
+      maxAgeMs,
+      now,
     });
 
     return sendJson(context, 200, snapshot);

@@ -20,7 +20,6 @@ import {
   parseVisionPayload,
 } from './vision.mjs';
 
-const PASSCODE_FALLBACK = 'blue-swallow';
 const TILE_BASE_URL = 'https://tile.openstreetmap.org';
 const MAP_ZOOM = 15;
 const GEO_OPTIONS = {
@@ -69,11 +68,11 @@ const state = {
   wigleData: createSampleWigleDataset(),
   wigleLiveData: null,
   wigleLiveReady: false,
-  wigleLiveStatus: 'Live WiGLE stream is not connected yet.',
-  wigleLiveSourceLabel: 'live',
+  wigleLiveStatus: 'Device-local WiGLE current state is not connected yet.',
+  wigleLiveSourceLabel: 'current',
   wigleLivePollId: 0,
   wigleEndpoint: '',
-  wigleStatus: 'Local WiGLE database is ready.',
+  wigleStatus: 'Sample/demo WiGLE dataset loaded.',
   wigleSourceLabel: 'sample',
   visionBound: false,
   visionRenderFrame: 0,
@@ -136,33 +135,24 @@ async function handleLogin() {
 }
 
 async function validatePasscode(passcode) {
-  try {
-    const response = await fetch('/api/validate-passcode', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ passcode }),
-    });
+  const response = await fetch('/api/validate-passcode', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ passcode }),
+  });
 
-    if (!response.ok) {
-      throw new Error(`Validation request failed (${response.status})`);
-    }
-
-    const data = await response.json();
-    if (data && typeof data.ok === 'boolean') {
-      return data.ok;
-    }
-
-    throw new Error('Validation response missing ok flag.');
-  } catch (error) {
-    // Local fallback for development shells where the API route is not mounted.
-    if (passcode === PASSCODE_FALLBACK) {
-      return true;
-    }
-
-    throw error;
+  if (!response.ok) {
+    return false;
   }
+
+  const data = await response.json();
+  if (data && typeof data.ok === 'boolean') {
+    return data.ok;
+  }
+
+  return false;
 }
 
 function unlockConsole() {
@@ -224,10 +214,10 @@ function resetConsoleToLogin() {
   state.wigleData = createSampleWigleDataset();
   state.wigleLiveData = null;
   state.wigleLiveReady = false;
-  state.wigleLiveStatus = 'Live WiGLE stream is not connected yet.';
-  state.wigleLiveSourceLabel = 'live';
+  state.wigleLiveStatus = 'Device-local WiGLE current state is not connected yet.';
+  state.wigleLiveSourceLabel = 'current';
   state.wigleEndpoint = '';
-  state.wigleStatus = 'Local WiGLE database is ready.';
+  state.wigleStatus = 'Sample/demo WiGLE dataset loaded.';
   state.wigleSourceLabel = 'sample';
   state.visionData = { frame: null, detections: [] };
   state.visionEndpoint = '';
@@ -251,7 +241,7 @@ function resetConsoleToLogin() {
   if (visionFileInput) {
     visionFileInput.value = '';
   }
-  setText('arStatusText', 'Camera feed off. Toggle on to request permissions and connect a live WiGLE bridge.');
+  setText('arStatusText', 'Camera feed off. Toggle on to request permissions and connect the device-local WiGLE current state.');
   setText('geoStatusText', 'Geolocation permission has not been requested yet.');
   setText('wigleStatusText', state.wigleStatus);
   setText('visionStatusText', state.visionStatus);
@@ -287,7 +277,6 @@ function bindTabSystem() {
 }
 
 function initTabDefaults() {
-  initTzeentchDashboard();
   initArTab();
   initGodeyeTab();
   updateArOrientation();
@@ -529,7 +518,7 @@ async function enableArFeed() {
   }
 
   const live = await refreshLiveWigleFeed();
-  messages.push(live ? 'live WiGLE stream connected' : state.wigleLiveStatus || 'live WiGLE stream unavailable');
+  messages.push(live ? 'device-local WiGLE current state connected' : state.wigleLiveStatus || 'device-local WiGLE current state unavailable');
   startWigleLivePolling();
 
   if (status) {
@@ -578,7 +567,7 @@ async function refreshLiveWigleFeed({ quiet = false } = {}) {
   const target = (endpointInput?.value.trim() || state.wigleEndpoint || '/api/wigle').trim();
 
   if (!target) {
-    setLiveWigleStatus('Live WiGLE endpoint is not configured.');
+    setLiveWigleStatus('Device-local WiGLE endpoint is not configured.');
     state.wigleLiveReady = false;
     state.wigleLiveData = null;
     renderArCandidateLayer();
@@ -587,13 +576,14 @@ async function refreshLiveWigleFeed({ quiet = false } = {}) {
 
   state.wigleEndpoint = target;
   if (!quiet) {
-    setLiveWigleStatus(`Checking live WiGLE from ${target}…`);
+    setLiveWigleStatus(`Checking device-local WiGLE current state from ${target}…`);
   }
 
   try {
     const url = buildWigleEndpointUrl(target, {
-      mode: 'live',
+      mode: 'current',
       limit: 12,
+      maxAgeSeconds: 45,
       ...(state.currentLocation
         ? {
             lat: state.currentLocation.lat,
@@ -626,27 +616,27 @@ async function refreshLiveWigleFeed({ quiet = false } = {}) {
       }
     }
 
-    const live = typeof payload === 'string' || Array.isArray(payload) || isLiveWigleSnapshot(payload);
-    const parsed = parseWiglePayload(payload, { source: live ? 'live' : 'database' });
+    const current = typeof payload === 'string' || Array.isArray(payload) || payload?.current === true || isLiveWigleSnapshot(payload);
+    const parsed = parseWiglePayload(payload, { source: current ? 'current' : 'database' });
     const sourceLabel = parsed.source || payload?.source || target;
 
     applyWigleDataset(parsed, {
       target: 'live',
       sourceLabel,
-      message: live
-        ? `Live WiGLE stream connected from ${sourceLabel}.`
-        : `WiGLE response from ${sourceLabel} is not marked live.`,
+      message: current
+        ? `Device-local WiGLE current state connected from ${sourceLabel}.`
+        : `WiGLE response from ${sourceLabel} has no recent current-state rows.`,
       merge: false,
-      live,
+      live: current,
     });
 
-    return live;
+    return current;
   } catch (error) {
-    console.error('Failed to load live WiGLE feed', error);
+    console.error('Failed to load device-local WiGLE current state', error);
     state.wigleLiveData = null;
     state.wigleLiveReady = false;
     state.wigleLiveSourceLabel = target;
-    setLiveWigleStatus(`Live WiGLE unavailable: ${error.message}`);
+    setLiveWigleStatus(`Device-local WiGLE current state unavailable: ${error.message}`);
     renderArCandidateLayer();
     return false;
   }
@@ -920,7 +910,7 @@ function stopArFeed() {
 
   const status = $('arStatusText');
   if (status && state.authenticated) {
-    status.textContent = 'Camera feed off. Toggle on to request permissions and check the live WiGLE stream.';
+    status.textContent = 'Camera feed off. Toggle on to request permissions and check the device-local WiGLE current state.';
   }
 
   syncArFeedToggle();
@@ -989,8 +979,8 @@ function renderArCandidateLayer() {
   const summary = state.arEnabled
     ? (state.wigleLiveReady
         ? `${state.wigleLiveStatus} · ${records.length} access point${records.length === 1 ? '' : 's'} · ${sourceLabel}`
-        : state.wigleLiveStatus || 'Live WiGLE stream is not available yet.')
-    : 'Camera feed off. Toggle on to request permissions and check the live WiGLE stream.';
+        : state.wigleLiveStatus || 'Device-local WiGLE current state is not available yet.')
+    : 'Camera feed off. Toggle on to request permissions and check the device-local WiGLE current state.';
 
   if (status) {
     status.textContent = summary;
@@ -1008,11 +998,11 @@ function renderArCandidateLayer() {
     const empty = document.createElement('p');
     empty.className = 'dashboard-empty-state';
     if (!state.arEnabled) {
-      empty.textContent = 'Toggle the camera feed on to check the live WiGLE stream.';
+      empty.textContent = 'Toggle the camera feed on to check the device-local WiGLE current state.';
     } else if (!state.wigleLiveReady) {
-      empty.textContent = 'Live WiGLE stream is not online yet.';
+      empty.textContent = 'Device-local WiGLE current state is not online yet.';
     } else {
-      empty.textContent = 'Live WiGLE stream is online, but no detections have been reported yet.';
+      empty.textContent = 'Device-local WiGLE current state is online, but no recent observations have been reported yet.';
     }
     overlay.replaceChildren(empty);
     return;
@@ -1412,7 +1402,7 @@ function bindWigleControls() {
 async function loadSampleWigleData() {
   applyWigleDataset(createSampleWigleDataset(), {
     sourceLabel: 'sample',
-    message: 'Sample local WiGLE database loaded.',
+    message: 'Sample/demo WiGLE dataset loaded.',
     merge: false,
     target: 'local',
   });
@@ -1464,14 +1454,14 @@ function applyWigleDataset(payload, { sourceLabel = 'sample', message = '', merg
       source: sourceLabel,
       updatedAt: parsed.updatedAt || new Date().toISOString(),
       live,
-      mode: live ? 'live' : 'database',
+      mode: live ? 'current' : 'database',
     };
     state.wigleLiveReady = live;
     state.wigleLiveSourceLabel = sourceLabel;
 
     setLiveWigleStatus(message || (live
-      ? `Live WiGLE stream ready from ${sourceLabel}.`
-      : `WiGLE response from ${sourceLabel} is not marked live.`));
+      ? `Device-local WiGLE current state ready from ${sourceLabel}.`
+      : `WiGLE response from ${sourceLabel} has no recent current-state rows.`));
   } else {
     const currentRecords = Array.isArray(state.wigleData?.accessPoints) ? state.wigleData.accessPoints : [];
     const nextRecords = merge ? mergeWigleRecords(currentRecords, parsed.accessPoints) : mergeWigleRecords(parsed.accessPoints);
@@ -1649,7 +1639,7 @@ function renderGodeyeFields() {
   if (coords) {
     coords.textContent = state.currentLocation
       ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy || 0)}m · 100m WiGLE radius`
-      : `Sample fix ${formatCoordinatePair(location.lat, location.lon)} · local WiGLE database loaded`;
+      : `Sample/demo fix ${formatCoordinatePair(location.lat, location.lon)} · sample WiGLE dataset loaded`;
   }
 
   if (!state.currentLocation && state.authenticated) {
@@ -1755,7 +1745,7 @@ function renderGodeyeMap() {
   if (coords) {
     coords.textContent = state.currentLocation
       ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy)}m`
-      : `Sample fix ${formatCoordinatePair(location.lat, location.lon)} · WiGLE overlay active`;
+      : `Sample/demo fix ${formatCoordinatePair(location.lat, location.lon)} · WiGLE overlay active`;
   }
 
   const status = $('godeyeWigleStatus');

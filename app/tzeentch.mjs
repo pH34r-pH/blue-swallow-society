@@ -139,18 +139,18 @@ async function runScan(query, mode, { recordRecent = true, focus = false } = {})
   setStatus(status, query ? `Scanning ${query}…` : 'Loading live overview…');
 
   try {
-    const url = new URL('/api/osint', window.location.origin);
-    if (query) {
-      url.searchParams.set('query', query);
-      url.searchParams.set('mode', mode || 'auto');
-    } else {
-      url.searchParams.set('limit', '5');
-      url.searchParams.set('mode', 'overview');
-    }
+    const requestBody = query
+      ? { query, mode: mode || 'auto', limit: 5 }
+      : { mode: 'overview', limit: 5 };
 
-    const response = await fetch(url.toString(), {
+    const response = await fetch(new URL('/api/osint', window.location.origin).toString(), {
+      method: 'POST',
       signal: controller.signal,
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -483,7 +483,7 @@ function rememberRecentQuery(query, mode, payload) {
 
 function persistRecentQueries() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.recent));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state.recent));
   } catch {
     // no-op
   }
@@ -491,7 +491,7 @@ function persistRecentQueries() {
 
 function loadRecentQueries() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed)

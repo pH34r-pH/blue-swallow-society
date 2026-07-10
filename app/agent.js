@@ -3,24 +3,31 @@ let isRunning = false;
 async function runAgent() {
   if (isRunning) return;
 
-  const promptEl = document.getElementById("prompt");
-  const outEl = document.getElementById("out");
-  const runBtn = document.getElementById("runButton");
-  const prompt = promptEl ? promptEl.value.trim() : "";
+  const promptEl = document.getElementById('prompt');
+  const outEl = document.getElementById('out');
+  const runBtn = document.getElementById('runButton');
+  const prompt = promptEl ? promptEl.value.trim() : '';
 
   if (!outEl) return;
 
   if (!prompt) {
-    outEl.textContent = "Enter a prompt to query the agent.";
+    outEl.textContent = 'Enter a prompt to query the agent.';
     return;
   }
 
   isRunning = true;
   if (runBtn) runBtn.disabled = true;
 
-  outEl.textContent = "Running...";
+  outEl.textContent = 'Running...';
   try {
-    const res = await fetch(`/api/agent?prompt=${encodeURIComponent(prompt)}`);
+    const res = await fetch('/api/agent', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ prompt }),
+    });
     const text = await res.text();
     try {
       outEl.textContent = JSON.stringify(JSON.parse(text), null, 2);
@@ -35,12 +42,12 @@ async function runAgent() {
   }
 }
 
-const runBtn = document.getElementById("runButton");
-const promptEl = document.getElementById("prompt");
+const runBtn = document.getElementById('runButton');
+const promptEl = document.getElementById('prompt');
 
-if (runBtn) runBtn.addEventListener("click", runAgent);
+if (runBtn) runBtn.addEventListener('click', runAgent);
 if (promptEl) {
-  promptEl.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") runAgent();
+  promptEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') runAgent();
   });
 }

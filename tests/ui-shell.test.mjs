@@ -36,3 +36,10 @@ test('AR shell no longer advertises sample detections as the default state', () 
   assert.ok(!mainJs.includes('visionSampleBtn'));
   assert.ok(!mainJs.includes('createSampleVisionDataset()'));
 });
+
+test('AR WiGLE polling uses the device-local current-state mode', () => {
+  assert.ok(mainJs.includes("mode: 'current'"));
+  assert.ok(mainJs.includes('maxAgeSeconds: 45'));
+  assert.ok(indexHtml.includes('device-local WiGLE current state'));
+  assert.ok(!indexHtml.includes('browser Wi-Fi scan'));
+});
