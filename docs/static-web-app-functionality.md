@@ -67,6 +67,8 @@ The frontend communicates with the following backend endpoints:
 - Crypto views present the top 10 assets by trading volume with last-24-hour and last-5-day chart slices derived from public price history.
 - Polymarket shows new markets and recently resolved markets without requiring an account for browsing.
 - Actionable Intel remains paper-only: proposed buys and sells must include rationale, evidence, and source links for review/iteration.
+- The Mosaic & Murmurs operating doctrine defines the dual-mind model, paper treasury loop, sensorium roadmap, governance gates, and embodiment milestones in [`docs/mosaic-and-murmurs-operating-doctrine.md`](./mosaic-and-murmurs-operating-doctrine.md).
+- The S0 sensorium proposal keeps current lawful read-only perception in S0: Jetson runtime, RaID episodic sight, global Greenfeed jack-in, and direct-observation packets for claim validation in [`docs/mosaic-and-murmurs-s0-sensorium-proposal.md`](./mosaic-and-murmurs-s0-sensorium-proposal.md).
 
 ## Current Limitations
 - Monitoring and Experiments tabs are placeholders

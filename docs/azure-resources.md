@@ -190,6 +190,33 @@ For production hardening, consider:
 7. Add backup strategy for VM data
 8. Consider scaling options (VM scale set, app service plan) if needed
 
+## Target Cybermap Geospatial Backend
+
+The next infrastructure target makes Cybermap/PostGIS the first-class backend instead of treating the VM as an echo lab.
+
+### Target resources
+
+- **VM API gateway**: `Standard_B1ms` preferred, `Standard_B1s` acceptable only if the VM runs API proxy duties without feed workers/materialization load.
+- **Azure Database for PostgreSQL Flexible Server**: burstable `B1MS`, private VNet access, 32 GB initial storage, 7-day backup retention.
+- **VNet layout**:
+  - existing `default` subnet for the VM/API gateway, preserving the live NIC placement.
+  - `postgres-subnet` delegated to `Microsoft.DBforPostgreSQL/flexibleServers`.
+  - private DNS zone for PostgreSQL flexible server name resolution.
+- **VM services**:
+  - HTTPS reverse proxy on 443.
+  - `cybermap-api` on localhost.
+  - `cybermap-worker` for Greenfeed polling and cell materialization.
+  - PgBouncer to keep PostgreSQL B1MS connection counts low.
+
+### Target security posture
+
+- PostgreSQL has no public ingress; only the VM reaches it through the VNet/private DNS path.
+- Browser calls go through Static Web App/API proxy to the VM; browsers never receive database credentials.
+- Wardriver/RaID uses per-device tokens and idempotent ingest batches.
+- Port 8080 echo is scaffold-only and should be retired once `/api/v1/*` Cybermap endpoints are live.
+
+Full design: [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md).
+
 ## Current State
 The infrastructure as defined in the Bicep templates:
 - Creates a functional development/experimentation environment

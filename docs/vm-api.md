@@ -1,7 +1,29 @@
 # VM API Specification
 
 ## Overview
-The Blue Swallow Society VM hosts a simple echo service that serves as the backend for API calls from the Static Web App. This service runs on an Ubuntu VM and is accessed via the Azure Functions proxy layer which forwards requests to the VM's public IP address.
+The Blue Swallow Society VM currently hosts a simple echo service that serves as the backend connectivity proof for API calls from the Static Web App. This echo service is scaffold-only.
+
+The target VM service is the **Cybermap API gateway**: authenticated `/api/v1/*` endpoints for observation ingest, viewport queries, source catalogs, sensorium sessions, direct observation packets, and Mosaic/Murmurs memory sync. The durable datastore is Azure Database for PostgreSQL Flexible Server with PostGIS. See [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md) for the target design.
+
+## Target Cybermap API
+
+P0 endpoints replacing the echo lab:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /healthz` | VM/API health, no secrets |
+| `GET /readyz` | DB connectivity and migration state |
+| `POST /api/v1/observations/batch` | Wardriver/RaID/Greenfeed batch ingest with idempotency |
+| `GET /api/v1/cybermap/viewport?bbox=&zoom=&layers=&since=` | Godeye map viewport query |
+| `GET /api/v1/cybermap/cells/{h3Cell}` | Cell detail/provenance drilldown |
+| `GET /api/v1/entities/{id}` | Entity summary and observation links |
+| `GET /api/v1/sources?bbox=&class=` | Greenfeed/source catalog lookup |
+| `POST /api/v1/sensorium/sessions` | Start/end RaID or Greenfeed session record |
+| `POST /api/v1/direct-observations` | Claim-linked direct observation packet |
+| `GET /api/v1/memories?since=` | Mosaic/Murmurs memory sync pull |
+| `POST /api/v1/memories` | Distilled memory writeback |
+
+The sections below document the existing echo proof-of-connectivity state.
 
 ## Service Architecture
 

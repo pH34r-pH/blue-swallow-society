@@ -5,7 +5,8 @@ This starter repo gives you:
 - A **publicly accessible website** on **Azure Static Web Apps**
 - **GitHub Actions CI/CD** for the frontend, managed API, infrastructure, and custom-domain wiring
 - A small **Azure Functions proxy API** exposed as `/api/echo`, `/api/profile`, and `/api/agent`
-- An **Ubuntu VM** that hosts a simple **echo service**, bootstrapped via cloud-init
+- An **Ubuntu VM** currently hosting a simple echo service, with a target path to become the Cybermap API gateway
+- A **Cybermap-first geospatial backend design** using Azure Database for PostgreSQL Flexible Server B1MS + PostGIS
 - A clean place to add **local model experiments** later on the VM
 - An optional **Azure OpenAI** account, gated by a single Bicep parameter
 - Documentation to evolve toward **Microsoft Entra External ID** for customer sign-up/sign-in later
@@ -15,11 +16,13 @@ This starter repo gives you:
 ```text
 Browser
   ↓
-Azure Static Web App (public frontend)
+Azure Static Web App (public frontend: Godeye/Tzeentch)
   ↓
-/api/* (managed Azure Functions: echo, profile, agent)
+/api/* (managed Azure Functions proxy)
   ↓
-VM-hosted echo service on Ubuntu (Bicep + cloud-init)
+VM API gateway on Ubuntu (current scaffold: echo service)
+  ↓
+Azure Database for PostgreSQL Flexible Server B1MS + PostGIS (target Cybermap store)
 ```
 
 The browser never calls the VM directly. The frontend calls the Static Web App API, and the API proxies the request to the VM.
@@ -51,7 +54,10 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 ├── docs/
 │   ├── architecture.md
 │   ├── ai-options-and-budget.md
+│   ├── cybermap-geospatial-backend.md
 │   ├── external-id-setup-checklist.md
+│   ├── mosaic-and-murmurs-operating-doctrine.md
+│   ├── mosaic-and-murmurs-s0-sensorium-proposal.md
 │   └── vm-echo-wiring.md
 ├── infra/
 │   ├── main.bicep                  # single entrypoint, composes VM + optional OpenAI
