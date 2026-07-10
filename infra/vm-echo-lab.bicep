@@ -13,8 +13,11 @@ param adminUsername string = 'azureuser'
 @description('SSH public key for the VM user')
 param sshPublicKey string
 
-@description('VM size. Keep this small for experimentation.')
-param vmSize string = 'Standard_B1s'
+@description('VM size. Cybermap defaults to Standard_B1ms; API-only/lab deployments may explicitly override to Standard_B1s.')
+param vmSize string = 'Standard_B1ms'
+
+@description('Resource ID of the shared app subnet used by the VM/API gateway.')
+param appSubnetId string
 
 @description('CIDR allowed to reach SSH (22) and echo (8080). Use your dev IP (e.g. 203.0.113.5/32). Default "*" is wide open.')
 param allowedSourceIp string = '*'
@@ -83,26 +86,6 @@ runcmd:
   - systemctl start echo-server.service
 '''
 
-resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' = {
-  name: '${vmName}-vnet'
-  location: location
-  properties: {
-    addressSpace: {
-      addressPrefixes: [
-        '10.40.0.0/16'
-      ]
-    }
-    subnets: [
-      {
-        name: 'default'
-        properties: {
-          addressPrefix: '10.40.0.0/24'
-        }
-      }
-    ]
-  }
-}
-
 resource pip 'Microsoft.Network/publicIPAddresses@2024-01-01' = {
   name: '${vmName}-pip'
   location: location
@@ -154,7 +137,7 @@ resource nic 'Microsoft.Network/networkInterfaces@2024-01-01' = {
       {
         name: 'ipconfig1'
         properties: {
-          subnet: { id: vnet.properties.subnets[0].id }
+          subnet: { id: appSubnetId }
           privateIPAllocationMethod: 'Dynamic'
           publicIPAddress: { id: pip.id }
         }

@@ -1,7 +1,7 @@
 # Azure Resources Specification
 
 ## Overview
-This document specifies the Azure infrastructure resources deployed for the Blue Swallow Society project using Bicep templates. The architecture includes Azure Static Web Apps, custom-domain wiring through Azure DNS, Ubuntu VM with echo service, networking components, and optional Azure OpenAI integration.
+This document specifies the Azure infrastructure resources deployed for the Blue Swallow Society project using Bicep templates. The architecture includes Azure Static Web Apps, custom-domain wiring through Azure DNS, explicit shared VNet topology for the VM/API gateway and private PostgreSQL, Ubuntu VM with echo/API scaffold, networking components, and optional Azure OpenAI integration.
 
 ## Resource Groups
 
@@ -21,29 +21,46 @@ This document specifies the Azure infrastructure resources deployed for the Blue
   - `defaultHostname`: Static web app URL
   - `resourceId`: Static web app ARM resource ID (used by the apex alias record)
 
-### 2. Virtual Machine Echo Lab
+### 2. Shared Cybermap Network
+- **Module**: `modules/network.bicep`
+- **Purpose**: Owns the backend VNet at the composition layer so the VM/API gateway and private PostgreSQL use one reachable topology.
+- **Virtual Network**:
+  - **Name**: `${prefix}-vm-vnet` (kept for continuity with the existing lab VNet)
+  - **Address space**: `10.40.0.0/16`
+- **Subnets**:
+  - `app-subnet`: `10.40.0.0/24` for the VM/API gateway NIC
+  - `postgres-subnet`: `10.40.1.0/28`, delegated to `Microsoft.DBforPostgreSQL/flexibleServers`
+- **Private DNS**:
+  - Zone: `${prefix}.postgres.database.azure.com` (Azure private-access zones must end with `.postgres.database.azure.com` and must not equal the server name)
+  - VNet link: `${prefix}-vm-vnet-postgres-link`, registration disabled
+- **Outputs for PostgreSQL module wiring**:
+  - `appSubnetId`
+  - `postgresSubnetId`
+  - `postgresPrivateDnsZoneId`
+  - `postgresPrivateDnsZoneName`
+  - `postgresPrivateDnsZoneVirtualNetworkLinkId`
+
+### 3. Virtual Machine Echo/API Gateway Lab
 - **Module**: `vm-echo-lab.bicep`
 - **Components**:
-  - **Virtual Network**: Isolated VNet with 10.40.0.0/16 address space
-  - **Public IP**: Standard SKU static IP for VM accessibility
-  - **Network Security Group**: 
+  - **Network Security Group**:
     - SSH access (port 22) from `allowedSourceIp` CIDR
-    - Echo service access (port 8080) from `allowedSourceIp` CIDR
+    - Echo scaffold access (port 8080) from `allowedSourceIp` CIDR until the Cybermap API gateway task moves product ingress to HTTPS/443
     - Default deny all other inbound traffic
-  - **Network Interface**: Connects VM to VNet with NSG and public IP
+  - **Network Interface**: Connects VM to the shared `app-subnet` with NSG and public IP
   - **Virtual Machine**:
     - **Image**: Canonical Ubuntu Server 22.04 LTS Gen2
-    - **Size**: Standard_B1s (burstable, low-cost for experimentation)
+    - **Size**: Standard_B1ms by default for Cybermap headroom; API-only/lab deployments may explicitly override to Standard_B1s
     - **Authentication**: SSH key only (password disabled)
     - **Custom Data**: Cloud-init configuration for echo service setup
     - **Admin User**: `azureuser` (configurable)
-  - **Auto-Shutdown Schedule**: 
+  - **Auto-Shutdown Schedule**:
     - **Type**: Microsoft.DevTestLab/schedules@2018-09-15
     - **Time**: 02:00 daily (configurable)
     - **Time Zone**: Pacific Standard Time (configurable)
     - **Purpose**: Cost control for non-production experimentation
 
-### 3. Cloud-Init Configuration
+### 4. Cloud-Init Configuration
 The VM uses cloud-init to automatically configure the echo service:
 - **Package Updates**: Runs `package_update: true` on first boot
 - **Echo Server Python Script**:
@@ -66,7 +83,7 @@ The VM uses cloud-init to automatically configure the echo service:
   - Reloads systemd daemon
   - Enables and starts echo-server.service
 
-### 4. Optional Azure OpenAI Account
+### 5. Optional Azure OpenAI Account
 - **Condition**: Deployed only when `deployOpenAi = true`
 - **Type**: `Microsoft.CognitiveServices/accounts@2023-05-01`
 - **Kind**: OpenAI
@@ -84,6 +101,7 @@ The VM uses cloud-init to automatically configure the echo service:
 | `prefix` | string | 'blue-swallow' | Resource name prefix for VM/networking |
 | `sshPublicKey` | string (secure) | (required) | SSH public key for VM admin user |
 | `allowedSourceIp` | string | '*' | CIDR for SSH/echo access (use specific IP/32 for security) |
+| `vmSize` | string | 'Standard_B1ms' | VM size for Cybermap; override to Standard_B1s only for explicit API-only/lab deployments |
 | `deployOpenAi` | bool | false | Whether to deploy Azure OpenAI account |
 | `autoShutdownTime` | string | '0200' | Daily VM shutdown time (HHmm format) |
 | `autoShutdownTimeZone` | string | 'Pacific Standard Time' | Time zone for auto-shutdown schedule |
@@ -104,17 +122,29 @@ The VM uses cloud-init to automatically configure the echo service:
 | `staticWebAppResourceId` | string | ARM resource ID of the deployed Static Web App |
 | `backendEchoBaseUrl` | string | HTTP URL of the VM echo service (http://`<public-ip>`:8080) |
 | `vmPublicIp` | string | Public IP address of the VM |
+| `vnetId` | string | Shared backend VNet ARM ID |
+| `appSubnetId` | string | Shared VM/API gateway subnet ARM ID |
+| `postgresSubnetId` | string | Delegated PostgreSQL Flexible Server subnet ARM ID |
+| `postgresPrivateDnsZoneId` | string | PostgreSQL private DNS zone ARM ID |
+| `postgresPrivateDnsZoneName` | string | PostgreSQL private DNS zone name |
+| `postgresPrivateDnsZoneVirtualNetworkLinkId` | string | Private DNS zone link ARM ID for the shared VNet |
 | `openAiDeployed` | bool | Whether Azure OpenAI was deployed |
 
 ## Deployment Dependencies
 1. Resource group must exist or be created
 2. Static Web App deployed first (provides hostname for API configuration)
-3. VM infrastructure deployed in parallel:
-   - VNet → Public IP → NSG → NIC → VM
+3. Shared network module creates or updates:
+   - VNet `${prefix}-vm-vnet` with `10.40.0.0/16`
+   - `app-subnet` (`10.40.0.0/24`) for the VM/API gateway
+   - `postgres-subnet` (`10.40.1.0/28`) delegated to PostgreSQL Flexible Server
+   - PostgreSQL private DNS zone and VNet link
+4. VM infrastructure consumes `appSubnetId` from the shared network module:
+   - Public IP → NSG → NIC → VM
    - Auto-shutdown schedule deployed alongside VM
-4. Optional OpenAI account deployed conditionally
-5. Static Web App updated with `BACKEND_ECHO_BASE_URL` app setting from VM output
-6. Custom domains wired after the SWA deployment using the existing Azure DNS zone:
+5. PostgreSQL Flexible Server module (added by the datastore slice) must consume `postgresSubnetId` and `postgresPrivateDnsZoneId`/`postgresPrivateDnsZoneName` from the shared network module; it must not create a hidden second VNet.
+6. Optional OpenAI account deployed conditionally
+7. Static Web App updated with `BACKEND_ECHO_BASE_URL` app setting from VM output
+8. Custom domains wired after the SWA deployment using the existing Azure DNS zone:
    - apex `blueswallow.co.in`
    - `www.blueswallow.co.in`
    - Azure DNS stages apex A alias + `www` CNAME before public delegation; final SWA custom-domain binding requires registrar-side registration/delegation to `ns1-09.azure-dns.com`, `ns2-09.azure-dns.net`, `ns3-09.azure-dns.org`, and `ns4-09.azure-dns.info`.
@@ -124,9 +154,9 @@ The VM uses cloud-init to automatically configure the echo service:
 ### main.bicep
 - **Scope**: resourceGroup
 - **Primary deployment template**
-- Orchestrates all resources and modules
+- Orchestrates SWA, shared network, VM, optional OpenAI, and downstream PostgreSQL module inputs
 - Defines all parameters and outputs
-- Links static web app to VM echo service via app setting
+- Exports shared-network IDs so the PostgreSQL module consumes the same VNet/subnets instead of creating hidden networking
 
 ### custom-domains.bicep / custom-domains-dns.bicep
 - Import the existing Static Web App and Azure DNS zone with `existing` resource declarations
@@ -135,7 +165,6 @@ The VM uses cloud-init to automatically configure the echo service:
 
 ### main.parameters.json
 - **Environment-specific values**
-- Includes `_comments` parameter documenting validation rules
 - `allowedSourceIp` carries metadata warning against `'*'` in production
 - Currently configured for:
   - Location: westus2
@@ -143,6 +172,7 @@ The VM uses cloud-init to automatically configure the echo service:
   - Legacy SWA resources to delete after cutover: blue-swallow-society, wonderful-pond-0623ed81e
   - Prefix: blue-swallow
   - Allowed source IP: * (open — must be restricted before production)
+  - VM size: Standard_B1ms (override to Standard_B1s only for explicit API-only/lab deployments)
   - OpenAI deployment: false
   - Auto-shutdown: 0200 Pacific Standard Time
 
@@ -153,9 +183,15 @@ The VM uses cloud-init to automatically configure the echo service:
 - Documents deployment idempotency (re-runs update without destroying state)
 - Reminds operators to delete the legacy SWA resources after cutover so only `blue-swallow-swa` remains connected to `blueswallow.co.in`
 
+### modules/network.bicep
+- **Encapsulates shared Cybermap network topology**
+- Creates/updates `${prefix}-vm-vnet`, `app-subnet`, delegated `postgres-subnet`, PostgreSQL private DNS zone, and VNet link
+- Outputs subnet and DNS IDs consumed by the VM and PostgreSQL modules
+
 ### vm-echo-lab.bicep
-- **Encapsulates VM and networking**
-- Reusable module for echo lab infrastructure
+- **Encapsulates VM, public IP, NSG, NIC, cloud-init, and auto-shutdown**
+- Consumes `appSubnetId` from the shared network module; it does not create a private VNet internally
+- Reusable module for the current echo scaffold and later Cybermap API gateway host
 - Handles cloud-init configuration and service setup
 
 ### modules/openai.bicep
@@ -168,16 +204,25 @@ The VM uses cloud-init to automatically configure the echo service:
 - Uses prefix parameter for consistent naming:
   - VM: `${prefix}-vm`
   - VNet: `${prefix}-vm-vnet`
+  - App subnet: `app-subnet` (`10.40.0.0/24`)
+  - PostgreSQL subnet: `postgres-subnet` (`10.40.1.0/28`, delegated)
+  - PostgreSQL private DNS zone: `${prefix}.postgres.database.azure.com`
+  - PostgreSQL private DNS VNet link: `${prefix}-vm-vnet-postgres-link`
   - Public IP: `${prefix}-vm-pip`
   - NSG: `${prefix}-vm-nsg`
   - NIC: `${prefix}-vm-nic`
   - Auto-shutdown schedule: `shutdown-computevm-${prefix}-vm`
 
 ### Cost Optimization
-- **VM Size**: B1s series chosen for low baseline cost with burst capability
+- **VM Size**: Standard_B1ms is the Cybermap default for API gateway + future DB client headroom; use Standard_B1s only for explicit API-only/lab overrides
 - **Auto-shutdown**: Daily schedule prevents overnight/weekend running
 - **Storage**: Standard_LRS managed disk (cost-effective for OS)
 - **Public IP**: Standard SKU (required for static IP, but basic would suffice if dynamic IP acceptable)
+
+### Idempotency and migration notes
+- The shared network module keeps the existing lab VNet name `${prefix}-vm-vnet` to avoid introducing a second VNet.
+- New deployments create `app-subnet` and `postgres-subnet` directly. Existing deployments that already have a `default` subnet at `10.40.0.0/24` must run `az deployment group what-if` before apply: Azure may report deletion of `default` and a NIC subnet move to `app-subnet`. Do not apply if what-if shows VM replacement; migrate the NIC/subnet plan manually first.
+- PostgreSQL Flexible Server must be added to `postgres-subnet` with private DNS only. Public PostgreSQL ingress is out of policy.
 
 ### Production Considerations
 For production hardening, consider:
@@ -193,9 +238,11 @@ For production hardening, consider:
 ## Current State
 The infrastructure as defined in the Bicep templates:
 - Creates a functional development/experimentation environment
-- Provides isolation through networking and NSG rules
+- Provides isolation through explicit shared networking, NSG rules, and a delegated private PostgreSQL subnet
+- Includes PostgreSQL private DNS zone linkage reachable from the VM/API subnet
 - Includes automated service startup via cloud-init
 - Implements basic cost controls through auto-shutdown
+- Defaults the Cybermap VM to Standard_B1ms while preserving an explicit B1s override path
 - Supports optional AI capabilities through OpenAI integration
 - Is parameterized for reuse across environments
-- Exports necessary connection information for frontend configuration
+- Exports necessary connection information for frontend configuration and downstream PostgreSQL private networking
