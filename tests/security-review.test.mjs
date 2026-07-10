@@ -8,6 +8,8 @@ const staticWebApp = JSON.parse(read('app/staticwebapp.config.json'));
 const indexHtml = read('app/index.html');
 const mainJs = read('app/main.js');
 const tzeentchJs = read('app/tzeentch.mjs');
+const tzeentchDashboardJs = read('app/tzeentch-dashboard.mjs');
+const chainedDaemonJs = read('app/chained-daemon.mjs');
 const agentJs = read('app/agent.js');
 const agentApi = read('api/agent/index.js');
 const localServer = read('local-server.js');
@@ -71,6 +73,17 @@ test('Tzeentch network feeds are lazy-loaded only when the Tzeentch tab is opene
   const initDefaults = mainJs.match(/function initTabDefaults\(\) \{(?<body>[\s\S]*?)\n\}/)?.groups?.body || '';
   assert.ok(!initDefaults.includes('initTzeentchDashboard'));
   assert.match(mainJs, /if \(nextTabKey === 'tzeentch'\) \{\n\s+initTzeentchDashboard\(\);/);
+});
+
+test('Tzeentch runtime never seeds or falls back to demo feed data', () => {
+  const runtimeSources = [tzeentchJs, tzeentchDashboardJs, chainedDaemonJs].join('\n');
+
+  assert.ok(!tzeentchJs.includes('createDemoDashboardDataset'));
+  assert.ok(!tzeentchJs.includes('using sample model'));
+  assert.ok(!runtimeSources.includes('createDemoChainedDaemonObservations'));
+  assert.ok(!runtimeSources.includes('CorpGuest-Redmond-5G'));
+  assert.ok(!runtimeSources.includes('BADGE-042-demo'));
+  assert.ok(!runtimeSources.includes('BSS-DeadDrop'));
 });
 
 test('local dev server returns JSON 501 for unmounted API routes instead of SPA HTML', () => {

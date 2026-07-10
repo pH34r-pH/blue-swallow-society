@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildSparklinePath, buildTzeentchDashboardModel, createDemoDashboardDataset } from '../app/tzeentch-dashboard.mjs';
+import { buildSparklinePath, buildTzeentchDashboardModel } from '../app/tzeentch-dashboard.mjs';
+import { createDemoDashboardDataset } from './fixtures/tzeentch-demo-data.mjs';
 
 test('buildTzeentchDashboardModel shapes the Murmurs, Crypto, Polymarket, and Actionable Intel tabs', () => {
   const now = Date.parse('2026-07-09T12:00:00Z');
@@ -17,6 +18,9 @@ test('buildTzeentchDashboardModel shapes the Murmurs, Crypto, Polymarket, and Ac
   assert.equal(model.crypto.views['5d'].assets.length, 10);
   assert.equal(model.polymarket.newMarkets.length, 2);
   assert.equal(model.polymarket.resolvedMarkets.length, 2);
+  assert.equal(model.chainedDaemon.loopOrder.length, 5);
+  assert.ok(model.chainedDaemon.cards.some((card) => card.feverLure.state === 'quarantine'));
+  assert.ok(model.chainedDaemon.cards.every((card) => card.claim.type !== 'identity-attribution'));
   assert.ok(model.actionable.proposals.some((proposal) => proposal.side === 'buy'));
   assert.ok(model.actionable.proposals.some((proposal) => proposal.side === 'sell'));
   assert.ok(model.murmurs.hero.viralityScore >= 0);

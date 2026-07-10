@@ -1,7 +1,8 @@
-import { buildTzeentchDashboardModel, createDemoDashboardDataset } from './tzeentch-dashboard.mjs';
+import { buildTzeentchDashboardModel } from './tzeentch-dashboard.mjs';
 
 const STORAGE_KEY = 'blue-swallow-society:tzeentch:recent-queries';
 const MAX_RECENT = 6;
+const TZEENTCH_SOURCE_FAMILIES = ['Hacker News', 'Reddit', 'CoinGecko', 'Polymarket Gamma'];
 
 const state = {
   bound: false,
@@ -303,7 +304,7 @@ function renderApplications() {
   if (state.marketError) {
     const errorNote = document.createElement('p');
     errorNote.className = 'panel-meta';
-    errorNote.textContent = `Feed fallback: ${state.marketError}`;
+    errorNote.textContent = `Live feed status: ${state.marketError}`;
     panel.prepend(errorNote);
   }
 
@@ -634,9 +635,36 @@ const TZEENTCH_MARKET_TABS = [
   { key: 'intel', label: 'Actionable Intel', subtitle: 'Paper-only signals and thesis notes' },
 ];
 
+function createEmptyTzeentchPayload(warning = 'Live Tzeentch feed has not loaded yet.') {
+  const updatedAt = new Date().toISOString();
+  return {
+    updatedAt,
+    publicOnly: true,
+    sourceFamilies: TZEENTCH_SOURCE_FAMILIES.slice(),
+    warnings: warning ? [warning] : [],
+    murmurs: {
+      hackerNews: [],
+      reddit: [],
+      updatedAt,
+    },
+    crypto: {
+      markets: [],
+      updatedAt,
+    },
+    polymarket: {
+      newMarkets: [],
+      resolvedMarkets: [],
+      updatedAt,
+    },
+    chainedDaemon: {
+      observations: [],
+    },
+  };
+}
+
 function getTzeentchMarketModel() {
   if (!state.marketModel) {
-    state.marketModel = buildTzeentchDashboardModel(createDemoDashboardDataset());
+    state.marketModel = buildTzeentchDashboardModel(createEmptyTzeentchPayload());
   }
   return state.marketModel;
 }
@@ -665,9 +693,9 @@ async function loadTzeentchMarketFeed({ refresh = false } = {}) {
       state.marketModel = buildTzeentchDashboardModel(payload);
     } catch (error) {
       state.marketError = error?.message || 'Tzeentch feed failed.';
-      console.warn('Tzeentch market feed failed; using sample model.', error);
+      console.warn('Tzeentch market feed failed; leaving live feed empty.', error);
       if (!state.marketModel || refresh) {
-        state.marketModel = buildTzeentchDashboardModel(createDemoDashboardDataset());
+        state.marketModel = buildTzeentchDashboardModel(createEmptyTzeentchPayload(`Live feed unavailable: ${state.marketError}`));
       }
     } finally {
       state.marketFetchPromise = null;
@@ -717,7 +745,7 @@ function renderTzeentchMarketSurface() {
   if (state.marketError) {
     const errorNote = document.createElement('p');
     errorNote.className = 'panel-meta';
-    errorNote.textContent = `Feed fallback: ${state.marketError}`;
+    errorNote.textContent = `Live feed status: ${state.marketError}`;
     header.appendChild(errorNote);
   }
 
