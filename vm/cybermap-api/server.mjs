@@ -1,6 +1,14 @@
 import http from 'node:http';
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { checkDatabaseReadiness } from './db.mjs';
+import {
+  authenticateApiRequest,
+  createTokenRegistry,
+  createTokenRegistryFromEnv,
+  hashToken,
+} from './auth.mjs';
+import { authorizeApiRequest, routeKindForRequest } from './source-registry.mjs';
+import { createPublicRateLimiter } from './rate-limit.mjs';
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 8000;
@@ -11,57 +19,20 @@ function parsePositiveInteger(value, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function loadAuthTokens(env = process.env) {
-  return [env.CYBERMAP_API_TOKEN, env.CYBERMAP_API_TOKENS, env.BLUE_SWALLOW_OPERATOR_TOKEN]
-    .filter(Boolean)
-    .flatMap((value) => String(value).split(','))
-    .map((value) => value.trim())
-    .filter(Boolean);
+function legacyOptionTokenRecords(tokens = []) {
+  return tokens.map((token, index) => ({
+    tokenHash: hashToken(token),
+    tokenId: index === 0 ? 'option-operator' : `option-operator-${index + 1}`,
+    clientType: 'operator_admin',
+    scopes: ['*'],
+  }));
 }
 
-function constantTimeEquals(left, right) {
-  const leftBuffer = Buffer.from(String(left));
-  const rightBuffer = Buffer.from(String(right));
-  if (leftBuffer.length !== rightBuffer.length) return false;
-  return timingSafeEqual(leftBuffer, rightBuffer);
-}
-
-function extractBearerToken(req) {
-  const authorization = req.headers.authorization || '';
-  const bearer = authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
-  return bearer
-    || req.headers['x-blue-swallow-operator-token']
-    || req.headers['x-cybermap-token']
-    || '';
-}
-
-function authenticateApiRequest(req, authTokens) {
-  const token = extractBearerToken(req);
-  if (!authTokens.length) {
-    return {
-      ok: false,
-      statusCode: 503,
-      code: 'auth_not_configured',
-      message: 'Cybermap API token configuration is pending.',
-    };
-  }
-  if (!token) {
-    return {
-      ok: false,
-      statusCode: 401,
-      code: 'auth_required',
-      message: 'Bearer token required for /api/v1 endpoints.',
-    };
-  }
-  if (!authTokens.some((candidate) => constantTimeEquals(candidate, token))) {
-    return {
-      ok: false,
-      statusCode: 403,
-      code: 'auth_forbidden',
-      message: 'Bearer token was not accepted.',
-    };
-  }
-  return { ok: true };
+function tokenRegistryFromOptions(options, env) {
+  if (options.tokenRegistry) return options.tokenRegistry;
+  if (options.tokenRecords) return createTokenRegistry(options.tokenRecords);
+  if (options.authTokens) return createTokenRegistry(legacyOptionTokenRecords(options.authTokens));
+  return createTokenRegistryFromEnv(env);
 }
 
 function respondJson(res, statusCode, requestId, body, headers = {}) {
@@ -86,36 +57,106 @@ function readBodyWithLimit(req, bodyLimitBytes) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
+    let resolved = false;
     req.on('data', (chunk) => {
+      if (resolved) return;
       size += chunk.length;
       if (size > bodyLimitBytes) {
+        resolved = true;
         req.destroy();
         resolve({ ok: false, code: 'body_too_large', body: '' });
         return;
       }
       chunks.push(chunk);
     });
-    req.on('end', () => resolve({ ok: true, body: Buffer.concat(chunks).toString('utf8') }));
-    req.on('error', (error) => reject(error));
+    req.on('end', () => {
+      if (!resolved) resolve({ ok: true, body: Buffer.concat(chunks).toString('utf8') });
+    });
+    req.on('error', (error) => {
+      if (!resolved) reject(error);
+    });
   });
 }
 
+function parseJsonBody(body, contentType = '') {
+  if (!body) return { ok: true, value: null };
+  const trimmed = body.trim();
+  if (!trimmed) return { ok: true, value: null };
+  if (!String(contentType).toLowerCase().includes('application/json') && !/^[{[]/.test(trimmed)) {
+    return { ok: true, value: null };
+  }
+  try {
+    return { ok: true, value: JSON.parse(trimmed) };
+  } catch {
+    return {
+      ok: false,
+      statusCode: 400,
+      code: 'invalid_json',
+      message: 'Request body must be valid JSON.',
+    };
+  }
+}
+
 function defaultLogger(entry) {
-  process.stdout.write(`${JSON.stringify(entry)}
-`);
+  process.stdout.write(`${JSON.stringify(entry)}\n`);
+}
+
+function logAuthDecision(logger, { requestId, req, url, result, stage = 'auth' }) {
+  const identity = result.identity;
+  logger({
+    service: 'cybermap-api',
+    structured: true,
+    event: 'auth_decision',
+    stage,
+    requestId,
+    method: req.method,
+    path: url.pathname,
+    decision: result.ok ? 'allow' : 'deny',
+    reason: result.ok ? 'authorized' : result.code,
+    statusCode: result.statusCode || 200,
+    ...(identity ? {
+      tokenId: identity.tokenId,
+      clientType: identity.clientType,
+      scopeCount: identity.scopes?.length || 0,
+      sourceIdCount: identity.sourceIds?.length || 0,
+      sourceClassCount: identity.sourceClasses?.length || 0,
+    } : {}),
+    ...(result.requiredScopes ? { requiredScopes: result.requiredScopes } : {}),
+  });
+}
+
+function errorBody(code, message) {
+  return {
+    ok: false,
+    error: { code, message },
+  };
+}
+
+function rateLimitHeaders(decision) {
+  const headers = {
+    'Retry-After': String(decision.retryAfterSeconds || 60),
+  };
+  if (decision.limit !== undefined) headers['X-RateLimit-Limit'] = String(decision.limit);
+  if (decision.remaining !== undefined) headers['X-RateLimit-Remaining'] = String(decision.remaining);
+  if (decision.resetAt) headers['X-RateLimit-Reset'] = decision.resetAt;
+  return headers;
 }
 
 export function createCybermapApiServer(options = {}) {
-  const authTokens = options.authTokens ?? loadAuthTokens(options.env || process.env);
+  const env = options.env || process.env;
+  const tokenRegistry = tokenRegistryFromOptions(options, env);
   const bodyLimitBytes = parsePositiveInteger(
-    options.bodyLimitBytes ?? options.env?.CYBERMAP_BODY_LIMIT_BYTES ?? process.env.CYBERMAP_BODY_LIMIT_BYTES,
+    options.bodyLimitBytes ?? env.CYBERMAP_BODY_LIMIT_BYTES ?? process.env.CYBERMAP_BODY_LIMIT_BYTES,
     DEFAULT_BODY_LIMIT_BYTES,
   );
   const logger = options.logger || defaultLogger;
   const now = options.now || (() => new Date());
-  const rateLimitHook = options.rateLimitHook || (() => ({ allowed: true }));
+  const rateLimitHook = options.rateLimitHook || createPublicRateLimiter({
+    ...(options.rateLimit || {}),
+    env,
+    now: () => now(),
+  });
   const serviceVersion = options.serviceVersion || process.env.CYBERMAP_API_VERSION || '0.1.0';
-  const env = options.env || process.env;
   const dbPoolFactory = options.dbPoolFactory;
   const expectedMigration = options.expectedMigration || env.CYBERMAP_EXPECTED_MIGRATION;
 
@@ -138,18 +179,6 @@ export function createCybermapApiServer(options = {}) {
     });
 
     try {
-      const rateLimitDecision = await rateLimitHook({ req, requestId, path: url.pathname });
-      if (rateLimitDecision?.allowed === false) {
-        respondJson(res, 429, requestId, {
-          ok: false,
-          error: {
-            code: 'rate_limited',
-            message: rateLimitDecision.message || 'Request rejected by rate limit hook.',
-          },
-        }, { 'Retry-After': String(rateLimitDecision.retryAfterSeconds || 60) });
-        return;
-      }
-
       if (req.method === 'GET' && url.pathname === '/healthz') {
         respondJson(res, 200, requestId, {
           ok: true,
@@ -178,27 +207,77 @@ export function createCybermapApiServer(options = {}) {
       }
 
       if (url.pathname.startsWith('/api/v1/')) {
-        const authResult = authenticateApiRequest(req, authTokens);
+        const routeKind = routeKindForRequest(req.method, url.pathname);
+        const preAuthRateLimitDecision = await rateLimitHook({
+          req,
+          requestId,
+          method: req.method,
+          path: url.pathname,
+          routeKind,
+        });
+        if (preAuthRateLimitDecision?.allowed === false) {
+          respondJson(res, 429, requestId, errorBody(
+            preAuthRateLimitDecision.code || 'rate_limited',
+            preAuthRateLimitDecision.message || 'Request rejected by rate limit policy.',
+          ), rateLimitHeaders(preAuthRateLimitDecision));
+          return;
+        }
+
+        const authResult = authenticateApiRequest(req, tokenRegistry, now());
+        logAuthDecision(logger, { requestId, req, url, result: authResult, stage: 'auth' });
         if (!authResult.ok) {
-          respondJson(res, authResult.statusCode, requestId, {
-            ok: false,
-            error: {
-              code: authResult.code,
-              message: authResult.message,
-            },
-          });
+          respondJson(res, authResult.statusCode, requestId, errorBody(authResult.code, authResult.message));
           return;
         }
 
         const bodyResult = await readBodyWithLimit(req, bodyLimitBytes);
         if (!bodyResult.ok) {
-          respondJson(res, 413, requestId, {
-            ok: false,
-            error: {
-              code: 'body_too_large',
-              message: 'Request body exceeds configured Cybermap API limit.',
-            },
-          });
+          respondJson(res, 413, requestId, errorBody('body_too_large', 'Request body exceeds configured Cybermap API limit.'));
+          return;
+        }
+
+        const parsedBody = parseJsonBody(bodyResult.body, req.headers['content-type'] || '');
+        if (!parsedBody.ok) {
+          respondJson(res, parsedBody.statusCode, requestId, errorBody(parsedBody.code, parsedBody.message));
+          return;
+        }
+
+        const sourceScopeResult = authorizeApiRequest({
+          identity: authResult.identity,
+          method: req.method,
+          pathname: url.pathname,
+          searchParams: url.searchParams,
+          body: parsedBody.value,
+        });
+        logAuthDecision(logger, {
+          requestId,
+          req,
+          url,
+          stage: 'authorization',
+          result: {
+            ...sourceScopeResult,
+            identity: authResult.identity,
+            statusCode: sourceScopeResult.statusCode || 200,
+          },
+        });
+        if (!sourceScopeResult.ok) {
+          respondJson(res, sourceScopeResult.statusCode, requestId, errorBody(sourceScopeResult.code, sourceScopeResult.message));
+          return;
+        }
+
+        const rateLimitDecision = await rateLimitHook({
+          req,
+          requestId,
+          method: req.method,
+          path: url.pathname,
+          identity: authResult.identity,
+          routeKind,
+        });
+        if (rateLimitDecision?.allowed === false) {
+          respondJson(res, 429, requestId, errorBody(
+            rateLimitDecision.code || 'rate_limited',
+            rateLimitDecision.message || 'Request rejected by rate limit policy.',
+          ), rateLimitHeaders(rateLimitDecision));
           return;
         }
 
@@ -213,27 +292,16 @@ export function createCybermapApiServer(options = {}) {
         return;
       }
 
-      respondJson(res, 404, requestId, {
-        ok: false,
-        error: {
-          code: 'not_found',
-          message: 'Route not found.',
-        },
-      });
-    } catch (error) {
-      respondJson(res, 500, requestId, {
-        ok: false,
-        error: {
-          code: 'internal_error',
-          message: 'Cybermap API request failed.',
-        },
-      });
+      respondJson(res, 404, requestId, errorBody('not_found', 'Route not found.'));
+    } catch {
+      respondJson(res, 500, requestId, errorBody('internal_error', 'Cybermap API request failed.'));
       logger({
         service: 'cybermap-api',
         structured: true,
         requestId,
+        statusCode: 500,
         level: 'error',
-        error: error?.message || String(error),
+        error: 'request_handler_failed',
       });
     }
   });

@@ -52,12 +52,51 @@ Supported settings:
 | `CYBERMAP_DB_POOL_MAX` | `5` | Hard cap for the Node `pg` pool. Values above 5 are clamped for Flexible Server B1MS. |
 | `CYBERMAP_DB_CONNECT_TIMEOUT_MS` | `3000` | PostgreSQL connection timeout used by `/readyz` and future DB-backed routes. |
 | `CYBERMAP_DB_IDLE_TIMEOUT_MS` | `10000` | Idle timeout for the low-cardinality app pool. |
-| `CYBERMAP_EXPECTED_MIGRATION` | `0001_cybermap_core` | Migration version `/readyz` expects to see as the latest row in `schema_migrations`. |
+| `CYBERMAP_EXPECTED_MIGRATION` | `0002_cybermap_auth_registry` | Migration version `/readyz` expects to see as the latest row in `schema_migrations`. |
 | `CYBERMAP_MIGRATIONS_DIR` | `/opt/cybermap-api/db/migrations` | Optional override for the migration runner. |
 | `CYBERMAP_DB_SSL` / `CYBERMAP_DB_SSLMODE` | unset | Set to `require` when connecting directly to Azure PostgreSQL instead of local PgBouncer. |
-| `CYBERMAP_API_TOKEN`, `CYBERMAP_API_TOKENS`, `BLUE_SWALLOW_OPERATOR_TOKEN` | unset | Bearer/operator auth tokens for `/api/v1/*`; comma-separated tokens are supported in `CYBERMAP_API_TOKENS`. |
+| `CYBERMAP_AUTH_REGISTRY_JSON` | unset | JSON array of hashed API token registry records. Each record carries `tokenHash` (`sha256:<hex>`), `tokenId`, `clientType`, `scopes`, `sourceIds`, `sourceClasses`, `expiresAt`, and optional revocation metadata. |
+| `CYBERMAP_AUTH_TOKEN_HASHES` | unset | Comma-separated `sha256:<hex>` hashes for emergency operator-only bootstrap when JSON registry injection is not available. Prefer `CYBERMAP_AUTH_REGISTRY_JSON`. |
+| `CYBERMAP_INGEST_RATE_LIMIT` / `CYBERMAP_INGEST_RATE_WINDOW_MS` | `60` / `60000` | Public HTTPS write/ingest rate limit per token ID (or source IP before auth identity exists, derived from nginx-managed `X-Real-IP`). |
+| `CYBERMAP_READ_RATE_LIMIT` / `CYBERMAP_READ_RATE_WINDOW_MS` | `300` / `60000` | Public HTTPS read rate limit per token ID (or source IP before auth identity exists, derived from nginx-managed `X-Real-IP`). |
+| `CYBERMAP_PRIVATE_MESH_ONLY` | unset | Set `true` only when VM ingress is restricted to a private mesh such as Tailscale; disables public rate-limit enforcement. |
 
 Missing `CYBERMAP_DATABASE_URL` does **not** crash-loop the API. `/readyz` returns HTTP 503 with `dependencies.postgres.status = "not_configured"` and a non-secret `missing` list. Driver errors are collapsed to `db_unavailable` so passwords, URLs, private hostnames, and raw connection strings never leave the process.
+
+## Auth and source-scope registry
+
+`/api/v1/*` is closed by default. The API accepts a bearer token, hashes it with SHA-256, and compares the resulting `sha256:<hex>` value against the in-memory registry loaded from operator-managed settings. The registry stores token hashes only; plaintext device, SWA, Jetson, worker, and operator tokens must not be persisted in PostgreSQL, docs, logs, or API responses.
+
+`CYBERMAP_AUTH_REGISTRY_JSON` records use this shape:
+
+```json
+[
+  {
+    "tokenId": "wardriver-alpha-2026q3",
+    "tokenHash": "sha256:<64 lowercase hex chars>",
+    "clientType": "wardriver_device",
+    "subject": "device:wardriver-alpha",
+    "scopes": ["observations:write"],
+    "sourceIds": ["00000000-0000-4000-8000-000000000001"],
+    "sourceClasses": ["owned_device"],
+    "expiresAt": "2026-10-01T00:00:00.000Z"
+  }
+]
+```
+
+Allowed `clientType` values are `wardriver_device`, `swa_proxy`, `jetson`, `greenfeed_worker`, and `operator_admin`. Mutating ingest routes require write scopes such as `observations:write`; read routes require `cybermap:read` or source-specific read scopes. `source_id` and `source_class` values in request bodies or query strings are treated as claims. The middleware verifies them against runtime registry `sourceIds` and `sourceClasses`; clients cannot self-assert `source_class` authority.
+
+PostgreSQL has durable registry tables in `0002_cybermap_auth_registry.sql`, an additive migration after the immutable `0001_cybermap_core.sql` base schema. Current runtime enforcement loads its registry from `CYBERMAP_AUTH_REGISTRY_JSON` or `CYBERMAP_AUTH_TOKEN_HASHES`; these tables are the durable admin/persistence model until the DB-backed registry loader/reload path lands:
+
+- `api_tokens`: `token_hash`, `token_id`, `client_type`, `scopes`, `expires_at`, `revoked_at`, and rotation linkage. `token_hash` is constrained to `sha256:<64 hex chars>`.
+- `api_token_source_scopes`: per-token `source_id`, `source_class`, and scope grants tied back to `source_catalog`.
+
+Token generation/rotation runbook:
+
+1. Generate a high-entropy token outside the repo and deliver it once to the client over an operator-approved secret channel.
+2. Store only `sha256:<hex>` in `CYBERMAP_AUTH_REGISTRY_JSON` and/or `api_tokens.token_hash`.
+3. To rotate, add the new hash with a new `tokenId` and short overlap window, deploy/reload, move the client, then set the old row `revoked_at` and remove it from runtime JSON.
+4. To revoke immediately, remove the hash from `CYBERMAP_AUTH_REGISTRY_JSON` and set `api_tokens.revoked_at`; no API response or log should include the revoked plaintext token.
 
 ## PgBouncer and pooling
 
@@ -100,13 +139,14 @@ ExecStartPre=/usr/bin/node /opt/cybermap-api/migrate.mjs --if-configured
 - Public product ingress is **HTTPS 443** only.
 - The Node service listens on **localhost:8000** and is not exposed directly by the NSG.
 - `/healthz` and `/readyz` are the only unauthenticated routes; `/api/v1/*` requires auth by default.
-- Runtime tokens and database URLs live in `/etc/cybermap-api.env` or an equivalent operator secret path, never in repo files.
+- Runtime database URLs and hashed auth registry settings live in `/etc/cybermap-api.env` or an equivalent operator secret path, never in repo files.
 - Request bodies are capped (default 1 MiB) before DB-backed routes exist.
-- The API exposes a `rateLimitHook` seam so a later hardening task can enforce per-device/operator limits without rewriting handlers.
+- Public HTTPS ingest/read paths use per-token/IP in-memory rate limits by default; set `CYBERMAP_PRIVATE_MESH_ONLY=true` only when ingress is restricted to a private mesh.
 
 ## Observability
 
 - `cybermap-api` emits structured JSON logs with method, path, status, duration, and request ID.
+- `auth_decision` log events record allow/deny, client type, token ID, scope/source counts, and reason codes without bearer values or token hashes.
 - Incoming `X-Request-Id` is preserved; otherwise the API generates one and returns it in the response header.
 - `cybermap-worker` emits structured JSON logs for startup, ticks, and shutdown.
 - `/readyz` returns migration state with `current`, `expected`, and `status`; it never returns connection strings or raw driver errors.
@@ -115,7 +155,7 @@ ExecStartPre=/usr/bin/node /opt/cybermap-api/migrate.mjs --if-configured
 
 - Bicep output: `backendApiBaseUrl` (`https://<vm-public-ip>`).
 - SWA app setting: `BACKEND_API_BASE_URL`, used by future managed function proxy routes.
-- VM secret file: `/etc/cybermap-api.env` for `CYBERMAP_DATABASE_URL`, auth tokens, and pool/readiness overrides.
+- VM secret file: `/etc/cybermap-api.env` for `CYBERMAP_DATABASE_URL`, hashed auth registry JSON/hash settings, rate limits, and pool/readiness overrides.
 - PgBouncer config: `/etc/pgbouncer/pgbouncer.ini` and `/etc/pgbouncer/userlist.txt`, both operator-managed for actual credentials.
 
 ## Echo retirement note

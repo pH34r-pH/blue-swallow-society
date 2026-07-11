@@ -90,7 +90,7 @@ test('/readyz reports DB connectivity and latest migration version on mocked suc
   const { createCybermapApiServer } = await import('../vm/cybermap-api/server.mjs');
   const pool = makePool((sql) => {
     if (/select\s+1\s+as\s+ok/i.test(sql)) return { rows: [{ ok: 1 }] };
-    if (/from\s+schema_migrations/i.test(sql)) return { rows: [{ version: '0001_cybermap_core' }] };
+    if (/from\s+schema_migrations/i.test(sql)) return { rows: [{ version: '0002_cybermap_auth_registry' }] };
     assert.fail(`unexpected query: ${sql}`);
   });
   const server = createCybermapApiServer({
@@ -106,8 +106,8 @@ test('/readyz reports DB connectivity and latest migration version on mocked suc
     assert.equal(ready.status, 200);
     assert.equal(ready.json.ok, true);
     assert.equal(ready.json.dependencies.postgres.status, 'ready');
-    assert.equal(ready.json.dependencies.postgres.migration.current, '0001_cybermap_core');
-    assert.equal(ready.json.dependencies.postgres.migration.expected, '0001_cybermap_core');
+    assert.equal(ready.json.dependencies.postgres.migration.current, '0002_cybermap_auth_registry');
+    assert.equal(ready.json.dependencies.postgres.migration.expected, '0002_cybermap_auth_registry');
     assert.doesNotMatch(ready.text, /super-secret|postgresql:\/\//i);
     assert.ok(pool.queries.some(({ sql }) => /select\s+1\s+as\s+ok/i.test(sql)));
     assert.ok(pool.queries.some(({ sql }) => /schema_migrations/i.test(sql)));
@@ -177,9 +177,12 @@ test('VM deployment config wires PgBouncer, package scripts, migration startup c
   for (const needle of [
     'CYBERMAP_DATABASE_URL',
     'CYBERMAP_DB_POOL_MAX=5',
-    'CYBERMAP_EXPECTED_MIGRATION=0001_cybermap_core',
+    'CYBERMAP_EXPECTED_MIGRATION=0002_cybermap_auth_registry',
     'migrate.mjs --if-configured',
     '/opt/cybermap-api/db/migrations/0001_cybermap_core.sql',
+    '/opt/cybermap-api/db/migrations/0002_cybermap_auth_registry.sql',
+    'X-Real-IP $remote_addr',
+    'X-Forwarded-For $remote_addr',
     'default_pool_size = 5',
     'reserve_pool_size = 2',
   ]) {

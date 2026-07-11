@@ -30,9 +30,13 @@ param autoShutdownTimeZone string = 'Pacific Standard Time'
 
 var cybermapApiPackage = loadTextContent('../vm/cybermap-api/package.json')
 var cybermapApiServer = loadTextContent('../vm/cybermap-api/server.mjs')
+var cybermapApiAuth = loadTextContent('../vm/cybermap-api/auth.mjs')
+var cybermapApiSourceRegistry = loadTextContent('../vm/cybermap-api/source-registry.mjs')
+var cybermapApiRateLimit = loadTextContent('../vm/cybermap-api/rate-limit.mjs')
 var cybermapApiDb = loadTextContent('../vm/cybermap-api/db.mjs')
 var cybermapApiMigrate = loadTextContent('../vm/cybermap-api/migrate.mjs')
 var cybermapCoreMigration = loadTextContent('../vm/cybermap-api/db/migrations/0001_cybermap_core.sql')
+var cybermapAuthMigration = loadTextContent('../vm/cybermap-api/db/migrations/0002_cybermap_auth_registry.sql')
 var cybermapWorkerPackage = loadTextContent('../vm/cybermap-worker/package.json')
 var cybermapWorkerSource = loadTextContent('../vm/cybermap-worker/worker.mjs')
 
@@ -62,6 +66,27 @@ write_files:
     content: ''',
   base64(cybermapApiServer),
   '''
+  - path: /opt/cybermap-api/auth.mjs
+    permissions: '0644'
+    defer: true
+    encoding: b64
+    content: ''',
+  base64(cybermapApiAuth),
+  '''
+  - path: /opt/cybermap-api/source-registry.mjs
+    permissions: '0644'
+    defer: true
+    encoding: b64
+    content: ''',
+  base64(cybermapApiSourceRegistry),
+  '''
+  - path: /opt/cybermap-api/rate-limit.mjs
+    permissions: '0644'
+    defer: true
+    encoding: b64
+    content: ''',
+  base64(cybermapApiRateLimit),
+  '''
   - path: /opt/cybermap-api/db.mjs
     permissions: '0644'
     defer: true
@@ -82,6 +107,13 @@ write_files:
     encoding: b64
     content: ''',
   base64(cybermapCoreMigration),
+  '''
+  - path: /opt/cybermap-api/db/migrations/0002_cybermap_auth_registry.sql
+    permissions: '0644'
+    defer: true
+    encoding: b64
+    content: ''',
+  base64(cybermapAuthMigration),
   '''
   - path: /opt/cybermap-worker/package.json
     permissions: '0644'
@@ -107,7 +139,7 @@ write_files:
       CYBERMAP_DB_POOL_MAX=5
       CYBERMAP_DB_CONNECT_TIMEOUT_MS=3000
       CYBERMAP_DB_IDLE_TIMEOUT_MS=10000
-      CYBERMAP_EXPECTED_MIGRATION=0001_cybermap_core
+      CYBERMAP_EXPECTED_MIGRATION=0002_cybermap_auth_registry
   - path: /opt/cybermap-api/README.runtime.md
     permissions: '0644'
     defer: true
@@ -132,7 +164,7 @@ write_files:
       Environment=CYBERMAP_BODY_LIMIT_BYTES=1048576
       Environment=CYBERMAP_DB_POOL_MAX=5
       Environment=CYBERMAP_DB_CONNECT_TIMEOUT_MS=3000
-      Environment=CYBERMAP_EXPECTED_MIGRATION=0001_cybermap_core
+      Environment=CYBERMAP_EXPECTED_MIGRATION=0002_cybermap_auth_registry
       EnvironmentFile=-/etc/cybermap-api.env
       ExecStartPre=/usr/bin/node /opt/cybermap-api/migrate.mjs --if-configured
       ExecStart=/usr/bin/node /opt/cybermap-api/server.mjs
@@ -191,7 +223,7 @@ write_files:
           proxy_http_version 1.1;
           proxy_set_header Host $host;
           proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-For $remote_addr;
           proxy_set_header X-Forwarded-Proto https;
           proxy_set_header X-Request-Id $request_id;
         }
