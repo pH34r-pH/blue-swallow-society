@@ -31,6 +31,10 @@ export const PII_STATUSES = Object.freeze([
 
 const DEFAULT_OBSERVATION_BATCH_MAX_ITEMS = 100;
 const DEFAULT_OBSERVATION_PAYLOAD_LIMIT_BYTES = 16 * 1024;
+const WARDRIVER_BATCH_CONTRACT_VERSION = 'bss.wardriver.batch.v1';
+const SUPPORTED_CONTRACT_VERSIONS = new Set([WARDRIVER_BATCH_CONTRACT_VERSION]);
+const MAX_BATCH_CONTEXT_BYTES = 4 * 1024;
+const MAX_CONTRACT_VERSION_BYTES = 128;
 const MAX_IDEMPOTENCY_KEY_BYTES = 256;
 const MAX_CLIENT_ID_BYTES = 128;
 const MAX_SOURCE_ID_BYTES = 128;
@@ -322,6 +326,42 @@ function findForbiddenPayloadKey(value, depth = 0) {
   return null;
 }
 
+function normalizeContractVersion(value) {
+  const contractVersion = normalizeString(value, 'contract_version', { maxBytes: MAX_CONTRACT_VERSION_BYTES });
+  if (!contractVersion) return null;
+  if (!SUPPORTED_CONTRACT_VERSIONS.has(contractVersion)) {
+    const error = new Error(`unsupported contract_version: ${contractVersion}`);
+    error.statusCode = 400;
+    error.code = 'unsupported_contract_version';
+    throw error;
+  }
+  return contractVersion;
+}
+
+function normalizeBatchContext(value) {
+  if (value === undefined || value === null) return null;
+  if (!isPlainObject(value)) {
+    const error = new Error('context must be an object');
+    error.statusCode = 400;
+    error.code = 'invalid_context';
+    throw error;
+  }
+  if (jsonByteLength(value) > MAX_BATCH_CONTEXT_BYTES) {
+    const error = new Error('context exceeds configured byte limit');
+    error.statusCode = 413;
+    error.code = 'context_too_large';
+    throw error;
+  }
+  const forbiddenContextKey = findForbiddenPayloadKey(value);
+  if (forbiddenContextKey) {
+    const error = new Error(`context includes forbidden raw/PII key: ${forbiddenContextKey}`);
+    error.statusCode = 422;
+    error.code = 'unsafe_context';
+    throw error;
+  }
+  return value;
+}
+
 function trustedTriggerSourceClass(value) {
   const sourceClass = normalizeUnsafeToken(value).replace(/-/g, '_');
   return LOCAL_OR_OWNED_SOURCE_CLASSES.has(sourceClass) || GREEN_SOURCE_CLASSES.has(sourceClass);
@@ -477,6 +517,8 @@ export function normalizeObservationBatch({ headers = {}, body, identity, now = 
 
   const sourceId = normalizeSourceId(body.source_id || body.sourceId);
   const sourceClass = normalizeSourceClass(body.source_class || body.sourceClass);
+  const contractVersion = normalizeContractVersion(body.contract_version ?? body.contractVersion);
+  const context = normalizeBatchContext(body.context ?? body.batch_context ?? body.batchContext);
   const reportedClientId = normalizeString(body.client_id || body.clientId, 'client_id', {
     maxBytes: MAX_CLIENT_ID_BYTES,
   });
@@ -513,6 +555,8 @@ export function normalizeObservationBatch({ headers = {}, body, identity, now = 
     idempotencyKey,
     sourceId,
     sourceClass,
+    contractVersion,
+    context,
     clientId,
     reportedClientId,
     sessionId,
@@ -529,6 +573,8 @@ export function normalizeObservationBatch({ headers = {}, body, identity, now = 
   batch.payloadHash = sha256Json({
     source_id: batch.sourceId,
     source_class: batch.sourceClass,
+    contract_version: batch.contractVersion,
+    context: batch.context,
     session_id: batch.sessionId,
     authorized_scope_ref: batch.authorizedScopeRef,
     provenance: batch.provenance,
@@ -570,6 +616,18 @@ function duplicateBatchResult(row, batch) {
   };
 }
 
+function requestMetadataForBatch(batch) {
+  return {
+    request: {
+      source_class: batch.sourceClass,
+      observation_count: batch.observations.length,
+      reported_client_id: batch.reportedClientId,
+      ...(batch.contractVersion ? { contract_version: batch.contractVersion } : {}),
+      ...(batch.context ? { context: batch.context } : {}),
+    },
+  };
+}
+
 export async function storeObservationBatch(pool, batch) {
   await pool.query('BEGIN');
   try {
@@ -584,13 +642,7 @@ export async function storeObservationBatch(pool, batch) {
       batch.sessionId,
       batch.clientId,
       batch.idempotencyKey,
-      JSON.stringify({
-        request: {
-          source_class: batch.sourceClass,
-          observation_count: batch.observations.length,
-          reported_client_id: batch.reportedClientId,
-        },
-      }),
+      JSON.stringify(requestMetadataForBatch(batch)),
       JSON.stringify(batch.provenance),
     ]);
     let batchRow = batchRowResult.rows[0];
@@ -679,7 +731,7 @@ export async function storeObservationBatch(pool, batch) {
       completedAt,
       observationIds.length,
       batch.payloadHash,
-      JSON.stringify({ receipt }),
+      JSON.stringify({ ...requestMetadataForBatch(batch), receipt }),
     ]);
 
     await pool.query('COMMIT');

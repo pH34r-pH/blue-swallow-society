@@ -114,6 +114,10 @@ function parseJson(value) {
   return typeof value === 'string' ? JSON.parse(value) : value;
 }
 
+function readWardriverRaidFixture() {
+  return JSON.parse(readFileSync(new URL('./fixtures/wardriver-raid-batch-v1.json', import.meta.url), 'utf8'));
+}
+
 function createIngestPool() {
   const batches = new Map();
   const observations = [];
@@ -643,6 +647,90 @@ test('observation batch ingest enforces payload, request, and batch limits plus 
     assert.equal(selfAssertedRawRetention.json.error.code, 'raw_retention_forbidden');
 
     assert.equal(pool.batches.size, 0);
+    assert.equal(pool.observations.length, 0);
+  });
+});
+
+test('Wardriver RaID v1 contract fixture ingests idempotently without raw-frame defaults', async () => {
+  const { hashToken } = await import('../vm/cybermap-api/auth.mjs');
+  const fixture = readWardriverRaidFixture();
+  const pool = createIngestPool();
+
+  await withServer({
+    tokenRecords: makeTokenRecords(hashToken),
+    dbPoolFactory: () => pool,
+  }, async (server) => {
+    const idempotencyKey = fixture.request.headers['Idempotency-Key'];
+    const first = await ingestRequest(server, WARD_TOKEN, fixture.body, idempotencyKey);
+    assert.equal(first.status, 201);
+    assert.equal(first.json.ok, true);
+    assert.equal(first.json.duplicate, false);
+    assert.equal(first.json.receipt.source_class, 'owned_device');
+    assert.equal(first.json.receipt.source_id, FIXTURE_SOURCE_ID);
+    assert.equal(first.json.receipt.idempotency_key, idempotencyKey);
+    assert.equal(first.json.receipt.observation_count, fixture.body.observations.length);
+
+    assert.equal(pool.observations.length, fixture.body.observations.length);
+    const batch = [...pool.batches.values()][0];
+    assert.equal(batch.session_id, fixture.body.session_id);
+    assert.equal(batch.request_metadata.request.contract_version, 'bss.wardriver.batch.v1');
+    assert.equal(batch.request_metadata.request.context.heading_deg, 184.5);
+    assert.equal(batch.request_metadata.request.context.map.zoom, 17);
+    assert.equal(batch.provenance.adapter_contract_version, 'bss.wardriver.batch.v1');
+    assert.equal(batch.provenance.raw_frames_default, 'omitted');
+
+    const wifiObservation = pool.observations.find((observation) => observation.kind === 'wifi_ap');
+    assert.ok(wifiObservation, 'fixture should include an enhanced WiGLE/Wi-Fi observation');
+    assert.equal(wifiObservation.sessionId, fixture.body.session_id);
+    assert.equal(wifiObservation.idempotencyKey, 'wardriver-alpha-session-0001-wifi-0001');
+    assert.equal(wifiObservation.payload.wigle_enhanced, true);
+    assert.equal(wifiObservation.payload.raw_frame_present, false);
+    assert.equal(wifiObservation.rawPayloadRef, null);
+    assert.equal(wifiObservation.operatorApprovedRawRef, null);
+    assert.equal(wifiObservation.retentionClass, 'summary_only');
+    assert.equal(JSON.stringify(wifiObservation.payload).includes('raw_frame_bytes'), false);
+
+    const raidSummary = pool.observations.find((observation) => observation.kind === 'visual_summary');
+    assert.ok(raidSummary, 'fixture should include a RaID sight summary observation');
+    assert.equal(raidSummary.payload.raid_sight_summary.category, 'local-context');
+    assert.equal(raidSummary.provenance.contract_version, 'bss.wardriver.batch.v1');
+
+    const duplicate = await ingestRequest(server, WARD_TOKEN, fixture.body, idempotencyKey);
+    assert.equal(duplicate.status, 200);
+    assert.equal(duplicate.json.duplicate, true);
+    assert.deepEqual(duplicate.json.receipt, first.json.receipt);
+    assert.equal(pool.observations.length, fixture.body.observations.length, 'duplicate fixture replay must not insert observations');
+  });
+});
+
+test('Wardriver contract rejects source-class spoofing and raw-frame default uploads', async () => {
+  const { hashToken } = await import('../vm/cybermap-api/auth.mjs');
+  const fixture = readWardriverRaidFixture();
+  const pool = createIngestPool();
+
+  await withServer({
+    tokenRecords: makeTokenRecords(hashToken),
+    dbPoolFactory: () => pool,
+  }, async (server) => {
+    const spoofedClass = await ingestRequest(server, WARD_TOKEN, {
+      ...fixture.body,
+      source_class: 'green_public',
+    }, 'wardriver-spoof-class-001');
+    assert.equal(spoofedClass.status, 403);
+    assert.equal(spoofedClass.json.error.code, 'source_scope_forbidden');
+
+    const rawFrameUpload = await ingestRequest(server, WARD_TOKEN, {
+      ...fixture.body,
+      observations: [{
+        ...fixture.body.observations[0],
+        payload: {
+          ...fixture.body.observations[0].payload,
+          raw_frame: 'base64-forbidden-by-default',
+        },
+      }],
+    }, 'wardriver-raw-frame-001');
+    assert.equal(rawFrameUpload.status, 422);
+    assert.equal(rawFrameUpload.json.error.code, 'unsafe_payload');
     assert.equal(pool.observations.length, 0);
   });
 });

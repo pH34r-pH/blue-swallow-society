@@ -522,6 +522,140 @@ test('entity read API returns summary and observation links while redacting unsa
   });
 });
 
+test('nearby context API rejects missing lat before querying the database', async () => {
+  const pool = {
+    queries: [],
+    async query(sql, params = []) {
+      this.queries.push({ sql: String(sql), params });
+      return { rows: [] };
+    },
+    async end() {},
+  };
+
+  await withServer({
+    pool,
+    tokenRecord: {
+      clientType: 'wardriver_device',
+      scopes: ['cybermap:read'],
+      sourceClasses: ['owned_device'],
+    },
+  }, async (server) => {
+    const response = await request(server, {
+      path: '/api/v1/cybermap/nearby?lon=-122.3493&radius_m=150&source_class=owned_device',
+      headers: authHeaders(),
+    });
+
+    assert.deepEqual({ status: response.status, dbQueries: pool.queries.length }, { status: 400, dbQueries: 0 });
+    assert.equal(response.json.error.code, 'lat_required');
+  });
+});
+
+test('nearby context API rejects missing lon before querying the database', async () => {
+  const pool = {
+    queries: [],
+    async query(sql, params = []) {
+      this.queries.push({ sql: String(sql), params });
+      return { rows: [] };
+    },
+    async end() {},
+  };
+
+  await withServer({
+    pool,
+    tokenRecord: {
+      clientType: 'wardriver_device',
+      scopes: ['cybermap:read'],
+      sourceClasses: ['owned_device'],
+    },
+  }, async (server) => {
+    const response = await request(server, {
+      path: '/api/v1/cybermap/nearby?lat=47.6205&radius_m=150&source_class=owned_device',
+      headers: authHeaders(),
+    });
+
+    assert.deepEqual({ status: response.status, dbQueries: pool.queries.length }, { status: 400, dbQueries: 0 });
+    assert.equal(response.json.error.code, 'lon_required');
+  });
+});
+
+test('nearby context API returns Wardriver current-position cells without raw payload columns', async () => {
+  const nearbyCell = makeCellRow({
+    h3_cell: 'gh9:c23nb62wj',
+    updated_at: '2026-07-10T11:59:30.000Z',
+    first_seen_at: '2026-07-10T11:58:00.000Z',
+    last_seen_at: '2026-07-10T11:59:00.000Z',
+    source_classes: ['owned_device'],
+    observation_count: 2,
+    entity_count: 1,
+    freshness: { last_observed_at: '2026-07-10T11:59:00.000Z', last_ingested_at: '2026-07-10T11:59:30.000Z', age_seconds: 30 },
+    salience: 0.7,
+    layers: {
+      local_owned: {
+        layer: 'local_owned',
+        source_classes: ['owned_device'],
+        source_class_counts: { owned_device: 2 },
+        observations_by_kind: { wifi_ap: 1, visual_summary: 1 },
+        observation_count: 2,
+        entity_count: 1,
+        entities: [{ id: 'network-1', stable_key: 'wifi_ap:sha256:bssid-fixture-alpha', entity_kind: 'network', source_class: 'owned_device', source_classes: ['owned_device'] }],
+        first_seen_at: '2026-07-10T11:58:00.000Z',
+        last_seen_at: '2026-07-10T11:59:00.000Z',
+        last_ingested_at: '2026-07-10T11:59:30.000Z',
+        global_preload: false,
+        local_context: true,
+      },
+    },
+    counts: {
+      observations_by_kind: { wifi_ap: 1, visual_summary: 1 },
+      observations_by_source_class: { owned_device: 2 },
+      entities_by_kind: { network: 1 },
+    },
+    caveats: [{ code: 'local_owned_context_not_global_preload', severity: 'info', source_classes: ['owned_device'] }],
+    provenance: { materialized_by: 'cybermap-worker/cell-materialization:v1', app_computed_cell: true, source_row_count: 2 },
+  });
+  const pool = {
+    queries: [],
+    async query(sql, params = []) {
+      const text = String(sql).replace(/\s+/g, ' ').trim();
+      this.queries.push({ sql: text, params });
+      assert.match(text, /from cybermap_cells/i);
+      assert.match(text, /st_dwithin/i, 'nearby context should use a bounded radius around current GPS');
+      assert.doesNotMatch(text, /payload|raw_payload_ref|operator_approved_raw_ref|raw_pii/i, 'nearby context must not select raw payload columns');
+      assert.deepEqual(params.slice(0, 5), [47.6205, -122.3493, 150, 11, ['owned_device']]);
+      return { rows: [nearbyCell] };
+    },
+    async end() {},
+  };
+
+  await withServer({
+    pool,
+    tokenRecord: {
+      clientType: 'wardriver_device',
+      scopes: ['cybermap:read'],
+      sourceClasses: ['owned_device'],
+    },
+  }, async (server) => {
+    const response = await request(server, {
+      path: '/api/v1/cybermap/nearby?lat=47.6205&lon=-122.3493&radius_m=150&heading_deg=184.5&zoom=17&source_class=owned_device&layers=local_owned',
+      headers: authHeaders(),
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.json.ok, true);
+    assert.equal(response.json.contract_version, 'bss.cybermap.nearby.v1');
+    assert.equal(response.json.context.lat, 47.6205);
+    assert.equal(response.json.context.lon, -122.3493);
+    assert.equal(response.json.context.radius_m, 150);
+    assert.equal(response.json.context.heading_deg, 184.5);
+    assert.equal(response.json.context.map_zoom, 17);
+    assert.deepEqual(response.json.context.source_classes, ['owned_device']);
+    assert.equal(response.json.cells.length, 1);
+    assert.equal(response.json.cells[0].layers.local_owned.observations_by_kind.wifi_ap, 1);
+    assert.ok(response.json.caveats.some((caveat) => caveat.code === 'bounded_nearby_context'));
+    assertNoRawPii(response.json);
+  });
+});
+
 test('sources read API keeps filters bounded and gates source classes by token authority', async () => {
   const pool = {
     queries: [],

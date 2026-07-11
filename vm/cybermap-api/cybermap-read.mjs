@@ -27,6 +27,9 @@ const MAX_BBOX_AREA_DEGREES = 2;
 const MAX_ZOOM = 20;
 const MAX_VIEWPORT_CELLS = 250;
 const MAX_VIEWPORT_SCAN_CELLS = MAX_VIEWPORT_CELLS * 4;
+const MAX_NEARBY_CELLS = 50;
+const MAX_NEARBY_RADIUS_M = 1000;
+const NEARBY_CONTEXT_CONTRACT_VERSION = 'bss.cybermap.nearby.v1';
 const MAX_CELL_OBSERVATION_LINKS = 100;
 const MAX_ENTITY_OBSERVATION_LINKS = 100;
 const MAX_SOURCE_ROWS = 100;
@@ -226,6 +229,46 @@ export function parseCybermapBbox(value, { required = true } = {}) {
     throw Object.assign(new Error('bbox exceeds bounded Cybermap viewport limits'), { code: 'bbox_too_large' });
   }
   return { west, south, east, north, lonSpan, latSpan };
+}
+
+function parseBoundedNumber(value, fieldName, { min, max, required = true, fallback = null } = {}) {
+  const missing = value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
+  if (missing) {
+    if (required) {
+      throw Object.assign(new Error(`${fieldName} query parameter is required`), { code: `${fieldName}_required` });
+    }
+    return fallback;
+  }
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < min || number > max) {
+    throw Object.assign(new Error(`${fieldName} must be between ${min} and ${max}`), { code: `${fieldName}_invalid` });
+  }
+  return number;
+}
+
+function parseNearbyQuery(searchParams) {
+  const lat = parseBoundedNumber(searchParams.get('lat'), 'lat', { min: -90, max: 90 });
+  const lon = parseBoundedNumber(searchParams.get('lon'), 'lon', { min: -180, max: 180 });
+  const radiusM = Math.round(parseBoundedNumber(searchParams.get('radius_m') ?? searchParams.get('radiusM'), 'radius_m', {
+    min: 1,
+    max: MAX_NEARBY_RADIUS_M,
+    required: false,
+    fallback: 250,
+  }));
+  const headingDeg = parseBoundedNumber(searchParams.get('heading_deg') ?? searchParams.get('headingDeg'), 'heading_deg', {
+    min: 0,
+    max: 360,
+    required: false,
+    fallback: null,
+  });
+  const mapZoom = searchParams.get('zoom') === null ? null : parseBoundedNumber(searchParams.get('zoom'), 'zoom', {
+    min: 0,
+    max: MAX_ZOOM,
+  });
+  const resolution = zoomToCybermapResolution(mapZoom ?? 15);
+  const layers = parseLayerFilter(searchParams.get('layers'));
+  const requestedClasses = parseSourceClassFilter(searchParams);
+  return { lat, lon, radiusM, headingDeg, mapZoom, resolution, layers, requestedClasses };
 }
 
 function parseLayerFilter(value) {
@@ -667,6 +710,88 @@ async function handleViewport({ searchParams, identity, env, dbPoolFactory }) {
   });
 }
 
+async function handleNearby({ searchParams, identity, env, dbPoolFactory }) {
+  let query;
+  try {
+    query = parseNearbyQuery(searchParams);
+  } catch (error) {
+    return errorResult(400, error.code || 'nearby_query_invalid', error.message);
+  }
+  const classDecision = sourceClassesAllowed(identity, query.requestedClasses);
+  if (!classDecision.ok) return classDecision;
+  const sourceClasses = classDecision.allowed;
+
+  return withReadPool({ env, dbPoolFactory }, async (pool) => {
+    const result = await pool.query(`
+      select
+        h3_cell,
+        resolution,
+        ST_AsGeoJSON(geom)::json as geom,
+        updated_at,
+        first_seen_at,
+        last_seen_at,
+        source_classes,
+        observation_count,
+        entity_count,
+        layers,
+        counts,
+        freshness,
+        caveats,
+        salience,
+        provenance
+      from cybermap_cells
+      where ST_DWithin(
+          geom::geography,
+          ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
+          $3
+        )
+        and resolution = $4
+        and source_classes && $5::source_class[]
+      order by ST_Distance(
+          geom::geography,
+          ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
+        ) asc,
+        h3_cell asc
+      limit $6
+    `, [
+      query.lat,
+      query.lon,
+      query.radiusM,
+      query.resolution,
+      sourceClasses,
+      MAX_NEARBY_CELLS + 1,
+    ]);
+
+    const candidateLimitReached = result.rows.length > MAX_NEARBY_CELLS;
+    const cells = result.rows
+      .slice(0, MAX_NEARBY_CELLS)
+      .map((row) => projectCell(row, identity, query.layers))
+      .filter((cell) => cell.observation_count > 0);
+    return okResult({
+      contract_version: NEARBY_CONTEXT_CONTRACT_VERSION,
+      context: {
+        lat: query.lat,
+        lon: query.lon,
+        radius_m: query.radiusM,
+        heading_deg: query.headingDeg,
+        map_zoom: query.mapZoom,
+        resolution: query.resolution,
+        source_classes: sourceClasses,
+      },
+      layers: viewportResponseLayers(cells, query.layers),
+      source_classes: sourceClasses,
+      cells,
+      caveats: [{
+        code: 'bounded_nearby_context',
+        severity: 'info',
+        source_classes: sourceClasses,
+        message: `Nearby context is bounded to ${MAX_NEARBY_CELLS} materialized cells within ${query.radiusM} meters and omits raw frames/PII.`,
+      }],
+      limit_reached: candidateLimitReached,
+    });
+  });
+}
+
 async function handleCellDetail({ h3Cell, identity, env, dbPoolFactory }) {
   let parsed;
   try {
@@ -865,6 +990,9 @@ export async function handleCybermapReadRequest({ method = 'GET', pathname = '/'
   if (pathname === '/api/v1/cybermap/viewport') {
     return handleViewport({ searchParams, identity, env, dbPoolFactory, now });
   }
+  if (pathname === '/api/v1/cybermap/nearby') {
+    return handleNearby({ searchParams, identity, env, dbPoolFactory, now });
+  }
   const cellMatch = pathname.match(/^\/api\/v1\/cybermap\/cells\/([^/]+)$/);
   if (cellMatch) {
     return handleCellDetail({ h3Cell: decodeURIComponent(cellMatch[1]), identity, env, dbPoolFactory, now });
@@ -884,6 +1012,8 @@ export const cybermapReadDefaults = Object.freeze({
   MAX_BBOX_AREA_DEGREES,
   MAX_ZOOM,
   MAX_VIEWPORT_CELLS,
+  MAX_NEARBY_CELLS,
+  MAX_NEARBY_RADIUS_M,
   MAX_CELL_OBSERVATION_LINKS,
   MAX_ENTITY_OBSERVATION_LINKS,
   MAX_SOURCE_ROWS,
