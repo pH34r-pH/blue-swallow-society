@@ -522,6 +522,62 @@ test('entity read API returns summary and observation links while redacting unsa
   });
 });
 
+test('nearby context API rejects missing lat before querying the database', async () => {
+  const pool = {
+    queries: [],
+    async query(sql, params = []) {
+      this.queries.push({ sql: String(sql), params });
+      return { rows: [] };
+    },
+    async end() {},
+  };
+
+  await withServer({
+    pool,
+    tokenRecord: {
+      clientType: 'wardriver_device',
+      scopes: ['cybermap:read'],
+      sourceClasses: ['owned_device'],
+    },
+  }, async (server) => {
+    const response = await request(server, {
+      path: '/api/v1/cybermap/nearby?lon=-122.3493&radius_m=150&source_class=owned_device',
+      headers: authHeaders(),
+    });
+
+    assert.deepEqual({ status: response.status, dbQueries: pool.queries.length }, { status: 400, dbQueries: 0 });
+    assert.equal(response.json.error.code, 'lat_required');
+  });
+});
+
+test('nearby context API rejects missing lon before querying the database', async () => {
+  const pool = {
+    queries: [],
+    async query(sql, params = []) {
+      this.queries.push({ sql: String(sql), params });
+      return { rows: [] };
+    },
+    async end() {},
+  };
+
+  await withServer({
+    pool,
+    tokenRecord: {
+      clientType: 'wardriver_device',
+      scopes: ['cybermap:read'],
+      sourceClasses: ['owned_device'],
+    },
+  }, async (server) => {
+    const response = await request(server, {
+      path: '/api/v1/cybermap/nearby?lat=47.6205&radius_m=150&source_class=owned_device',
+      headers: authHeaders(),
+    });
+
+    assert.deepEqual({ status: response.status, dbQueries: pool.queries.length }, { status: 400, dbQueries: 0 });
+    assert.equal(response.json.error.code, 'lon_required');
+  });
+});
+
 test('nearby context API returns Wardriver current-position cells without raw payload columns', async () => {
   const nearbyCell = makeCellRow({
     h3_cell: 'gh9:c23nb62wj',

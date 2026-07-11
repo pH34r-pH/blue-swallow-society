@@ -232,7 +232,13 @@ export function parseCybermapBbox(value, { required = true } = {}) {
 }
 
 function parseBoundedNumber(value, fieldName, { min, max, required = true, fallback = null } = {}) {
-  if ((value === undefined || value === null || value === '') && !required) return fallback;
+  const missing = value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
+  if (missing) {
+    if (required) {
+      throw Object.assign(new Error(`${fieldName} query parameter is required`), { code: `${fieldName}_required` });
+    }
+    return fallback;
+  }
   const number = Number(value);
   if (!Number.isFinite(number) || number < min || number > max) {
     throw Object.assign(new Error(`${fieldName} must be between ${min} and ${max}`), { code: `${fieldName}_invalid` });
