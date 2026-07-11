@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { isIP } from 'node:net';
 import { fileURLToPath } from 'node:url';
 
 export const DEFAULT_GREENFEED_SEED_CATALOG_URL = new URL('./greenfeed-seed-catalog.json', import.meta.url);
@@ -72,7 +73,51 @@ function normalizeUrl(value, fieldName) {
   }
   if (parsed.protocol !== 'https:') throw new Error(`${fieldName} must use https`);
   if (parsed.username || parsed.password) throw new Error(`${fieldName} cannot include credentials`);
+  if (isPrivateOrLocalHostname(parsed.hostname)) {
+    throw new Error(`${fieldName} cannot point persistent Greenfeed jack-in sources at private/local/reserved hosts`);
+  }
   return parsed.toString();
+}
+
+function isPrivateOrLocalHostname(hostname) {
+  const host = String(hostname || '').trim().toLowerCase().replace(/\.$/, '');
+  if (!host) return true;
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.lan')) return true;
+  const ipKind = isIP(host);
+  if (ipKind === 4) return isPrivateOrReservedIpv4(host);
+  if (ipKind === 6) return isPrivateOrReservedIpv6(host);
+  return false;
+}
+
+function isPrivateOrReservedIpv4(host) {
+  const octets = host.split('.').map((part) => Number(part));
+  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return true;
+  const [a, b] = octets;
+  return a === 0
+    || a === 10
+    || a === 127
+    || (a === 100 && b >= 64 && b <= 127)
+    || (a === 169 && b === 254)
+    || (a === 172 && b >= 16 && b <= 31)
+    || (a === 192 && b === 168)
+    || (a === 192 && b === 0)
+    || (a === 198 && (b === 18 || b === 19))
+    || (a === 198 && b === 51)
+    || (a === 203 && b === 0)
+    || a >= 224;
+}
+
+function isPrivateOrReservedIpv6(host) {
+  const normalized = host.replace(/^\[(.*)\]$/, '$1');
+  return normalized === '::1'
+    || normalized === '::'
+    || normalized.startsWith('fc')
+    || normalized.startsWith('fd')
+    || normalized.startsWith('fe80:')
+    || normalized.startsWith('::ffff:10.')
+    || normalized.startsWith('::ffff:127.')
+    || normalized.startsWith('::ffff:192.168.')
+    || /^::ffff:172\.(1[6-9]|2\d|3[01])\./.test(normalized);
 }
 
 function normalizeSourceClass(value) {
