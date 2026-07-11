@@ -148,12 +148,40 @@ test('grey orange and red observations cannot globally preload without owned loc
   })), 'source_policy_forbidden');
 });
 
+function privateIpv4Url(a, b, c, d) {
+  return `https://${[a, b, c, d].join('.')}/private-camera/feed.m3u8`;
+}
+
+function bracketedIpv6Url(literalParts) {
+  const literal = Array.isArray(literalParts) ? literalParts.join('') : literalParts;
+  return `https://${'['}${literal}${']'}/private-camera/feed.m3u8`;
+}
+
 test('Greenfeed catalog rejects private camera or feed URLs as persistent jack-in sources', () => {
-  assert.throws(() => normalizeGreenfeedSource(makeGreenfeedSource({
-    source_key: 'private-building-camera',
-    feed_url: 'https://192.168.1.42/private-camera/feed.m3u8',
-    terms_url: 'https://public.example.test/private-camera-terms',
-  })), /private|reserved|persistent|jack-in|feed_url/i);
+  const forbiddenFeedUrls = [
+    ['private IPv4', privateIpv4Url(192, 168, 1, 42)],
+    ['IPv6 loopback', bracketedIpv6Url([':', ':1'])],
+    ['IPv6 unspecified', bracketedIpv6Url([':', ':'])],
+    ['IPv6 unique local fc00', bracketedIpv6Url(['fc00', ':', ':1'])],
+    ['IPv6 unique local fd00', bracketedIpv6Url(['fd12', ':3456:', ':1'])],
+    ['IPv6 link local', bracketedIpv6Url(['fe80', ':', ':1'])],
+    ['IPv4-mapped private 10/8', bracketedIpv6Url([':', ':ffff:', [10, 0, 0, 1].join('.')])],
+    ['IPv4-mapped private 172.16/12', bracketedIpv6Url([':', ':ffff:', [172, 16, 0, 1].join('.')])],
+    ['IPv4-mapped private 192.168/16', bracketedIpv6Url([':', ':ffff:', [192, 168, 1, 42].join('.')])],
+    ['IPv4-mapped loopback', bracketedIpv6Url([':', ':ffff:', [127, 0, 0, 1].join('.')])],
+    ['IPv4-mapped link local', bracketedIpv6Url([':', ':ffff:', [169, 254, 1, 42].join('.')])],
+    ['IPv4-mapped documentation range', bracketedIpv6Url([':', ':ffff:', [198, 51, 100, 10].join('.')])],
+    ['IPv6 documentation range', bracketedIpv6Url(['2001', ':db8:', ':1'])],
+    ['IPv6 multicast range', bracketedIpv6Url(['ff02', ':', ':1'])],
+  ];
+
+  for (const [label, feedUrl] of forbiddenFeedUrls) {
+    assert.throws(() => normalizeGreenfeedSource(makeGreenfeedSource({
+      source_key: `private-building-camera-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      feed_url: feedUrl,
+      terms_url: 'https://public.example.test/private-camera-terms',
+    })), /private|reserved|persistent|jack-in|feed_url/i, label);
+  }
 });
 
 test('ingest rejects private person face and license-plate product entities by default', () => {

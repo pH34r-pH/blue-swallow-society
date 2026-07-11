@@ -83,15 +83,30 @@ function isPrivateOrLocalHostname(hostname) {
   const host = String(hostname || '').trim().toLowerCase().replace(/\.$/, '');
   if (!host) return true;
   if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.lan')) return true;
-  const ipKind = isIP(host);
-  if (ipKind === 4) return isPrivateOrReservedIpv4(host);
-  if (ipKind === 6) return isPrivateOrReservedIpv6(host);
+  const ipHost = normalizeIpHostname(host);
+  const ipKind = isIP(ipHost);
+  if (ipKind === 4) return isPrivateOrReservedIpv4(ipHost);
+  if (ipKind === 6) return isPrivateOrReservedIpv6(ipHost);
   return false;
 }
 
+function normalizeIpHostname(host) {
+  return host.replace(/^\[(.*)\]$/, '$1').split('%')[0];
+}
+
 function isPrivateOrReservedIpv4(host) {
-  const octets = host.split('.').map((part) => Number(part));
-  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return true;
+  const octets = ipv4Octets(host);
+  if (!octets) return true;
+  return isPrivateOrReservedIpv4Octets(octets);
+}
+
+function ipv4Octets(host) {
+  const octets = String(host).split('.').map((part) => Number(part));
+  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
+  return octets;
+}
+
+function isPrivateOrReservedIpv4Octets(octets) {
   const [a, b] = octets;
   return a === 0
     || a === 10
@@ -108,16 +123,90 @@ function isPrivateOrReservedIpv4(host) {
 }
 
 function isPrivateOrReservedIpv6(host) {
-  const normalized = host.replace(/^\[(.*)\]$/, '$1');
-  return normalized === '::1'
-    || normalized === '::'
-    || normalized.startsWith('fc')
-    || normalized.startsWith('fd')
-    || normalized.startsWith('fe80:')
-    || normalized.startsWith('::ffff:10.')
-    || normalized.startsWith('::ffff:127.')
-    || normalized.startsWith('::ffff:192.168.')
-    || /^::ffff:172\.(1[6-9]|2\d|3[01])\./.test(normalized);
+  const hextets = expandIpv6Hextets(host);
+  if (!hextets) return true;
+  const [a, b, c] = hextets;
+  const embeddedIpv4 = embeddedIpv4Octets(hextets);
+  const embedsPrivateOrReservedIpv4 = embeddedIpv4 ? isPrivateOrReservedIpv4Octets(embeddedIpv4) : false;
+  return isAllZero(hextets)
+    || isIpv6Loopback(hextets)
+    || (a & 0xfe00) === 0xfc00
+    || (a & 0xffc0) === 0xfe80
+    || (a & 0xffc0) === 0xfec0
+    || (a & 0xff00) === 0xff00
+    || (a === 0x2001 && b === 0x0db8)
+    || (a === 0x2001 && b === 0x0002 && c === 0x0000)
+    || (a === 0x2001 && (b & 0xfff0) === 0x0010)
+    || (a === 0x2002 && isPrivateOrReservedIpv4Octets(ipv4OctetsFromHextets(b, c)))
+    || embedsPrivateOrReservedIpv4;
+}
+
+function expandIpv6Hextets(host) {
+  const normalized = normalizeIpHostname(host);
+  const parseSide = (side) => {
+    if (!side) return [];
+    const parts = side.split(':');
+    const hextets = [];
+    for (const part of parts) {
+      if (!part) return null;
+      if (part.includes('.')) {
+        const octets = ipv4Octets(part);
+        if (!octets) return null;
+        hextets.push(...ipv4Hextets(octets));
+        continue;
+      }
+      if (!/^[0-9a-f]{1,4}$/i.test(part)) return null;
+      hextets.push(Number.parseInt(part, 16));
+    }
+    return hextets;
+  };
+
+  if (normalized.includes('::')) {
+    if (normalized.indexOf('::') !== normalized.lastIndexOf('::')) return null;
+    const [leftRaw, rightRaw] = normalized.split('::');
+    const left = parseSide(leftRaw);
+    const right = parseSide(rightRaw);
+    if (!left || !right) return null;
+    const zeroCount = 8 - left.length - right.length;
+    if (zeroCount < 1) return null;
+    return [...left, ...Array(zeroCount).fill(0), ...right];
+  }
+
+  const hextets = parseSide(normalized);
+  if (!hextets || hextets.length !== 8) return null;
+  return hextets;
+}
+
+function ipv4Hextets(octets) {
+  return [(octets[0] << 8) | octets[1], (octets[2] << 8) | octets[3]];
+}
+
+function ipv4OctetsFromHextets(high, low) {
+  return [(high >> 8) & 0xff, high & 0xff, (low >> 8) & 0xff, low & 0xff];
+}
+
+function embeddedIpv4Octets(hextets) {
+  if (hextets.slice(0, 5).every((part) => part === 0) && hextets[5] === 0xffff) {
+    return ipv4OctetsFromHextets(hextets[6], hextets[7]);
+  }
+  if (hextets.slice(0, 6).every((part) => part === 0)) {
+    return ipv4OctetsFromHextets(hextets[6], hextets[7]);
+  }
+  if (hextets[0] === 0x0064 && hextets[1] === 0xff9b && hextets.slice(2, 6).every((part) => part === 0)) {
+    return ipv4OctetsFromHextets(hextets[6], hextets[7]);
+  }
+  if (hextets[0] === 0x0064 && hextets[1] === 0xff9b && hextets[2] === 0x0001 && hextets.slice(3, 6).every((part) => part === 0)) {
+    return ipv4OctetsFromHextets(hextets[6], hextets[7]);
+  }
+  return null;
+}
+
+function isAllZero(hextets) {
+  return hextets.every((part) => part === 0);
+}
+
+function isIpv6Loopback(hextets) {
+  return hextets.slice(0, 7).every((part) => part === 0) && hextets[7] === 1;
 }
 
 function normalizeSourceClass(value) {
