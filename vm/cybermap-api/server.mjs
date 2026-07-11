@@ -16,6 +16,7 @@ import {
   handleDirectObservationRequest,
   handleSensoriumSessionRequest,
 } from './sensorium.mjs';
+import { handleClaimValidationRequest } from './claim-validation.mjs';
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 8000;
@@ -330,6 +331,20 @@ export function createCybermapApiServer(options = {}) {
 
         if (req.method === 'POST' && url.pathname === '/api/v1/direct-observations') {
           const result = handleDirectObservationRequest({
+            body: parsedBody.value,
+            now,
+            store: sensoriumStore,
+          });
+          if (!result.ok) {
+            respondJson(res, result.statusCode || 400, requestId, errorBody(result.code, result.message));
+            return;
+          }
+          respondJson(res, result.statusCode, requestId, result.body);
+          return;
+        }
+
+        if (req.method === 'POST' && url.pathname === '/api/v1/claim-validation/greenfeeds') {
+          const result = await handleClaimValidationRequest({
             body: parsedBody.value,
             now,
             store: sensoriumStore,

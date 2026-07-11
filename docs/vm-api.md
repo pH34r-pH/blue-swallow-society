@@ -39,8 +39,9 @@ The Bicep module file is still named `infra/vm-echo-lab.bicep` for continuity, b
 | `GET /api/v1/sources?bbox=&class=` | `sources:read` or `cybermap:read` bearer token + source class authority | implemented | Bounded source catalog / Greenfeed discovery with optional bbox and exact source-class filters. |
 | `POST /api/v1/sensorium/sessions` | `observations:write` or operator token | implemented | Starts/ends `dream_suspension`, `raid_sight`, and `greenfeed_jack_in` sessions with location basis, source, timestamp, and read-only retention/redaction policy. |
 | `POST /api/v1/direct-observations` | `observations:write` or operator token | implemented | Records claim-linked direct observation packets with visible summary, not-visible notes, confidence, caveats, evidence links, and effect-on-claim. |
+| `POST /api/v1/claim-validation/greenfeeds` | `observations:write` or operator token | implemented | Orchestrates a Greenfeed-only claim-validation lookup: normalizes claim footprint cells, filters candidates by source class/freshness/terms/uptime, opens or reuses a read-only `greenfeed_jack_in`, emits a caveated direct-observation packet, and returns Mosaic/Murmurs/delta payload builders. |
 
-Remaining planned `/api/v1/*` routes are those in [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md): Mosaic/Murmurs memory sync and claim-validation orchestration.
+Remaining planned `/api/v1/*` routes are those in [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md): Mosaic/Murmurs memory sync.
 
 ### Sensorium sessions
 
@@ -73,6 +74,78 @@ End requests require `action: "end"` and `session_id`. Non-operator tokens may e
 - optional `evidence_links[]` and `observed_at`; when `observed_at` is absent the gateway records server time.
 
 The route rejects `proved`/`disproved` certainty language, raw frame fields or payload references, and private visual/PII payload details by default. Returned packets include `retention_policy.raw_frame_retention = "none"` and `pii_redaction_required = true` unless the caller supplies a stricter accepted policy; `pii_redaction_required` cannot be disabled.
+
+### Claim-validation Greenfeed orchestration
+
+`POST /api/v1/claim-validation/greenfeeds` is the S0 read-only Sensorium loop for a location/time claim. It accepts either a top-level claim body or `{ "claim": {...} }`; test/operator calls may also include `sources[]` to supply an explicit Greenfeed candidate set. Production callers normally omit `sources[]` so the gateway uses the seeded Greenfeed catalog / future DB-backed catalog.
+
+Minimum claim shape:
+
+```json
+{
+  "claim": {
+    "claim_ref": "claim:large-protest-near-pioneer-square",
+    "text": "Large protest forming near Pioneer Square by 18:00.",
+    "claimed_observable": "large visible crowd or protest forming",
+    "search_terms": ["protest", "crowd", "Pioneer Square"],
+    "footprint": {
+      "lat": 47.6019,
+      "lon": -122.3336,
+      "label": "Pioneer Square, Seattle",
+      "basis": "operator_geocode",
+      "accuracy_meters": 75
+    },
+    "time": {
+      "claimed_at": "2026-07-10T17:55:00.000Z",
+      "window_start": "2026-07-10T17:50:00.000Z",
+      "window_end": "2026-07-10T18:10:00.000Z"
+    }
+  }
+}
+```
+
+The route computes app cell IDs (`gh7`, `gh9`, `gh11`) from the claim footprint, ranks only Green classes (`green_public`, `green_owned`, `green_authorized`), and rejects candidates before jack-in when freshness, uptime, or terms do not permit summary-only event/claim validation. It does not probe cameras, bypass access controls, retain raw frames, or use grey/red/private feeds.
+
+Response shape:
+
+```json
+{
+  "ok": true,
+  "validation": {
+    "status": "observed",
+    "claim_ref": "claim:large-protest-near-pioneer-square",
+    "claim_footprint": {
+      "coordinates": { "lat": 47.6019, "lon": -122.3336 },
+      "cells": { "h3_7": "gh7:...", "h3_9": "gh9:...", "h3_11": "gh11:..." },
+      "location_basis": { "kind": "claim_geocode", "basis": "operator_geocode" }
+    },
+    "greenfeed_lookup": {
+      "status": "source_selected",
+      "selected_source_ref": "greenfeed:green:seattle:pioneer-square-east",
+      "ranked_candidates": [],
+      "rejected_candidates": []
+    },
+    "session_action": "created",
+    "session": { "state": "greenfeed_jack_in", "policy": { "raw_frame_retention": "none" } },
+    "direct_observation_packet": {
+      "effect_on_claim": "weakens",
+      "confidence": "medium",
+      "caveats": ["read_only_greenfeed_jack_in", "single_greenfeed_angle"],
+      "retention_policy": { "raw_frame_retention": "none", "pii_redaction_required": true }
+    },
+    "memory_events": [
+      { "lane": "mosaic", "event_type": "direct_observation_truth_update" },
+      { "lane": "murmurs", "event_type": "direct_observation_perception_update" },
+      { "lane": "delta", "event_type": "perceptual_delta_direct_observation" }
+    ],
+    "calibration_update": { "available": false, "reason": "outcome_resolution_missing" }
+  }
+}
+```
+
+Top-level `validation.status` is `observed` when a usable Greenfeed is selected and a packet is emitted, otherwise `inconclusive`. `greenfeed_lookup.status` names the lookup outcome: `source_selected`, `no_source`, `stale_source`, `source_terms_blocked`, or `source_unavailable`. Inconclusive/no-source runs still return a direct-observation-shaped packet with `source_ref = null`, `effect_on_claim = "inconclusive"`, and caveats such as `no_green_source`, `green_source_stale`, or `green_source_terms_blocked`; they must not invent visibility.
+
+If the caller does not provide a live visual summary adapter, the selected-source packet remains inconclusive with `no_direct_visual_summary`. When `claim.outcome_resolution.effect_on_claim` is present, `calibration_update` compares the observation effect with the resolved effect for later model calibration; it does not trigger writes/trading/betting.
 
 ## Database configuration
 

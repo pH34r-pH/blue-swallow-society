@@ -353,6 +353,19 @@ export function createInMemorySensoriumStore() {
       const session = sessions.get(id);
       return session ? sessionResponse(session) : null;
     },
+    findActiveSessionBySource({ state, source_ref, source_class } = {}) {
+      for (const session of sessions.values()) {
+        if (state && session.state !== state) continue;
+        if (source_ref && session.source_ref !== source_ref) continue;
+        if (source_class && session.source_class !== source_class) continue;
+        if (session.ended_at) continue;
+        return sessionResponse(session);
+      }
+      return null;
+    },
+    listSessions() {
+      return [...sessions.values()].map((session) => sessionResponse(session));
+    },
     updateSession(id, update) {
       const existing = sessions.get(id);
       if (!existing) return null;

@@ -128,13 +128,14 @@ S0 should be renamed from **Public Read-Only Web** to **Current Read-Only Sensor
 
 ```ts
 type SensoriumState = 'dream_suspension' | 'raid_sight' | 'greenfeed_jack_in';
+type GreenSourceClass = 'green_public' | 'green_owned' | 'green_authorized';
 
 type SensoriumSession = {
   id: string;
   state: SensoriumState;
   startedAt: string;
   endedAt?: string;
-  sourceClass: 'owned_device' | 'public_greenfeed' | 'owned_greenfeed' | 'authorized_greenfeed';
+  sourceClass: 'owned_device' | 'local_observation' | GreenSourceClass;
   sourceRef: string;
   location?: {
     lat: number;
@@ -166,22 +167,52 @@ type DirectObservationPacket = {
   evidenceLinks: string[];
   effectOnClaim: 'supports' | 'weakens' | 'contradicts' | 'inconclusive';
 };
+
+type ClaimValidationResult = {
+  status: 'observed' | 'inconclusive';
+  claimRef: string;
+  claimFootprint: {
+    coordinates: { lat: number; lon: number };
+    cells: { h3_7: string; h3_9: string; h3_11: string };
+    locationBasis: { kind: 'claim_geocode'; basis: string; label?: string };
+  };
+  greenfeedLookup: {
+    status: 'source_selected' | 'no_source' | 'stale_source' | 'source_terms_blocked' | 'source_unavailable';
+    rankedCandidates: Array<{ sourceRef: string; sourceClass: GreenSourceClass; rankingCaveats: string[] }>;
+    rejectedCandidates: Array<{ sourceRef?: string; reason: string; caveat?: string }>;
+  };
+  session?: SensoriumSession | null;
+  sessionAction?: 'created' | 'reused' | null;
+  directObservationPacket: DirectObservationPacket | (Omit<DirectObservationPacket, 'sessionId' | 'sourceRef' | 'sourceClass'> & {
+    sessionId: null;
+    sourceRef: null;
+    sourceClass: null;
+    effectOnClaim: 'inconclusive';
+  });
+  memoryEvents: Array<{ lane: 'mosaic' | 'murmurs' | 'delta'; eventType: string; payload: object }>;
+  calibrationUpdate: { available: boolean; improvedCalibration?: boolean; reason?: string };
+};
 ```
 
 ## Claim-Validation Loop
 
+The implemented gateway contract is `POST /api/v1/claim-validation/greenfeeds`. It wraps the lower-level Sensorium routes so the orchestrator can perform a safe, Green-only direct-observation attempt without exposing arbitrary camera access to clients.
+
 ```text
 Murmurs detects claim
   -> extract entities, location, time, claimed observable
-  -> geocode / map to Cybermap event footprint
+  -> geocode / map to Cybermap event footprint and app cells (gh7/gh9/gh11)
   -> search Greenfeed catalog by distance, freshness, source terms, angle, uptime
-  -> if candidate exists: jack in read-only
-  -> create DirectObservationPacket
-  -> Mosaic updates evidence graph and truth estimate
-  -> Murmurs updates perception-state notes if public belief conflicts with sight
-  -> Delta bridge recomputes truth/perception/market gaps
-  -> Actionable Intel may emit watch/avoid/paper-only thesis if warranted
+  -> reject stale, unavailable, terms-blocked, grey/red/private candidates
+  -> if candidate exists: create or reuse read-only greenfeed_jack_in session
+  -> create DirectObservationPacket with caveats and raw-frame retention disabled
+  -> emit Mosaic truth, Murmurs perception, and Delta calibration payloads
+  -> track whether later outcome resolution improves calibration
 ```
+
+Lookup statuses are `source_selected`, `no_source`, `stale_source`, `source_terms_blocked`, and `source_unavailable`. The top-level result is `observed` only when a usable Green source yields a packet; otherwise it is `inconclusive`. No-source/stale/terms-blocked cases still emit an inconclusive direct-observation-shaped packet so downstream Mosaic/Murmurs/delta code has a durable evidence artifact, but the packet carries `sourceRef = null` and must not claim sight.
+
+If no live visual summary is available, the selected-source packet remains `effectOnClaim = 'inconclusive'` with `no_direct_visual_summary`. Direct observations may support, weaken, contradict, or fail to resolve a claim; the implementation deliberately avoids `proved`/`disproved` language.
 
 ## UI / Narrative Language
 

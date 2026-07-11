@@ -34,7 +34,9 @@ var cybermapApiAuth = loadTextContent('../vm/cybermap-api/auth.mjs')
 var cybermapApiSourceRegistry = loadTextContent('../vm/cybermap-api/source-registry.mjs')
 var cybermapApiRead = loadTextContent('../vm/cybermap-api/cybermap-read.mjs')
 var cybermapApiRateLimit = loadTextContent('../vm/cybermap-api/rate-limit.mjs')
+var cybermapApiObservationIngest = loadTextContent('../vm/cybermap-api/observation-ingest.mjs')
 var cybermapApiSensorium = loadTextContent('../vm/cybermap-api/sensorium.mjs')
+var cybermapApiClaimValidation = loadTextContent('../vm/cybermap-api/claim-validation.mjs')
 var cybermapApiDb = loadTextContent('../vm/cybermap-api/db.mjs')
 var cybermapApiMigrate = loadTextContent('../vm/cybermap-api/migrate.mjs')
 var cybermapCoreMigration = loadTextContent('../vm/cybermap-api/db/migrations/0001_cybermap_core.sql')
@@ -43,6 +45,8 @@ var cybermapCellsProvenanceMigration = loadTextContent('../vm/cybermap-api/db/mi
 var cybermapWorkerPackage = loadTextContent('../vm/cybermap-worker/package.json')
 var cybermapWorkerSource = loadTextContent('../vm/cybermap-worker/worker.mjs')
 var cybermapWorkerCellMaterialization = loadTextContent('../vm/cybermap-worker/cell-materialization.mjs')
+var cybermapWorkerGreenfeedCatalog = loadTextContent('../vm/cybermap-worker/greenfeeds/catalog.mjs')
+var cybermapWorkerGreenfeedPoller = loadTextContent('../vm/cybermap-worker/greenfeeds/poller.mjs')
 
 #disable-next-line prefer-interpolation
 var cloudInit = concat(
@@ -98,12 +102,26 @@ write_files:
     content: ''',
   base64(cybermapApiRateLimit),
   '''
+  - path: /opt/cybermap-api/observation-ingest.mjs
+    permissions: '0644'
+    defer: true
+    encoding: b64
+    content: ''',
+  base64(cybermapApiObservationIngest),
+  '''
   - path: /opt/cybermap-api/sensorium.mjs
     permissions: '0644'
     defer: true
     encoding: b64
     content: ''',
   base64(cybermapApiSensorium),
+  '''
+  - path: /opt/cybermap-api/claim-validation.mjs
+    permissions: '0644'
+    defer: true
+    encoding: b64
+    content: ''',
+  base64(cybermapApiClaimValidation),
   '''
   - path: /opt/cybermap-api/db.mjs
     permissions: '0644'
@@ -160,6 +178,20 @@ write_files:
     encoding: b64
     content: ''',
   base64(cybermapWorkerCellMaterialization),
+  '''
+  - path: /opt/cybermap-worker/greenfeeds/catalog.mjs
+    permissions: '0644'
+    defer: true
+    encoding: b64
+    content: ''',
+  base64(cybermapWorkerGreenfeedCatalog),
+  '''
+  - path: /opt/cybermap-worker/greenfeeds/poller.mjs
+    permissions: '0644'
+    defer: true
+    encoding: b64
+    content: ''',
+  base64(cybermapWorkerGreenfeedPoller),
   '''
   - path: /etc/cybermap-api.env
     permissions: '0640'
