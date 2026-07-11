@@ -143,9 +143,12 @@ test('Cybermap API and worker scaffolds carry operational hook points without em
 test('VM docs describe the Cybermap gateway target and do not expose echo/8080 as the product path', () => {
   const vmApiDoc = read('docs/vm-api.md');
   const azureDoc = read('docs/azure-resources.md');
-  const docs = `${vmApiDoc}\n${azureDoc}`;
+  const apiReadme = read('vm/cybermap-api/README.md');
+  const vmApiSpec = read('specs/002-vm-api/spec.md');
+  const gatewayDocs = `${vmApiDoc}\n${azureDoc}\n${apiReadme}`;
+  const readinessDocs = `${gatewayDocs}\n${vmApiSpec}`;
 
-  assertIncludesAll(docs, [
+  assertIncludesAll(gatewayDocs, [
     'cybermap-api',
     'cybermap-worker',
     '/healthz',
@@ -158,8 +161,9 @@ test('VM docs describe the Cybermap gateway target and do not expose echo/8080 a
     '/api/v1/*',
   ], 'Cybermap gateway docs');
 
-  assert.doesNotMatch(docs, /Primary Endpoint:\s*`\/echo`/);
-  assert.doesNotMatch(docs, /http:\/\/<vm-ip>:8080/);
-  assert.doesNotMatch(docs, /BACKEND_ECHO_BASE_URL/);
-  assert.doesNotMatch(docs, /echo-server\.service/);
+  assert.doesNotMatch(gatewayDocs, /Primary Endpoint:\s*`\/echo`/);
+  assert.doesNotMatch(gatewayDocs, /http:\/\/<vm-ip>:8080/);
+  assert.doesNotMatch(gatewayDocs, /BACKEND_ECHO_BASE_URL/);
+  assert.doesNotMatch(gatewayDocs, /echo-server\.service/);
+  assert.doesNotMatch(readinessDocs, /pending-db-task|until DB wiring lands/i);
 });

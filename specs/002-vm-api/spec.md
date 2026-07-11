@@ -14,15 +14,15 @@
 
 ### User Story 1 - Operator Health and Readiness (Priority: P1)
 
-Operators can verify the VM gateway booted without needing PostgreSQL credentials or connectivity.
+Operators can verify VM process health without PostgreSQL credentials, and can verify DB readiness once operator-managed PostgreSQL/PgBouncer settings are injected.
 
-**Why this priority**: First-boot diagnostics must not depend on the later DB wiring task.
+**Why this priority**: First-boot diagnostics must separate liveness from DB readiness, fail closed when DB config is absent, and avoid leaking connection strings or driver details.
 
-**Independent Test**: `GET https://<vm-ip>/healthz` returns HTTP 200 with service metadata, and `GET https://<vm-ip>/readyz` returns a non-secret placeholder readiness response until the DB task lands.
+**Independent Test**: `GET https://<vm-ip>/healthz` returns HTTP 200 with service metadata; `GET https://<vm-ip>/readyz` returns sanitized HTTP 503 with `not_configured` when DB settings are absent and reports PostgreSQL connectivity plus latest `schema_migrations` version when configured.
 
 **Acceptance Scenarios**:
 1. **Given** the VM has completed cloud-init, **When** an operator requests `/healthz`, **Then** `cybermap-api` returns HTTP 200 JSON and does not include database hostnames, passwords, tokens, or connection strings.
-2. **Given** PostgreSQL/PgBouncer credentials have not been injected yet, **When** an operator requests `/readyz`, **Then** the API returns a controlled placeholder response with `pending-db-task` status.
+2. **Given** PostgreSQL/PgBouncer credentials have not been injected yet, **When** an operator requests `/readyz`, **Then** the API returns sanitized HTTP 503 readiness JSON with `dependencies.postgres.status = "not_configured"` and no secrets.
 3. **Given** a request carries `X-Request-Id`, **When** the service responds, **Then** the same request ID is returned in the response headers and structured logs.
 
 ### User Story 2 - Protected Cybermap API Surface (Priority: P1)
@@ -53,7 +53,7 @@ The VM is rebuilt by Bicep/cloud-init into a Cybermap gateway host with API, wor
 
 ### Edge Cases
 
-- PostgreSQL is unavailable or unconfigured during first boot: `/healthz` still succeeds; `/readyz` reports `pending-db-task` without secrets.
+- PostgreSQL is unavailable or unconfigured during first boot: `/healthz` still succeeds; `/readyz` reports sanitized `not_configured` or `unavailable` readiness without secrets.
 - SWA platform headers overwrite `Authorization`: the API accepts an explicit operator-token header in addition to bearer auth.
 - Large payloads reach the VM before full route implementation: body-size limits reject them before future DB work.
 - VM deployment happens before public DNS/custom domain cutover: the default HTTPS-on-IP gateway remains testable.
@@ -66,7 +66,7 @@ The VM is rebuilt by Bicep/cloud-init into a Cybermap gateway host with API, wor
 - **FR-001**: The VM MUST run a Node 20 `cybermap-api` service bound to `127.0.0.1:8000`.
 - **FR-002**: nginx or equivalent reverse proxy MUST terminate/proxy product ingress on HTTPS 443 to `cybermap-api`.
 - **FR-003**: `/healthz` MUST return secret-free process health and MUST NOT require DB connectivity.
-- **FR-004**: `/readyz` MUST return a controlled placeholder until DB-backed readiness lands.
+- **FR-004**: `/readyz` MUST check DB configuration, PostgreSQL connectivity, and the expected migration version, and MUST fail closed with sanitized JSON when unavailable.
 - **FR-005**: `/api/v1/*` MUST require authentication by default and fail closed when token configuration is absent.
 - **FR-006**: The API MUST emit structured JSON logs with request IDs and response statuses.
 - **FR-007**: The API MUST enforce request body-size limits and expose a rate-limit hook point for later hardening.
@@ -79,7 +79,7 @@ The VM is rebuilt by Bicep/cloud-init into a Cybermap gateway host with API, wor
 - **CybermapApiService**: Node 20 HTTP service that owns health/readiness and protected `/api/v1/*` scaffolds.
 - **CybermapWorkerService**: Node worker scaffold for later feed polling and cell materialization jobs.
 - **GatewayProxy**: nginx/Caddy-style local reverse proxy exposing HTTPS 443 and forwarding to localhost.
-- **PgBouncerPlaceholder**: Credential-free pooling config to be completed by the DB connection task.
+- **PgBouncerPlaceholder**: Credential-free pooling config completed at runtime by operator secret injection.
 
 ## Success Criteria *(mandatory)*
 
@@ -95,5 +95,5 @@ The VM is rebuilt by Bicep/cloud-init into a Cybermap gateway host with API, wor
 
 - The VM uses Ubuntu 22.04 LTS and can install Node 20 during cloud-init.
 - Database hostnames, passwords, and API tokens are injected later through operator-controlled runtime environment files or Azure settings.
-- Private PostgreSQL connectivity and DB-backed readiness are owned by the follow-on database connection task.
+- Private PostgreSQL credential injection remains operator-managed; DB-backed readiness logic is implemented by the API gateway.
 - Domain binding/custom-domain cutover may lag behind VM gateway deployment; the VM default HTTPS endpoint remains a validation target.

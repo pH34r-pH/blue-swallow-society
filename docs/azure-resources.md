@@ -49,7 +49,7 @@ This document specifies the Azure infrastructure resources deployed for the Blue
   - `PgBouncer` installed with a placeholder config on `127.0.0.1:6432` for low PostgreSQL connection counts.
 - **API guardrails**:
   - `/healthz` is secret-free and does not require DB connectivity.
-  - `/readyz` reports a non-secret `pending-db-task` placeholder until DB wiring lands.
+  - `/readyz` checks DB configuration, PostgreSQL connectivity, and `schema_migrations` version; missing DB settings return sanitized HTTP 503 readiness failure.
   - `/api/v1/*` requires auth by default.
   - Structured JSON logs include a request ID; body-size limits and rate-limit hook points are present.
 
