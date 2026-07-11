@@ -11,6 +11,11 @@ import { authorizeApiRequest, routeKindForRequest } from './source-registry.mjs'
 import { createPublicRateLimiter } from './rate-limit.mjs';
 import { handleObservationBatchRequest, observationIngestDefaults } from './observation-ingest.mjs';
 import { handleCybermapReadRequest } from './cybermap-read.mjs';
+import {
+  createInMemorySensoriumStore,
+  handleDirectObservationRequest,
+  handleSensoriumSessionRequest,
+} from './sensorium.mjs';
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 8000;
@@ -171,6 +176,7 @@ export function createCybermapApiServer(options = {}) {
       observationIngestDefaults.DEFAULT_OBSERVATION_PAYLOAD_LIMIT_BYTES,
     ),
   };
+  const sensoriumStore = options.sensoriumStore || createInMemorySensoriumStore();
 
   return http.createServer(async (req, res) => {
     const startedAt = Date.now();
@@ -304,6 +310,35 @@ export function createCybermapApiServer(options = {}) {
             limits: observationLimits,
           });
           respondJson(res, ingestResult.statusCode, requestId, ingestResult.body);
+          return;
+        }
+
+        if (req.method === 'POST' && url.pathname === '/api/v1/sensorium/sessions') {
+          const result = handleSensoriumSessionRequest({
+            body: parsedBody.value,
+            now,
+            store: sensoriumStore,
+            identity: authResult.identity,
+          });
+          if (!result.ok) {
+            respondJson(res, result.statusCode || 400, requestId, errorBody(result.code, result.message));
+            return;
+          }
+          respondJson(res, result.statusCode, requestId, result.body);
+          return;
+        }
+
+        if (req.method === 'POST' && url.pathname === '/api/v1/direct-observations') {
+          const result = handleDirectObservationRequest({
+            body: parsedBody.value,
+            now,
+            store: sensoriumStore,
+          });
+          if (!result.ok) {
+            respondJson(res, result.statusCode || 400, requestId, errorBody(result.code, result.message));
+            return;
+          }
+          respondJson(res, result.statusCode, requestId, result.body);
           return;
         }
 

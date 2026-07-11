@@ -34,6 +34,7 @@ var cybermapApiAuth = loadTextContent('../vm/cybermap-api/auth.mjs')
 var cybermapApiSourceRegistry = loadTextContent('../vm/cybermap-api/source-registry.mjs')
 var cybermapApiRead = loadTextContent('../vm/cybermap-api/cybermap-read.mjs')
 var cybermapApiRateLimit = loadTextContent('../vm/cybermap-api/rate-limit.mjs')
+var cybermapApiSensorium = loadTextContent('../vm/cybermap-api/sensorium.mjs')
 var cybermapApiDb = loadTextContent('../vm/cybermap-api/db.mjs')
 var cybermapApiMigrate = loadTextContent('../vm/cybermap-api/migrate.mjs')
 var cybermapCoreMigration = loadTextContent('../vm/cybermap-api/db/migrations/0001_cybermap_core.sql')
@@ -96,6 +97,13 @@ write_files:
     encoding: b64
     content: ''',
   base64(cybermapApiRateLimit),
+  '''
+  - path: /opt/cybermap-api/sensorium.mjs
+    permissions: '0644'
+    defer: true
+    encoding: b64
+    content: ''',
+  base64(cybermapApiSensorium),
   '''
   - path: /opt/cybermap-api/db.mjs
     permissions: '0644'
