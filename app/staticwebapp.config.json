@@ -67,6 +67,13 @@
       ]
     },
     {
+      "route": "/api/operator-shell",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
       "route": "/api/operator-downloads/wardriver/*",
       "allowedRoles": [
         "anonymous",

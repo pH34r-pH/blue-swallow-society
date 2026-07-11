@@ -2,45 +2,47 @@
 
 ## Overview
 
-The Blue Swallow Society Static Web App is split into two halves:
+The Blue Swallow Society Static Web App is a passcode split:
 
-1. **Public Face** at `/`: public project copy plus the Wardriver APK/download metadata.
-2. **Operator console** at `/operator` and `/agent`: SWA-authenticated HTML/JS/CSS/modules plus a server-side passcode gate that issues the app bearer token used by operator APIs.
+1. **Root face** at `/`: the unchanged Blue Swallow Society login screen.
+2. **Standard branch**: any non-operator passcode opens the event-planning personal site.
+3. **Operator branch**: the operator passcode calls `/api/validate-passcode`, receives a short-lived operator token, and loads the hidden operator shell.
 
-The public root does not link to, embed, or name the operator half.
+The public root does not link to, embed, or name the operator half or Wardriver artifacts.
 
-## Public Face
+## Root Face
 
-The public page includes:
+The public root includes only:
 
-- Blue Swallow Society public manifesto copy.
-- Wardriver APK download link.
-- Wardriver build metadata link.
-- APK package/version/size/build facts.
-- APK SHA-256 checksum.
+- `Blue Swallow Society` title.
+- Passcode text entry.
+- `login` button.
+- Hidden event-planning branch markup for non-operator passcodes.
 
-The public page intentionally has no script tag and no operator API names.
+The root page has no Wardriver APK link, no APK metadata link, no operator API names, and no client-side passcode literal or hash.
 
 ## Operator Console
 
-The operator console keeps the cyberpunk terminal shell and tabbed workbench under protected assets:
+The static `/operator` entrypoint ships only a loader:
 
 - `app/operator/index.html`
-- `app/operator/main.js`
+- `app/operator/loader.js`
 - `app/operator/styles.css`
-- `app/operator/*.mjs`
-- `app/operator/agent.html`
-- `app/operator/agent.js`
+
+The actual operator shell markup lives outside the public static app at:
+
+- `api/_private/operator/shell.html`
+
+`/operator/loader.js` reads the passcode-issued token from session storage, fetches `/api/operator-shell` with `X-Blue-Swallow-Operator-Token`, injects the private shell, then imports `/operator/main.js` and related modules.
 
 ### Authentication
 
-- SWA Easy Auth protects `/operator`, `/operator/*`, `/agent`, and `/agent.html`.
-- `/api/validate-passcode` is also SWA-authenticated.
+- `/api/validate-passcode` is anonymously reachable so the public login can call it.
 - The passcode is validated server-side from `BLUE_SWALLOW_PASSCODE_SHA256`.
 - The operator session token is signed server-side with independent `BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY` material.
 - The client has no hardcoded passcode, fallback secret, signing key, or local bypass.
 - A successful passcode check returns a short-lived operator session token.
-- Operator APIs require that token via `Authorization: Bearer ...` or `X-Blue-Swallow-Operator-Token`.
+- Operator APIs require that token via `X-Blue-Swallow-Operator-Token`; APIs also accept bearer tokens for local/tests, but the custom header is preferred because SWA/platform auth can reserve or mutate `Authorization`.
 
 ### Operator Tabs
 
@@ -63,13 +65,15 @@ The Tzeentch network feeds are lazy-loaded only after the Tzeentch tab is opened
 
 ## API Integration
 
-Protected operator APIs:
+Passcode/operator APIs:
 
 - `/api/validate-passcode` (POST): server-side passcode validation.
-- `/api/osint` (POST): public-source target scan / overview.
-- `/api/tzeentch` (GET): read-only dashboard and paper books.
-- `/api/wigle` (GET): local/current WiGLE snapshot proxy.
-- `/api/agent` (POST): protected agent prompt route.
+- `/api/operator-shell` (GET): private operator shell markup; requires operator token.
+- `/api/operator-downloads/wardriver/{apk|metadata}` (GET/HEAD): private Wardriver artifacts; requires operator token.
+- `/api/osint` (POST): public-source target scan / overview; requires operator token.
+- `/api/tzeentch` (GET): read-only dashboard and paper books; requires operator token.
+- `/api/wigle` (GET/POST): local/current WiGLE snapshot proxy; requires operator token.
+- `/api/agent` (POST): protected agent prompt route; requires operator token.
 - `/api/profile` (GET): protected profile endpoint.
 
 Public API:
@@ -78,9 +82,12 @@ Public API:
 
 ## Security Considerations
 
-- Public HTML/CSS contains only the Blue Swallow Society passcode split and the standard event-planning branch; it does not link to Wardriver artifacts or operator entrypoints.
-- `/operator` is unlinked from root and requires a passcode-issued session in browser state before showing the console.
-- Operator APIs and Wardriver downloads are routed anonymously through SWA so the passcode flow can reach them, then fail closed inside Functions through `requireOperatorToken`.
+- Public HTML/CSS contains only the Blue Swallow Society passcode split and the standard event-planning branch.
+- `/operator` does not ship the operator shell; it only ships a token-aware loader.
+- `/api/operator-shell` fails closed without `X-Blue-Swallow-Operator-Token`.
+- `/downloads/*` returns `404`.
+- Wardriver APK and metadata live under `api/_private/downloads/` and are served only by `/api/operator-downloads/wardriver/{apk|metadata}` after operator-token validation.
+- Operator APIs are routed anonymously through SWA so the passcode flow can reach them, then fail closed inside Functions through `requireOperatorToken`.
 - OSINT prompts and targets use POST bodies rather than query strings.
 - Sensitive investigation state uses session storage, not durable local storage.
 - Production CSP keeps browser connections same-origin.

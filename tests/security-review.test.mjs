@@ -7,6 +7,8 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const staticWebApp = JSON.parse(read('app/staticwebapp.config.json'));
 const indexHtml = read('app/index.html');
 const operatorHtml = read('app/operator/index.html');
+const operatorLoaderJs = read('app/operator/loader.js');
+const operatorShell = read('api/_private/operator/shell.html');
 const rootCss = read('app/styles.css');
 const rootMainJs = read('app/main.js');
 const operatorMainJs = read('app/operator/main.js');
@@ -48,6 +50,7 @@ test('operator APIs are reachable from the passcode login but fail closed on pas
     assert.deepEqual(routeConfig(route)?.allowedRoles, ['anonymous', 'authenticated'], `${route} must not be SWA-AAD gated before token validation`);
   });
   assert.deepEqual(routeConfig('/api/validate-passcode')?.allowedRoles, ['anonymous', 'authenticated']);
+  assert.deepEqual(routeConfig('/api/operator-shell')?.allowedRoles, ['anonymous', 'authenticated']);
   assert.deepEqual(routeConfig('/api/operator-downloads/wardriver/*')?.allowedRoles, ['anonymous', 'authenticated']);
 
   assert.ok(read('api/osint/index.js').includes('requireOperatorToken'));
@@ -89,10 +92,16 @@ test('root face ships only the passcode split and standard-site decoy, never ope
 });
 
 test('operator entrypoint is separate from the root face, unlinked, and client-guarded by an operator session', () => {
-  assert.ok(operatorHtml.includes('terminalScreen'));
-  assert.ok(operatorHtml.includes('mainInterface'));
-  assert.ok(operatorHtml.includes('/operator/main.js'));
-  assert.ok(operatorHtml.includes('/operator/styles.css'));
+  assert.ok(operatorHtml.includes('operatorLoader'));
+  assert.ok(operatorHtml.includes('/operator/loader.js'));
+  assert.ok(!operatorHtml.includes('terminalScreen'));
+  assert.ok(!operatorHtml.includes('mainInterface'));
+  assert.ok(!operatorHtml.includes('/api/operator-downloads/wardriver/apk'));
+  assert.ok(operatorLoaderJs.includes("fetch('/api/operator-shell'"));
+  assert.ok(operatorLoaderJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
+  assert.ok(operatorLoaderJs.includes("import('/operator/main.js')"));
+  assert.ok(operatorShell.includes('terminalScreen'));
+  assert.ok(operatorShell.includes('mainInterface'));
   assert.ok(!indexHtml.includes('operator/index.html'));
   assert.ok(!indexHtml.includes('/operator/'));
   assert.ok(operatorMainJs.includes("window.location.replace('/')"));
@@ -141,7 +150,7 @@ test('device-local endpoints stay same-origin under the production CSP', () => {
   assert.match(csp, /connect-src 'self'(?:;|$)/);
   assert.ok(!indexHtml.includes('http://device.local'));
   assert.ok(!indexHtml.includes('placeholder="/api/ar-detections"'));
-  assert.ok(operatorHtml.includes('placeholder="/api/wigle"'));
+  assert.ok(operatorShell.includes('placeholder="/api/wigle"'));
 });
 
 test('OSINT, WiGLE coordinates, and agent prompts are sent via POST bodies, not URLs or persistent storage', () => {
@@ -183,10 +192,11 @@ test('APK downloads are removed from the public static surface and served only b
   assert.ok(staticWebApp.navigationFallback.exclude.some((entry) => entry.includes('apk')));
   assert.ok(!indexHtml.includes('/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk'));
   assert.ok(!indexHtml.includes('/downloads/blue-swallow-wardriver.json'));
-  assert.ok(operatorHtml.includes('/api/operator-downloads/wardriver/apk'));
-  assert.ok(operatorHtml.includes('/api/operator-downloads/wardriver/metadata'));
-  assert.ok(operatorHtml.includes('data-operator-download="apk"'));
-  assert.match(operatorHtml, /download="blue-swallow-wardriver-2\.109-bss\.1-debug\.apk"/);
+  assert.ok(!operatorHtml.includes('/api/operator-downloads/wardriver/apk'));
+  assert.ok(operatorShell.includes('/api/operator-downloads/wardriver/apk'));
+  assert.ok(operatorShell.includes('/api/operator-downloads/wardriver/metadata'));
+  assert.ok(operatorShell.includes('data-operator-download="apk"'));
+  assert.match(operatorShell, /download="blue-swallow-wardriver-2\.109-bss\.1-debug\.apk"/);
   assert.ok(operatorMainJs.includes('handleOperatorDownload'));
   assert.ok(operatorMainJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
   assert.ok(operatorDownloadsApi.includes('requireOperatorToken'));
@@ -219,7 +229,7 @@ test('local dev server returns JSON 501 for unmounted API routes instead of SPA 
 test('sample WiGLE state is explicitly labeled as demo data', () => {
   assert.ok(operatorMainJs.includes('Sample/demo WiGLE dataset loaded'));
   assert.ok(!operatorMainJs.includes("wigleStatus: 'Local WiGLE database is ready.'"));
-  assert.ok(operatorHtml.includes('Sample/demo WiGLE dataset loaded'));
+  assert.ok(operatorShell.includes('Sample/demo WiGLE dataset loaded'));
 });
 
 test('stale shell CSS selectors are pruned', () => {

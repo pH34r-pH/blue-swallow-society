@@ -1,0 +1,454 @@
+<main id="terminalScreen" class="terminal-screen active" aria-label="Private access login">
+      <div class="terminal-container">
+        <section class="terminal-panel panel login-panel" aria-label="Authentication portal">
+          <h1 class="terminal-title">Blue Swallow Society</h1>
+          <input
+            id="passcodeInput"
+            class="input terminal-input-field"
+            type="password"
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+            enterkeyhint="go"
+            maxlength="128"
+            aria-label="Passcode"
+          />
+
+          <div class="terminal-actions">
+            <button id="loginBtn" class="btn login-btn" type="button">login</button>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <div id="mainInterface" class="main-interface">
+      <header class="site-header">
+        <div class="container site-header-inner">
+          <div class="site-title-block">
+            <p class="eyebrow">// OPERATOR CONSOLE //</p>
+            <h1 class="console-heading">Blue Swallow Society</h1>
+            <p class="lede">
+              Mobile-first signal workbench for local analysis, overlays, and location-aware context.
+            </p>
+          </div>
+
+          <div class="site-header-actions">
+            <button id="logoutBtn" class="btn btn-secondary logout-btn" type="button">Lock</button>
+          </div>
+        </div>
+      </header>
+
+      <nav class="tab-bar" role="tablist" aria-label="Main navigation">
+        <button
+          class="tab-btn active"
+          data-tab="landing"
+          role="tab"
+          aria-selected="true"
+          aria-controls="landing-tab"
+          id="tab-landing"
+          tabindex="0"
+          type="button"
+        >
+          Landing
+        </button>
+        <button
+          class="tab-btn"
+          data-tab="tzeentch"
+          role="tab"
+          aria-selected="false"
+          aria-controls="tzeentch-tab"
+          id="tab-tzeentch"
+          tabindex="-1"
+          type="button"
+        >
+          Tzeentch
+        </button>
+        <button
+          class="tab-btn"
+          data-tab="godeye"
+          role="tab"
+          aria-selected="false"
+          aria-controls="godeye-tab"
+          id="tab-godeye"
+          tabindex="-1"
+          type="button"
+        >
+          Godeye
+        </button>
+      </nav>
+
+      <div id="landing-tab" class="tab-content active" role="tabpanel" aria-labelledby="tab-landing">
+        <section class="container landing-stack">
+          <article class="panel tab-panel landing-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">// LANDING //</p>
+                <h2>Manifesto</h2>
+              </div>
+              <p class="panel-meta">Lorem ipsum placeholder copy stays here for now.</p>
+            </div>
+
+            <div class="manifesto-copy">
+              <p>
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim
+                sit amet, adipiscing nec, ultricies sed, dolor.
+              </p>
+              <p>
+                Cras elementum ultrices diam. Maecenas ligula massa, varius a, semper congue, euismod non, mi. Proin porttitor,
+                orci nec nonummy molestie.
+              </p>
+              <p>
+                Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Nam dui ligula, fringilla
+                a, euismod sodales, sollicitudin vel, wisi.
+              </p>
+            </div>
+          </article>
+
+          <article class="panel tab-panel landing-panel download-card" aria-labelledby="wardriverDownloadTitle">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">// DOWNLOAD //</p>
+                <h2 id="wardriverDownloadTitle">Blue Swallow Wardriver APK</h2>
+              </div>
+              <p class="panel-meta">Branded WiGLE fork for local-only passive observation and Godeye handoff.</p>
+            </div>
+
+            <div class="download-grid">
+              <div class="download-copy">
+                <p>
+                  Install the Android APK on the field device, keep WiGLE/Flipper captures local, then use Godeye here as the hosted viewer for map and overlay review.
+                </p>
+                <ul class="download-facts" aria-label="APK build facts">
+                  <li><span>Package</span><strong>co.blueswallow.wardriver</strong></li>
+                  <li><span>Version</span><strong>2.109-bss.1 / 310</strong></li>
+                  <li><span>Size</span><strong>61.82 MiB</strong></li>
+                  <li><span>Build</span><strong>debug sideload</strong></li>
+                </ul>
+              </div>
+
+              <div class="download-actions" aria-label="Wardriver download actions">
+                <a class="btn btn-primary download-link" href="/api/operator-downloads/wardriver/apk" download="blue-swallow-wardriver-2.109-bss.1-debug.apk" data-operator-download="apk">
+                  Download APK
+                </a>
+                <a class="btn btn-secondary download-link" href="/api/operator-downloads/wardriver/metadata" download="blue-swallow-wardriver.json" data-operator-download="metadata">
+                  Build metadata
+                </a>
+                <p class="apk-hash"><span>SHA-256</span><code>f50d2dcf726ef52297968e1a0af9119c7569b7692e1813d70a1ed0274ba95a0e</code></p>
+              </div>
+            </div>
+          </article>
+        </section>
+      </div>
+
+      <div id="tzeentch-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-tzeentch">
+        <section class="container">
+          <article class="panel tab-panel dashboard-shell">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">// TZEENTCH //</p>
+                <h2>Tzeentch OSINT workspace</h2>
+              </div>
+              <p class="panel-meta">Public-source, read-only triage: overview first, filter next, evidence on demand.</p>
+            </div>
+
+            <section class="tzeentch-operator-brief" aria-label="OSINT interaction model">
+              <article class="brief-card">
+                <span class="brief-step">01</span>
+                <strong>Set scope</strong>
+                <p>Enter a domain, URL, IP, email, or handle. Auto mode classifies the target before fan-out.</p>
+              </article>
+              <article class="brief-card">
+                <span class="brief-step">02</span>
+                <strong>Read provenance</strong>
+                <p>Facts stay tagged as public records, platform traces, archive hits, or derived normalization.</p>
+              </article>
+              <article class="brief-card">
+                <span class="brief-step">03</span>
+                <strong>Escalate carefully</strong>
+                <p>No private-source lookups, no persistent PII; use source links and session-only recents for review.</p>
+              </article>
+            </section>
+
+            <div class="tzeentch-subtabs" role="tablist" aria-label="Tzeentch sub-tabs">
+              <button id="tzeentchSurfaceSeek" class="tzeentch-subtab is-active" data-surface="seek" role="tab" aria-selected="true" aria-controls="tzeentchSeekPanel" type="button">
+                Seek
+              </button>
+              <button id="tzeentchSurfaceMurmurs" class="tzeentch-subtab" data-surface="murmurs" role="tab" aria-selected="false" aria-controls="tzeentchMarketPanel" type="button">
+                Murmurs
+              </button>
+              <button id="tzeentchSurfaceCrypto" class="tzeentch-subtab" data-surface="crypto" role="tab" aria-selected="false" aria-controls="tzeentchMarketPanel" type="button">
+                Crypto
+              </button>
+              <button id="tzeentchSurfacePolymarket" class="tzeentch-subtab" data-surface="polymarket" role="tab" aria-selected="false" aria-controls="tzeentchMarketPanel" type="button">
+                Polymarket
+              </button>
+              <button id="tzeentchSurfaceIntel" class="tzeentch-subtab" data-surface="intel" role="tab" aria-selected="false" aria-controls="tzeentchMarketPanel" type="button">
+                Actionable Intel
+              </button>
+            </div>
+
+            <section id="tzeentchSeekPanel" class="tzeentch-surface-panel" aria-label="Seek workspace" data-surface-panel="seek">
+              <div class="dashboard-intake">
+                <label class="dashboard-field" for="tzeentchQuery">
+                  <span>Target</span>
+                  <input
+                    id="tzeentchQuery"
+                    class="input dashboard-input"
+                    type="text"
+                    placeholder="example.com, @handle, 8.8.8.8, or a URL"
+                    autocomplete="off"
+                    autocapitalize="none"
+                    spellcheck="false"
+                  />
+                </label>
+
+                <label class="dashboard-field" for="tzeentchMode">
+                  <span>Mode</span>
+                  <select id="tzeentchMode" class="input dashboard-input dashboard-select">
+                    <option value="auto">Auto</option>
+                    <option value="domain">Domain</option>
+                    <option value="url">URL</option>
+                    <option value="ip">IP</option>
+                    <option value="handle">Handle</option>
+                    <option value="email">Email</option>
+                  </select>
+                </label>
+
+                <button id="tzeentchSearchBtn" class="btn btn-primary dashboard-action" type="button">Scan</button>
+                <button id="tzeentchClearBtn" class="btn btn-secondary dashboard-action" type="button">Overview</button>
+              </div>
+
+              <p id="tzeentchStatus" class="dashboard-status" role="status">Load a target to fan out across public sources.</p>
+              <details class="tzeentch-method-card">
+                <summary>Method and privacy boundaries</summary>
+                <div class="method-grid">
+                  <p><strong>Sources:</strong> RDAP, DNS, certificate transparency, archives, GitHub, Reddit, Wikipedia, and live public feeds.</p>
+                  <p><strong>Handling:</strong> query text is sent in a POST body, recent targets stay in session storage only, and displayed facts are evidence hints—not identity proof.</p>
+                </div>
+              </details>
+              <div id="tzeentchSources" class="dashboard-chip-row" aria-label="Supported source families"></div>
+
+              <section class="dashboard-metrics" aria-label="Dashboard metrics">
+                <article class="metric-card">
+                  <span class="metric-label">Target type</span>
+                  <strong id="tzeentchMetricType">—</strong>
+                  <p id="tzeentchMetricTypeNote">Awaiting query.</p>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">Sources queried</span>
+                  <strong id="tzeentchMetricSources">0</strong>
+                  <p>RDAP, DNS, archive, GitHub, Reddit, Wikipedia, and live feeds.</p>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">Findings</span>
+                  <strong id="tzeentchMetricFindings">0</strong>
+                  <p id="tzeentchMetricFindingsNote">No scan yet.</p>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">Last refresh</span>
+                  <strong id="tzeentchMetricRefresh">—</strong>
+                  <p id="tzeentchMetricRefreshNote">Waiting for input.</p>
+                </article>
+              </section>
+
+              <section class="dashboard-results">
+                <article class="result-card">
+                  <div class="panel-heading panel-heading-compact">
+                    <div>
+                      <p class="eyebrow">// PROFILE //</p>
+                      <h3>Target profile</h3>
+                    </div>
+                  </div>
+                  <div id="tzeentchProfile" class="result-list"></div>
+                </article>
+
+                <article class="result-card">
+                  <div class="panel-heading panel-heading-compact">
+                    <div>
+                      <p class="eyebrow">// NETWORK //</p>
+                      <h3>Domain and network surface</h3>
+                    </div>
+                  </div>
+                  <div id="tzeentchNetwork" class="result-list"></div>
+                </article>
+
+                <article class="result-card">
+                  <div class="panel-heading panel-heading-compact">
+                    <div>
+                      <p class="eyebrow">// SOCIAL //</p>
+                      <h3>Public traces</h3>
+                    </div>
+                  </div>
+                  <div id="tzeentchSocial" class="result-list"></div>
+                </article>
+
+                <article class="result-card">
+                  <div class="panel-heading panel-heading-compact">
+                    <div>
+                      <p class="eyebrow">// ARCHIVE //</p>
+                      <h3>Archive and provenance</h3>
+                    </div>
+                  </div>
+                  <div id="tzeentchArchive" class="result-list"></div>
+                </article>
+
+                <article class="result-card result-card-wide">
+                  <div class="panel-heading panel-heading-compact">
+                    <div>
+                      <p class="eyebrow">// SOURCES //</p>
+                      <h3>Source coverage</h3>
+                    </div>
+                  </div>
+                  <div id="tzeentchSourcesList" class="source-result-list"></div>
+                </article>
+
+                <article class="result-card result-card-wide">
+                  <div class="panel-heading panel-heading-compact">
+                    <div>
+                      <p class="eyebrow">// SIGNALS //</p>
+                      <h3>Live public feeds</h3>
+                    </div>
+                  </div>
+                  <div id="tzeentchSignals" class="signal-feed-list"></div>
+                </article>
+
+                <article class="result-card result-card-wide">
+                  <div class="panel-heading panel-heading-compact">
+                    <div>
+                      <p class="eyebrow">// RECENT //</p>
+                      <h3>Recent queries</h3>
+                    </div>
+                  </div>
+                  <div id="tzeentchRecent" class="recent-query-list"></div>
+                </article>
+              </section>
+            </section>
+
+            <section id="tzeentchMarketPanel" class="tzeentch-surface-panel hidden" aria-label="Market workspace" data-surface-panel="markets">
+              <article class="result-card result-card-wide market-lane-card">
+                <div id="tzeentchApplications" class="application-list"></div>
+              </article>
+            </section>
+          </article>
+        </section>
+      </div>
+
+      <div id="godeye-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-godeye">
+        <section class="container">
+          <article class="panel tab-panel godeye-shell">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">// GODEYE //</p>
+                <h2>Hosted viewer</h2>
+              </div>
+              <p class="panel-meta">Hosted OpenStreetMap viewer for local WiGLE review, aircraft-track scaffolds, and non-camera overlays.</p>
+            </div>
+
+            <div class="godeye-layout">
+              <div class="map-panel">
+                <div id="godeyeMap" class="map-viewport" aria-label="OpenStreetMap current location map">
+                  <div id="godeyeTiles" class="map-tiles" aria-hidden="true"></div>
+                  <div class="map-grid" aria-hidden="true"></div>
+                  <div class="map-reticle" aria-hidden="true"></div>
+                  <div id="godeyeAccuracy" class="map-accuracy" aria-hidden="true"></div>
+                  <div id="godeyeMarker" class="map-marker" aria-hidden="true">
+                    <span class="map-marker-core"></span>
+                    <span class="map-marker-head"></span>
+                  </div>
+                  <div id="godeyeWigleMarkers" class="map-wigle-markers" aria-hidden="true"></div>
+                  <div class="map-label">
+                    <span class="map-label-title">Current fix</span>
+                    <span id="godeyeCoords">Awaiting geolocation permission.</span>
+                  </div>
+                </div>
+              </div>
+
+              <aside class="geo-panel">
+                <button id="locationBtn" class="btn btn-primary sensor-action" type="button">Enable location</button>
+
+                <div class="geo-card">
+                  <p class="sensor-label">Map stack</p>
+                  <p>The map uses OpenStreetMap tiles for now; MapLibre is the likely swap if the overlay stack needs more control later.</p>
+                </div>
+
+                <div class="geo-card">
+                  <p class="sensor-label">Overlay slots</p>
+                  <p>FlightRadar24 and other live tracks can be layered here without bringing the camera/AR client back into the hosted shell.</p>
+                  <div class="overlay-slot-list">
+                    <span class="source-chip source-chip-live">WiGLE radius</span>
+                    <span class="source-chip">FlightRadar24 scaffold</span>
+                    <span class="source-chip">MapLibre-ready</span>
+                  </div>
+                </div>
+
+                <div class="geo-card">
+                  <p class="sensor-label">WiGLE sources</p>
+                  <label class="wigle-field" for="wigleEndpointInput">
+                    <span>Device-local WiGLE endpoint</span>
+                    <input
+                      id="wigleEndpointInput"
+                      class="input dashboard-input"
+                      type="url"
+                      placeholder="/api/wigle"
+                      autocomplete="off"
+                      autocapitalize="none"
+                      spellcheck="false"
+                    />
+                  </label>
+                  <label class="wigle-field" for="wigleFileInput">
+                    <span>Local database file</span>
+                    <input id="wigleFileInput" class="input dashboard-input" type="file" accept=".json,.csv,.ndjson,application/json,text/csv,text/plain" />
+                  </label>
+                  <div class="wigle-action-row">
+                    <button id="wigleConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect current state</button>
+                    <button id="wigleSampleBtn" class="btn btn-secondary sensor-action" type="button">Load sample data</button>
+                  </div>
+                  <p id="wigleStatusText">Sample/demo WiGLE dataset loaded.</p>
+                </div>
+
+                <div class="geo-card">
+                  <p class="sensor-label">Location status</p>
+                  <p id="geoStatusText">Geolocation permission has not been requested yet.</p>
+                </div>
+
+                <div class="geo-card">
+                  <p class="sensor-label">WiGLE map readout</p>
+                  <p id="godeyeWigleStatus">The map will show local WiGLE records within 100m of the current fix.</p>
+                  <div id="godeyeWigleList" class="wigle-list"></div>
+                </div>
+
+                <dl class="geo-metrics">
+                  <div>
+                    <dt>Latitude</dt>
+                    <dd id="geoLat">—</dd>
+                  </div>
+                  <div>
+                    <dt>Longitude</dt>
+                    <dd id="geoLon">—</dd>
+                  </div>
+                  <div>
+                    <dt>Accuracy</dt>
+                    <dd id="geoAccuracy">—</dd>
+                  </div>
+                  <div>
+                    <dt>Heading</dt>
+                    <dd id="geoHeading">—</dd>
+                  </div>
+                  <div>
+                    <dt>Speed</dt>
+                    <dd id="geoSpeed">—</dd>
+                  </div>
+                </dl>
+              </aside>
+            </div>
+          </article>
+        </section>
+      </div>
+
+      <footer class="site-footer">
+        <div class="container footer-inner">
+          <span>Blue Swallow Society</span>
+          <span class="subtle">// mobile-first cyberpunk console //</span>
+        </div>
+      </footer>
+    </div>

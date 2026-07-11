@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs';
 const indexHtml = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
 const rootMainJs = readFileSync(new URL('../app/main.js', import.meta.url), 'utf8');
 const operatorHtml = readFileSync(new URL('../app/operator/index.html', import.meta.url), 'utf8');
+const operatorShell = readFileSync(new URL('../api/_private/operator/shell.html', import.meta.url), 'utf8');
+const operatorLoaderJs = readFileSync(new URL('../app/operator/loader.js', import.meta.url), 'utf8');
 const mainJs = readFileSync(new URL('../app/operator/main.js', import.meta.url), 'utf8');
 const tzeentchJs = readFileSync(new URL('../app/operator/tzeentch.mjs', import.meta.url), 'utf8');
 const stylesCss = readFileSync(new URL('../app/operator/styles.css', import.meta.url), 'utf8');
@@ -41,10 +43,15 @@ test('standard personal site is the non-operator branch and contains no wardrive
 });
 
 test('operator entrypoint requires an existing passcode-issued session before showing the console', () => {
-  assert.ok(operatorHtml.includes('terminalScreen'));
-  assert.ok(operatorHtml.includes('mainInterface'));
-  assert.ok(operatorHtml.includes('/operator/main.js'));
-  assert.ok(operatorHtml.includes('/operator/styles.css'));
+  assert.ok(operatorHtml.includes('operatorLoader'));
+  assert.ok(operatorHtml.includes('/operator/loader.js'));
+  assert.ok(!operatorHtml.includes('mainInterface'));
+  assert.ok(!operatorHtml.includes('/api/operator-downloads/wardriver/apk'));
+  assert.ok(operatorLoaderJs.includes("fetch('/api/operator-shell'"));
+  assert.ok(operatorLoaderJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
+  assert.ok(operatorLoaderJs.includes("import('/operator/main.js')"));
+  assert.ok(operatorShell.includes('terminalScreen'));
+  assert.ok(operatorShell.includes('mainInterface'));
   assert.ok(mainJs.includes("window.location.replace('/')"));
   assert.ok(mainJs.includes('getOperatorSession()'));
   assert.ok(mainJs.includes('unlockConsole()'));
@@ -57,11 +64,11 @@ test('tzeentch shell exposes the restored sub-tabs', () => {
     'data-surface="crypto"',
     'data-surface="polymarket"',
     'data-surface="intel"',
-  ].forEach((needle) => assert.ok(operatorHtml.includes(needle), needle));
+  ].forEach((needle) => assert.ok(operatorShell.includes(needle), needle));
 
-  assert.ok(operatorHtml.includes('Actionable Intel'));
-  assert.ok(!operatorHtml.includes('data-surface="markets"'));
-  assert.ok(!operatorHtml.includes('tzeentchSurfaceMarkets'));
+  assert.ok(operatorShell.includes('Actionable Intel'));
+  assert.ok(!operatorShell.includes('data-surface="markets"'));
+  assert.ok(!operatorShell.includes('tzeentchSurfaceMarkets'));
 });
 
 test('tzeentch client uses one surface manifest and no legacy market carousel state', () => {
@@ -84,20 +91,21 @@ test('tzeentch sub-tabs wrap instead of hiding overflow off-canvas', () => {
 });
 
 test('AR tab is removed while Godeye remains the hosted viewer', () => {
-  assert.ok(!operatorHtml.includes('data-tab="ar"'));
-  assert.ok(!operatorHtml.includes('id="ar-tab"'));
-  assert.ok(!operatorHtml.includes('Camera passthrough'));
-  assert.ok(operatorHtml.includes('data-tab="godeye"'));
-  assert.ok(operatorHtml.includes('Hosted viewer'));
-  assert.ok(operatorHtml.includes('Godeye'));
+  assert.ok(!operatorShell.includes('data-tab="ar"'));
+  assert.ok(!operatorShell.includes('id="ar-tab"'));
+  assert.ok(!operatorShell.includes('Camera passthrough'));
+  assert.ok(operatorShell.includes('data-tab="godeye"'));
+  assert.ok(operatorShell.includes('Hosted viewer'));
+  assert.ok(operatorShell.includes('Godeye'));
 });
 
 test('Wardriver APK links are only operator-token API links', () => {
   assert.ok(!indexHtml.includes('/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk'));
   assert.ok(!indexHtml.includes('/downloads/blue-swallow-wardriver.json'));
-  assert.ok(operatorHtml.includes('/api/operator-downloads/wardriver/apk'));
-  assert.ok(operatorHtml.includes('/api/operator-downloads/wardriver/metadata'));
-  assert.ok(operatorHtml.includes('data-operator-download="apk"'));
+  assert.ok(!operatorHtml.includes('/api/operator-downloads/wardriver/apk'));
+  assert.ok(operatorShell.includes('/api/operator-downloads/wardriver/apk'));
+  assert.ok(operatorShell.includes('/api/operator-downloads/wardriver/metadata'));
+  assert.ok(operatorShell.includes('data-operator-download="apk"'));
   assert.match(mainJs, /function handleOperatorDownload/);
   assert.match(mainJs, /'X-Blue-Swallow-Operator-Token': session\.token/);
   assert.match(mainJs, /fetch\(link\.href/);

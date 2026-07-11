@@ -45,7 +45,10 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 │   ├── profile/
 │   ├── agent/
 │   ├── operator-downloads/
-│   └── _private/downloads/
+│   ├── operator-shell/
+│   └── _private/
+│       ├── downloads/
+│       └── operator/
 ├── app/
 │   ├── index.html
 │   ├── main.js
@@ -105,7 +108,7 @@ The split behavior is server-side:
 - no browser bundle contains the canonical passcode literal or hash.
 
 The hidden operator half lives under `/operator` and `/agent`:
-- `/operator` is unlinked from root and client-guarded by the passcode-issued session;
+- `/operator` ships only a token-aware loader; the real operator shell is served by `/api/operator-shell` from `api/_private/operator/shell.html` after `X-Blue-Swallow-Operator-Token` validation;
 - operator data APIs (`/api/wigle`, `/api/agent`, `/api/osint`, `/api/tzeentch`) fail closed inside the Functions layer with `requireOperatorToken`;
 - the Wardriver APK is no longer a public static asset and is served only by `/api/operator-downloads/wardriver/*` after the same operator-token check;
 - Godeye, Tzeentch, WiGLE, and agent surfaces are lazy-loaded from operator assets only.

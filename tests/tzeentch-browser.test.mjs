@@ -156,10 +156,15 @@ test('Obscura renders Tzeentch sub-tabs and switches to the Crypto panel', async
         ok: true,
         operatorSession: {
           token: 'browser-token',
-          expiresAt: '2026-07-09T20:00:00Z',
+          expiresAt: '2026-07-12T20:00:00Z',
           ttlSeconds: 28800,
         },
       });
+      return;
+    }
+    if (url.pathname === '/api/operator-shell') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(readFileSync(join(repoRoot, 'api/_private/operator/shell.html'), 'utf8'));
       return;
     }
     if (url.pathname === '/api/osint') {
@@ -183,8 +188,7 @@ test('Obscura renders Tzeentch sub-tabs and switches to the Crypto panel', async
       res.writeHead(200, { 'Content-Type': MIME_TYPES[extname(filePath)] || 'application/octet-stream' });
       if (pathname === '/operator/index.html') {
         const html = body.toString('utf8')
-          .replace('<script src="/operator/main.js" type="module"></script>', `${operatorSessionSeedScript()}<script src="/operator/main.js" type="module"></script>`)
-          .replace('</body>', `${browserBootScript()}</body>`);
+          .replace('<script src="/operator/loader.js" type="module"></script>', `${operatorSessionSeedScript()}${browserBootScript()}<script src="/operator/loader.js" type="module"></script>`);
         res.end(html);
         return;
       }
@@ -239,7 +243,7 @@ function operatorSessionSeedScript() {
     <script>
       sessionStorage.setItem('blue-swallow-society:operator-session', JSON.stringify({
         token: 'browser-token',
-        expiresAt: '2026-07-09T20:00:00Z',
+        expiresAt: '2026-07-12T20:00:00Z',
         ttlSeconds: 28800,
       }));
     </script>
@@ -298,7 +302,7 @@ function browserBootScript() {
           await sleep(50);
           sessionStorage.setItem('blue-swallow-society:operator-session', JSON.stringify({
             token: 'browser-token',
-            expiresAt: '2026-07-09T20:00:00Z',
+            expiresAt: '2026-07-12T20:00:00Z',
             ttlSeconds: 28800,
           }));
 
