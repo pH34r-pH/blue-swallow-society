@@ -6,7 +6,7 @@ This starter repo gives you:
 - **GitHub Actions CI/CD** for the frontend, managed API, infrastructure, and custom-domain wiring
 - A small **Azure Functions API** for profile, agent, OSINT, Tzeentch, and future Cybermap proxy routes
 - An **Ubuntu VM** hosting the Node 20 Cybermap API gateway scaffold behind HTTPS 443
-- A **Cybermap-first geospatial backend design** using Azure Database for PostgreSQL Flexible Server B1MS + PostGIS
+- A **private Cybermap datastore** on Azure Database for PostgreSQL Flexible Server B1MS + PostGIS
 - A clean place to add **local model experiments** later on the VM
 - An optional **Azure OpenAI** account, gated by a single Bicep parameter
 - Documentation to evolve toward **Microsoft Entra External ID** for customer sign-up/sign-in later
@@ -22,15 +22,16 @@ Azure Static Web App (public frontend: Godeye/Tzeentch)
   ↓
 VM API gateway on Ubuntu (nginx HTTPS 443 -> cybermap-api localhost:8000)
   ↓
-Azure Database for PostgreSQL Flexible Server B1MS + PostGIS (target Cybermap store)
+PgBouncer on localhost:6432
+  ↓
+Azure Database for PostgreSQL Flexible Server B1MS + PostGIS (private Cybermap store)
 ```
 
-The browser never calls the VM directly. The frontend calls the Static Web App API, and the API proxies the request to the VM.
+The browser never calls PostgreSQL directly. The frontend calls the Static Web App API, and the API proxies product requests to the VM gateway.
 
 ---
 
 ## Repo Layout
-
 ```text
 .
 ├── .github/
@@ -38,7 +39,7 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 │   └── workflows/
 │       ├── deploy-static-web-app.yml          # canonical CI: infra + app + custom domains
 │       ├── infra-whatif.yml                   # manual what-if (RG scope, OIDC)
-│       ├── azure-static-web-apps-wonderful-pond-0623ed81e.yml  # disabled legacy workflow; delete after cutover to blue-swallow-swa
+│       ├── azure-static-web-apps-wonderful-pond-0623ed81e.yml  # disabled legacy workflow; legacy SWAs deleted after cutover
 │       └── setup-azure-creds.md
 ├── api/
 │   ├── profile/
@@ -55,6 +56,7 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 ├── docs/
 │   ├── architecture.md
 │   ├── ai-options-and-budget.md
+│   ├── azure-resources.md
 │   ├── cybermap-geospatial-backend.md
 │   ├── external-id-setup-checklist.md
 │   ├── mosaic-and-murmurs-operating-doctrine.md
@@ -62,14 +64,17 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 │   ├── vm-api.md
 │   └── vm-echo-wiring.md            # historical echo note; not product wiring
 ├── infra/
-│   ├── main.bicep                  # single entrypoint, composes VM + optional OpenAI
+│   ├── main.bicep                  # single entrypoint, composes SWA + network + VM + PostgreSQL + optional OpenAI
 │   ├── custom-domains.bicep        # custom-domain bindings for the Static Web App
 │   ├── custom-domains-dns.bicep    # Azure DNS records for apex/www
 │   ├── main.parameters.json
 │   ├── vm-echo-lab.bicep           # historical filename; Cybermap VM gateway + NSG + cloud-init
 │   └── modules/
+│       ├── network.bicep           # shared VNet, VM subnet, delegated PostgreSQL subnet, private DNS
+│       ├── postgres-flexible.bicep # private PostgreSQL Flexible Server B1MS datastore
 │       └── openai.bicep            # optional Azure OpenAI account
 └── scripts/
+    ├── cybermap-logical-backup.sh  # optional disabled-by-default pg_dump -> Blob export helper
     ├── local-dev.ps1
     ├── print-next-steps.sh
     ├── wireup-custom-domains.py    # helper script used by CI for custom-domain wiring
@@ -114,13 +119,13 @@ The CI pipeline drives everything. You only run shell commands when bootstrappin
 Follow [.github/workflows/setup-azure-creds.md](.github/workflows/setup-azure-creds.md) to:
 - create the `blue-swallow-deployer` service principal scoped to `rg-blue-swallow`
 - add an OIDC federated credential for `repo:<you>/blue-swallow-society:ref:refs/heads/main`
-- set GitHub secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `VM_SSH_PUBLIC_KEY`
+- set GitHub secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `VM_SSH_PUBLIC_KEY`, `POSTGRES_ADMIN_PASSWORD`
 
 ### 2. Push to `main`
 
 The **Deploy Infra + App** workflow will:
 1. Create the resource group `rg-blue-swallow` if it does not exist.
-2. Run `az deployment group create` against `infra/main.bicep` (SWA resource `blue-swallow-swa` + Cybermap VM API gateway; OpenAI optional).
+2. Run `az deployment group create` against `infra/main.bicep` (SWA resource `blue-swallow-swa` + shared VNet + Cybermap VM API gateway + private PostgreSQL B1MS; OpenAI optional).
 3. Set `BACKEND_API_BASE_URL` and the canonical `BLUE_SWALLOW_PASSCODE_SHA256` runtime hash on the Static Web App.
 4. Deploy `app/` and `api/` to the Static Web App.
 5. Wire the apex `blueswallow.co.in` and `www.blueswallow.co.in` hostnames through the custom-domain helper script and Azure DNS in `rg-blue-swallow` (the DNS zone is referenced as an existing resource in `infra/custom-domains-dns.bicep`; the canonical SWA is `blue-swallow-swa`; legacy SWAs `blue-swallow-society` and `wonderful-pond-0623ed81e` have been deleted after cutover). The helper stages the Azure DNS apex A alias and `www` CNAME even before public delegation is live; final SWA custom-domain binding still requires the domain to be registered and delegated at the registrar to the Azure DNS nameservers.
@@ -133,7 +138,7 @@ Set `deployOpenAi` to `true` in [`infra/main.parameters.json`](./infra/main.para
 
 ### 4. (Optional) Tighten access
 
-Replace `"allowedSourceIp": "*"` with your developer IP `/32` to restrict direct SSH. The Cybermap product ingress is HTTPS 443 with API-layer auth hooks. The VM auto-shutdown defaults to 02:00 Pacific to cap cost.
+Replace `"allowedSourceIp": "*"` with your developer IP `/32` to restrict direct SSH. The Cybermap product ingress is HTTPS 443 with API-layer auth hooks. The VM auto-shutdown defaults to 02:00 Pacific to cap cost for dev, but public Godeye must either disable it or surface a clear offline/degraded UI state.
 
 ## Notes on security
 
@@ -142,14 +147,18 @@ This scaffold is intentionally simple so you can focus on experiments.
 For the VM starter, nginx exposes HTTPS 443 and proxies to `cybermap-api` on `localhost:8000`; 8080 is not product ingress. Hardening steps already supported:
 
 - `allowedSourceIp` parameter restricts SSH to your CIDR (default `*` is open and should be tightened).
-- Daily auto-shutdown schedule (DevTestLab) caps idle cost.
+- Daily auto-shutdown schedule (DevTestLab) caps idle dev cost.
 - SWA `globalHeaders` set CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy`.
 - Authentication uses Easy Auth (AAD) with `/api/profile` requiring an authenticated principal.
+- PostgreSQL Flexible Server is private VNet-only (`publicNetworkAccess: Disabled`) on the delegated `postgres-subnet`; browsers never receive database credentials.
+- The PostgreSQL admin password is supplied through `POSTGRES_ADMIN_PASSWORD`, not committed in `infra/main.parameters.json` or emitted as an output.
+- PgBouncer on the VM uses transaction pooling so app bursts do not fan out into unsafe B1MS server connections.
 
 Next hardening to consider:
 - remove the VM public IP and reach it via private link / VNet integration on the SWA
 - swap to Microsoft Entra External ID for customer sign-up/sign-in
 - rotate the SWA deployment token quarterly
+- wire Log Analytics / alerts once public Godeye runs continuously
 
 ## AI path
 
@@ -157,4 +166,3 @@ If you want to keep **everything under Azure credits only**, the lowest-risk app
 1. **Use local/open models on the VM** for experimentation.
 2. **Use Azure OpenAI pay-as-you-go** only for selective calls (`deployOpenAi: true`).
 3. Avoid provisioned throughput and fine-tuned hosting early.
-
