@@ -26,6 +26,13 @@
       ]
     },
     {
+      "route": "/api/cybermap/*",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
       "route": "/api/osint",
       "allowedRoles": [
         "anonymous",

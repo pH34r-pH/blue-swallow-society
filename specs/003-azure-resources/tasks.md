@@ -53,7 +53,7 @@
 
 - [ ] T008 [P] [US1] `az deployment group create` completes without errors
 - [ ] T009 [P] [US1] Deployment outputs include `staticWebAppDefaultHostname`, `backendApiBaseUrl`, and `vmPublicIp`
-- [ ] T010 [P] [US1] Static Web App app settings include `BACKEND_API_BASE_URL` pointing to the VM HTTPS API gateway base URL
+- [ ] T010 [P] [US1] Static Web App app settings include `CYBERMAP_BACKEND_BASE_URL` pointing to the VM HTTPS API gateway base URL and `CYBERMAP_BACKEND_TOKEN` for server-side proxy auth
 
 ### Implementation for User Story 1
 
@@ -61,7 +61,7 @@
 - [x] T012 [US1] Review Static Web App resource in `infra/main.bicep` with Standard SKU
 - [x] T013 [US1] Review Ubuntu 22.04 LTS VM resource in `infra/vm-echo-lab.bicep` with SSH-key-only authentication
 - [x] T014 [US1] Review Virtual Network (`10.40.0.0/16`), Public IP, NSG, and NIC in `infra/vm-echo-lab.bicep`
-- [x] T015 [US1] Verify `scripts/wireup-backend-url.sh` updates SWA app settings with `BACKEND_API_BASE_URL` from deployment outputs
+- [x] T015 [US1] Verify `scripts/wireup-backend-url.sh` updates SWA app settings with `CYBERMAP_BACKEND_BASE_URL` from deployment outputs plus the server-side `CYBERMAP_BACKEND_TOKEN`
 - [x] T016 [US1] Verify `infra/main.bicep` output includes `staticWebAppDefaultHostname`
 
 **Checkpoint**: User Story 1 is fully functional and independently testable

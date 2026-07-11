@@ -101,7 +101,7 @@ The network console must be accessible and usable across different device sizes 
 
 ## Assumptions
 - Users have basic familiarity with terminal-style interfaces and web applications
-- The backend APIs (/api/validate-passcode, /api/agent, /api/tzeentch, /api/osint, /api/wigle, /api/profile) are available and functioning as specified; future Cybermap `/api/v1/*` proxy routes use `BACKEND_API_BASE_URL`
+- The backend APIs (/api/validate-passcode, /api/agent, /api/tzeentch, /api/osint, /api/wigle, /api/profile, /api/cybermap/*) are available and functioning as specified; Cybermap proxy routes use `CYBERMAP_BACKEND_BASE_URL` plus server-side `CYBERMAP_BACKEND_TOKEN`
 - Users have stable internet connectivity for real-time communication
 - Modern web browser support for ES6 JavaScript, CSS flexbox, and CSS grid
 - The hardcoded passcode "blue-swallow" is acceptable for development and testing purposes

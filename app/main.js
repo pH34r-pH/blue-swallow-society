@@ -1,5 +1,4 @@
 import {
-  buildTileGrid,
   clamp,
   formatCoordinatePair,
   metersPerPixel,
@@ -7,20 +6,23 @@ import {
 import { initTzeentchDashboard, stopTzeentchDashboard } from './tzeentch.mjs';
 import {
   buildArCandidateBoxes,
-  buildWigleMapState,
-  createSampleWigleDataset,
-  filterWigleRecordsByRadius,
   isLiveWigleSnapshot,
   mergeWigleRecords,
   parseWiglePayload,
 } from './wigle.mjs';
+import {
+  buildCybermapMapState,
+  buildCybermapViewportPath,
+  createEmptyCybermapState,
+  formatCybermapCellAffordance,
+  parseCybermapViewportPayload,
+} from './cybermap.mjs';
 import {
   buildArDetectionBoxes,
   mergeVisionDetections,
   parseVisionPayload,
 } from './vision.mjs';
 
-const TILE_BASE_URL = 'https://tile.openstreetmap.org';
 const MAP_ZOOM = 15;
 const GEO_OPTIONS = {
   enableHighAccuracy: true,
@@ -66,15 +68,19 @@ const state = {
   godeyeResizeBound: false,
   wigleBound: false,
   wigleRenderFrame: 0,
-  wigleData: createSampleWigleDataset(),
+  cybermapData: createEmptyCybermapState({
+    reason: 'awaiting_location',
+    message: 'Enable location to query backend Cybermap cells for this viewport.',
+  }),
+  cybermapEndpoint: '/api/cybermap/viewport',
+  cybermapStatus: 'Enable location to query backend Cybermap cells for this viewport.',
+  cybermapSourceLabel: 'backend',
   wigleLiveData: null,
   wigleLiveReady: false,
   wigleLiveStatus: 'Device-local WiGLE current state is not connected yet.',
   wigleLiveSourceLabel: 'current',
   wigleLivePollId: 0,
   wigleEndpoint: '',
-  wigleStatus: 'Sample/demo WiGLE dataset loaded.',
-  wigleSourceLabel: 'sample',
   visionBound: false,
   visionRenderFrame: 0,
   visionData: { frame: null, detections: [] },
@@ -221,14 +227,18 @@ function resetConsoleToLogin() {
   stopArFeed();
   stopGodeyeFeed();
   state.currentLocation = null;
-  state.wigleData = createSampleWigleDataset();
+  state.cybermapData = createEmptyCybermapState({
+    reason: 'awaiting_location',
+    message: 'Enable location to query backend Cybermap cells for this viewport.',
+  });
+  state.cybermapEndpoint = '/api/cybermap/viewport';
+  state.cybermapStatus = 'Enable location to query backend Cybermap cells for this viewport.';
+  state.cybermapSourceLabel = 'backend';
   state.wigleLiveData = null;
   state.wigleLiveReady = false;
   state.wigleLiveStatus = 'Device-local WiGLE current state is not connected yet.';
   state.wigleLiveSourceLabel = 'current';
   state.wigleEndpoint = '';
-  state.wigleStatus = 'Sample/demo WiGLE dataset loaded.';
-  state.wigleSourceLabel = 'sample';
   state.visionData = { frame: null, detections: [] };
   state.visionEndpoint = '';
   state.visionStatus = 'Live object detections are not connected yet.';
@@ -237,11 +247,7 @@ function resetConsoleToLogin() {
   state.arFullscreen = false;
   const endpointInput = $('wigleEndpointInput');
   if (endpointInput) {
-    endpointInput.value = '/api/wigle';
-  }
-  const fileInput = $('wigleFileInput');
-  if (fileInput) {
-    fileInput.value = '';
+    endpointInput.value = '/api/cybermap/viewport';
   }
   const visionEndpointInput = $('visionEndpointInput');
   if (visionEndpointInput) {
@@ -253,7 +259,7 @@ function resetConsoleToLogin() {
   }
   setText('arStatusText', 'Camera feed off. Toggle on to request permissions and connect the device-local WiGLE current state.');
   setText('geoStatusText', 'Geolocation permission has not been requested yet.');
-  setText('wigleStatusText', state.wigleStatus);
+  setText('wigleStatusText', state.cybermapStatus);
   setText('visionStatusText', state.visionStatus);
   syncArFeedToggle();
   renderArHud();
@@ -578,8 +584,7 @@ function stopWigleLivePolling() {
 }
 
 async function refreshLiveWigleFeed({ quiet = false } = {}) {
-  const endpointInput = $('wigleEndpointInput');
-  const target = (endpointInput?.value.trim() || state.wigleEndpoint || '/api/wigle').trim();
+  const target = (state.wigleEndpoint || '/api/wigle').trim();
 
   if (!target) {
     setLiveWigleStatus('Device-local WiGLE endpoint is not configured.');
@@ -1025,7 +1030,7 @@ function renderArCandidateLayer() {
 
   const width = frame?.clientWidth || 1080;
   const height = frame?.clientHeight || 1920;
-  const activeLocation = state.currentLocation || state.wigleLiveData?.location || createSampleWigleDataset().location;
+  const activeLocation = state.currentLocation || state.wigleLiveData?.location || null;
   const candidatePlan = buildArCandidateBoxes({
     accessPoints: records,
     viewportWidth: width,
@@ -1384,120 +1389,138 @@ function bindWigleControls() {
 
   const endpointInput = $('wigleEndpointInput');
   const connectBtn = $('wigleConnectBtn');
-  const sampleBtn = $('wigleSampleBtn');
-  const fileInput = $('wigleFileInput');
 
   if (endpointInput) {
-    endpointInput.value = state.wigleEndpoint || endpointInput.value || '/api/wigle';
+    endpointInput.value = state.cybermapEndpoint || endpointInput.value || '/api/cybermap/viewport';
     endpointInput.addEventListener('change', () => {
-      state.wigleEndpoint = endpointInput.value.trim();
+      state.cybermapEndpoint = endpointInput.value.trim() || '/api/cybermap/viewport';
     });
   }
 
   if (connectBtn) {
     connectBtn.addEventListener('click', () => {
-      const endpoint = endpointInput?.value.trim() || state.wigleEndpoint || '/api/wigle';
+      const endpoint = endpointInput?.value.trim() || state.cybermapEndpoint || '/api/cybermap/viewport';
       loadWigleEndpoint(endpoint);
     });
-  }
-
-  if (sampleBtn) {
-    sampleBtn.addEventListener('click', () => {
-      loadSampleWigleData();
-    });
-  }
-
-  if (fileInput) {
-    fileInput.addEventListener('change', handleWigleFileChange);
   }
 
   state.wigleBound = true;
 }
 
-async function loadSampleWigleData() {
-  applyWigleDataset(createSampleWigleDataset(), {
-    sourceLabel: 'sample',
-    message: 'Sample/demo WiGLE dataset loaded.',
-    merge: false,
-    target: 'local',
-  });
-}
-
 async function loadWigleEndpoint(endpoint) {
-  const target = (endpoint || '').trim() || '/api/wigle';
-  state.wigleEndpoint = target;
-  setLiveWigleStatus(`Connecting to ${target}…`);
-  return refreshLiveWigleFeed({ quiet: false });
+  state.cybermapEndpoint = (endpoint || '').trim() || '/api/cybermap/viewport';
+  return loadCybermapViewport({ quiet: false });
 }
 
-async function handleWigleFileChange(event) {
-  const file = event.target.files?.[0];
-  if (!file) {
-    return;
+function readOperatorSession() {
+  try {
+    const raw = sessionStorage.getItem(OPERATOR_SESSION_KEY);
+    const session = raw ? JSON.parse(raw) : null;
+    return typeof session?.token === 'string' && session.token ? session : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildOperatorHeaders() {
+  const session = readOperatorSession();
+  return session?.token
+    ? {
+        Authorization: `Bearer ${session.token}`,
+        'X-Blue-Swallow-Operator-Token': session.token,
+      }
+    : {};
+}
+
+async function loadCybermapViewport({ quiet = false } = {}) {
+  const location = state.currentLocation;
+  if (!location) {
+    applyCybermapState(createEmptyCybermapState({
+      reason: 'awaiting_location',
+      message: 'Enable location before querying backend Cybermap cells.',
+    }));
+    return false;
+  }
+
+  const path = buildCybermapViewportPath({
+    location,
+    zoom: MAP_ZOOM,
+    radiusMeters: 600,
+  });
+  const requestUrl = new URL('/api/cybermap/viewport', window.location.origin);
+  if (path?.includes('?')) {
+    requestUrl.search = path.slice(path.indexOf('?'));
+  }
+
+  if (!quiet) {
+    setWigleStatus('Querying backend Cybermap viewport…');
   }
 
   try {
-    const text = await file.text();
-    const parsed = parseWiglePayload(text, { source: 'database' });
-    applyWigleDataset(parsed, {
-      sourceLabel: file.name,
-      message: `Loaded ${parsed.accessPoints.length} WiGLE records from ${file.name}.`,
-      merge: true,
-      target: 'local',
+    const headers = buildOperatorHeaders();
+    headers.Accept = 'application/json';
+    const response = await fetch(new URL('/api/cybermap/viewport', window.location.origin).toString() + requestUrl.search, {
+      headers,
     });
+    const payload = await response.json();
+    const parsed = parseCybermapViewportPayload(payload);
+    applyCybermapState(parsed, {
+      sourceLabel: 'backend',
+      message: parsed.statusText,
+    });
+    return response.ok && parsed.ready;
   } catch (error) {
-    console.error('Failed to load local WiGLE database', error);
-    setWigleStatus(`Local WiGLE database unavailable: ${error.message}`);
-  } finally {
-    event.target.value = '';
+    console.error('Failed to load backend Cybermap viewport', error);
+    applyCybermapState(createEmptyCybermapState({
+      reason: 'backend_unavailable',
+      message: `Cybermap backend unavailable; showing empty degraded map. ${error.message}`,
+    }));
+    return false;
   }
 }
 
-function applyWigleDataset(payload, { sourceLabel = 'sample', message = '', merge = true, target = 'local', live = target === 'live' } = {}) {
+function applyCybermapState(payload, { sourceLabel = 'backend', message = '' } = {}) {
+  const parsed = payload && typeof payload === 'object' && Array.isArray(payload.cells)
+    ? payload
+    : parseCybermapViewportPayload(payload);
+  state.cybermapData = parsed;
+  state.cybermapSourceLabel = sourceLabel;
+  setWigleStatus(message || parsed.statusText || 'Backend Cybermap viewport updated.');
+  renderWigleViews();
+}
+
+function applyWigleDataset(payload, { sourceLabel = 'live', message = '', merge = true, target = 'live', live = target === 'live' } = {}) {
   const parsed = payload && typeof payload === 'object' && Array.isArray(payload.accessPoints)
     ? payload
     : parseWiglePayload(payload, { source: sourceLabel });
 
-  if (target === 'live') {
-    const currentRecords = Array.isArray(state.wigleLiveData?.accessPoints) ? state.wigleLiveData.accessPoints : [];
-    const nextRecords = merge ? mergeWigleRecords(currentRecords, parsed.accessPoints) : mergeWigleRecords(parsed.accessPoints);
-    const nextLocation = parsed.location || state.currentLocation || state.wigleLiveData?.location || createSampleWigleDataset().location;
-
-    state.wigleLiveData = {
-      location: nextLocation,
-      accessPoints: nextRecords,
-      source: sourceLabel,
-      updatedAt: parsed.updatedAt || new Date().toISOString(),
-      live,
-      mode: live ? 'current' : 'database',
-    };
-    state.wigleLiveReady = live;
-    state.wigleLiveSourceLabel = sourceLabel;
-
-    setLiveWigleStatus(message || (live
-      ? `Device-local WiGLE current state ready from ${sourceLabel}.`
-      : `WiGLE response from ${sourceLabel} has no recent current-state rows.`));
-  } else {
-    const currentRecords = Array.isArray(state.wigleData?.accessPoints) ? state.wigleData.accessPoints : [];
-    const nextRecords = merge ? mergeWigleRecords(currentRecords, parsed.accessPoints) : mergeWigleRecords(parsed.accessPoints);
-    const nextLocation = parsed.location || state.currentLocation || state.wigleData?.location || createSampleWigleDataset().location;
-
-    state.wigleData = {
-      location: nextLocation,
-      accessPoints: nextRecords,
-      source: sourceLabel,
-      updatedAt: parsed.updatedAt || new Date().toISOString(),
-    };
-    state.wigleSourceLabel = sourceLabel;
-
-    setWigleStatus(message || `Loaded ${nextRecords.length} WiGLE records.`);
+  if (target !== 'live') {
+    return;
   }
 
+  const currentRecords = Array.isArray(state.wigleLiveData?.accessPoints) ? state.wigleLiveData.accessPoints : [];
+  const nextRecords = merge ? mergeWigleRecords(currentRecords, parsed.accessPoints) : mergeWigleRecords(parsed.accessPoints);
+  const nextLocation = parsed.location || state.currentLocation || state.wigleLiveData?.location || null;
+
+  state.wigleLiveData = {
+    location: nextLocation,
+    accessPoints: nextRecords,
+    source: sourceLabel,
+    updatedAt: parsed.updatedAt || new Date().toISOString(),
+    live,
+    mode: live ? 'current' : 'database',
+  };
+  state.wigleLiveReady = live;
+  state.wigleLiveSourceLabel = sourceLabel;
+
+  setLiveWigleStatus(message || (live
+    ? `Device-local WiGLE current state ready from ${sourceLabel}.`
+    : `WiGLE response from ${sourceLabel} has no recent current-state rows.`));
   renderWigleViews();
 }
 
 function setWigleStatus(message) {
-  state.wigleStatus = message;
+  state.cybermapStatus = message;
   setText('wigleStatusText', message);
   setText('godeyeWigleStatus', message);
 }
@@ -1567,14 +1590,48 @@ function renderWigleList(container, records, limit = 6) {
 
 function renderGodeyeWigleList() {
   const list = $('godeyeWigleList');
-  const records = state.wigleData?.accessPoints || [];
-  const location = state.currentLocation || state.wigleData?.location || createSampleWigleDataset().location;
-  const nearbyRecords = filterWigleRecordsByRadius(records, location, 100);
   if (!list) {
     return;
   }
 
-  renderWigleList(list, nearbyRecords);
+  renderCybermapList(list, state.cybermapData?.cells || []);
+}
+
+function renderCybermapList(container, cells, limit = 6) {
+  const limitedCells = cells.slice(0, limit);
+  if (!limitedCells.length) {
+    const empty = document.createElement('p');
+    empty.className = 'dashboard-empty-state';
+    empty.textContent = state.cybermapData?.statusText || 'Backend Cybermap cells will appear here when available.';
+    container.replaceChildren(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  limitedCells.forEach((cell, index) => {
+    const affordance = formatCybermapCellAffordance(cell);
+    const item = document.createElement('article');
+    item.className = 'wigle-item cybermap-item';
+
+    const title = document.createElement('strong');
+    title.className = 'wigle-item-title';
+    title.textContent = `${index + 1}. ${affordance.title}`;
+    item.appendChild(title);
+
+    const meta = document.createElement('div');
+    meta.className = 'wigle-item-meta';
+    meta.textContent = affordance.meta;
+    item.appendChild(meta);
+
+    const detail = document.createElement('p');
+    detail.className = 'wigle-item-detail';
+    detail.textContent = affordance.detail;
+    item.appendChild(detail);
+
+    fragment.appendChild(item);
+  });
+
+  container.replaceChildren(fragment);
 }
 
 function getCurrentPosition() {
@@ -1605,6 +1662,7 @@ function handleGeoPosition(position) {
   renderGodeyeFields();
   renderWigleViews();
   scheduleGodeyeRender();
+  void loadCybermapViewport({ quiet: true });
 }
 
 function handleGeoError(error) {
@@ -1642,7 +1700,7 @@ function scheduleGodeyeRender() {
 }
 
 function renderGodeyeFields() {
-  const location = state.currentLocation || state.wigleData?.location || createSampleWigleDataset().location;
+  const location = state.currentLocation;
 
   setText('geoLat', location ? location.lat.toFixed(6) : '—');
   setText('geoLon', location ? location.lon.toFixed(6) : '—');
@@ -1652,12 +1710,12 @@ function renderGodeyeFields() {
 
   const coords = $('godeyeCoords');
   if (coords) {
-    coords.textContent = state.currentLocation
-      ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy || 0)}m · 100m WiGLE radius`
-      : `Sample/demo fix ${formatCoordinatePair(location.lat, location.lon)} · sample WiGLE dataset loaded`;
+    coords.textContent = location
+      ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy || 0)}m · backend Cybermap viewport`
+      : 'Awaiting geolocation permission; no Cybermap viewport queried.';
   }
 
-  if (!state.currentLocation && state.authenticated) {
+  if (!location && state.authenticated) {
     updateGodeyeStatus('Tap enable to request GPS and center the map on your current fix.');
   }
 }
@@ -1668,9 +1726,26 @@ function renderGodeyeMap() {
   const marker = $('godeyeMarker');
   const wigleMarkers = $('godeyeWigleMarkers');
   const accuracy = $('godeyeAccuracy');
-  const location = state.currentLocation || state.wigleData?.location || createSampleWigleDataset().location;
+  const location = state.currentLocation;
 
   if (!viewport || !tilesLayer || !marker || !accuracy || !wigleMarkers) {
+    return;
+  }
+
+  if (!location) {
+    viewport.classList.remove('has-fix');
+    tilesLayer.replaceChildren();
+    wigleMarkers.replaceChildren();
+    marker.style.opacity = '0';
+    accuracy.style.opacity = '0';
+    const coords = $('godeyeCoords');
+    if (coords) {
+      coords.textContent = 'Awaiting geolocation permission; no Cybermap viewport queried.';
+    }
+    const status = $('godeyeWigleStatus');
+    if (status) {
+      status.textContent = state.cybermapStatus;
+    }
     return;
   }
 
@@ -1681,18 +1756,16 @@ function renderGodeyeMap() {
     return;
   }
 
-  const tilePlan = buildTileGrid({
-    lat: location.lat,
-    lon: location.lon,
+  const mapState = buildCybermapMapState({
+    location,
+    cells: state.cybermapData?.cells || [],
+    viewportWidth: width,
+    viewportHeight: height,
     zoom: MAP_ZOOM,
-    width,
-    height,
-    tileSize: 256,
-    tileBaseUrl: TILE_BASE_URL,
   });
 
   const fragment = document.createDocumentFragment();
-  tilePlan.forEach((tile) => {
+  mapState.tileGrid.forEach((tile) => {
     const image = document.createElement('img');
     image.className = 'map-tile';
     image.alt = '';
@@ -1721,54 +1794,44 @@ function renderGodeyeMap() {
   accuracy.style.width = `${accuracyRadius * 2}px`;
   accuracy.style.height = `${accuracyRadius * 2}px`;
 
-  const mapState = buildWigleMapState({
-    location,
-    accessPoints: state.wigleData?.accessPoints || [],
-    viewportWidth: width,
-    viewportHeight: height,
-    zoom: MAP_ZOOM,
-    radiusMeters: 100,
-  });
-
   const markerFragment = document.createDocumentFragment();
-  mapState.markers.forEach((ap) => {
-    const network = document.createElement('article');
-    network.className = `map-wigle-marker map-wigle-marker-${ap.signalBand || 'unknown'}`;
-    network.style.left = `${ap.left}px`;
-    network.style.top = `${ap.top}px`;
-    network.style.width = `${clamp(ap.rangeRadiusPx, 120, 240)}px`;
+  mapState.markers.forEach((cell) => {
+    const primaryClass = (cell.sourceClasses?.[0] || 'unknown').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
+    const cyberCell = document.createElement('article');
+    cyberCell.className = `map-wigle-marker map-cybermap-marker map-cybermap-marker-${primaryClass}`;
+    cyberCell.style.left = `${cell.left}px`;
+    cyberCell.style.top = `${cell.top}px`;
+    cyberCell.style.width = `${clamp((cell.salience || 0.5) * 260, 140, 260)}px`;
 
     const title = document.createElement('strong');
-    title.textContent = ap.label;
-    network.appendChild(title);
+    title.textContent = cell.title;
+    cyberCell.appendChild(title);
 
     const meta = document.createElement('div');
     meta.className = 'marker-meta';
-    meta.textContent = `${ap.signalDbm ?? '—'} dBm · ${ap.signalBand || 'unknown'} · ${ap.source || 'live'}`;
-    network.appendChild(meta);
+    meta.textContent = cell.meta;
+    cyberCell.appendChild(meta);
 
     const detail = document.createElement('span');
-    detail.textContent = `${ap.detail || 'WiGLE network'}${Number.isFinite(ap.distanceMeters) ? ` · ${Math.round(ap.distanceMeters)} m away` : ''}${ap.bearing !== null && ap.bearing !== undefined ? ` · ${Math.round(ap.bearing)}°` : ''}`;
-    network.appendChild(detail);
+    detail.textContent = `${cell.detail}${Number.isFinite(cell.distanceMeters) ? ` · ${Math.round(cell.distanceMeters)} m away` : ''}${cell.bearing !== null && cell.bearing !== undefined ? ` · ${Math.round(cell.bearing)}°` : ''}`;
+    cyberCell.appendChild(detail);
 
-    markerFragment.appendChild(network);
+    markerFragment.appendChild(cyberCell);
   });
 
   wigleMarkers.replaceChildren(markerFragment);
 
   const coords = $('godeyeCoords');
   if (coords) {
-    coords.textContent = state.currentLocation
-      ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy)}m`
-      : `Sample/demo fix ${formatCoordinatePair(location.lat, location.lon)} · WiGLE overlay active`;
+    coords.textContent = `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy || 0)}m · backend Cybermap viewport`;
   }
 
   const status = $('godeyeWigleStatus');
   if (status) {
-    const strongest = mapState.stats.strongest;
-    status.textContent = strongest
-      ? `${state.wigleStatus} · ${mapState.stats.total} local network${mapState.stats.total === 1 ? '' : 's'} within 100m · strongest ${strongest.ssid} ${strongest.signalDbm} dBm · ${strongest.signalBand}`
-      : `${state.wigleStatus} · No local WiGLE records within 100m of this fix.`;
+    const salient = mapState.stats.highestSalience;
+    status.textContent = mapState.stats.total
+      ? `${state.cybermapStatus} · ${mapState.stats.total} backend Cybermap cell${mapState.stats.total === 1 ? '' : 's'} · top salience ${salient ? salient.salience.toFixed(2) : 'unknown'}`
+      : `${state.cybermapStatus} · No backend Cybermap cells for this viewport.`;
   }
 }
 
