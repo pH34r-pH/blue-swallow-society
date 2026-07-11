@@ -1,0 +1,135 @@
+{
+  "contract_version": "bss.wardriver.batch.v1",
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/observations/batch",
+    "headers": {
+      "Content-Type": "application/json",
+      "Idempotency-Key": "wardriver-alpha-session-0001-page-0001"
+    }
+  },
+  "token_scope_expectations": {
+    "client_type": "wardriver_device",
+    "scopes": ["observations:write"],
+    "source_ids": ["00000000-0000-4000-8000-000000000001"],
+    "source_classes": ["owned_device"],
+    "forbidden_spoof_classes": ["green_public", "local_observation", "orange_exposure", "red_restricted"]
+  },
+  "body": {
+    "contract_version": "bss.wardriver.batch.v1",
+    "source_id": "00000000-0000-4000-8000-000000000001",
+    "source_class": "owned_device",
+    "client_id": "blue-swallow-wardriver/android:alpha",
+    "session_id": "22222222-2222-4222-8222-222222222222",
+    "context": {
+      "gps": {
+        "lat": 47.6205,
+        "lon": -122.3493,
+        "accuracy_m": 5.8,
+        "provider": "fused"
+      },
+      "heading_deg": 184.5,
+      "speed_mps": 1.4,
+      "map": {
+        "zoom": 17,
+        "visible_layers": ["green_preload", "local_owned"],
+        "viewport_bbox": [-122.351, 47.619, -122.347, 47.622]
+      },
+      "raid": {
+        "session_ref": "raid://blue-swallow/alpha/2026-07-10T115900Z",
+        "mode": "owned-local",
+        "sight_count": 2
+      }
+    },
+    "provenance": {
+      "adapter": "blue-swallow-wardriver/android",
+      "adapter_contract_version": "bss.wardriver.batch.v1",
+      "source_ref": "wardriver://device/alpha",
+      "session_ref": "raid://blue-swallow/alpha/2026-07-10T115900Z",
+      "chain": ["device-local", "raid-session-summary"],
+      "raw_frames_default": "omitted"
+    },
+    "observations": [
+      {
+        "kind": "wifi_ap",
+        "external_observation_key": "wardriver-alpha:2026-07-10T11:59:00.000Z:wifi:ap:001",
+        "idempotency_key": "wardriver-alpha-session-0001-wifi-0001",
+        "observed_at": "2026-07-10T11:59:00.000Z",
+        "lat": 47.6205,
+        "lon": -122.3493,
+        "confidence": 0.92,
+        "pii_status": "redacted",
+        "retention_class": "summary_only",
+        "payload": {
+          "wigle_enhanced": true,
+          "radio_type": "wifi",
+          "ssid_hash": "sha256:ssid-fixture-alpha",
+          "bssid_hash": "sha256:bssid-fixture-alpha",
+          "channel": 11,
+          "frequency_mhz": 2462,
+          "signal_dbm": -47,
+          "capabilities": ["WPA2", "WPS:false"],
+          "accuracy_m": 5.8,
+          "heading_deg": 184.5,
+          "speed_mps": 1.4,
+          "raid_sight_summary": {
+            "sight_id": "sight-wifi-0001",
+            "category": "network-sighting",
+            "confidence": 0.92,
+            "operator_labels": ["owned-local", "demo-safe-redacted"]
+          },
+          "raw_frame_sha256": "sha256:raw-frame-hash-only-fixture-alpha",
+          "raw_frame_present": false
+        },
+        "provenance": {
+          "sensor": "wifi_scan",
+          "collector": "blue-swallow-wardriver",
+          "contract_version": "bss.wardriver.batch.v1",
+          "source_ref": "wardriver://device/alpha",
+          "session_ref": "raid://blue-swallow/alpha/2026-07-10T115900Z",
+          "map_context_ref": "context:gps-heading-map:v1"
+        }
+      },
+      {
+        "kind": "visual_summary",
+        "external_observation_key": "wardriver-alpha:2026-07-10T11:59:02.000Z:raid:sight:summary:001",
+        "idempotency_key": "wardriver-alpha-session-0001-raid-summary-0001",
+        "observed_at": "2026-07-10T11:59:02.000Z",
+        "lat": 47.62055,
+        "lon": -122.34936,
+        "confidence": 0.81,
+        "pii_status": "none",
+        "retention_class": "summary_only",
+        "payload": {
+          "raid_sight_summary": {
+            "sight_id": "sight-raid-0001",
+            "category": "local-context",
+            "summary": "Redacted owned-device RaID sight summary near the Space Needle.",
+            "signals": {
+              "wifi_ap_count": 1,
+              "ble_device_count": 0,
+              "cell_signal_count": 0
+            },
+            "privacy": {
+              "frame_capture_policy": "omitted-by-default",
+              "face_capture_policy": "not-collected",
+              "plate_capture_policy": "not-collected"
+            }
+          },
+          "map_context": {
+            "zoom": 17,
+            "heading_deg": 184.5,
+            "viewport_bbox": [-122.351, 47.619, -122.347, 47.622]
+          }
+        },
+        "provenance": {
+          "sensor": "raid_sight_summary",
+          "collector": "blue-swallow-wardriver",
+          "contract_version": "bss.wardriver.batch.v1",
+          "source_ref": "wardriver://device/alpha",
+          "session_ref": "raid://blue-swallow/alpha/2026-07-10T115900Z"
+        }
+      }
+    ]
+  }
+}

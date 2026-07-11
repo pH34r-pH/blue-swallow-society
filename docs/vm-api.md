@@ -34,6 +34,7 @@ The Bicep module file is still named `infra/vm-echo-lab.bicep` for continuity, b
 | `/api/v1/*` | bearer/operator token required | gated | Denies unauthenticated requests by default and enforces token scopes/source authority before route handlers. |
 | `POST /api/v1/observations/batch` | `observations:write` bearer token + source authority | implemented | Authenticated Wardriver/RaID/Greenfeed batch ingest with `Idempotency-Key`, immutable observation rows, entity materialization, and sync receipts. |
 | `GET /api/v1/cybermap/viewport?bbox=&zoom=&layers=&since=` | `cybermap:read` bearer token + source class authority | implemented | Bounded viewport read over materialized `cybermap_cells`; maps zoom to app-computed `gh7`/`gh9`/`gh11` resolution and returns projected cells with freshness, salience/confidence, provenance, and caveats. |
+| `GET /api/v1/cybermap/nearby?lat=&lon=&radius_m=&heading_deg=&zoom=&source_class=&layers=` | `cybermap:read` bearer token + source class authority | implemented | Wardriver/RaID current-position context query over nearby materialized cells. Bounded radius/cell count; returns `bss.cybermap.nearby.v1` without raw observation payloads or raw PII columns. |
 | `GET /api/v1/cybermap/cells/{h3Cell}` | `cybermap:read` bearer token + source class authority | implemented | Cell detail/provenance drilldown with bounded observation links; accepts app-computed `gh7:*`, `gh9:*`, or `gh11:*` IDs only. |
 | `GET /api/v1/entities/{id}` | `cybermap:read` bearer token + source class authority | implemented | Entity summary plus bounded observation links. Raw observation payloads, raw frames, and raw PII columns are never selected. |
 | `GET /api/v1/sources?bbox=&class=` | `sources:read` or `cybermap:read` bearer token + source class authority | implemented | Bounded source catalog / Greenfeed discovery with optional bbox and exact source-class filters. |
@@ -121,11 +122,19 @@ Canonical body shape:
 
 ```json
 {
+  "contract_version": "bss.wardriver.batch.v1",
   "source_id": "00000000-0000-4000-8000-000000000001",
   "source_class": "owned_device",
   "client_id": "optional-reported-client-id",
   "session_id": "optional-session-uuid",
   "authorized_scope_ref": "optional-authorization-ref",
+  "context": {
+    "gps": { "lat": 47.6205, "lon": -122.3493, "accuracy_m": 5.8, "provider": "fused" },
+    "heading_deg": 184.5,
+    "speed_mps": 1.4,
+    "map": { "zoom": 17, "visible_layers": ["green_preload", "local_owned"], "viewport_bbox": [-122.351, 47.619, -122.347, 47.622] },
+    "raid": { "session_ref": "raid://blue-swallow/alpha/2026-07-10T115900Z", "mode": "owned-local", "sight_count": 2 }
+  },
   "provenance": { "adapter": "wardriver-raid", "chain": ["device-local"] },
   "observations": [
     {
@@ -138,18 +147,38 @@ Canonical body shape:
       "confidence": 0.875,
       "pii_status": "redacted",
       "retention_class": "summary_only",
-      "payload": { "ssid_hash": "sha256:<hash>", "bssid_hash": "sha256:<hash>" },
-      "provenance": { "sensor": "wardriver" }
+      "payload": {
+        "wigle_enhanced": true,
+        "radio_type": "wifi",
+        "ssid_hash": "sha256:<hash>",
+        "bssid_hash": "sha256:<hash>",
+        "signal_dbm": -47,
+        "raid_sight_summary": { "sight_id": "sight-wifi-0001", "category": "network-sighting", "confidence": 0.875 },
+        "raw_frame_sha256": "sha256:<hash-only-when-known>",
+        "raw_frame_present": false
+      },
+      "provenance": { "sensor": "wardriver", "contract_version": "bss.wardriver.batch.v1" }
     }
   ]
 }
 ```
 
+### Wardriver/RaID payload compatibility
+
+Native Blue Swallow Wardriver P0.10b and RaID context/session work P0.10c should implement against fixture [`tests/fixtures/wardriver-raid-batch-v1.json`](../tests/fixtures/wardriver-raid-batch-v1.json). That fixture is the backend contract lock for `contract_version = "bss.wardriver.batch.v1"`:
+
+- Request path is `POST /api/v1/observations/batch` with `Content-Type: application/json`, bearer auth, and a batch-level `Idempotency-Key`.
+- Token registry identity must be `clientType: "wardriver_device"`, include `observations:write`, and authorize the exact owned/local `source_id` plus `source_class: "owned_device"`. The backend rejects spoofed classes such as `green_public`, `orange_exposure`, or `red_restricted` even when the body is otherwise valid.
+- The top-level `contract_version` is optional for legacy ingest, but when present it must be a supported literal. Unknown values return `unsupported_contract_version`. Wardriver/RaID clients should always send `bss.wardriver.batch.v1`; additive v1 fields may be ignored by older readers, while breaking shape changes require a new literal and a new fixture.
+- `context` is batch-scoped GPS/heading/map/RaID state, capped to 4 KiB, sanitized with the same raw/PII key denylist as observation payloads, and stored in sync-batch request metadata for replay diagnostics. It is not used as token authority.
+- Each observation keeps its own `idempotency_key`, `external_observation_key`, `observed_at`, `lat`, `lon`, `confidence`, `pii_status`, `retention_class`, sanitized `payload`, and provenance. Enhanced WiGLE observations use `kind: "wifi_ap"` with hashed SSID/BSSID and radio fields; RaID sight summaries use `kind: "visual_summary"` with redacted `raid_sight_summary` and map context.
+- Raw frames are omitted by default. Hash-only fields such as `raw_frame_sha256` are allowed, but raw bytes/base64 keys (`raw_frame`, `raw_frame_bytes`, images, raw PII refs) are rejected unless the explicit raw-retention gate is satisfied.
+
 Validation gates:
 
 - Missing/invalid bearer token returns `auth_required` or `auth_forbidden` before storage.
 - Missing `Idempotency-Key` returns `idempotency_key_required`; the API does not use client-provided item keys as the P0 batch replay key.
-- `source_id`, `source_class`, `kind`, `observed_at`, `lat`, `lon`, `confidence`, `pii_status`, `retention_class`, batch/observation UUID references, batch provenance, and observation provenance are validated before DB writes.
+- `contract_version`, batch `context`, `source_id`, `source_class`, `kind`, `observed_at`, `lat`, `lon`, `confidence`, `pii_status`, `retention_class`, batch/observation UUID references, batch provenance, and observation provenance are validated before DB writes.
 - The request `client_id` is optional reported metadata only; sync receipts and idempotency partitioning use the authenticated token registry identity, not a client-supplied string.
 - `observations` must contain at least one item.
 - `lat`/`lon` are normalized into PostGIS `geom = ST_SetSRID(ST_MakePoint(lon, lat), 4326)`.
@@ -201,6 +230,23 @@ Optional query:
 - `since=<ISO timestamp>` filters by caller-visible projected cell `updated_at`; hidden local/owned/restricted layer updates do not make green-only results appear fresh.
 
 The response is bounded to 250 cells and includes `resolution`, normalized `bbox`, `source_classes`, per-cell `source_classes`, `freshness`, `caveats`, `salience`, `confidence` when available, and materialization `provenance`. The database candidate scan is also bounded, then cells are projected through caller authority before `since`, sorting, truncation, and top-level freshness/`updated_at` reporting. Grey/orange/red `exposure_enrichment` layers are projected through caller authority: operator scope can see all, matching restricted `sourceClasses` or `authorized-scope:*` registry scopes can see matching gates, and other callers receive `restricted_layer_filtered` caveats with the layer removed. Non-restricted materialized layers are also checked against the caller's registered source classes; local/owned layers are omitted with `source_class_layer_filtered` when the token only has green authority.
+
+### `GET /api/v1/cybermap/nearby?lat=&lon=&radius_m=&heading_deg=&zoom=&source_class=&layers=`
+
+Wardriver/RaID clients use the nearby context route after posting local observations or while rendering the current sight. It requires `cybermap:read` and registered `sourceClasses`; `source_class` is an exact authority filter, not a self-asserted expansion.
+
+Required query:
+
+- `lat` and `lon` in WGS84 degrees.
+
+Optional query:
+
+- `radius_m=1..1000`; default `250`. The response is bounded to 50 materialized cells even when the radius covers more cells.
+- `heading_deg=0..360`; echoed in `context` for RaID overlay alignment and not used for DB authority.
+- `zoom=0..20`, mapped with the same `gh7`/`gh9`/`gh11` app-computed resolution rules as viewport reads. Missing `zoom` defaults to resolution for zoom 15.
+- `source_class=<canonical source class>` and `layers=green_preload,local_owned,exposure_enrichment` follow viewport projection/gating rules.
+
+The response carries `contract_version: "bss.cybermap.nearby.v1"`, `context`, projected `cells`, `layers`, `source_classes`, `limit_reached`, and a `bounded_nearby_context` caveat. SQL selects from `cybermap_cells` with `ST_DWithin` and never selects raw observation `payload`, `raw_payload_ref`, `operator_approved_raw_ref`, raw frames, or raw PII columns.
 
 ### `GET /api/v1/cybermap/cells/{h3Cell}`
 

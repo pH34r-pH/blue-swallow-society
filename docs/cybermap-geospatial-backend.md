@@ -118,6 +118,7 @@ Core rules:
 - Every spatial row gets `geom geometry(Point|Polygon, 4326)` where possible.
 - Every observation stores app-computed H3/geohash cells at several resolutions, e.g. `h3_7`, `h3_9`, `h3_11`.
 - Source-specific payloads live in `jsonb`; normalized query fields are promoted to columns.
+- Wardriver/RaID payloads are versioned at the batch boundary. P0.10a locks `contract_version = "bss.wardriver.batch.v1"` with fixture `tests/fixtures/wardriver-raid-batch-v1.json`; breaking changes require a new literal and fixture.
 - Raw frames are not retained by default. Store visual summaries, operator-explicit captures, hashes, and provenance links instead.
 - Orange/grey/red exposure layers cannot preload globally; they require local/owned observation or explicit authorized scope.
 - Green public/owned/authorized feeds can preload and can be queried globally, subject to source terms and cache TTL.
@@ -259,6 +260,26 @@ Entity materialization is synchronous with accepted observation ingest for recog
 - Mapped place/source payloads can derive `place` or `feed` entities when the payload is not a private-person, face, license-plate, or private-residence product entity.
 - `entity_observations` carries relationship, confidence/weight, first/last seen, explicit source observation refs, and provenance including source class plus local/owned trigger metadata for grey/orange/red exposure entities.
 
+## Wardriver/RaID v1 sync contract
+
+The backend contract for native Blue Swallow Wardriver and RaID sight summaries is `bss.wardriver.batch.v1`. Android P0.10b should treat [`tests/fixtures/wardriver-raid-batch-v1.json`](../tests/fixtures/wardriver-raid-batch-v1.json) as the executable contract fixture.
+
+Shape summary:
+
+- HTTP: `POST /api/v1/observations/batch` with bearer auth, JSON body, and a batch-level `Idempotency-Key`.
+- Token authority: `wardriver_device` registry record with `observations:write`, exact `source_id`, and `source_class: owned_device`; local clients cannot spoof Green/exposure/restricted classes in the body.
+- Batch metadata: `contract_version`, `session_id`, optional reported `client_id`, `context` for GPS/heading/speed/map/RaID state, and provenance including adapter contract/version plus source/session refs.
+- Observation metadata: per-item `external_observation_key`, `idempotency_key`, `kind`, `observed_at`, `lat`, `lon`, `confidence`, `pii_status`, `retention_class`, `payload`, and provenance.
+- Enhanced WiGLE/Wi-Fi payloads use `kind: wifi_ap`, hashed SSID/BSSID, radio/signal fields, GPS/heading echoes, optional hash-only raw frame references, and `raw_frame_present: false` by default.
+- RaID sight summaries use `kind: visual_summary` with redacted `raid_sight_summary`/`map_context` only. Raw frames, face/plate images, or raw PII are not accepted by default and require the explicit raw-retention gate if the operator intentionally preserves an artifact.
+
+Compatibility doctrine:
+
+- `bss.wardriver.batch.v1` is additive-only. New optional payload keys may appear under existing objects if existing v1 consumers can ignore them safely.
+- Changes to required fields, authority semantics, idempotency partitioning, raw-frame defaults, or response receipt shape require a new `contract_version` and a new fixture.
+- Sync receipts partition idempotency by authenticated token registry identity, `source_id`, and the batch `Idempotency-Key`; the body `client_id` is reported metadata only.
+- Backend rejects unsupported contract literals with `unsupported_contract_version`, context over 4 KiB with `context_too_large`, raw/PII context keys with `unsafe_context`, and raw frame payload defaults with `unsafe_payload`.
+
 ## Cybermap materialization loop
 
 ```text
@@ -297,7 +318,8 @@ RaID read path:
 ```text
 Wardriver posts foreground observations
   -> API ingests owned/local rows
-  -> API returns nearby cells/entities within radius
+  -> Wardriver requests /api/v1/cybermap/nearby with current GPS/heading/map zoom
+  -> API returns nearby materialized cells within bounded radius and source authority
   -> RaID overlays only local live sight + accumulated Cybermap context
 ```
 
@@ -311,6 +333,7 @@ P0 endpoints:
 | `GET /readyz` | DB connectivity and migration state |
 | `POST /api/v1/observations/batch` | Wardriver/RaID/Greenfeed batch ingest with idempotency |
 | `GET /api/v1/cybermap/viewport?bbox=&zoom=&layers=&since=` | Godeye map viewport query |
+| `GET /api/v1/cybermap/nearby?lat=&lon=&radius_m=&heading_deg=&zoom=&source_class=&layers=` | Wardriver/RaID current-position context query; returns `bss.cybermap.nearby.v1` without raw payload columns |
 | `GET /api/v1/cybermap/cells/{h3Cell}` | Cell detail/provenance drilldown |
 | `GET /api/v1/entities/{id}` | Entity summary and observation links |
 | `GET /api/v1/sources?bbox=&class=` | Greenfeed/source catalog lookup |
@@ -324,6 +347,7 @@ P0 should not expose arbitrary SQL-ish filtering. Keep query shapes product-spec
 ## Security and privacy gates
 
 - Use per-device Wardriver tokens stored in Android Keystore.
+- Send `contract_version: "bss.wardriver.batch.v1"` from native Wardriver clients and update the executable fixture before changing the contract.
 - Use separate service tokens for SWA function proxy, Jetson, and worker jobs.
 - Require `Idempotency-Key` for ingest batches.
 - Reject payloads that try to label private people, faces, plates, or private residences as product entities.
@@ -348,7 +372,7 @@ P0 should not expose arbitrary SQL-ish filtering. Keep query shapes product-spec
 4. Implement `POST /api/v1/observations/batch` and idempotency tests.
 5. Implement cell materialization worker and `GET /api/v1/cybermap/viewport`.
 6. Point Godeye at the viewport endpoint and remove any runtime demo/fake map state.
-7. Add Wardriver/RaID sync client using per-device token and local retry outbox.
+7. Add Wardriver/RaID sync client using per-device token, `bss.wardriver.batch.v1`, and a local retry outbox.
 8. Add Greenfeed seed catalog and poller, Green-only gate tests, and provenance display.
 9. Add Mosaic/Murmurs memory sync endpoints after the Cybermap observation spine is stable.
 
@@ -358,6 +382,7 @@ P0 should not expose arbitrary SQL-ish filtering. Keep query shapes product-spec
 - PostGIS geometry and app-computed H3/geohash cells exist for every spatial observation.
 - Godeye renders only backend Cybermap cells/entities, not demo overlays.
 - RaID writes owned/local observations before receiving enriched nearby Cybermap context.
+- Wardriver/RaID contract fixture covers enhanced WiGLE observations, RaID sight summaries, GPS/heading/map context, source/session refs, idempotency, and raw-frame defaults.
 - Greenfeed preload is allowed only for Green/public-owned-authorized sources.
 - Grey/orange/red enrichment is locally/owned-triggered and provenance-marked.
 - Every map cell exposes source class, freshness, confidence/salience, and caveats.
