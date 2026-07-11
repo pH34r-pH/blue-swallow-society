@@ -114,9 +114,24 @@ const state = {
 };
 
 function init() {
-  bindLoginFlow();
   bindTabSystem();
+
+  if (isOperatorEntrypoint()) {
+    if (!getOperatorSession()) {
+      window.location.replace('/');
+      return;
+    }
+
+    unlockConsole();
+    return;
+  }
+
+  bindLoginFlow();
   resetConsoleToLogin();
+}
+
+function isOperatorEntrypoint() {
+  return window.location.pathname === '/operator' || window.location.pathname.startsWith('/operator/');
 }
 
 function bindLoginFlow() {
@@ -330,11 +345,27 @@ function initTabDefaults() {
   renderWigleViews();
 }
 
-function handleLogout() {
+async function handleLogout() {
   stopTzeentchDashboard();
   stopArFeed();
   stopGodeyeFeed();
-  resetConsoleToLogin();
+  clearOperatorSession();
+
+  try {
+    await fetch('/api/operator-logout', { method: 'POST' });
+  } catch {
+    // The session storage token is already gone; the HttpOnly cookie will expire by TTL if this fails.
+  }
+
+  window.location.replace('/');
+}
+
+function clearOperatorSession() {
+  try {
+    sessionStorage.removeItem(OPERATOR_SESSION_KEY);
+  } catch {
+    // no-op
+  }
 }
 
 function getTabButtons() {

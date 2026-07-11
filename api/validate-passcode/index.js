@@ -1,4 +1,5 @@
 const {
+  buildOperatorSessionCookie,
   createOperatorToken,
   getConfiguredDigest,
   getOperatorTokenSigningKey,
@@ -49,6 +50,8 @@ module.exports = async function (context, req) {
     context.res = jsonResponse(200, {
       ok: true,
       operatorSession: session,
+    }, {
+      'Set-Cookie': buildOperatorSessionCookie(session),
     });
     return;
   }
@@ -60,12 +63,13 @@ module.exports = async function (context, req) {
   });
 };
 
-function jsonResponse(status, body) {
+function jsonResponse(status, body, headers = {}) {
   return {
     status,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       'Cache-Control': 'no-store',
+      ...headers,
     },
     body,
   };

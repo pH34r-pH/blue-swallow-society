@@ -43,11 +43,13 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 ├── api/
 │   ├── echo/
 │   ├── profile/
-│   └── agent/
+│   ├── agent/
+│   ├── operator-downloads/
+│   └── _private/downloads/
 ├── app/
 │   ├── index.html
-│   ├── public.css
-│   ├── downloads/
+│   ├── main.js
+│   ├── styles.css
 │   ├── operator/
 │   │   ├── index.html
 │   │   ├── agent.html
@@ -93,13 +95,20 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 
 ## What the website does
 
-The root home page is the **Public Face**: public copy plus the Wardriver APK/download metadata.
-It does not link to, embed, or name the operator console.
+The root home page is the **Blue Swallow Society passcode split**: a title, one passcode field, and a lowercase `login` button.
+It does not link to, embed, or name the operator console, Wardriver APK, operator APIs, or download artifacts.
 
-The protected operator half lives under `/operator` and `/agent`:
-- SWA Easy Auth gates the operator HTML, JS, CSS, modules, and operator APIs.
-- The operator console still requires a server-side passcode check before issuing the app bearer token used by `/api/osint` and `/api/tzeentch`.
-- Godeye, Tzeentch, WiGLE, and agent surfaces are lazy-loaded from protected operator assets only.
+The split behavior is server-side:
+- the canonical operator passcode is configured only as the GitHub/Azure secret `BLUE_SWALLOW_PASSCODE_SHA256`;
+- a matching passcode receives a signed operator session token and opens `/operator`;
+- any non-matching passcode falls through to the standard event-planning personal page;
+- no browser bundle contains the canonical passcode literal or hash.
+
+The hidden operator half lives under `/operator` and `/agent`:
+- `/operator` is unlinked from root and client-guarded by the passcode-issued session;
+- operator data APIs (`/api/wigle`, `/api/agent`, `/api/osint`, `/api/tzeentch`) fail closed inside the Functions layer with `requireOperatorToken`;
+- the Wardriver APK is no longer a public static asset and is served only by `/api/operator-downloads/wardriver/*` after the same operator-token check;
+- Godeye, Tzeentch, WiGLE, and agent surfaces are lazy-loaded from operator assets only.
 
 The Azure Function proxy at `/api/echo` forwards to the VM using the SWA app setting:
 - `BACKEND_ECHO_BASE_URL` → e.g. `http://<vm-public-ip>:8080`
@@ -111,7 +120,12 @@ The WiGLE proxy at `/api/wigle` supports:
 
 ## Android APK download
 
-The Static Web App publishes the branded Blue Swallow Wardriver debug APK from [`app/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk`](./app/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk). The landing page links to the APK and [`blue-swallow-wardriver.json`](./app/downloads/blue-swallow-wardriver.json) for checksum verification.
+The branded Blue Swallow Wardriver debug APK is stored under [`api/_private/downloads/`](./api/_private/downloads/) so it is packaged with Functions, not published as a public static file. Static `/downloads/*` requests return `404`. Operator sessions download through:
+
+- `/api/operator-downloads/wardriver/apk`
+- `/api/operator-downloads/wardriver/metadata`
+
+Artifact details:
 
 - Package: `co.blueswallow.wardriver`
 - Version: `2.109-bss.1` / versionCode `310`
@@ -164,7 +178,7 @@ For the VM starter, the echo service listens on a public IP and port 8080. That 
 - `allowedSourceIp` parameter restricts the NSG to your CIDR (default `*` is open).
 - Daily auto-shutdown schedule (DevTestLab) caps idle cost.
 - SWA `globalHeaders` set CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy`.
-- Authentication uses Easy Auth (AAD) for the protected operator half; `/operator/*`, `/agent`, `/api/profile`, `/api/wigle`, `/api/agent`, `/api/osint`, `/api/tzeentch`, and `/api/validate-passcode` require an authenticated principal at the SWA route layer.
+- Operator access uses the passcode-issued token, not SWA Easy Auth, for `/api/wigle`, `/api/agent`, `/api/osint`, `/api/tzeentch`, and `/api/operator-downloads/wardriver/*`. `/api/profile` and `/account/*` remain SWA-authenticated.
 
 Next hardening to consider:
 - remove the VM public IP and reach it via private link / VNet integration on the SWA

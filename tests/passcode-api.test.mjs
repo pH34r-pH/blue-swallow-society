@@ -74,6 +74,18 @@ test('validate-passcode accepts SHA-256 configured passcodes and rejects wrong g
     assert.match(accepted.body.operatorSession.token, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
     assert.match(accepted.body.operatorSession.expiresAt, /^\d{4}-\d{2}-\d{2}T/);
     assert.equal(accepted.headers['Cache-Control'], 'no-store');
+    assert.match(accepted.headers['Set-Cookie'], /^bss_operator_session=/);
+    assert.match(accepted.headers['Set-Cookie'], /HttpOnly/);
+    assert.match(accepted.headers['Set-Cookie'], /Secure/);
+    assert.match(accepted.headers['Set-Cookie'], /SameSite=Strict/);
+
+    const verifiedCookie = verifyOperatorRequest({
+      headers: {
+        cookie: accepted.headers['Set-Cookie'].split(';')[0],
+      },
+    });
+    assert.equal(verifiedCookie.ok, true);
+    assert.equal(verifiedCookie.token.sub, 'operator');
 
     const rejected = await invoke('blue-swallow');
     assert.equal(rejected.status, 401);

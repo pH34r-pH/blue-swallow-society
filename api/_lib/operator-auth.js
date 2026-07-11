@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 
 const DEFAULT_TOKEN_TTL_MS = 8 * 60 * 60 * 1000;
 const TOKEN_VERSION = 1;
+const OPERATOR_SESSION_COOKIE = 'bss_operator_session';
 
 function getConfiguredDigest() {
   const digest = (process.env.BLUE_SWALLOW_PASSCODE_SHA256 || '').trim().toLowerCase();
@@ -134,7 +135,61 @@ function extractBearerToken(req) {
 
   const authorization = toHeader(req, 'authorization');
   const match = authorization.match(/^Bearer\s+(.+)$/i);
-  return match ? match[1].trim() : '';
+  if (match) {
+    return match[1].trim();
+  }
+
+  return extractCookieValue(toHeader(req, 'cookie'), OPERATOR_SESSION_COOKIE);
+}
+
+function buildOperatorSessionCookie(session) {
+  const token = typeof session?.token === 'string' ? session.token : '';
+  const ttlSeconds = Number.isFinite(session?.ttlSeconds) ? Math.max(0, Math.floor(session.ttlSeconds)) : 0;
+  if (!token || ttlSeconds <= 0) {
+    return buildClearOperatorSessionCookie();
+  }
+
+  return [
+    `${OPERATOR_SESSION_COOKIE}=${encodeURIComponent(token)}`,
+    'Path=/',
+    `Max-Age=${ttlSeconds}`,
+    'HttpOnly',
+    'Secure',
+    'SameSite=Strict',
+  ].join('; ');
+}
+
+function buildClearOperatorSessionCookie() {
+  return [
+    `${OPERATOR_SESSION_COOKIE}=`,
+    'Path=/',
+    'Max-Age=0',
+    'HttpOnly',
+    'Secure',
+    'SameSite=Strict',
+  ].join('; ');
+}
+
+function extractCookieValue(cookieHeader, name) {
+  if (!cookieHeader || !name) {
+    return '';
+  }
+
+  for (const part of String(cookieHeader).split(';')) {
+    const [rawKey, ...rawValueParts] = part.split('=');
+    if (rawKey?.trim() !== name) {
+      continue;
+    }
+
+    const rawValue = rawValueParts.join('=').trim();
+    try {
+      return decodeURIComponent(rawValue);
+    } catch {
+      return rawValue;
+    }
+  }
+
+  return '';
 }
 
 function toHeader(req, name) {
@@ -227,6 +282,8 @@ function base64UrlDecode(value) {
 }
 
 module.exports = {
+  buildClearOperatorSessionCookie,
+  buildOperatorSessionCookie,
   createOperatorToken,
   getConfiguredDigest,
   getOperatorTokenSigningKey,

@@ -9,6 +9,12 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const urlPath = url.pathname;
 
+  if (urlPath.startsWith('/downloads/')) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Not found');
+    return;
+  }
+
   if (urlPath.startsWith('/api/')) {
     if (urlPath === '/api/echo') {
       const msg = url.searchParams.get('msg') || 'empty';

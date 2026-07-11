@@ -54,7 +54,7 @@ The Tzeentch network feeds are lazy-loaded only after the Tzeentch tab is opened
 
 ### Tzeentch Market Surface
 
-- `/api/tzeentch` is SWA-authenticated and bearer-token protected.
+- `/api/tzeentch` is passcode-token protected at the Function layer.
 - The dashboard payload remains read-only and paper-only.
 - CoinGecko and Polymarket Gamma are consumed as public sources; no API keys, exchange credentials, wallet credentials, or account tokens are embedded in the client.
 - Any future live trading or bet-placement flow must use user-mediated sign-in / on-behalf-of authorization so the user authenticates directly with the target service.
@@ -78,9 +78,9 @@ Public API:
 
 ## Security Considerations
 
-- Public HTML/CSS contains no operator console markers, passcode shell, Tzeentch/Godeye labels, or operator API names.
-- Operator HTML, JS, CSS, modules, and legacy `/agent` routes are protected by SWA Easy Auth.
-- Operator APIs are protected by both SWA route auth and app-issued bearer tokens where they expose operator data.
+- Public HTML/CSS contains only the Blue Swallow Society passcode split and the standard event-planning branch; it does not link to Wardriver artifacts or operator entrypoints.
+- `/operator` is unlinked from root and requires a passcode-issued session in browser state before showing the console.
+- Operator APIs and Wardriver downloads are routed anonymously through SWA so the passcode flow can reach them, then fail closed inside Functions through `requireOperatorToken`.
 - OSINT prompts and targets use POST bodies rather than query strings.
 - Sensitive investigation state uses session storage, not durable local storage.
 - Production CSP keeps browser connections same-origin.

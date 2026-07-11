@@ -7,7 +7,8 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const staticWebApp = JSON.parse(read('app/staticwebapp.config.json'));
 const indexHtml = read('app/index.html');
 const operatorHtml = read('app/operator/index.html');
-const publicCss = read('app/public.css');
+const rootCss = read('app/styles.css');
+const rootMainJs = read('app/main.js');
 const operatorMainJs = read('app/operator/main.js');
 const tzeentchJs = read('app/operator/tzeentch.mjs');
 const tzeentchDashboardJs = read('app/operator/tzeentch-dashboard.mjs');
@@ -19,6 +20,7 @@ const localServer = read('local-server.js');
 const styles = read('app/operator/styles.css');
 const deployWorkflow = read('.github/workflows/deploy-static-web-app.yml');
 const operatorAuth = read('api/_lib/operator-auth.js');
+const operatorDownloadsApi = read('api/operator-downloads/index.js');
 const removedCanonicalPasscodeHash = [
   '1498079020c154198640fb47d5dba23a804f44ff805fac623c69202af9db2c',
   '80',
@@ -41,71 +43,80 @@ test('Static Web Apps routes do not collide after Azure trailing-slash normaliza
   }
 });
 
-test('operator APIs use SWA auth or passcode-issued bearer tokens', () => {
-  ['/api/wigle', '/api/agent', '/api/osint', '/api/tzeentch', '/api/validate-passcode'].forEach((route) => {
-    assert.deepEqual(routeConfig(route)?.allowedRoles, ['authenticated'], `${route} should require Static Web Apps authentication`);
+test('operator APIs are reachable from the passcode login but fail closed on passcode-issued bearer tokens or cookies', () => {
+  ['/api/wigle', '/api/agent', '/api/osint', '/api/tzeentch'].forEach((route) => {
+    assert.deepEqual(routeConfig(route)?.allowedRoles, ['anonymous', 'authenticated'], `${route} must not be SWA-AAD gated before token validation`);
   });
+  assert.deepEqual(routeConfig('/api/validate-passcode')?.allowedRoles, ['anonymous', 'authenticated']);
+  assert.deepEqual(routeConfig('/api/operator-downloads/wardriver/*')?.allowedRoles, ['anonymous', 'authenticated']);
 
   assert.ok(read('api/osint/index.js').includes('requireOperatorToken'));
   assert.ok(read('api/tzeentch/index.js').includes('requireOperatorToken'));
   assert.ok(agentApi.includes('requireOperatorToken'));
   assert.ok(wigleApi.includes('requireOperatorToken'));
+  assert.ok(operatorDownloadsApi.includes('requireOperatorToken'));
   assert.ok(agentJs.includes('Authorization: `Bearer ${session.token}`'));
   assert.ok(agentJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
   assert.ok(operatorMainJs.includes('Authorization: `Bearer ${session.token}`'));
   assert.ok(operatorMainJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
 });
 
-test('public face ships no operator console markers, login shell, or operator API names', () => {
-  const forbiddenPublicNeedles = [
+test('root face ships only the passcode split and standard-site decoy, never operator or Wardriver material', () => {
+  const forbiddenRootNeedles = [
     'OPERATOR CONSOLE',
     'Tzeentch',
     'Godeye',
-    'passcode',
-    'terminalScreen',
     'mainInterface',
     '/api/osint',
     '/api/tzeentch',
-    '/api/validate-passcode',
     '/operator',
+    '/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk',
+    '/downloads/blue-swallow-wardriver.json',
+    'co.blueswallow.wardriver',
   ];
 
-  assert.match(indexHtml, /<body\s+data-mode="public"/);
+  assert.match(indexHtml, /<body\s+data-mode="login"/);
   assert.match(indexHtml, /Blue Swallow Society/);
-  assert.match(indexHtml, /\/downloads\/blue-swallow-wardriver-2\.109-bss\.1-debug\.apk/);
-  assert.match(indexHtml, /href="\/public\.css"/);
-  assert.doesNotMatch(indexHtml, /<script\b/i);
-  forbiddenPublicNeedles.forEach((needle) => {
-    assert.ok(!indexHtml.includes(needle), `public index leaked ${needle}`);
-    assert.ok(!publicCss.includes(needle), `public css leaked ${needle}`);
+  assert.match(indexHtml, /id="passcodeInput"/);
+  assert.match(indexHtml, /id="standardSite"/);
+  assert.match(indexHtml, /Event Planning/);
+  assert.match(indexHtml, /href="\/styles\.css"/);
+  assert.match(indexHtml, /<script src="\/main\.js" type="module"><\/script>/);
+  forbiddenRootNeedles.forEach((needle) => {
+    assert.ok(!indexHtml.includes(needle), `root index leaked ${needle}`);
+    assert.ok(!rootCss.includes(needle), `root css leaked ${needle}`);
   });
 });
 
-test('operator entrypoint is separate from the public face and unlinked from root', () => {
+test('operator entrypoint is separate from the root face, unlinked, and client-guarded by an operator session', () => {
   assert.ok(operatorHtml.includes('terminalScreen'));
-  assert.ok(operatorHtml.includes('passcodeInput'));
   assert.ok(operatorHtml.includes('mainInterface'));
   assert.ok(operatorHtml.includes('/operator/main.js'));
   assert.ok(operatorHtml.includes('/operator/styles.css'));
   assert.ok(!indexHtml.includes('operator/index.html'));
   assert.ok(!indexHtml.includes('/operator/'));
+  assert.ok(operatorMainJs.includes("window.location.replace('/')"));
+  assert.ok(operatorMainJs.includes('getOperatorSession()'));
 });
 
-test('operator HTML, JS, CSS, modules, and legacy routes are SWA-auth protected', () => {
-  assert.deepEqual(routeConfig('/operator')?.allowedRoles, ['authenticated']);
+test('operator HTML, JS, CSS, modules, and legacy routes are passcode-flow reachable without SWA AAD', () => {
+  assert.deepEqual(routeConfig('/operator')?.allowedRoles, ['anonymous', 'authenticated']);
   assert.equal(routeConfig('/operator')?.rewrite, '/operator/index.html');
-  assert.deepEqual(routeConfig('/operator/*')?.allowedRoles, ['authenticated']);
-  assert.deepEqual(routeConfig('/agent')?.allowedRoles, ['authenticated']);
+  assert.deepEqual(routeConfig('/operator/*')?.allowedRoles, ['anonymous', 'authenticated']);
+  assert.deepEqual(routeConfig('/agent')?.allowedRoles, ['anonymous', 'authenticated']);
   assert.equal(routeConfig('/agent')?.rewrite, '/operator/agent.html');
-  assert.deepEqual(routeConfig('/agent.html')?.allowedRoles, ['authenticated']);
+  assert.deepEqual(routeConfig('/agent.html')?.allowedRoles, ['anonymous', 'authenticated']);
   assert.equal(routeConfig('/agent.html')?.rewrite, '/operator/agent.html');
 });
 
-test('passcode auth has no client fallback secret or local bypass', () => {
-  assert.ok(!operatorMainJs.includes('PASSCODE_FALLBACK'));
-  assert.ok(!operatorMainJs.includes("passcode === 'blue-swallow'"));
-  assert.ok(!operatorMainJs.includes('Local fallback for development shells'));
-  assert.ok(!operatorMainJs.includes(removedCanonicalPasscodeHash));
+test('passcode auth has no client fallback secret, canonical passcode literal, or local bypass', () => {
+  const browserSources = [rootMainJs, operatorMainJs].join('\n');
+  assert.ok(!browserSources.includes('PASSCODE_FALLBACK'));
+  assert.ok(!browserSources.includes("passcode === 'blue-swallow'"));
+  assert.ok(!browserSources.includes("passcode === 'tzeentch'"));
+  assert.ok(!browserSources.includes('ea7b2d9f4b6ba94bf277201956fa74b88597188eaa065bb12c57421d86c1d0d5'));
+  assert.ok(!browserSources.includes('Local fallback for development shells'));
+  assert.ok(!browserSources.includes(removedCanonicalPasscodeHash));
 });
 
 test('deployment config wires auth material from GitHub secrets only', () => {
@@ -167,10 +178,15 @@ test('OSINT, WiGLE coordinates, and agent prompts are sent via POST bodies, not 
   assert.ok(!wigleApi.includes('api.wigle.net/api/v2/network/search'));
 });
 
-test('APK downloads are public static assets with binary fallback excluded', () => {
-  assert.deepEqual(routeConfig('/downloads/*')?.allowedRoles, ['anonymous', 'authenticated']);
+test('APK downloads are removed from the public static surface and served only by the operator-token API', () => {
+  assert.equal(routeConfig('/downloads/*')?.statusCode, 404);
   assert.ok(staticWebApp.navigationFallback.exclude.some((entry) => entry.includes('apk')));
-  assert.ok(indexHtml.includes('/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk'));
+  assert.ok(!indexHtml.includes('/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk'));
+  assert.ok(!indexHtml.includes('/downloads/blue-swallow-wardriver.json'));
+  assert.ok(operatorHtml.includes('/api/operator-downloads/wardriver/apk'));
+  assert.ok(operatorHtml.includes('/api/operator-downloads/wardriver/metadata'));
+  assert.ok(operatorDownloadsApi.includes('requireOperatorToken'));
+  assert.ok(operatorDownloadsApi.includes('Content-Disposition'));
 });
 
 test('Tzeentch network feeds are lazy-loaded only when the Tzeentch tab is opened', () => {

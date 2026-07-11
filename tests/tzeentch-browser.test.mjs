@@ -182,7 +182,10 @@ test('Obscura renders Tzeentch sub-tabs and switches to the Crypto panel', async
       const body = readFileSync(filePath);
       res.writeHead(200, { 'Content-Type': MIME_TYPES[extname(filePath)] || 'application/octet-stream' });
       if (pathname === '/operator/index.html') {
-        res.end(body.toString('utf8').replace('</body>', `${browserBootScript()}</body>`));
+        const html = body.toString('utf8')
+          .replace('<script src="/operator/main.js" type="module"></script>', `${operatorSessionSeedScript()}<script src="/operator/main.js" type="module"></script>`)
+          .replace('</body>', `${browserBootScript()}</body>`);
+        res.end(html);
         return;
       }
       res.end(body);
@@ -229,6 +232,18 @@ function sendJson(res, body) {
     'Cache-Control': 'no-store',
   });
   res.end(JSON.stringify(body));
+}
+
+function operatorSessionSeedScript() {
+  return String.raw`
+    <script>
+      sessionStorage.setItem('blue-swallow-society:operator-session', JSON.stringify({
+        token: 'browser-token',
+        expiresAt: '2026-07-09T20:00:00Z',
+        ttlSeconds: 28800,
+      }));
+    </script>
+  `;
 }
 
 function browserBootScript() {

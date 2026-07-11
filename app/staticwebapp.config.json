@@ -2,21 +2,20 @@
   "routes": [
     {
       "route": "/downloads/*",
+      "statusCode": 404
+    },
+    {
+      "route": "/operator",
+      "rewrite": "/operator/index.html",
       "allowedRoles": [
         "anonymous",
         "authenticated"
       ]
     },
     {
-      "route": "/operator",
-      "rewrite": "/operator/index.html",
-      "allowedRoles": [
-        "authenticated"
-      ]
-    },
-    {
       "route": "/operator/*",
       "allowedRoles": [
+        "anonymous",
         "authenticated"
       ]
     },
@@ -35,30 +34,49 @@
     {
       "route": "/api/wigle",
       "allowedRoles": [
+        "anonymous",
         "authenticated"
       ]
     },
     {
       "route": "/api/osint",
       "allowedRoles": [
+        "anonymous",
         "authenticated"
       ]
     },
     {
       "route": "/api/agent",
       "allowedRoles": [
+        "anonymous",
         "authenticated"
       ]
     },
     {
       "route": "/api/tzeentch",
       "allowedRoles": [
+        "anonymous",
         "authenticated"
       ]
     },
     {
       "route": "/api/validate-passcode",
       "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/api/operator-downloads/wardriver/*",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/api/operator-logout",
+      "allowedRoles": [
+        "anonymous",
         "authenticated"
       ]
     },
@@ -73,6 +91,7 @@
       "route": "/agent",
       "rewrite": "/operator/agent.html",
       "allowedRoles": [
+        "anonymous",
         "authenticated"
       ]
     },
@@ -80,6 +99,7 @@
       "route": "/agent.html",
       "rewrite": "/operator/agent.html",
       "allowedRoles": [
+        "anonymous",
         "authenticated"
       ]
     },
@@ -92,12 +112,6 @@
       "redirect": "/.auth/logout"
     }
   ],
-  "responseOverrides": {
-    "401": {
-      "statusCode": 302,
-      "redirect": "/.auth/login/aad"
-    }
-  },
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": [
