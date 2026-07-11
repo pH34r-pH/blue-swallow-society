@@ -39,6 +39,7 @@ var cybermapCoreMigration = loadTextContent('../vm/cybermap-api/db/migrations/00
 var cybermapAuthMigration = loadTextContent('../vm/cybermap-api/db/migrations/0002_cybermap_auth_registry.sql')
 var cybermapWorkerPackage = loadTextContent('../vm/cybermap-worker/package.json')
 var cybermapWorkerSource = loadTextContent('../vm/cybermap-worker/worker.mjs')
+var cybermapWorkerCellMaterialization = loadTextContent('../vm/cybermap-worker/cell-materialization.mjs')
 
 #disable-next-line prefer-interpolation
 var cloudInit = concat(
@@ -129,6 +130,13 @@ write_files:
     content: ''',
   base64(cybermapWorkerSource),
   '''
+  - path: /opt/cybermap-worker/cell-materialization.mjs
+    permissions: '0644'
+    defer: true
+    encoding: b64
+    content: ''',
+  base64(cybermapWorkerCellMaterialization),
+  '''
   - path: /etc/cybermap-api.env
     permissions: '0640'
     defer: true
@@ -193,6 +201,7 @@ write_files:
       Group=cybermap
       WorkingDirectory=/opt/cybermap-worker
       Environment=CYBERMAP_WORKER_POLL_INTERVAL_MS=60000
+      EnvironmentFile=-/etc/cybermap-api.env
       EnvironmentFile=-/etc/cybermap-worker.env
       ExecStart=/usr/bin/node /opt/cybermap-worker/worker.mjs
       Restart=always

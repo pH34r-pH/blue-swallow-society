@@ -54,9 +54,11 @@ test('VM Bicep provisions Cybermap API gateway services instead of public echo i
     '/opt/cybermap-api/db.mjs',
     '/opt/cybermap-api/migrate.mjs',
     '/opt/cybermap-worker/worker.mjs',
+    '/opt/cybermap-worker/cell-materialization.mjs',
     'NodeSource Node.js 20',
     'pgbouncer',
     '127.0.0.1:8000',
+    'EnvironmentFile=-/etc/cybermap-api.env',
     'destinationPortRange: \'443\'',
   ], 'Cybermap VM cloud-init');
   assertIncludesAll(apiServer, ['rateLimitHook', 'requestId', 'checkDatabaseReadiness'], 'Cybermap API source');
@@ -134,7 +136,7 @@ test('Cybermap API and worker scaffolds carry operational hook points without em
   assert.match(apiPackage, /"start"\s*:\s*"node server\.mjs"/);
   assert.match(workerPackage, /"start"\s*:\s*"node worker\.mjs"/);
   assertIncludesAll(apiServer, ['bodyLimitBytes', 'requestId', 'rateLimitHook', 'authTokens'], 'API operational hooks');
-  assertIncludesAll(worker, ['cybermap-worker', 'structured', 'pollIntervalMs', 'SIGTERM'], 'worker scaffold');
+  assertIncludesAll(worker, ['cybermap-worker', 'structured', 'pollIntervalMs', 'SIGTERM', 'materializeAffectedCybermapCells'], 'worker scaffold');
   assert.doesNotMatch(combined, /postgres:\/\//i);
   assert.doesNotMatch(combined, /PGPASSWORD\s*=/i);
   assert.doesNotMatch(combined, /password\s*[:=]\s*['"][^'"]+/i);

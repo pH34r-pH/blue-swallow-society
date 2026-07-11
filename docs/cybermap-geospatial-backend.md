@@ -232,17 +232,23 @@ CREATE TABLE entity_observations (
 CREATE TABLE cybermap_cells (
   h3_cell text NOT NULL,
   resolution smallint NOT NULL,
+  geom geometry(Polygon, 4326) NOT NULL,
   updated_at timestamptz NOT NULL DEFAULT now(),
   first_seen_at timestamptz,
   last_seen_at timestamptz,
+  source_classes source_class[] NOT NULL DEFAULT ARRAY[]::source_class[],
+  observation_count integer NOT NULL DEFAULT 0,
+  entity_count integer NOT NULL DEFAULT 0,
   layers jsonb NOT NULL DEFAULT '{}'::jsonb,
   counts jsonb NOT NULL DEFAULT '{}'::jsonb,
+  freshness jsonb NOT NULL DEFAULT '{}'::jsonb,
+  caveats jsonb NOT NULL DEFAULT '[]'::jsonb,
   salience numeric(5,3) NOT NULL DEFAULT 0,
   PRIMARY KEY (h3_cell, resolution)
 );
 ```
 
-H3 is intentionally app-computed. Do not require a PostgreSQL H3 extension for P0. PostGIS handles geometry; the app/worker computes grid cells for fast viewport fetches and map aggregation.
+H3/geohash cells are intentionally app-computed. Do not require a PostgreSQL H3 extension for P0. PostGIS stores geometry; the app/worker computes grid IDs and cell polygons for fast viewport fetches and map aggregation.
 
 Entity materialization is synchronous with accepted observation ingest for recognizable non-PII products:
 
@@ -262,9 +268,19 @@ Ingest observation batch
   -> compute h3_7/h3_9/h3_11 in app
   -> insert immutable observations
   -> upsert entity edges if recognizable
-  -> update cybermap_cells for affected cells
+  -> worker scans affected h3_7/h3_9/h3_11 cells by recent ingested_at
+  -> worker re-aggregates each affected cell from observations + entity_observations + cyber_entities
+  -> worker upserts cybermap_cells by (h3_cell, resolution)
   -> emit sync receipt
 ```
+
+`cybermap_cells.layers` keeps source classes visible to Godeye:
+
+- `green_preload`: Green public/owned/authorized feeds; `global_preload=true`.
+- `local_owned`: owned device or local observations; viewport context, not public global preload.
+- `exposure_enrichment`: grey/orange/red enrichment; `gated=true`, `global_preload=false`, `provenance_bearing=true`, with `gated_by_source_class` carrying authorized scopes, trigger observation IDs, and session IDs.
+
+Materialization is idempotent: the worker recomputes the full affected cell summary from append-only observations and entity-backed edges, then replaces the existing `(h3_cell, resolution)` row via upsert. Reruns do not increment counters.
 
 Viewport read path:
 
