@@ -59,6 +59,10 @@ The frontend communicates with the following backend endpoints:
 - Wide-screen breakpoint at 2560px with max-width container
 - `prefers-reduced-motion` media query disables non-essential animations
 
+### Godeye Cybermap
+- Godeye reads Cybermap viewport data only through the same-origin `/api/cybermap/viewport` Static Web App proxy; browsers never receive VM backend URLs, service tokens, or connection strings.
+- Empty, disconnected, or degraded Cybermap responses render as explicit empty/degraded states instead of sample cells, fake access points, or omniscient overlays.
+- The hosted map affordances surface backend-provided source class, freshness, confidence, salience, and caveats so operators can distinguish Green/public context from restricted or stale enrichment.
 
 ### Tzeentch Market Surface
 - `/api/tzeentch` serves a public read-only dashboard payload for the Tzeentch tab.
