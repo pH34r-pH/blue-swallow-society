@@ -3,6 +3,8 @@
 ## Overview
 This document specifies the Azure infrastructure resources deployed for the Blue Swallow Society project using Bicep templates. The current target is a Cybermap-first stack: Azure Static Web Apps for the public frontend, a shared VM/PostgreSQL network, an Ubuntu VM API gateway, staged custom-domain wiring through Azure DNS, and optional Azure OpenAI.
 
+Cybermap P0 implementation status and task graph are tracked in [`specs/005-cybermap-geospatial-backend/`](../specs/005-cybermap-geospatial-backend/). Treat this infrastructure document as the deployed/current resource shape; use the spec-kit docs for the cross-branch Cybermap implementation ledger.
+
 ## Resource Groups
 
 ### Primary Resource Group

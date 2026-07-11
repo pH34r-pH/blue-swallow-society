@@ -1,8 +1,20 @@
 # Cybermap Geospatial Backend Design
 
-**Status:** Target design for the next backend slice
-**Date:** 2026-07-10
+**Status:** P0 backend design, spec-kit implementation surface, and Kanban implementation ledger
+**Date:** 2026-07-10; synchronized 2026-07-11
 **Scope:** Blue Swallow Society Cybermap, Godeye, RaID, Greenfeeds, Mosaic/Murmurs memory
+
+**Spec-kit surface:** [`specs/005-cybermap-geospatial-backend/`](../specs/005-cybermap-geospatial-backend/)
+
+## Current-state boundary
+
+This document describes the Cybermap backend contract and the P0 implementation graph. It is not a claim that every completed Kanban branch is already merged into this worktree.
+
+- **Main/deployed baseline in this branch:** shared Cybermap networking (P0.00) and core PostGIS migration work (P0.03) are present on `main`; production deployment remains GitHub CI/CD-managed.
+- **Final integration candidate:** `kanban/cybermap-final-adversarial-review` is the fan-in branch; this restoration branch restores the review-approved P0.16 spec-kit/doc-sync artifacts.
+- **Review-approved implementation branches:** P0 slices are tracked by Kanban handoffs and dedicated branches/worktrees; not all review-approved slices or final-review remediation branches are present until the fan-in merge is clean.
+- **Open gates:** P0.15 active merge cleanup and backend app-setting naming drift are sibling remediations; P0.17 remains no-go until those and this P0.16 restoration are re-reviewed together.
+- **No demo-runtime rule:** production Cybermap paths must not seed fake/demo map/feed data; fixtures belong under tests only.
 
 ## Decision
 
@@ -338,9 +350,11 @@ P0 endpoints:
 | `GET /api/v1/entities/{id}` | Entity summary and observation links |
 | `GET /api/v1/sources?bbox=&class=` | Greenfeed/source catalog lookup |
 | `POST /api/v1/sensorium/sessions` | Start/end RaID or Greenfeed session record |
-| `POST /api/v1/direct-observations` | Claim-linked direct observation packet |
-| `GET /api/v1/memories?since=` | Mosaic/Murmurs memory sync pull |
-| `POST /api/v1/memories` | Distilled memory writeback |
+| `POST /api/v1/direct-observations` | Claim-linked direct observation packets from RaID or Greenfeeds |
+| `POST /api/v1/claim-validation/greenfeeds` | Claim footprint -> Greenfeed lookup -> direct observation packet + caveated memory delta |
+| `GET /api/v1/memories?since=` | Pull distilled Mosaic/Murmurs memory events |
+| `POST /api/v1/memories` | Distilled Mosaic/Murmurs memory writeback |
+
 
 P0 should not expose arbitrary SQL-ish filtering. Keep query shapes product-specific and cacheable.
 
@@ -364,17 +378,51 @@ P0 should not expose arbitrary SQL-ish filtering. Keep query shapes product-spec
 - Keep PostgreSQL auto-grow deliberate: Azure storage can grow, but it cannot shrink.
 - For dev, VM auto-shutdown is acceptable; for public Godeye, disable VM auto-shutdown or present a clear degraded/offline state.
 
-## Implementation order
+## P0 implementation ledger
 
-1. Add PostgreSQL Flexible Server B1MS Bicep module with private VNet access and PostGIS bootstrap notes.
-2. Replace echo-lab cloud-init with `cybermap-api` service scaffold, Caddy/nginx, PgBouncer, and `/healthz`/`/readyz`.
-3. Add migrations for source catalog, observations, sessions, entities, and cells.
-4. Implement `POST /api/v1/observations/batch` and idempotency tests.
-5. Implement cell materialization worker and `GET /api/v1/cybermap/viewport`.
-6. Point Godeye at the viewport endpoint and remove any runtime demo/fake map state.
-7. Add Wardriver/RaID sync client using per-device token, `bss.wardriver.batch.v1`, and a local retry outbox.
-8. Add Greenfeed seed catalog and poller, Green-only gate tests, and provenance display.
-9. Add Mosaic/Murmurs memory sync endpoints after the Cybermap observation spine is stable.
+The detailed spec-kit implementation ledger lives in [`specs/005-cybermap-geospatial-backend/spec.md`](../specs/005-cybermap-geospatial-backend/spec.md). Current slice summary:
+
+| Slice | State | Purpose |
+|---|---|---|
+| P0.00 | done, merged/deployed | Shared VNet/subnets for VM and private PostgreSQL. |
+| P0.01 | done, review-ready branch | Private PostgreSQL Flexible Server B1MS. |
+| P0.02 | done, review-approved branch | Cybermap API gateway/worker services replacing echo product scaffold. |
+| P0.03 | done, merged | PostGIS migrations for observation ledger and Cybermap cells. |
+| P0.04 | done, review-approved branch | DB configuration, pooling, migrations, readiness checks. |
+| P0.045 | done, review-approved branch | API auth, source registry scopes, rate limits. |
+| P0.05 | done, review-approved branch | Authenticated observation batch ingest with idempotency. |
+| P0.055 | done, review-approved branch | Entity derivation and observation edges. |
+| P0.06 | done, review-approved branch | Cybermap cell materialization. |
+| P0.07 | done, review-approved branch | Viewport, cell, entity, source catalog read APIs. |
+| P0.08 | done, review-approved branch | SWA `/api` proxy to VM Cybermap v1 API. |
+| P0.09 | done, review-approved branch | Godeye renders backend Cybermap cells only. |
+| P0.10a/b/c | done, review-approved branches | Wardriver payload contract, Android token/outbox sync, RaID nearby context. |
+| P0.11 | done, review-approved branch | Greenfeed catalog and poller with Green-only gates. |
+| P0.12 | done, review-approved branch | Sensorium sessions and direct observation packets. |
+| P0.125 | done, review-approved branch | Claim-validation Greenfeed lookup and direct-observation loop. |
+| P0.13 | done, review-approved branch | Mosaic/Murmurs memory sync endpoints. |
+| P0.14 | done, review-approved/merged into final integration candidate | Security/privacy/source-class regression suite. |
+| P0.15 | pending final merge | Operations plan for backups, monitoring, PgBouncer, cost controls. |
+| P0.16 | done, review-approved/merged into this branch | Spec-kit docs and vault/repo sync. |
+| P0.17 | running | Final adversarial fan-in review and remediation. |
+
+## Task graph
+
+```text
+P0.00 -> P0.01, P0.02
+P0.02 + P0.03 -> P0.04 -> P0.045 -> P0.05 -> P0.055 -> P0.06
+P0.045 + P0.055 + P0.06 -> P0.07 -> P0.08 -> P0.09
+P0.05 + P0.07 -> P0.10a -> P0.10b
+P0.10b + P0.12 -> P0.10c
+P0.05 + P0.06 -> P0.11
+P0.04 + P0.045 -> P0.12
+P0.07 + P0.11 + P0.12 -> P0.125
+P0.04 + P0.045 + P0.125 -> P0.13
+P0.045/P0.055/P0.05/P0.07/P0.09/P0.10a/P0.10b/P0.10c/P0.11/P0.12/P0.125 -> P0.14
+P0.01 + P0.02 + P0.04 -> P0.15
+P0.01/P0.02/P0.03/P0.045/P0.055/P0.05/P0.07/P0.09/P0.10a/P0.10b/P0.10c/P0.11/P0.125/P0.13 -> P0.16
+P0.14 + P0.15 + P0.16 -> P0.17
+```
 
 ## Acceptance criteria
 
@@ -386,4 +434,4 @@ P0 should not expose arbitrary SQL-ish filtering. Keep query shapes product-spec
 - Greenfeed preload is allowed only for Green/public-owned-authorized sources.
 - Grey/orange/red enrichment is locally/owned-triggered and provenance-marked.
 - Every map cell exposes source class, freshness, confidence/salience, and caveats.
-- No raw PII or raw frames are retained or published by default.
+- Raw frames and raw PII MUST NOT be retained or published by default.

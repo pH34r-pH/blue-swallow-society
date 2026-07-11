@@ -12,7 +12,7 @@ Primary surfaces:
 - **Blue Swallow Wardriver / RaID** posts owned/local observations and reads nearby Cybermap context.
 - **Jetson / Mosaic / Murmurs** pulls observation/memory summaries and writes distilled memory events.
 
-The old echo service remains only as a connectivity scaffold. The target backend is documented in [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md).
+The old echo service remains only as historical scaffold. The Cybermap backend contract is documented in [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md) and the spec-kit implementation surface lives at [`specs/005-cybermap-geospatial-backend/`](../specs/005-cybermap-geospatial-backend/). The spec records the P0 task graph and distinguishes main/deployed baseline, review-approved Kanban branches, and final-review remediation state.
 
 ## Target data flow
 

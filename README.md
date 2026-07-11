@@ -1,15 +1,21 @@
-# Blue Swallow Society on Azure Static Web Apps + Cybermap VM Gateway
+# Blue Swallow Society on Azure Static Web Apps + Cybermap Backend
 
-This starter repo gives you:
+This repo currently gives you:
 
 - A **publicly accessible website** on **Azure Static Web Apps**
 - **GitHub Actions CI/CD** for the frontend, managed API, infrastructure, and custom-domain wiring
-- A small **Azure Functions API** for profile, agent, OSINT, Tzeentch, and future Cybermap proxy routes
+- A small **Azure Functions API/proxy** for profile, agent, OSINT, Tzeentch, WiGLE, and Cybermap `/api/cybermap/*` routes
 - An **Ubuntu VM** hosting the Node 20 Cybermap API gateway scaffold behind HTTPS 443
-- A **Cybermap-first geospatial backend design** using Azure Database for PostgreSQL Flexible Server B1MS + PostGIS
+- A **Cybermap-first geospatial backend design and spec-kit surface** using Azure Database for PostgreSQL Flexible Server B1MS + PostGIS
 - A clean place to add **local model experiments** later on the VM
 - An optional **Azure OpenAI** account, gated by a single Bicep parameter
 - Documentation to evolve toward **Microsoft Entra External ID** for customer sign-up/sign-in later
+
+## Current-state boundary
+
+- `main` remains the GitHub CI/CD-managed deployed baseline; the final integration candidate is `kanban/cybermap-final-adversarial-review`.
+- This branch restores the review-approved P0.16 spec-kit/doc-sync surface under [`specs/005-cybermap-geospatial-backend/`](./specs/005-cybermap-geospatial-backend/).
+- Treat [`docs/cybermap-geospatial-backend.md`](./docs/cybermap-geospatial-backend.md) and the spec-kit files as the implementation ledger; do not assume every review-approved slice or final-review remediation branch is merged until fan-in is clean.
 
 ## Architecture
 
@@ -22,7 +28,7 @@ Azure Static Web App (public frontend: Godeye/Tzeentch)
   ↓
 VM API gateway on Ubuntu (nginx HTTPS 443 -> cybermap-api localhost:8000)
   ↓
-Azure Database for PostgreSQL Flexible Server B1MS + PostGIS (target Cybermap store)
+Azure Database for PostgreSQL Flexible Server B1MS + PostGIS (Cybermap durable store)
 ```
 
 The browser never calls the VM directly. The frontend calls the Static Web App API, and the API proxies the request to the VM.
@@ -55,12 +61,18 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 ├── docs/
 │   ├── architecture.md
 │   ├── ai-options-and-budget.md
+│   ├── azure-resources.md
 │   ├── cybermap-geospatial-backend.md
 │   ├── external-id-setup-checklist.md
 │   ├── mosaic-and-murmurs-operating-doctrine.md
 │   ├── mosaic-and-murmurs-s0-sensorium-proposal.md
 │   ├── vm-api.md
 │   └── vm-echo-wiring.md            # historical echo note; not product wiring
+├── specs/
+│   ├── 002-vm-api/
+│   ├── 003-azure-resources/
+│   ├── 004-tzeentch-market-surface/
+│   └── 005-cybermap-geospatial-backend/   # Cybermap P0 spec, plan, tasks, task graph
 ├── infra/
 │   ├── main.bicep                  # single entrypoint, composes VM + optional OpenAI
 │   ├── custom-domains.bicep        # custom-domain bindings for the Static Web App

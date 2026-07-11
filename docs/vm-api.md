@@ -3,6 +3,8 @@
 ## Overview
 The Blue Swallow Society VM is the **Cybermap API gateway** host, not a product echo path. The gateway is rebuilt by Bicep/cloud-init and remains replaceable: durable Cybermap state lives in Azure Database for PostgreSQL Flexible Server with PostGIS.
 
+The target VM service is the **Cybermap API gateway**: authenticated `/api/v1/*` endpoints for observation ingest, viewport queries, source catalogs, sensorium sessions, direct observation packets, claim-validation Greenfeed lookups, and Mosaic/Murmurs memory sync. The durable datastore is Azure Database for PostgreSQL Flexible Server with PostGIS. See [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md) for the backend design and [`specs/005-cybermap-geospatial-backend/`](../specs/005-cybermap-geospatial-backend/) for the P0 implementation ledger and task graph.
+
 Target request flow:
 
 ```text
@@ -22,6 +24,23 @@ Browser / Wardriver / Jetson
 | `cybermap-api.service` | `/opt/cybermap-api/server.mjs` | Node 20 API gateway with health, DB readiness, auth gate, and request limits. |
 | `cybermap-worker.service` | `/opt/cybermap-worker/worker.mjs` | Node 20 background worker scaffold for Greenfeed polling and cell materialization. |
 | `pgbouncer` | `/etc/pgbouncer/pgbouncer.ini` | Local transaction-pooler placeholder on `127.0.0.1:6432`; operator-managed credentials stay outside the repo. |
+
+## Route surface
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /healthz` | VM/API health, no secrets |
+| `GET /readyz` | DB connectivity and migration state |
+| `POST /api/v1/observations/batch` | Wardriver/RaID/Greenfeed batch ingest with idempotency |
+| `GET /api/v1/cybermap/viewport?bbox=&zoom=&layers=&since=` | Godeye map viewport query |
+| `GET /api/v1/cybermap/cells/{h3Cell}` | Cell detail/provenance drilldown |
+| `GET /api/v1/entities/{id}` | Entity summary and observation links |
+| `GET /api/v1/sources?bbox=&class=` | Greenfeed/source catalog lookup |
+| `POST /api/v1/sensorium/sessions` | Start/end RaID or Greenfeed session record |
+| `POST /api/v1/direct-observations` | Claim-linked direct observation packets from RaID or Greenfeeds |
+| `POST /api/v1/claim-validation/greenfeeds` | Claim footprint -> Greenfeed lookup -> direct observation packet + caveated memory delta |
+| `GET /api/v1/memories?since=` | Mosaic/Murmurs memory sync pull |
+| `POST /api/v1/memories` | Distilled memory writeback |
 
 The Bicep module file is still named `infra/vm-echo-lab.bicep` for continuity, but its cloud-init provisions Cybermap gateway services. The old echo lab is retired as a production path and 8080 is not public product ingress.
 
