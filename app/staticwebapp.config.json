@@ -8,6 +8,26 @@
       ]
     },
     {
+      "route": "/operator",
+      "rewrite": "/operator/index.html",
+      "allowedRoles": [
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/operator/",
+      "rewrite": "/operator/index.html",
+      "allowedRoles": [
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/operator/*",
+      "allowedRoles": [
+        "authenticated"
+      ]
+    },
+    {
       "route": "/account/*",
       "allowedRoles": [
         "authenticated"
@@ -28,7 +48,6 @@
     {
       "route": "/api/osint",
       "allowedRoles": [
-        "anonymous",
         "authenticated"
       ]
     },
@@ -41,14 +60,12 @@
     {
       "route": "/api/tzeentch",
       "allowedRoles": [
-        "anonymous",
         "authenticated"
       ]
     },
     {
       "route": "/api/validate-passcode",
       "allowedRoles": [
-        "anonymous",
         "authenticated"
       ]
     },
@@ -61,7 +78,14 @@
     },
     {
       "route": "/agent",
-      "rewrite": "/agent.html",
+      "rewrite": "/operator/agent.html",
+      "allowedRoles": [
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/agent.html",
+      "rewrite": "/operator/agent.html",
       "allowedRoles": [
         "authenticated"
       ]

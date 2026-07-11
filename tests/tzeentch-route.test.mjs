@@ -23,6 +23,7 @@ function withOperatorEnv(fn) {
     BLUE_SWALLOW_PASSCODE_SHA256: process.env.BLUE_SWALLOW_PASSCODE_SHA256,
     BLUE_SWALLOW_PASSCODE: process.env.BLUE_SWALLOW_PASSCODE,
     BLUE_SWALLOW_OPERATOR_TOKEN_TTL_MS: process.env.BLUE_SWALLOW_OPERATOR_TOKEN_TTL_MS,
+    BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY: process.env.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY,
     BLUE_SWALLOW_OPERATOR_ID: process.env.BLUE_SWALLOW_OPERATOR_ID,
     BLUE_SWALLOW_PAPER_LEDGER_PATH: process.env.BLUE_SWALLOW_PAPER_LEDGER_PATH,
   };
@@ -31,6 +32,7 @@ function withOperatorEnv(fn) {
   delete process.env.BLUE_SWALLOW_PASSCODE;
   process.env.BLUE_SWALLOW_PASSCODE_SHA256 = digest;
   process.env.BLUE_SWALLOW_OPERATOR_TOKEN_TTL_MS = '60000';
+  process.env.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY = 'tzeentch-route-token-signing-key-32-bytes-minimum';
   process.env.BLUE_SWALLOW_OPERATOR_ID = 'operator-test';
   process.env.BLUE_SWALLOW_PAPER_LEDGER_PATH = join(ledgerDir, 'ledger.json');
   handler._resetPaperBooksForTests?.();

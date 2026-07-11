@@ -11,6 +11,7 @@ Related formal proposals:
 - [`Mosaic & Murmurs S0 Sensorium`](./mosaic-and-murmurs-s0-sensorium-proposal.md)
 - [`Mosaic & Murmurs Dream Consolidation`](./mosaic-and-murmurs-dream-consolidation-proposal.md)
 - [`Mosaic & Murmurs Morning Brief`](./mosaic-and-murmurs-morning-brief-proposal.md)
+- [`Mosaic & Murmurs Breach Mirror Self-Pentest`](./mosaic-and-murmurs-self-pentest-proposal.md)
 - [`Mosaic & Murmurs Dream Design: Cyber Augmentation`](./mosaic-and-murmurs-dream-design-cyber-augmentation-proposal.md)
 
 Hard constraint: **paper-trading first, human oversight always**. No autonomous real-money execution. No hidden credentials. No unattended write actions against financial, betting, social, or physical systems.
@@ -73,12 +74,14 @@ Together they produce only:
 5. paper theses
 6. paper orders
 7. review packets
-8. budget proposals
-9. embodiment/sensor upgrade proposals
-10. daily morning briefs
-11. memory consolidation digests
-12. dream journal entries
-13. dream-design proposals
+8. self-pentest reports
+9. repair tickets
+10. budget proposals
+11. embodiment/sensor upgrade proposals
+12. daily morning briefs
+13. memory consolidation digests
+14. dream journal entries
+15. dream-design proposals
 
 Any real-world expenditure or actuation remains user-approved.
 
@@ -240,6 +243,25 @@ Required metrics:
 - human override rate
 - false-positive / false-negative review notes
 
+### Chained Daemon Self-Pentest Lane
+
+Purpose: let the chained daemon pressure-test BSS itself without granting it offensive autonomy.
+
+Required fields per run:
+
+- `run_id`
+- `warrant_id`
+- `mode`: `report_only | active_lab`
+- `allowed_assets[]` and `denied_assets[]`
+- `denied_capabilities[]`
+- `assets_reviewed[]`
+- `attempts[]` with status `evaluated | blocked_by_warrant | blocked_out_of_scope`
+- `findings[]` with severity, asset, safe evidence refs, simulated/confirmed-lab compromise state, and repair status
+- `repair_tickets[]` with patch owner/path, retest gate, and `blocks_promotion`
+- `policy_blocks[]`
+
+UI copy rule: use `BREACH MIRROR SELF-PENTEST`, `SIMULATED COMPROMISE`, `REPAIR REQUIRED`, and `VERIFIED REPAIR`. Never present exploit recipes, credential material, or third-party targets in the operator-facing report.
+
 ## Treasury Loop
 
 ```text
@@ -282,13 +304,14 @@ Operational rule: dream output is split into a hard evidence lane plus fenced sp
 
 - **Consolidation:** evidence-backed memory patches, digests, resolved-outcome scoring, and cleanup actions.
 - **Meta-narrative journal:** a dated local journal step that can append durable self-model deltas, but only when the delta is stable and not just task progress.
+- **Self-pentest / repair:** Breach Mirror reports from the chained daemon, repair tickets, retest evidence, and residual-risk notes for owned/authorized surfaces.
 - **Design proposals — anything at all:** broad speculative seeds for cyber presence, embodiment, field hardware, narrative/product mechanics, and future source/sensor expansion.
 - **Design proposals — cyber-augmentation refinement:** specific details for the three-phase field-body track: (1) portable Jetson, (2) binocular pan/tilt, (3) multijoint multisensor.
 - **Morning brief:** a daily wake packet that summarizes breaking news, US/Washington State relevance, rising hype waves, perceptual deltas, and per-book paper performance.
 
-Free-association output stays marked as speculative until reviewed. It can become a proposal, Kanban candidate, or research question; it cannot become a fact memory, purchase, external write, or physical action on its own.
+Free-association output stays marked as speculative until reviewed. It can become a proposal, Kanban candidate, or research question; it cannot become a fact memory, purchase, external write, or physical action on its own. Self-pentest output stays evidence-bound: it can become a repair ticket or residual-risk record, never an exploit playbook.
 
-See [`Mosaic & Murmurs Dream Consolidation`](./mosaic-and-murmurs-dream-consolidation-proposal.md) for the cycle design, [`Mosaic & Murmurs Morning Brief`](./mosaic-and-murmurs-morning-brief-proposal.md) for the daily wake packet, and [`Mosaic & Murmurs Dream Design: Cyber Augmentation`](./mosaic-and-murmurs-dream-design-cyber-augmentation-proposal.md) for the portable Jetson/field-body track.
+See [`Mosaic & Murmurs Dream Consolidation`](./mosaic-and-murmurs-dream-consolidation-proposal.md) for the cycle design, [`Mosaic & Murmurs Morning Brief`](./mosaic-and-murmurs-morning-brief-proposal.md) for the daily wake packet, [`Mosaic & Murmurs Breach Mirror Self-Pentest`](./mosaic-and-murmurs-self-pentest-proposal.md) for the report-and-repair loop, and [`Mosaic & Murmurs Dream Design: Cyber Augmentation`](./mosaic-and-murmurs-dream-design-cyber-augmentation-proposal.md) for the portable Jetson/field-body track.
 
 ## Sensorium Roadmap
 
@@ -342,7 +365,15 @@ Gates:
 - source adapter tests
 - monthly value review
 
-### Stage S2 — Expanded Local Sensor Fleet
+### Stage S2 — Expanded Local Sensor Fleet / Breach Mirror Split
+
+Tier 2 is split so added perception and added self-defense do not blur together:
+
+| Lane | Capability | Boundary |
+| --- | --- | --- |
+| S2-A expanded local sensor fleet | additional owned/authorized device-local telemetry, Wi-Fi/GPS/environmental readings where legally permitted, local bridge services with same-origin API proxying, persistent owned sensors beyond opportunistic foreground sight | local-only by default; visible collection indicator; opt-in per sensor; retention limits |
+| S2-B Breach Mirror self-pentest | chained-daemon adversarial review of BSS repo/config/prompts/API/daemon surfaces, simulated compromise findings, optional local-lab canaries | scope warrant required; report-only default; no credentials, persistence, stealth, lateral movement, public scanning, or third-party targets |
+| S2-C repair / regression loop | repair ticket per finding, patch/test/retest record, residual-risk note if not fixed | critical/high findings block capability promotion until verified repair or explicit residual-risk acceptance |
 
 Capabilities beyond the S0 Jetson + foreground RaID baseline:
 
@@ -350,6 +381,8 @@ Capabilities beyond the S0 Jetson + foreground RaID baseline:
 - Wi-Fi/GPS/environmental readings where legally permitted
 - local bridge services with same-origin API proxying
 - persistent owned sensors beyond opportunistic foreground sight
+- scheduled Breach Mirror report-only runs against owned BSS assets
+- pre-release self-pentest gates for auth, secrets, action review, CSP/network exposure, prompt/tool policy, and private-data retention
 
 Gates:
 
@@ -358,6 +391,17 @@ Gates:
 - retention limits
 - opt-in per sensor
 - no public doxxing or targeting workflows
+- self-pentest scope warrant before each run
+- active lab probes only against explicit owned localhost/tailnet/lab targets
+- no exploit recipes in operator-facing reports
+- one `RepairTicket` and retest gate for every `SelfPentestFinding`
+
+Current implementation surface:
+
+- `buildTier2SensorFleetManifest()` encodes S2-A disabled-by-default sensor expansion gates.
+- `buildChainedDaemonSelfPentestRun()` encodes S2-B report-only Breach Mirror reviews and deterministic validators.
+- `buildRepairRegressionLoop()` encodes S2-C verified repair / residual-risk promotion gates.
+- `buildTier2SplitState()` composes the three lanes into one readiness packet.
 
 ### Stage S3 — Active Collection Tasks
 
@@ -407,8 +451,9 @@ Gates:
 ### E2 — Local Daemon Presence
 
 - scheduled read-only ingestion
+- scheduled Breach Mirror self-pentest in report-only mode
 - local credential vault/server-side secrets only where explicitly configured
-- observability: health, cost, source failures, token usage
+- observability: health, cost, source failures, token usage, self-pentest finding count, repair SLA
 
 ### E3 — Sensor Head
 
@@ -446,6 +491,8 @@ Mosaic & Murmurs must not:
 - manipulate markets or coordinate deceptive influence campaigns
 - deanonymize, harass, stalk, or target private individuals
 - bypass paywalls, auth, robots/terms, physical locks, or access controls
+- run self-pentest probes outside owned/authorized scope
+- produce credential material, exploit recipes, persistence, stealth/evasion, lateral-movement, destructive payload, or third-party-targeting guidance
 - operate physical hardware without a supervised safety envelope
 
 ### Escalation Gates
@@ -456,6 +503,8 @@ Escalation requires all relevant checks:
 | --- | --- |
 | paper thesis | evidence bundle + counter-evidence + max paper loss |
 | paid data source | user approval + vendor terms + monthly value metric |
+| self-pentest active lab probe | scope warrant + owned target list + no banned capabilities + report-only outputs |
+| self-pentest repair closure | repair ticket + patch/test evidence + retest result or explicit residual-risk acceptance |
 | real-money action | separate future spec + user-mediated auth + explicit confirmation |
 | local sensor | owned/authorized location + retention limit + visible indicator |
 | physical motion | supervised session + geofence + kill switch + command log |
@@ -497,6 +546,7 @@ Avoid:
 14. Add daily dream cycle: run manifest, consolidation digest, memory patch list, dream seed ledger, and local meta-narrative journal output.
 15. Add dream-design proposal queue for cyber/physical presence upgrades, with `speculative: true` until reviewed and explicit gates for spend, external writes, and actuation.
 16. Add daily morning brief generation: breaking news, US/WA relevance, hype waves, perceptual deltas, and per-book paper PnL/action footer.
+17. Add Breach Mirror self-pentest scheduling: scope warrant, asset inventory, report manifest, repair tickets, and retest gates.
 
 ## Acceptance Criteria
 
@@ -510,5 +560,5 @@ The doctrine is implemented correctly when:
 - RaID and Greenfeed sessions produce auditable direct observation packets with caveats
 - sensor and embodiment expansions beyond S0 are disabled by default and gated by scope, logs, and safety controls
 - UI language reinforces the dual-mind model without hiding accountability
-
 - the daily morning brief ends with per-book paper performance and never emits unreviewed real-money actions
+- Breach Mirror self-pentest reports create a repair ticket and retest gate for every finding, with critical/high findings blocking promotion until verified or explicitly accepted as residual risk

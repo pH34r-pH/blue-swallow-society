@@ -6,7 +6,7 @@ import {
   createSampleVisionDataset,
   normalizeVisionDetection,
   parseVisionPayload,
-} from '../app/vision.mjs';
+} from '../app/operator/vision.mjs';
 
 test('normalizeVisionDetection standardizes object detection inputs', () => {
   const detection = normalizeVisionDetection({

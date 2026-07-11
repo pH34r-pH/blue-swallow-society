@@ -53,6 +53,7 @@ Direct local handler smoke test:
 
 ```bash
 BLUE_SWALLOW_PASSCODE_SHA256=$(printf 'paper-api-test-passcode' | sha256sum | cut -d' ' -f1) \
+BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY='paper-api-smoke-token-signing-key-32-bytes-minimum' \
 BLUE_SWALLOW_OPERATOR_ID=paper-api-smoke \
 BLUE_SWALLOW_OPERATOR_TOKEN_TTL_MS=60000 \
 BLUE_SWALLOW_PAPER_LEDGER_PATH=/tmp/bss-paper-api-smoke-ledger.json \

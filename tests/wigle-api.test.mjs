@@ -7,6 +7,42 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const wigleRoute = require('../api/wigle/index.js');
+const { createOperatorToken } = require('../api/_lib/operator-auth');
+
+const TEST_OPERATOR_DIGEST = '0'.repeat(64);
+const TEST_SIGNING_KEY = 'wigle-route-token-signing-key-32-bytes-minimum';
+
+function makeOperatorHeaders() {
+  const previousDigest = process.env.BLUE_SWALLOW_PASSCODE_SHA256;
+  const previousSigningKey = process.env.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY;
+  process.env.BLUE_SWALLOW_PASSCODE_SHA256 = TEST_OPERATOR_DIGEST;
+  process.env.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY = TEST_SIGNING_KEY;
+  try {
+    const session = createOperatorToken({ ttlMs: 60_000 });
+    return {
+      Authorization: `Bearer ${session.token}`,
+    };
+  } finally {
+    if (previousDigest === undefined) {
+      delete process.env.BLUE_SWALLOW_PASSCODE_SHA256;
+    } else {
+      process.env.BLUE_SWALLOW_PASSCODE_SHA256 = previousDigest;
+    }
+    if (previousSigningKey === undefined) {
+      delete process.env.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY;
+    } else {
+      process.env.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY = previousSigningKey;
+    }
+  }
+}
+
+function withOperatorEnv(env = {}) {
+  return {
+    ...env,
+    BLUE_SWALLOW_PASSCODE_SHA256: TEST_OPERATOR_DIGEST,
+    BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY: TEST_SIGNING_KEY,
+  };
+}
 
 function makeContext() {
   return {
@@ -48,6 +84,78 @@ async function invokeRoute(req, env = {}, fetchImpl = global.fetch) {
   }
 }
 
+test('wigle API requires a passcode-issued operator bearer token', async () => {
+  const response = await invokeRoute(
+    {
+      body: {
+        mode: 'live',
+      },
+    },
+    withOperatorEnv({
+      WIGLE_LIVE_BRIDGE_URL: undefined,
+      WIGLE_LOCAL_DB_PATH: undefined,
+      WIGLE_API_NAME: undefined,
+      WIGLE_API_TOKEN: undefined,
+    }),
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal(response.body.ok, false);
+  assert.match(response.body.error, /Operator session required/);
+});
+
+test('wigle API rejects location coordinates in URL query strings', async () => {
+  const response = await invokeRoute(
+    {
+      headers: makeOperatorHeaders(),
+      query: {
+        mode: 'live',
+        lat: '47.6205',
+        lon: '-122.3493',
+      },
+    },
+    withOperatorEnv({
+      WIGLE_LIVE_BRIDGE_URL: undefined,
+      WIGLE_LOCAL_DB_PATH: undefined,
+      WIGLE_API_NAME: undefined,
+      WIGLE_API_TOKEN: undefined,
+    }),
+  );
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.ok, false);
+  assert.match(response.body.message, /POST body/);
+});
+
+test('wigle API fails closed instead of sending coordinates to upstream URL queries', async () => {
+  const fetchCalls = [];
+  const response = await invokeRoute(
+    {
+      headers: makeOperatorHeaders(),
+      body: {
+        mode: 'live',
+        lat: 47.6205,
+        lon: -122.3493,
+      },
+    },
+    withOperatorEnv({
+      WIGLE_LIVE_BRIDGE_URL: undefined,
+      WIGLE_LOCAL_DB_PATH: undefined,
+      WIGLE_API_NAME: 'operator',
+      WIGLE_API_TOKEN: 'token',
+    }),
+    async (url) => {
+      fetchCalls.push(String(url));
+      throw new Error('fetch should not run');
+    },
+  );
+
+  assert.equal(response.status, 503);
+  assert.equal(response.body.ok, false);
+  assert.match(response.body.message, /coordinate-bearing URLs/);
+  assert.deepEqual(fetchCalls, []);
+});
+
 test('wigle API exposes a local database snapshot clipped to 100m', async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), 'wigle-db-'));
   const tempFile = path.join(tempDir, 'wigle.json');
@@ -76,20 +184,21 @@ test('wigle API exposes a local database snapshot clipped to 100m', async () => 
 
     const response = await invokeRoute(
       {
-        query: {
+        headers: makeOperatorHeaders(),
+        body: {
           mode: 'database',
-          lat: '47.6205',
-          lon: '-122.3493',
-          radiusMeters: '100',
-          limit: '10',
+          lat: 47.6205,
+          lon: -122.3493,
+          radiusMeters: 100,
+          limit: 10,
         },
       },
-      {
+      withOperatorEnv({
         WIGLE_LOCAL_DB_PATH: tempFile,
         WIGLE_LIVE_BRIDGE_URL: undefined,
         WIGLE_API_NAME: undefined,
         WIGLE_API_TOKEN: undefined,
-      },
+      }),
     );
 
     assert.equal(response.status, 200);
@@ -136,22 +245,23 @@ test('wigle API exposes current local DB observations for AR from recent rows', 
 
     const response = await invokeRoute(
       {
-        query: {
+        headers: makeOperatorHeaders(),
+        body: {
           mode: 'current',
-          lat: '47.6205',
-          lon: '-122.3493',
-          radiusMeters: '100',
-          limit: '10',
-          maxAgeSeconds: '45',
+          lat: 47.6205,
+          lon: -122.3493,
+          radiusMeters: 100,
+          limit: 10,
+          maxAgeSeconds: 45,
           now: '2026-07-09T12:00:30Z',
         },
       },
-      {
+      withOperatorEnv({
         WIGLE_LOCAL_DB_PATH: tempFile,
         WIGLE_LIVE_BRIDGE_URL: undefined,
         WIGLE_API_NAME: undefined,
         WIGLE_API_TOKEN: undefined,
-      },
+      }),
     );
 
     assert.equal(response.status, 200);
@@ -187,20 +297,21 @@ test('wigle API proxies a live bridge snapshot and keeps the live flag', async (
 
   const response = await invokeRoute(
     {
-      query: {
+      headers: makeOperatorHeaders(),
+      body: {
         mode: 'live',
-        lat: '47.6205',
-        lon: '-122.3493',
-        radiusMeters: '100',
-        limit: '10',
+        lat: 47.6205,
+        lon: -122.3493,
+        radiusMeters: 100,
+        limit: 10,
       },
     },
-    {
+    withOperatorEnv({
       WIGLE_LIVE_BRIDGE_URL: 'https://bridge.local/wigle',
       WIGLE_LOCAL_DB_PATH: undefined,
       WIGLE_API_NAME: undefined,
       WIGLE_API_TOKEN: undefined,
-    },
+    }),
     async (url) => ({
       ok: true,
       status: 200,

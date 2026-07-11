@@ -16,7 +16,7 @@ This starter repo gives you:
 ```text
 Browser
   ↓
-Azure Static Web App (public frontend: Godeye/Tzeentch)
+Azure Static Web App (public face + protected /operator console)
   ↓
 /api/* (managed Azure Functions proxy)
   ↓
@@ -46,10 +46,15 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 │   └── agent/
 ├── app/
 │   ├── index.html
-│   ├── agent.html
-│   ├── main.js
-│   ├── agent.js
-│   ├── styles.css
+│   ├── public.css
+│   ├── downloads/
+│   ├── operator/
+│   │   ├── index.html
+│   │   ├── agent.html
+│   │   ├── main.js
+│   │   ├── agent.js
+│   │   ├── styles.css
+│   │   └── *.mjs
 │   └── staticwebapp.config.json
 ├── docs/
 │   ├── architecture.md
@@ -60,6 +65,7 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 │   ├── mosaic-and-murmurs-s0-sensorium-proposal.md
 │   ├── mosaic-and-murmurs-morning-brief-proposal.md
 │   ├── mosaic-and-murmurs-morning-brief-implementation.md
+│   ├── mosaic-and-murmurs-self-pentest-proposal.md
 │   ├── mosaic-and-murmurs-source-expansion-research.md
 │   ├── microsoft-layoff-risk-radar.md
 │   ├── public-official-political-signal-radar.md
@@ -87,10 +93,13 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 
 ## What the website does
 
-The home page includes:
-- sign in / sign out buttons (Easy Auth, AAD)
-- a protected profile call that hits `/api/profile`
-- an **Echo Lab** section that calls `/api/echo`
+The root home page is the **Public Face**: public copy plus the Wardriver APK/download metadata.
+It does not link to, embed, or name the operator console.
+
+The protected operator half lives under `/operator` and `/agent`:
+- SWA Easy Auth gates the operator HTML, JS, CSS, modules, and operator APIs.
+- The operator console still requires a server-side passcode check before issuing the app bearer token used by `/api/osint` and `/api/tzeentch`.
+- Godeye, Tzeentch, WiGLE, and agent surfaces are lazy-loaded from protected operator assets only.
 
 The Azure Function proxy at `/api/echo` forwards to the VM using the SWA app setting:
 - `BACKEND_ECHO_BASE_URL` → e.g. `http://<vm-public-ip>:8080`
@@ -98,7 +107,7 @@ The Azure Function proxy at `/api/echo` forwards to the VM using the SWA app set
 The WiGLE proxy at `/api/wigle` supports:
 - `mode=current` → AR current-state path. Reads the device-local WiGLE database/export through `WIGLE_LOCAL_DB_PATH` or `WIGLE_LOCAL_DB_URL`, filters to recent rows (`maxAgeSeconds`, default 45), and orders candidates by signal strength.
 - `mode=database` → Godeye/local snapshot path. Reads the same local database/export without AR recency gating.
-- `mode=live` → bridge/global fallback. Uses `WIGLE_LIVE_BRIDGE_URL`, then `WIGLE_API_NAME` + `WIGLE_API_TOKEN` for the public WiGLE search API when geolocation is available.
+- `mode=live` → bridge/global fallback. Uses `WIGLE_LIVE_BRIDGE_URL`; direct public WiGLE API lookup is disabled because its search endpoint requires coordinate-bearing URLs.
 
 ## Android APK download
 
@@ -132,7 +141,7 @@ Follow [.github/workflows/setup-azure-creds.md](.github/workflows/setup-azure-cr
 The **Deploy Infra + App** workflow will:
 1. Create the resource group `rg-blue-swallow` if it does not exist.
 2. Run `az deployment group create` against `infra/main.bicep` (SWA resource `blue-swallow-swa` + VM echo lab; OpenAI optional).
-3. Set `BACKEND_ECHO_BASE_URL` and the canonical `BLUE_SWALLOW_PASSCODE_SHA256` runtime hash on the Static Web App.
+3. Set `BACKEND_ECHO_BASE_URL`, `BLUE_SWALLOW_PASSCODE_SHA256`, and `BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY` from GitHub/Azure secrets on the Static Web App.
 4. Deploy `app/` and `api/` to the Static Web App.
 5. Ensure the Azure DNS zone for `blueswallow.net` exists, then wire the apex `blueswallow.net` and `www.blueswallow.net` hostnames through the custom-domain helper script and Azure DNS in `rg-blue-swallow` (the canonical SWA is `blue-swallow-swa`; legacy SWAs `blue-swallow-society` and `wonderful-pond-0623ed81e` have been deleted after cutover). The helper stages the Azure DNS apex A alias and `www` CNAME even before public delegation is live; final SWA custom-domain binding still requires the domain to be registered and delegated at the registrar to the Azure DNS nameservers.
 
@@ -155,7 +164,7 @@ For the VM starter, the echo service listens on a public IP and port 8080. That 
 - `allowedSourceIp` parameter restricts the NSG to your CIDR (default `*` is open).
 - Daily auto-shutdown schedule (DevTestLab) caps idle cost.
 - SWA `globalHeaders` set CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy`.
-- Authentication uses Easy Auth (AAD) with `/api/profile` requiring an authenticated principal.
+- Authentication uses Easy Auth (AAD) for the protected operator half; `/operator/*`, `/agent`, `/api/profile`, `/api/wigle`, `/api/agent`, `/api/osint`, `/api/tzeentch`, and `/api/validate-passcode` require an authenticated principal at the SWA route layer.
 
 Next hardening to consider:
 - remove the VM public IP and reach it via private link / VNet integration on the SWA

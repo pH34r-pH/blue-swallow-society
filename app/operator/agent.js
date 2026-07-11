@@ -1,4 +1,27 @@
+const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
+
 let isRunning = false;
+
+function getOperatorSession() {
+  try {
+    const raw = sessionStorage.getItem(OPERATOR_SESSION_KEY);
+    const session = raw ? JSON.parse(raw) : null;
+    return session && typeof session.token === 'string' && session.token ? session : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildOperatorHeaders(headers = {}) {
+  const session = getOperatorSession();
+  return session?.token
+    ? {
+      ...headers,
+      Authorization: `Bearer ${session.token}`,
+      'X-Blue-Swallow-Operator-Token': session.token,
+    }
+    : { ...headers };
+}
 
 async function runAgent() {
   if (isRunning) return;
@@ -22,10 +45,10 @@ async function runAgent() {
   try {
     const res = await fetch('/api/agent', {
       method: 'POST',
-      headers: {
+      headers: buildOperatorHeaders({
         Accept: 'application/json',
         'Content-Type': 'application/json',
-      },
+      }),
       body: JSON.stringify({ prompt }),
     });
     const text = await res.text();

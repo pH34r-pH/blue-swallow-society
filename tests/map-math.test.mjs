@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildTileGrid, latLonToTileXY } from '../app/map-math.mjs';
+import { buildTileGrid, latLonToTileXY } from '../app/operator/map-math.mjs';
 
 test('latLonToTileXY centers the world at zoom 0', () => {
   const tile = latLonToTileXY(0, 0, 0);

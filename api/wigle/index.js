@@ -1,12 +1,13 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
+const { requireOperatorToken } = require('../_lib/operator-auth');
 
 let wigleModulePromise;
 
 function getWigleModule() {
   if (!wigleModulePromise) {
-    const modulePath = path.resolve(__dirname, '../../app/wigle.mjs');
+    const modulePath = path.resolve(__dirname, '../../app/operator/wigle.mjs');
     wigleModulePromise = import(pathToFileURL(modulePath).href);
   }
 
@@ -14,7 +15,16 @@ function getWigleModule() {
 }
 
 function getRequestValue(req, name, fallback = null) {
-  return req?.query?.[name] ?? req?.body?.[name] ?? fallback;
+  return req?.body?.[name] ?? req?.query?.[name] ?? fallback;
+}
+
+function getBodyValue(req, name, fallback = null) {
+  return req?.body?.[name] ?? fallback;
+}
+
+function hasSensitiveLocationQuery(req) {
+  const query = req?.query || {};
+  return ['lat', 'lon', 'latitude', 'longitude'].some((name) => query[name] !== undefined && query[name] !== null && query[name] !== '');
 }
 
 function parseNumber(value, fallback = null) {
@@ -36,8 +46,8 @@ function clampNumber(value, minimum, maximum, fallback) {
 }
 
 function parseRequestedLocation(req) {
-  const lat = parseNumber(getRequestValue(req, 'lat'));
-  const lon = parseNumber(getRequestValue(req, 'lon'));
+  const lat = parseNumber(getBodyValue(req, 'lat', getBodyValue(req, 'latitude')));
+  const lon = parseNumber(getBodyValue(req, 'lon', getBodyValue(req, 'longitude')));
 
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
     return null;
@@ -146,7 +156,7 @@ async function loadLiveBridge() {
   });
 }
 
-async function loadWigleApi(location, radiusMeters, limit) {
+async function loadWigleApi() {
   const apiName = process.env.WIGLE_API_NAME;
   const apiToken = process.env.WIGLE_API_TOKEN;
 
@@ -154,32 +164,9 @@ async function loadWigleApi(location, radiusMeters, limit) {
     return null;
   }
 
-  if (!location) {
-    const error = new Error('WiGLE API search requires lat/lon query parameters.');
-    error.status = 422;
-    throw error;
-  }
-
-  const bounds = buildBounds(location, radiusMeters);
-  const searchUrl = new URL('https://api.wigle.net/api/v2/network/search');
-  searchUrl.searchParams.set('latrange1', String(bounds.latrange1));
-  searchUrl.searchParams.set('latrange2', String(bounds.latrange2));
-  searchUrl.searchParams.set('longrange1', String(bounds.longrange1));
-  searchUrl.searchParams.set('longrange2', String(bounds.longrange2));
-  searchUrl.searchParams.set('resultsPerPage', String(clampNumber(limit, 1, 100, 25)));
-  searchUrl.searchParams.set('variance', '0.02');
-  searchUrl.searchParams.set('closestLat', String(location.lat));
-  searchUrl.searchParams.set('closestLong', String(location.lon));
-
-  const auth = Buffer.from(`${apiName}:${apiToken}`).toString('base64');
-  const raw = await fetchBody(searchUrl.toString(), {
-    headers: {
-      Authorization: `Basic ${auth}`,
-      Accept: 'application/json',
-    },
-  });
-
-  return normalizeUpstreamPayload(raw);
+  const error = new Error('Direct WiGLE API lookup is disabled: WiGLE location searches require coordinate-bearing URLs. Use WIGLE_LIVE_BRIDGE_URL or a local database source instead.');
+  error.status = 503;
+  throw error;
 }
 
 async function buildSnapshot({
@@ -220,7 +207,7 @@ async function buildSnapshot({
   if (rawPayload === null || rawPayload === undefined) {
     const sourceError = mode === 'database' || mode === 'current'
       ? 'Local WiGLE database not configured. Set WIGLE_LOCAL_DB_PATH or WIGLE_LOCAL_DB_URL.'
-      : 'Live WiGLE is not configured. Set WIGLE_LIVE_BRIDGE_URL or WIGLE_API_NAME/WIGLE_API_TOKEN.';
+      : 'Live WiGLE is not configured. Set WIGLE_LIVE_BRIDGE_URL; direct public WiGLE API lookup is disabled because it requires coordinate-bearing URLs.';
     const error = new Error(sourceError);
     error.status = 503;
     throw error;
@@ -295,6 +282,20 @@ function sendJson(context, status, body) {
 }
 
 module.exports = async function wigle(context, req) {
+  const auth = requireOperatorToken(context, req);
+  if (!auth.ok) {
+    return context.res;
+  }
+
+  if (hasSensitiveLocationQuery(req)) {
+    return sendJson(context, 400, {
+      ok: false,
+      mode: String(getRequestValue(req, 'mode', 'live') || 'live').toLowerCase(),
+      live: false,
+      message: 'WiGLE location coordinates must be sent in the POST body, not the URL query string.',
+    });
+  }
+
   const requestMode = String(getRequestValue(req, 'mode', 'live') || 'live').toLowerCase();
   const mode = requestMode === 'database' || requestMode === 'current' ? requestMode : 'live';
   const radiusMeters = clampNumber(getRequestValue(req, 'radiusMeters'), 25, 5_000, 100);

@@ -1,87 +1,88 @@
 # Static Web App Functionality
 
 ## Overview
-The Blue Swallow Society static web application provides a cyberpunk-themed terminal interface for interacting with the society's network console. The application implements authentication, tabbed navigation, and various interactive components.
 
-## Core Features
+The Blue Swallow Society Static Web App is split into two halves:
 
-### Authentication System
-- Terminal-style login interface with passcode validation
-- Simulated backend validation (fallback to hardcoded passcode "blue-swallow" for development)
-- Session state management (`isAuthenticated` flag)
-- Logout functionality that resets interface and chat history
+1. **Public Face** at `/`: public project copy plus the Wardriver APK/download metadata.
+2. **Operator console** at `/operator` and `/agent`: SWA-authenticated HTML/JS/CSS/modules plus a server-side passcode gate that issues the app bearer token used by operator APIs.
 
-### Tabbed Interface
-Four main tabs accessible after authentication:
-1. **Landing**: Network manifesto and status display
-2. **Agentic**: Chat interface for interacting with the AI agent
-3. **Monitoring**: System monitoring feed placeholder
-4. **Experiments**: Experimental workbench placeholder
+The public root does not link to, embed, or name the operator half.
 
-### Agentic Chat
-- Real-time chat interface with user/agent message styling
-- Timestamped messages
-- Auto-scrolling to latest message
-- Chat history persistence in session
-- Simulated backend communication via `/api/agent` endpoint
+## Public Face
 
-### UI Components
-- Custom terminal-styled login screen
-- Cyberpunk-inspired color scheme (neon accents on dark background)
-- Responsive layout with container-based design
-- Interactive buttons with hover/active states
-- Error messaging system for authentication feedback
+The public page includes:
 
-### API Integration
-The frontend communicates with the following backend endpoints:
-- `/api/validate-passcode` (POST) - Passcode validation
-- `/api/agent?prompt={message}` (GET) - Agent chat responses
-- `/api/echo?msg={message}` (GET) - Echo lab functionality (via proxy)
-- `/api/profile` (GET) - Protected profile endpoint (requires auth)
+- Blue Swallow Society public manifesto copy.
+- Wardriver APK download link.
+- Wardriver build metadata link.
+- APK package/version/size/build facts.
+- APK SHA-256 checksum.
 
-## Technical Implementation
+The public page intentionally has no script tag and no operator API names.
 
-### State Management
-- Authentication state (`isAuthenticated`)
-- Chat history array (`chatHistory`)
-- DOM element caching via helper functions (`$` and `$$`)
+## Operator Console
 
-### Event Handling
-- Click events for login, logout, tab switching, and message sending
-- Keypress events for Enter key submission in inputs
-- Dynamic class toggling for UI state changes
+The operator console keeps the cyberpunk terminal shell and tabbed workbench under protected assets:
 
-### Responsive Design
-- Mobile-friendly layout using CSS flexbox and grid principles
-- Touch-friendly button sizes (minimum 44px via padding)
-- Readable typography at various screen sizes
-- Wide-screen breakpoint at 2560px with max-width container
-- `prefers-reduced-motion` media query disables non-essential animations
+- `app/operator/index.html`
+- `app/operator/main.js`
+- `app/operator/styles.css`
+- `app/operator/*.mjs`
+- `app/operator/agent.html`
+- `app/operator/agent.js`
 
+### Authentication
+
+- SWA Easy Auth protects `/operator`, `/operator/*`, `/agent`, and `/agent.html`.
+- `/api/validate-passcode` is also SWA-authenticated.
+- The passcode is validated server-side from `BLUE_SWALLOW_PASSCODE_SHA256`.
+- The operator session token is signed server-side with independent `BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY` material.
+- The client has no hardcoded passcode, fallback secret, signing key, or local bypass.
+- A successful passcode check returns a short-lived operator session token.
+- Operator APIs require that token via `Authorization: Bearer ...` or `X-Blue-Swallow-Operator-Token`.
+
+### Operator Tabs
+
+The operator console includes:
+
+1. **Landing**: internal workbench landing copy and Wardriver download card.
+2. **Tzeentch**: OSINT and paper-market surfaces.
+3. **Godeye**: hosted WiGLE/local map viewer.
+
+The Tzeentch network feeds are lazy-loaded only after the Tzeentch tab is opened.
 
 ### Tzeentch Market Surface
-- `/api/tzeentch` serves a public read-only dashboard payload for the Tzeentch tab.
-- The surface is organized into swipeable sub-tabs: **Murmurs**, **Crypto**, **Polymarket**, and **Actionable Intel**.
-- CoinGecko and Polymarket Gamma are consumed as public sources; no API keys, tokens, or account credentials are stored or embedded in the client.
+
+- `/api/tzeentch` is SWA-authenticated and bearer-token protected.
+- The dashboard payload remains read-only and paper-only.
+- CoinGecko and Polymarket Gamma are consumed as public sources; no API keys, exchange credentials, wallet credentials, or account tokens are embedded in the client.
 - Any future live trading or bet-placement flow must use user-mediated sign-in / on-behalf-of authorization so the user authenticates directly with the target service.
-- Crypto views present the top 10 assets by trading volume with last-24-hour and last-5-day chart slices derived from public price history.
-- Polymarket shows new markets and recently resolved markets without requiring an account for browsing.
 - Actionable Intel remains paper-only: proposed buys and sells must include rationale, evidence, and source links for review/iteration.
 - The Mosaic & Murmurs operating doctrine defines the dual-mind model, paper treasury loop, sensorium roadmap, governance gates, and embodiment milestones in [`docs/mosaic-and-murmurs-operating-doctrine.md`](./mosaic-and-murmurs-operating-doctrine.md).
-- The S0 sensorium proposal keeps current lawful read-only perception in S0: Jetson runtime, RaID episodic sight, global Greenfeed jack-in, and direct-observation packets for claim validation in [`docs/mosaic-and-murmurs-s0-sensorium-proposal.md`](./mosaic-and-murmurs-s0-sensorium-proposal.md).
 
-## Current Limitations
-- Monitoring and Experiments tabs are placeholders
-- Agent responses are simulated (would call `/api/agent` in production)
-- No persistent data storage (all state is session-based)
-- Accessibility audits (Lighthouse, keyboard-only) are pending manual validation
+## API Integration
+
+Protected operator APIs:
+
+- `/api/validate-passcode` (POST): server-side passcode validation.
+- `/api/osint` (POST): public-source target scan / overview.
+- `/api/tzeentch` (GET): read-only dashboard and paper books.
+- `/api/wigle` (GET): local/current WiGLE snapshot proxy.
+- `/api/agent` (POST): protected agent prompt route.
+- `/api/profile` (GET): protected profile endpoint.
+
+Public API:
+
+- `/api/echo` remains public scaffold/demo plumbing for the VM echo path.
 
 ## Security Considerations
-- Authentication via Azure AD Easy Auth (in production)
-- Passcode validation should be backed by secure VM service
-- API calls made to same-origin endpoints (via Static Web App routing)
-- No sensitive data stored in client-side storage
-- Input sanitization strips HTML tags and enforces max length on passcode field
-- Chat messages use safe DOM construction (textContent) to prevent XSS
-- Keyboard navigation supports arrow keys, Home, and End for tab cycling
-- Error announcements use aria-live="assertive" for screen reader support
+
+- Public HTML/CSS contains no operator console markers, passcode shell, Tzeentch/Godeye labels, or operator API names.
+- Operator HTML, JS, CSS, modules, and legacy `/agent` routes are protected by SWA Easy Auth.
+- Operator APIs are protected by both SWA route auth and app-issued bearer tokens where they expose operator data.
+- OSINT prompts and targets use POST bodies rather than query strings.
+- Sensitive investigation state uses session storage, not durable local storage.
+- Production CSP keeps browser connections same-origin.
+- Local dev server returns JSON `501` for unmounted `/api/*` routes instead of masking them with SPA HTML.
+- Sample WiGLE data is explicitly labeled as demo data.

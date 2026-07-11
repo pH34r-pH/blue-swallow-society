@@ -32,6 +32,36 @@ const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
 const $ = (id) => document.getElementById(id);
 const $$ = (selector) => document.querySelectorAll(selector);
 
+function getOperatorSession() {
+  try {
+    const raw = sessionStorage.getItem(OPERATOR_SESSION_KEY);
+    const session = raw ? JSON.parse(raw) : null;
+    return session && typeof session.token === 'string' && session.token ? session : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildOperatorHeaders(headers = {}) {
+  const session = getOperatorSession();
+  return session?.token
+    ? {
+      ...headers,
+      Authorization: `Bearer ${session.token}`,
+      'X-Blue-Swallow-Operator-Token': session.token,
+    }
+    : { ...headers };
+}
+
+function sameOriginPath(endpoint, pathname) {
+  try {
+    const url = new URL(endpoint, window.location.origin);
+    return url.origin === window.location.origin && url.pathname === pathname;
+  } catch {
+    return false;
+  }
+}
+
 const state = {
   authenticated: false,
   activeTab: 'landing',
@@ -468,16 +498,16 @@ function syncArFeedToggle() {
   button.textContent = state.arEnabled ? 'Camera feed: ON' : 'Camera feed: OFF';
 }
 
-function buildWigleEndpointUrl(endpoint, params = {}) {
-  const url = new URL(endpoint, window.location.origin);
+function buildWigleRequestPayload(params = {}) {
+  const payload = {};
   Object.entries(params).forEach(([key, value]) => {
     if (value === undefined || value === null || value === '') {
       return;
     }
 
-    url.searchParams.set(key, String(value));
+    payload[key] = value;
   });
-  return url.toString();
+  return payload;
 }
 
 async function toggleArFeed() {
@@ -595,7 +625,7 @@ async function refreshLiveWigleFeed({ quiet = false } = {}) {
   }
 
   try {
-    const url = buildWigleEndpointUrl(target, {
+    const requestPayload = buildWigleRequestPayload({
       mode: 'current',
       limit: 12,
       maxAgeSeconds: 45,
@@ -608,10 +638,20 @@ async function refreshLiveWigleFeed({ quiet = false } = {}) {
         : {}),
     });
 
-    const response = await fetch(url, {
-      headers: {
-        Accept: 'application/json, text/plain, */*',
-      },
+    const endpointUrl = new URL(target, window.location.origin).toString();
+    const sameOriginWigle = sameOriginPath(target, '/api/wigle');
+    const response = await fetch(endpointUrl, {
+      method: 'POST',
+      headers: sameOriginWigle
+        ? buildOperatorHeaders({
+            Accept: 'application/json, text/plain, */*',
+            'Content-Type': 'application/json',
+          })
+        : {
+            Accept: 'application/json, text/plain, */*',
+            'Content-Type': 'application/json',
+          },
+      body: JSON.stringify(requestPayload),
     });
 
     if (!response.ok) {

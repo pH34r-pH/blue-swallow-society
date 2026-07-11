@@ -9,7 +9,8 @@ The same window also gives Mosaic & Murmurs a bounded **free-association lane**:
 Related notes:
 - `mosaic-and-murmurs-s0-sensorium-proposal.md`
 - `mosaic-and-murmurs-dream-design-cyber-augmentation-proposal.md`
-- `mosaic-and-murmurs-morning-brief-proposal.md
+- `mosaic-and-murmurs-morning-brief-proposal.md`
+- `mosaic-and-murmurs-self-pentest-proposal.md`
 - `kismet-wardriving-sensor-spine-research.md`
 - `cybermap-geospatial-backend.md`
 - vault note: `Blue Swallow Society - Tailscale Mesh VPN Research`
@@ -25,6 +26,7 @@ Related notes:
 5. **Free association:** let Mosaic & Murmurs explore speculative but bounded futures: new sensor packages, field rituals, embodiment designs, cyber-presence expansions, and research targets.
 6. **Proposal queue:** convert good dream seeds into reviewable proposals, Kanban cards, or research tasks only after explicit gating.
 7. **Morning brief:** publish a daily wake packet with breaking news, US/Washington relevance, hype waves, perceptual deltas, and paper-book performance.
+8. **Self-pentest repair:** run scoped Breach Mirror reviews, convert every simulated compromise into a repair ticket, and preserve retest evidence before promotion.
 
 ## Non-goals
 
@@ -46,6 +48,8 @@ live day closes
   -> Murmurs consolidation
   -> delta reconciliation
   -> memory housekeeping
+  -> Breach Mirror self-pentest review
+  -> repair / retest queue
   -> free-association dream
   -> meta-narrative journal
   -> proposal / task queue
@@ -104,10 +108,12 @@ The bridge decides what deserves attention tomorrow. It does not decide what is 
 | 3. Murmurs consolidation | Summarize perception movement. | Narrative digest, source-cluster notes, manipulation caveats. |
 | 4. Delta reconciliation | Compare truth, perception, market, and direct observations. | Delta digest and next-best-observation queue. |
 | 5. Housekeeping | Dedupe, compress, age out, redact, and mark review gates. | Memory patch list with `auto`, `review`, `reject`, `expire`. |
-| 6. Free association | Explore speculative futures without factual promotion. | Dream seed ledger with relevance/novelty/risk scores. |
-| 7. Journal composition | Write the day's meta-narrative entry. | Dated journal entry with fact/dream separation. |
-| 8. Proposal queue | Convert selected seeds into concrete next steps. | Draft proposals, Kanban candidates, research questions. |
-| 9. Morning brief | Turn the overnight synthesis into the operator's first signal packet. | Breaking-news digest, hype-wave radar, perceptual deltas, paper-book footer. |
+| 6. Breach Mirror self-pentest | Review owned/authorized BSS surfaces for simulated compromise paths. | Self-pentest report with scope warrant, safe evidence, and findings. |
+| 7. Repair / retest queue | Convert each finding into a repair ticket and retest gate. | Repair ticket list, promotion blockers, residual-risk candidates. |
+| 8. Free association | Explore speculative futures without factual promotion. | Dream seed ledger with relevance/novelty/risk scores. |
+| 9. Journal composition | Write the day's meta-narrative entry. | Dated journal entry with fact/dream separation. |
+| 10. Proposal queue | Convert selected seeds into concrete next steps. | Draft proposals, Kanban candidates, research questions. |
+| 11. Morning brief | Turn the overnight synthesis into the operator's first signal packet. | Breaking-news digest, hype-wave radar, perceptual deltas, paper-book footer. |
 
 ## Free association protocol
 
@@ -200,8 +206,10 @@ type DreamJournalEntry = {
 | Raw traces | Source-specific stores | Bounded, policy-specific |
 | Dream seeds | Local dream ledger | Durable but speculative |
 | Meta-narrative journal | Vault/repo markdown | Durable, append-only |
-
-| Morning brief | Local markdown + delivery transcript + machine manifest | Durable audit; compact operator copy || Housekeeping patch list | Audit log | Durable |
+| Self-pentest report | Local markdown + JSON manifest | Durable security audit; no exploit recipes |
+| Repair tickets | Kanban/issues + manifest links | Durable until verified repair or accepted residual risk |
+| Morning brief | Local markdown + delivery transcript + machine manifest | Durable audit; compact operator copy |
+| Housekeeping patch list | Audit log | Durable |
 
 ## Governance
 
@@ -211,6 +219,7 @@ type DreamJournalEntry = {
 - The daily journal is local-first. Publishing to the internet requires explicit operator action.
 - Dream-generated hardware, budget, or actuation ideas become proposals, not purchases or commands.
 - The cycle can suggest Kanban work, but it should not silently spawn hardware/field tasks without the operator's chosen policy.
+- Self-pentest findings stay scoped to owned/authorized assets, omit exploit recipes, and require repair tickets plus retest gates before closure.
 
 ## Technical viability
 
@@ -221,6 +230,7 @@ type DreamJournalEntry = {
 | Contradiction/source-reliability scoring | Medium | Needs explicit scoring rubric and outcome data; start with human-readable ledgers. |
 | Free-association dream ledger | High | Can be local markdown/JSON first; keep speculative markers hard. |
 | Meta-narrative journal | High | Daily vault note pattern already exists; project-specific journal can mirror it. |
+| Breach Mirror self-pentest report-only lane | High now | Deterministic skeleton exists in `app/operator/chained-daemon.mjs`; active lab canaries remain gated future work. |
 | Fully autonomous memory promotion | Medium-low initially | Dangerous without review gates; use evidence refs and review-required patches first. |
 | Cross-source privacy-safe retention cleanup | Medium | Requires source inventory, TTLs, redaction policy, and tests. |
 

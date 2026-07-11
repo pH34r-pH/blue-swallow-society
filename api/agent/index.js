@@ -1,4 +1,11 @@
+const { requireOperatorToken } = require('../_lib/operator-auth');
+
 module.exports = async function (context, req) {
+  const auth = requireOperatorToken(context, req);
+  if (!auth.ok) {
+    return context.res;
+  }
+
   const input = typeof req.body?.prompt === 'string' ? req.body.prompt : '';
   const trimmed = input.trim().slice(0, 500);
 
@@ -7,7 +14,10 @@ module.exports = async function (context, req) {
   // logs, browser caches, or rendered output.
   context.res = {
     status: 200,
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store'
+    },
     body: {
       ok: true,
       message: 'Agent placeholder',

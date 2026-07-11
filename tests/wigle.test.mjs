@@ -8,7 +8,7 @@ import {
   filterWigleRecordsByRadius,
   isLiveWigleSnapshot,
   normalizeWigleRecord,
-} from '../app/wigle.mjs';
+} from '../app/operator/wigle.mjs';
 
 test('normalizeWigleRecord standardizes WiGLE-like inputs', () => {
   const record = normalizeWigleRecord({

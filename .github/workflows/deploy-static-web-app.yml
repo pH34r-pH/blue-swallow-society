@@ -24,8 +24,6 @@ env:
   DNS_ZONE_NAME: blueswallow.net
   APEX_DOMAIN: blueswallow.net
   WWW_DOMAIN: www.blueswallow.net
-  # SHA-256("blue-swallow"). Keep the canonical passcode server-side only.
-  BLUE_SWALLOW_PASSCODE_SHA256: 1498079020c154198640fb47d5dba23a804f44ff805fac623c69202af9db2c80
 
 jobs:
   deploy-infra:
@@ -117,14 +115,33 @@ jobs:
           echo "backendEchoBaseUrl=$backend" >> "$GITHUB_OUTPUT"
 
       - name: Wire runtime app settings into SWA
+        env:
+          BLUE_SWALLOW_PASSCODE_SHA256: ${{ secrets.BLUE_SWALLOW_PASSCODE_SHA256 }}
+          BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY: ${{ secrets.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY }}
         run: |
+          passcode_hash=$(printf '%s' "$BLUE_SWALLOW_PASSCODE_SHA256" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          signing_key=$(printf '%s' "$BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [ -z "$passcode_hash" ] || [ -z "$signing_key" ]; then
+            echo "::error::BLUE_SWALLOW_PASSCODE_SHA256 and BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY secrets must be configured."
+            exit 1
+          fi
+          if ! printf '%s' "$passcode_hash" | grep -Eq '^[a-fA-F0-9]{64}$'; then
+            echo "::error::BLUE_SWALLOW_PASSCODE_SHA256 must be a 64-character SHA-256 hex digest."
+            exit 1
+          fi
+          signing_key_bytes=$(printf '%s' "$signing_key" | wc -c | tr -d ' ')
+          if ! printf '%s' "$signing_key" | grep -Eq '^[a-fA-F0-9]{64,}$' && [ "$signing_key_bytes" -lt 32 ]; then
+            echo "::error::BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY must be at least 32 bytes, or 64+ hex characters."
+            exit 1
+          fi
           swa_name=$(jq -r '.parameters.staticWebAppName.value' infra/main.parameters.json)
           az staticwebapp appsettings set \
             --name "$swa_name" \
             --resource-group "$RESOURCE_GROUP" \
             --setting-names \
               BACKEND_ECHO_BASE_URL="${{ steps.deploy.outputs.backendEchoBaseUrl }}" \
-              BLUE_SWALLOW_PASSCODE_SHA256="$BLUE_SWALLOW_PASSCODE_SHA256"
+              BLUE_SWALLOW_PASSCODE_SHA256="$passcode_hash" \
+              BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY="$signing_key"
 
   deploy-app:
     runs-on: ubuntu-latest

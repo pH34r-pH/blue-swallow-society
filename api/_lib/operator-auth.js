@@ -40,6 +40,13 @@ function createOperatorToken({ now = Date.now(), ttlMs = getTokenTtlMs(), operat
     throw error;
   }
 
+  const signingKey = getOperatorTokenSigningKey();
+  if (!signingKey) {
+    const error = new Error('Operator token signing is not configured.');
+    error.statusCode = 503;
+    throw error;
+  }
+
   const issuedAt = Math.floor(now / 1000);
   const expiresAt = Math.floor((now + ttlMs) / 1000);
   const payload = {
@@ -51,7 +58,7 @@ function createOperatorToken({ now = Date.now(), ttlMs = getTokenTtlMs(), operat
     nonce: crypto.randomBytes(12).toString('hex'),
   };
   const encodedPayload = base64UrlEncode(JSON.stringify(payload));
-  const signature = signPayload(encodedPayload, digest);
+  const signature = signPayload(encodedPayload, signingKey);
 
   return {
     token: `${encodedPayload}.${signature}`,
@@ -86,9 +93,9 @@ function verifyOperatorRequest(req, { now = Date.now() } = {}) {
     return { ok: false, status: 403, error: 'Operator session required.' };
   }
 
-  const digest = getConfiguredDigest();
-  if (!digest) {
-    return { ok: false, status: 503, error: 'Passcode validation is not configured.' };
+  const signingKey = getOperatorTokenSigningKey();
+  if (!signingKey) {
+    return { ok: false, status: 503, error: 'Operator token signing is not configured.' };
   }
 
   const [encodedPayload, signature, extra] = String(token).split('.');
@@ -96,7 +103,7 @@ function verifyOperatorRequest(req, { now = Date.now() } = {}) {
     return { ok: false, status: 403, error: 'Invalid operator session token.' };
   }
 
-  const expected = signPayload(encodedPayload, digest);
+  const expected = signPayload(encodedPayload, signingKey);
   if (!safeEqual(signature, expected)) {
     return { ok: false, status: 403, error: 'Invalid operator session token.' };
   }
@@ -187,8 +194,22 @@ function normalizeOperatorId(value) {
   return normalized || 'operator';
 }
 
-function signPayload(encodedPayload, digest) {
-  return crypto.createHmac('sha256', Buffer.from(digest, 'hex')).update(encodedPayload).digest('base64url');
+function getOperatorTokenSigningKey() {
+  const configured = (process.env.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY || '').trim();
+  if (!configured) {
+    return null;
+  }
+
+  if (/^[a-f0-9]{64,}$/i.test(configured) && configured.length % 2 === 0) {
+    return Buffer.from(configured, 'hex');
+  }
+
+  const raw = Buffer.from(configured, 'utf8');
+  return raw.length >= 32 ? raw : null;
+}
+
+function signPayload(encodedPayload, signingKey) {
+  return crypto.createHmac('sha256', signingKey).update(encodedPayload).digest('base64url');
 }
 
 function safeEqual(left, right) {
@@ -208,6 +229,7 @@ function base64UrlDecode(value) {
 module.exports = {
   createOperatorToken,
   getConfiguredDigest,
+  getOperatorTokenSigningKey,
   requireOperatorToken,
   verifyOperatorRequest,
   verifyPasscode,

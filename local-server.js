@@ -31,7 +31,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  let filePath = path.join(APP_DIR, urlPath === '/' ? 'index.html' : urlPath);
+  let filePath;
+  if (urlPath === '/') {
+    filePath = path.join(APP_DIR, 'index.html');
+  } else if (urlPath === '/operator') {
+    filePath = path.join(APP_DIR, 'operator', 'index.html');
+  } else if (urlPath === '/agent' || urlPath === '/agent.html') {
+    filePath = path.join(APP_DIR, 'operator', 'agent.html');
+  } else {
+    filePath = path.join(APP_DIR, urlPath);
+  }
 
   const realPath = path.resolve(filePath);
   if (!realPath.startsWith(path.resolve(APP_DIR))) {

@@ -171,7 +171,7 @@ test('Obscura renders Tzeentch sub-tabs and switches to the Crypto panel', async
       return;
     }
 
-    const pathname = url.pathname === '/' ? '/index.html' : url.pathname;
+    const pathname = url.pathname === '/operator' ? '/operator/index.html' : (url.pathname === '/' ? '/index.html' : url.pathname);
     const filePath = normalize(join(appRoot, pathname));
     if (!filePath.startsWith(appRoot)) {
       res.writeHead(403).end('forbidden');
@@ -181,7 +181,7 @@ test('Obscura renders Tzeentch sub-tabs and switches to the Crypto panel', async
     try {
       const body = readFileSync(filePath);
       res.writeHead(200, { 'Content-Type': MIME_TYPES[extname(filePath)] || 'application/octet-stream' });
-      if (pathname === '/index.html') {
+      if (pathname === '/operator/index.html') {
         res.end(body.toString('utf8').replace('</body>', `${browserBootScript()}</body>`));
         return;
       }
@@ -197,7 +197,7 @@ test('Obscura renders Tzeentch sub-tabs and switches to the Crypto panel', async
   try {
     const { stdout } = await execFileAsync('obscura', [
       'fetch',
-      `http://127.0.0.1:${port}/`,
+      `http://127.0.0.1:${port}/operator`,
       '--allow-private-network',
       '--wait',
       '10',

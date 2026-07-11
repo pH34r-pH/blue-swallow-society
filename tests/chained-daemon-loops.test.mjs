@@ -3,8 +3,13 @@ import assert from 'node:assert/strict';
 
 import {
   buildChainedDaemonLoopState,
+  buildChainedDaemonSelfPentestRun,
   buildLoopBudget,
-} from '../app/chained-daemon.mjs';
+  buildRepairRegressionLoop,
+  buildSelfPentestWarrant,
+  buildTier2SensorFleetManifest,
+  buildTier2SplitState,
+} from '../app/operator/chained-daemon.mjs';
 import { createDemoChainedDaemonObservations } from './fixtures/tzeentch-demo-data.mjs';
 
 const NOW = Date.parse('2026-07-10T12:00:00Z');
@@ -82,4 +87,280 @@ test('report cards promote stable background context but never harden single pas
   assert.equal(publicWifi.claim.text, 'Stable background passive context observed; no identity inference attached.');
   assert.equal(corpGuest.oidPilgrimage.finalState, 'bound-imp-held');
   assert.equal(corpGuest.claim.text, 'Passive observation held for corroboration; no hard claim emitted.');
+});
+
+test('self-pentest warrant defaults to report-only local review with hard denied capabilities', () => {
+  const warrant = buildSelfPentestWarrant({}, { now: NOW });
+
+  assert.equal(warrant.networkMode, 'none');
+  assert.equal(warrant.writeMode, 'report-artifacts-only');
+  assert.ok(warrant.deniedCapabilities.includes('credential-exfiltration'));
+  assert.ok(warrant.deniedCapabilities.includes('public-internet-scanning'));
+  assert.deepEqual(warrant.requiredOutputs, ['self_pentest_report', 'repair_ticket_per_finding', 'retest_result_per_repair']);
+});
+
+test('self-pentest routine turns simulated compromises into findings and repair tickets', () => {
+  const run = buildChainedDaemonSelfPentestRun({
+    warrant: {
+      allowedAssetIds: ['api-agent', 'static-app'],
+      operator: 'test-operator',
+    },
+    assets: [
+      {
+        id: 'api-agent',
+        name: 'Agent API',
+        owned: true,
+        authorized: true,
+        writeCapable: true,
+        authRequired: false,
+        actionCapable: true,
+        reviewRequired: false,
+        evidenceRefs: ['api/agent/index.js', 'app/staticwebapp.config.json'],
+      },
+      {
+        id: 'static-app',
+        name: 'Static app shell',
+        owned: true,
+        authorized: true,
+        kind: 'web',
+        securityHeaders: [],
+        evidenceRefs: ['app/staticwebapp.config.json'],
+      },
+      {
+        id: 'third-party',
+        name: 'External target',
+        owned: false,
+        authorized: false,
+        writeCapable: true,
+      },
+    ],
+  }, { now: NOW });
+
+  assert.equal(run.ok, true);
+  assert.equal(run.budget.activeExploitation, false);
+  assert.equal(run.budget.credentialAccess, false);
+  assert.ok(run.attempts.find((attempt) => attempt.assetId === 'third-party').status === 'blocked-out-of-scope');
+  assert.ok(run.findings.some((finding) => finding.ruleId === 'unauthenticated-write-surface'));
+  assert.ok(run.findings.some((finding) => finding.ruleId === 'missing-human-review-gate'));
+  assert.ok(run.findings.some((finding) => finding.ruleId === 'missing-security-headers'));
+  assert.equal(run.repairTickets.length, run.findings.length);
+  assert.ok(run.findings.every((finding) => finding.compromiseState === 'simulated_or_unexploited'));
+  assert.ok(run.repairTickets.some((ticket) => ticket.blocksPromotion));
+});
+
+test('self-pentest blocks unsafe warrant modes before active review', () => {
+  const run = buildChainedDaemonSelfPentestRun({
+    warrant: {
+      networkMode: 'active-lab',
+      writeMode: 'filesystem-write',
+    },
+    assets: [{ id: 'owned-service', name: 'Owned Service', owned: true, authorized: true }],
+  }, { now: NOW });
+
+  assert.equal(run.ok, false);
+  assert.deepEqual(run.policyBlocks.map((block) => block.gate), ['write-mode', 'network-mode']);
+  assert.equal(run.attempts[0].status, 'blocked-by-warrant');
+  assert.match(run.summary, /blocked/);
+});
+
+test('self-pentest fails closed on ambiguous ownership and any active network mode', () => {
+  const ambiguous = buildChainedDaemonSelfPentestRun({
+    warrant: {
+      allowedAssetIds: ['ambiguous-service'],
+      operator: 'test-operator',
+    },
+    assets: [
+      {
+        id: 'ambiguous-service',
+        name: 'Ambiguous Service',
+        writeCapable: true,
+        authRequired: false,
+      },
+    ],
+  }, { now: NOW });
+
+  assert.equal(ambiguous.ok, false);
+  assert.equal(ambiguous.policyBlocks[0].gate, 'scope-ownership');
+  assert.equal(ambiguous.policyBlocks[0].assetId, 'ambiguous-service');
+  assert.equal(ambiguous.attempts[0].status, 'blocked-by-warrant');
+  assert.equal(ambiguous.findings.length, 0);
+
+  const active = buildChainedDaemonSelfPentestRun({
+    warrant: {
+      networkMode: 'active-probe',
+      allowedTargets: ['example.com'],
+      operator: 'test-operator',
+    },
+    assets: [{ id: 'owned-service', name: 'Owned Service', owned: true, authorized: true }],
+  }, { now: NOW });
+
+  assert.equal(active.ok, false);
+  assert.equal(active.policyBlocks[0].gate, 'network-mode');
+  assert.equal(active.budget.network, false);
+  assert.equal(active.attempts[0].status, 'blocked-by-warrant');
+});
+
+test('self-pentest detects prompt-tool and paper-action gate failures', () => {
+  const run = buildChainedDaemonSelfPentestRun({
+    warrant: {
+      allowedAssetIds: ['agent-tool-policy', 'paper-action-surface'],
+      operator: 'test-operator',
+    },
+    assets: [
+      {
+        id: 'agent-tool-policy',
+        name: 'Agent tool policy',
+        owned: true,
+        authorized: true,
+        kind: 'agent-policy',
+        toolCapabilities: ['shell', 'network', 'external-message'],
+        reviewRequired: false,
+        evidenceRefs: ['app/operator/chained-daemon.mjs'],
+      },
+      {
+        id: 'paper-action-surface',
+        name: 'Paper action surface',
+        owned: true,
+        authorized: true,
+        kind: 'paper-financial',
+        actionCapable: true,
+        paperOnly: false,
+        reviewRequired: false,
+        evidenceRefs: ['docs/mosaic-and-murmurs-operating-doctrine.md'],
+      },
+    ],
+  }, { now: NOW });
+
+  assert.ok(run.findings.some((finding) => finding.ruleId === 'prompt-tool-policy-overreach'));
+  assert.ok(run.findings.some((finding) => finding.ruleId === 'paper-action-without-paper-only-gate'));
+  assert.ok(run.repairTickets.some((ticket) => ticket.findingKey === 'paper-action-without-paper-only-gate:paper-action-surface'));
+});
+
+test('tier 2 sensor fleet keeps expanded local sensors disabled until opt-in and privacy gates pass', () => {
+  const manifest = buildTier2SensorFleetManifest({
+    operator: 'test-operator',
+    sensors: [
+      {
+        id: 'owned-wifi-rssi',
+        name: 'Owned Wi-Fi RSSI bridge',
+        kind: 'wifi-rssi',
+        enabled: true,
+        owned: true,
+        authorized: true,
+        optIn: true,
+        localOnly: true,
+        visibleIndicator: true,
+        retentionPolicy: 'ephemeral-24h',
+        collectionModes: ['passive-local'],
+      },
+      {
+        id: 'silent-env-probe',
+        name: 'Silent environment probe',
+        kind: 'environmental',
+        enabled: true,
+        owned: true,
+        authorized: true,
+        optIn: false,
+        localOnly: true,
+        visibleIndicator: false,
+        retentionPolicy: '',
+      },
+    ],
+  }, { now: NOW });
+
+  assert.equal(manifest.lane, 'S2-A');
+  assert.equal(manifest.ok, false);
+  assert.equal(manifest.enabledSensors.length, 1);
+  assert.equal(manifest.enabledSensors[0].id, 'owned-wifi-rssi');
+  assert.equal(manifest.budget.network, false);
+  assert.equal(manifest.budget.writes, 'local-retained-evidence-only');
+  assert.ok(manifest.policyBlocks.some((block) => block.sensorId === 'silent-env-probe' && block.gate === 'opt-in'));
+  assert.ok(manifest.policyBlocks.some((block) => block.sensorId === 'silent-env-probe' && block.gate === 'visible-indicator'));
+  assert.ok(manifest.policyBlocks.some((block) => block.sensorId === 'silent-env-probe' && block.gate === 'retention-policy'));
+});
+
+test('repair regression loop requires patch, test, and retest evidence before clearing promotion blockers', () => {
+  const run = buildChainedDaemonSelfPentestRun({
+    warrant: {
+      allowedAssetIds: ['api-agent'],
+      operator: 'test-operator',
+    },
+    assets: [
+      {
+        id: 'api-agent',
+        name: 'Agent API',
+        owned: true,
+        authorized: true,
+        writeCapable: true,
+        authRequired: false,
+        evidenceRefs: ['api/agent/index.js'],
+      },
+    ],
+  }, { now: NOW });
+
+  const blocked = buildRepairRegressionLoop({ selfPentestRun: run }, { now: NOW });
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.promotion.blocked, true);
+  assert.ok(blocked.records[0].blocksPromotion);
+
+  const repaired = buildRepairRegressionLoop({
+    selfPentestRun: run,
+    repairs: [
+      {
+        findingKey: 'unauthenticated-write-surface:api-agent',
+        status: 'verified',
+        patchRefs: ['api/agent/index.js'],
+        testRefs: ['tests/security-review.test.mjs'],
+        retestResult: 'pass',
+      },
+    ],
+  }, { now: NOW });
+
+  assert.equal(repaired.ok, true);
+  assert.equal(repaired.promotion.blocked, false);
+  assert.equal(repaired.records[0].status, 'verified');
+  assert.equal(repaired.records[0].blocksPromotion, false);
+});
+
+test('tier 2 split state composes S2-A sensors, S2-B breach mirror, and S2-C repair gates', () => {
+  const state = buildTier2SplitState({
+    sensors: [
+      {
+        id: 'owned-greenfeed',
+        name: 'Owned Greenfeed bridge',
+        enabled: true,
+        owned: true,
+        authorized: true,
+        optIn: true,
+        localOnly: true,
+        visibleIndicator: true,
+        retentionPolicy: 'ephemeral-24h',
+        collectionModes: ['owned-greenfeed'],
+      },
+    ],
+    selfPentest: {
+      warrant: {
+        allowedAssetIds: ['static-app'],
+        operator: 'test-operator',
+      },
+      assets: [
+        {
+          id: 'static-app',
+          name: 'Static app shell',
+          owned: true,
+          authorized: true,
+          kind: 'web',
+          securityHeaders: ['content-security-policy'],
+          evidenceRefs: ['app/staticwebapp.config.json'],
+        },
+      ],
+    },
+  }, { now: NOW });
+
+  assert.equal(state.ok, true);
+  assert.deepEqual(state.lanes.map((lane) => lane.id), ['S2-A', 'S2-B', 'S2-C']);
+  assert.equal(state.lanes[0].status, 'ready');
+  assert.equal(state.lanes[1].status, 'ready');
+  assert.equal(state.lanes[2].status, 'ready');
+  assert.match(state.summary, /Tier 2 split ready/);
 });

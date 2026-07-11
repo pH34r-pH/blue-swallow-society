@@ -1,6 +1,7 @@
 const {
   createOperatorToken,
   getConfiguredDigest,
+  getOperatorTokenSigningKey,
   verifyPasscode,
 } = require('../_lib/operator-auth');
 
@@ -19,6 +20,15 @@ module.exports = async function (context, req) {
     context.res = jsonResponse(503, {
       ok: false,
       message: 'Passcode validation is not configured.',
+    });
+    return;
+  }
+
+  if (!getOperatorTokenSigningKey()) {
+    context.log?.error?.('Operator token signing is not configured. Set BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY.');
+    context.res = jsonResponse(503, {
+      ok: false,
+      message: 'Operator token signing is not configured.',
     });
     return;
   }
