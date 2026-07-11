@@ -84,6 +84,22 @@ function addUniqueSorted(array, value) {
   array.sort();
 }
 
+function finiteNumberOrNull(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function boundedNumberOrNull(value, { min = -Infinity, max = Infinity } = {}) {
+  const number = finiteNumberOrNull(value);
+  if (number === null) return null;
+  return Math.min(max, Math.max(min, number));
+}
+
+function incrementCounterBy(counter, key, amount = 0) {
+  if (!key || amount === 0) return;
+  counter[key] = (counter[key] || 0) + amount;
+}
+
 function rowValue(row, snakeName, camelName = null) {
   return row?.[snakeName] ?? (camelName ? row?.[camelName] : undefined);
 }
@@ -349,6 +365,82 @@ function buildFreshness(uniqueObservations, nowIso) {
   };
 }
 
+function payloadString(payload, key) {
+  return stringValue(payload?.[key]);
+}
+
+function payloadArrayStrings(payload, key) {
+  const value = payload?.[key];
+  if (!value) return [];
+  return (Array.isArray(value) ? value : [value]).map((item) => stringValue(item)).filter(Boolean);
+}
+
+function buildGreenfeedMetadata(uniqueObservations, nowIso) {
+  const rows = uniqueObservations.filter((observation) => (
+    observation.kind === 'greenfeed_snapshot' && GREEN_SOURCE_CLASSES.has(observation.sourceClass)
+  ));
+  if (!rows.length) return null;
+
+  const sourceKeys = [];
+  const sourceCaveats = [];
+  const freshnessStatusCounts = {};
+  const uptimeStatusCounts = {};
+  const claimValidationSources = [];
+  let cacheTtlSecondsMin = null;
+  let cacheTtlSecondsMax = null;
+  let staleByCacheTtlCount = 0;
+
+  for (const observation of rows) {
+    const payload = observation.payload || {};
+    const sourceKey = payloadString(payload, 'source_key') || observation.observationId;
+    addUniqueSorted(sourceKeys, sourceKey);
+    for (const caveat of [
+      ...payloadArrayStrings(payload, 'caveats'),
+      stringValue(payload.view?.caveat),
+    ]) {
+      addUniqueSorted(sourceCaveats, caveat);
+    }
+
+    const ttl = boundedNumberOrNull(payload.cache_ttl_seconds, { min: 0 });
+    if (ttl !== null) {
+      cacheTtlSecondsMin = cacheTtlSecondsMin === null ? ttl : Math.min(cacheTtlSecondsMin, ttl);
+      cacheTtlSecondsMax = cacheTtlSecondsMax === null ? ttl : Math.max(cacheTtlSecondsMax, ttl);
+      const ageSeconds = observation.observedAt
+        ? Math.max(0, Math.round((new Date(nowIso).getTime() - new Date(observation.observedAt).getTime()) / 1000))
+        : null;
+      if (ageSeconds === null || ageSeconds > ttl) staleByCacheTtlCount += 1;
+    }
+
+    const freshnessStatus = payloadString(payload, 'freshness_status') || (ttl !== null && staleByCacheTtlCount > 0 ? 'stale' : 'unknown');
+    const uptimeStatus = payloadString(payload, 'uptime_status') || 'unknown';
+    incrementCounter(freshnessStatusCounts, freshnessStatus);
+    incrementCounter(uptimeStatusCounts, uptimeStatus);
+
+    const ranking = payload.claim_validation_ranking || {};
+    claimValidationSources.push({
+      source_key: sourceKey,
+      provider: payloadString(payload, 'provider'),
+      distance_meters: boundedNumberOrNull(ranking.distance_meters, { min: 0 }),
+      bearing_degrees: boundedNumberOrNull(ranking.bearing_degrees, { min: 0, max: 360 }),
+      angle_delta_degrees: boundedNumberOrNull(ranking.angle_delta_degrees, { min: 0, max: 180 }),
+      source_quality_score: boundedNumberOrNull(ranking.source_quality_score ?? payload.source_quality_score, { min: 0, max: 1 }),
+      claim_validation_score: boundedNumberOrNull(ranking.claim_validation_score, { min: 0, max: 1 }),
+    });
+  }
+
+  claimValidationSources.sort((a, b) => String(a.source_key).localeCompare(String(b.source_key)));
+  return {
+    cache_ttl_seconds_min: cacheTtlSecondsMin,
+    cache_ttl_seconds_max: cacheTtlSecondsMax,
+    freshness_status_counts: Object.fromEntries(Object.entries(freshnessStatusCounts).sort(([a], [b]) => a.localeCompare(b))),
+    uptime_status_counts: Object.fromEntries(Object.entries(uptimeStatusCounts).sort(([a], [b]) => a.localeCompare(b))),
+    greenfeed_source_keys: sourceKeys,
+    source_caveats: sourceCaveats,
+    claim_validation_sources: claimValidationSources,
+    stale_by_cache_ttl_count: staleByCacheTtlCount,
+  };
+}
+
 function calculateSalience({ observationCount, entityCount, restrictedCount, maxConfidence, freshness }) {
   const recencyBoost = freshness.age_seconds === null ? 0 : Math.max(0, 1 - Math.min(freshness.age_seconds, 86_400) / 86_400);
   const raw = (observationCount * 0.2) + (entityCount * 0.35) + (restrictedCount * 0.15) + (maxConfidence * 0.2) + (recencyBoost * 0.1);
@@ -396,8 +488,40 @@ export function buildCybermapCellSummary(rows = [], { h3Cell, resolution, now = 
   const finalizedLayers = Object.fromEntries(
     Object.entries(layers).map(([kind, layer]) => [kind, finalizeLayer(layer)]),
   );
+  const greenfeedMetadata = buildGreenfeedMetadata(uniqueObservations, nowIso);
+  if (greenfeedMetadata && finalizedLayers.green_preload) {
+    Object.assign(finalizedLayers.green_preload, greenfeedMetadata);
+  }
   const restrictedLayer = finalizedLayers.exposure_enrichment;
   const caveats = [];
+  if (greenfeedMetadata) {
+    caveats.push({
+      code: 'greenfeed_cache_ttl_applies',
+      severity: 'info',
+      source_classes: finalizedLayers.green_preload?.source_classes || [],
+      cache_ttl_seconds_min: greenfeedMetadata.cache_ttl_seconds_min,
+      cache_ttl_seconds_max: greenfeedMetadata.cache_ttl_seconds_max,
+      message: 'Greenfeed snapshots carry source cache TTL and freshness caveats; claim validation must consider source update cadence and observation age.',
+    });
+    if (greenfeedMetadata.stale_by_cache_ttl_count > 0) {
+      caveats.push({
+        code: 'greenfeed_snapshot_stale_by_ttl',
+        severity: 'warning',
+        source_classes: finalizedLayers.green_preload?.source_classes || [],
+        stale_observation_count: greenfeedMetadata.stale_by_cache_ttl_count,
+        message: 'At least one Greenfeed snapshot is older than its declared cache TTL.',
+      });
+    }
+    if (greenfeedMetadata.source_caveats.length > 0) {
+      caveats.push({
+        code: 'greenfeed_source_caveats',
+        severity: 'info',
+        source_classes: finalizedLayers.green_preload?.source_classes || [],
+        caveats: greenfeedMetadata.source_caveats,
+        message: 'Greenfeed source caveats apply to this cell summary.',
+      });
+    }
+  }
   if (restrictedLayer?.observation_count > 0) {
     caveats.push({
       code: 'restricted_layer_requires_scope',
@@ -416,6 +540,15 @@ export function buildCybermapCellSummary(rows = [], { h3Cell, resolution, now = 
   }
 
   const freshness = buildFreshness(uniqueObservations, nowIso);
+  if (greenfeedMetadata) {
+    Object.assign(freshness, {
+      greenfeed_cache_ttl_seconds_min: greenfeedMetadata.cache_ttl_seconds_min,
+      greenfeed_cache_ttl_seconds_max: greenfeedMetadata.cache_ttl_seconds_max,
+      greenfeed_stale_by_cache_ttl: greenfeedMetadata.stale_by_cache_ttl_count > 0,
+      greenfeed_stale_by_cache_ttl_count: greenfeedMetadata.stale_by_cache_ttl_count,
+      greenfeed_freshness_status_counts: greenfeedMetadata.freshness_status_counts,
+    });
+  }
   const observationCount = uniqueObservations.length;
   const entityCount = entitiesByKey.size;
   const restrictedCount = restrictedLayer?.observation_count || 0;
@@ -687,11 +820,6 @@ function summarizeGateTimes(gates) {
     lastIngestedAt = maxTime(lastIngestedAt, timeValue(gate, 'last_ingested_at', 'lastIngestedAt'));
   }
   return { firstSeenAt, lastSeenAt, lastIngestedAt };
-}
-
-function incrementCounterBy(counter, key, amount = 0) {
-  if (!key || amount === 0) return;
-  counter[key] = (counter[key] || 0) + amount;
 }
 
 function timeValue(source, snakeName, camelName = snakeName) {

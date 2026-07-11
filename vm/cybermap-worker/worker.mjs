@@ -1,5 +1,6 @@
 import { createDefaultPool, loadDatabaseConfig } from '../cybermap-api/db.mjs';
 import { materializeAffectedCybermapCells } from './cell-materialization.mjs';
+import { pollGreenfeeds } from './greenfeeds/poller.mjs';
 
 const DEFAULT_POLL_INTERVAL_MS = 60_000;
 const DEFAULT_MATERIALIZATION_LOOKBACK_MS = 5 * 60_000;
@@ -8,6 +9,12 @@ const DEFAULT_MATERIALIZATION_LIMIT = 500;
 function parsePositiveInteger(value, fallback) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parseBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  return ['1', 'true', 'yes', 'on', 'enabled'].includes(String(value).trim().toLowerCase());
 }
 
 function defaultLogger(entry) {
@@ -31,6 +38,11 @@ export function createCybermapWorker(options = {}) {
   const now = options.now || (() => new Date());
   const poolFactory = options.dbPoolFactory || createDefaultPool;
   const materializeCells = options.materializeCells || materializeAffectedCybermapCells;
+  const greenfeedPoller = options.greenfeedPoller || pollGreenfeeds;
+  const greenfeedPollingEnabled = parseBoolean(
+    options.greenfeedPollingEnabled ?? env.CYBERMAP_GREENFEED_POLLING_ENABLED,
+    false,
+  );
   const pollIntervalMs = parsePositiveInteger(
     options.pollIntervalMs ?? env.CYBERMAP_WORKER_POLL_INTERVAL_MS,
     DEFAULT_POLL_INTERVAL_MS,
@@ -69,6 +81,56 @@ export function createCybermapWorker(options = {}) {
     } finally {
       if (pool?.end) await pool.end();
     }
+  }
+
+  async function runGreenfeedPolling(reason, tickStartedAt) {
+    if (!greenfeedPollingEnabled) {
+      const skipped = { skipped: true, reason: 'greenfeed_polling_disabled' };
+      logger({
+        service: 'cybermap-worker',
+        structured: true,
+        event: 'job_skipped',
+        job: 'greenfeed-polling',
+        reason: skipped.reason,
+        time: now().toISOString(),
+      });
+      return skipped;
+    }
+
+    const result = await withDatabasePool(async (pool) => greenfeedPoller(pool, {
+      now: tickStartedAt,
+      reason,
+      materialize: false,
+    }));
+
+    if (result?.skipped) {
+      logger({
+        service: 'cybermap-worker',
+        structured: true,
+        event: 'job_skipped',
+        job: 'greenfeed-polling',
+        reason: result.reason,
+        missing: result.missing,
+        invalid: result.invalid,
+        time: now().toISOString(),
+      });
+      return result;
+    }
+
+    logger({
+      service: 'cybermap-worker',
+      structured: true,
+      event: 'job_complete',
+      job: 'greenfeed-polling',
+      reason,
+      sourceCount: result.sourceCount,
+      polledCount: result.polledCount,
+      skippedCount: result.skippedCount,
+      ingestedObservationCount: result.ingestedObservationCount,
+      failureCount: result.failures?.length || 0,
+      time: now().toISOString(),
+    });
+    return result;
   }
 
   async function runCellMaterialization(reason, tickStartedAt) {
@@ -149,12 +211,21 @@ export function createCybermapWorker(options = {}) {
       time: tickStartedAt.toISOString(),
       pollIntervalMs,
       jobs: [
-        { name: 'greenfeed-polling', status: 'pending-db-task' },
+        { name: 'greenfeed-polling', status: greenfeedPollingEnabled ? 'enabled' : 'disabled' },
         { name: 'cybermap-cell-materialization', status: 'enabled', lookbackMs: materializationLookbackMs },
       ],
     });
 
-    activeTick = runCellMaterialization(reason, tickStartedAt);
+    activeTick = (async () => {
+      const greenfeed = await runGreenfeedPolling(reason, tickStartedAt);
+      const materializationCutoff = now();
+      const materialization = await runCellMaterialization(reason, materializationCutoff);
+      return {
+        ...(materialization && typeof materialization === 'object' ? materialization : {}),
+        greenfeed,
+        materialization,
+      };
+    })();
     try {
       return await activeTick;
     } finally {

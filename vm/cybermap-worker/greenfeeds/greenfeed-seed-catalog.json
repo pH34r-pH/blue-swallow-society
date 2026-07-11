@@ -1,0 +1,113 @@
+[
+  {
+    "source_id": "8c6c01b1-8d7f-4f67-8dc5-4a0b49d00001",
+    "source_key": "noaa-nws-ksea-latest-observation",
+    "name": "NOAA/NWS KSEA latest weather observation",
+    "source_class": "green_public",
+    "provider": "NOAA National Weather Service",
+    "owner_publisher": "NOAA National Weather Service / U.S. National Weather Service API",
+    "feed_url": "https://api.weather.gov/stations/KSEA/observations/latest",
+    "terms_url": "https://www.weather.gov/disclaimer",
+    "terms_summary": "NWS API data is published for public use; callers should identify their application and respect cache/forecast-office load guidance.",
+    "provenance": {
+      "inclusion_criteria": "Official public weather station endpoint with stable airport coordinates; no private camera, credential, probing, or raw visual retention.",
+      "publication_basis": "intentional_public_api",
+      "terms_summary": "NWS public weather data; attribution/application identification requested by API guidance."
+    },
+    "lat": 47.4502,
+    "lon": -122.3088,
+    "cache_ttl_seconds": 600,
+    "update_cadence_seconds": 300,
+    "last_checked_at": null,
+    "enabled": true,
+    "freshness_status": "best_effort",
+    "uptime_status": "nominal",
+    "source_quality_score": 0.93,
+    "view": {
+      "mode": "non_visual_point_telemetry",
+      "heading_degrees": null,
+      "fov_degrees": null,
+      "footprint": null,
+      "angle_quality": "unavailable",
+      "caveat": "Weather station is point telemetry, not visual coverage."
+    },
+    "caveats": [
+      "Point weather telemetry only; it cannot verify visual crowd, traffic, or street-level claims.",
+      "Use NWS API politely with application User-Agent and cache TTL."
+    ]
+  },
+  {
+    "source_id": "8c6c01b1-8d7f-4f67-8dc5-4a0b49d00002",
+    "source_key": "noaa-nws-kbfi-latest-observation",
+    "name": "NOAA/NWS KBFI latest weather observation",
+    "source_class": "green_public",
+    "provider": "NOAA National Weather Service",
+    "owner_publisher": "NOAA National Weather Service / U.S. National Weather Service API",
+    "feed_url": "https://api.weather.gov/stations/KBFI/observations/latest",
+    "terms_url": "https://www.weather.gov/disclaimer",
+    "terms_summary": "NWS API data is published for public use; callers should identify their application and respect cache/forecast-office load guidance.",
+    "provenance": {
+      "inclusion_criteria": "Official public weather station endpoint with stable airport coordinates; no private camera, credential, probing, or raw visual retention.",
+      "publication_basis": "intentional_public_api",
+      "terms_summary": "NWS public weather data; attribution/application identification requested by API guidance."
+    },
+    "lat": 47.53,
+    "lon": -122.302,
+    "cache_ttl_seconds": 600,
+    "update_cadence_seconds": 300,
+    "last_checked_at": null,
+    "enabled": true,
+    "freshness_status": "best_effort",
+    "uptime_status": "nominal",
+    "source_quality_score": 0.92,
+    "view": {
+      "mode": "non_visual_point_telemetry",
+      "heading_degrees": null,
+      "fov_degrees": null,
+      "footprint": null,
+      "angle_quality": "unavailable",
+      "caveat": "Weather station is point telemetry, not visual coverage."
+    },
+    "caveats": [
+      "Point weather telemetry only; it cannot verify visual crowd, traffic, or street-level claims.",
+      "Use NWS API politely with application User-Agent and cache TTL."
+    ]
+  },
+  {
+    "source_id": "8c6c01b1-8d7f-4f67-8dc5-4a0b49d00003",
+    "source_key": "noaa-coops-seattle-water-level",
+    "name": "NOAA CO-OPS Seattle water level latest reading",
+    "source_class": "green_public",
+    "provider": "NOAA Center for Operational Oceanographic Products and Services",
+    "owner_publisher": "NOAA CO-OPS Tides & Currents",
+    "feed_url": "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=water_level&application=BlueSwallowCybermap&date=latest&station=9447130&datum=MLLW&time_zone=gmt&units=metric&format=json",
+    "terms_url": "https://tidesandcurrents.noaa.gov/disclaimer.html",
+    "terms_summary": "NOAA CO-OPS publishes public operational oceanographic data; cache and attribution caveats apply.",
+    "provenance": {
+      "inclusion_criteria": "Official public NOAA tide station feed with stable station coordinates; no private camera, credential, probing, or raw visual retention.",
+      "publication_basis": "intentional_public_api",
+      "terms_summary": "NOAA public operational data feed; not a certified legal tide product."
+    },
+    "lat": 47.6026,
+    "lon": -122.3393,
+    "cache_ttl_seconds": 900,
+    "update_cadence_seconds": 360,
+    "last_checked_at": null,
+    "enabled": true,
+    "freshness_status": "best_effort",
+    "uptime_status": "best_effort",
+    "source_quality_score": 0.9,
+    "view": {
+      "mode": "non_visual_point_telemetry",
+      "heading_degrees": null,
+      "fov_degrees": null,
+      "footprint": null,
+      "angle_quality": "unavailable",
+      "caveat": "Water-level station does not provide a visual field of view."
+    },
+    "caveats": [
+      "Water-level telemetry does not prove nearby street-level conditions.",
+      "Use as environmental context, not as direct visual confirmation."
+    ]
+  }
+]
