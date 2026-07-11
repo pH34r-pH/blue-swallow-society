@@ -206,7 +206,8 @@ test('auth decision logs include token metadata counts without subject identifie
       body: JSON.stringify({ source_id: FIXTURE_SOURCE_ID, source_class: 'owned_device', observations: [] }),
     });
 
-    assert.equal(response.status, 501);
+    assert.equal(response.status, 400);
+    assert.equal(response.json.error.code, 'idempotency_key_required');
     const authLog = logs.find((entry) => entry.event === 'auth_decision' && entry.decision === 'allow');
     assert.ok(authLog, 'expected an allow auth_decision log');
     assert.equal(authLog.tokenId, 'wardriver-alpha');
@@ -358,7 +359,8 @@ test('public API rate limits apply to authenticated ingest paths and return retr
       headers: { Authorization: `Bearer ${WARD_TOKEN}`, 'Content-Type': 'application/json' },
       body: payload,
     });
-    assert.equal(first.status, 501, 'first authenticated request reaches scaffold handler');
+    assert.equal(first.status, 400, 'first authenticated request reaches observation route validation');
+    assert.equal(first.json.error.code, 'idempotency_key_required');
 
     const second = await request(server, {
       method: 'POST',

@@ -9,6 +9,7 @@ import {
 } from './auth.mjs';
 import { authorizeApiRequest, routeKindForRequest } from './source-registry.mjs';
 import { createPublicRateLimiter } from './rate-limit.mjs';
+import { handleObservationBatchRequest, observationIngestDefaults } from './observation-ingest.mjs';
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 8000;
@@ -159,6 +160,16 @@ export function createCybermapApiServer(options = {}) {
   const serviceVersion = options.serviceVersion || process.env.CYBERMAP_API_VERSION || '0.1.0';
   const dbPoolFactory = options.dbPoolFactory;
   const expectedMigration = options.expectedMigration || env.CYBERMAP_EXPECTED_MIGRATION;
+  const observationLimits = {
+    observationBatchMaxItems: parsePositiveInteger(
+      options.observationBatchMaxItems ?? env.CYBERMAP_OBSERVATION_BATCH_MAX_ITEMS,
+      observationIngestDefaults.DEFAULT_OBSERVATION_BATCH_MAX_ITEMS,
+    ),
+    observationPayloadLimitBytes: parsePositiveInteger(
+      options.observationPayloadLimitBytes ?? env.CYBERMAP_OBSERVATION_PAYLOAD_LIMIT_BYTES,
+      observationIngestDefaults.DEFAULT_OBSERVATION_PAYLOAD_LIMIT_BYTES,
+    ),
+  };
 
   return http.createServer(async (req, res) => {
     const startedAt = Date.now();
@@ -278,6 +289,20 @@ export function createCybermapApiServer(options = {}) {
             rateLimitDecision.code || 'rate_limited',
             rateLimitDecision.message || 'Request rejected by rate limit policy.',
           ), rateLimitHeaders(rateLimitDecision));
+          return;
+        }
+
+        if (req.method === 'POST' && url.pathname === '/api/v1/observations/batch') {
+          const ingestResult = await handleObservationBatchRequest({
+            req,
+            body: parsedBody.value,
+            identity: authResult.identity,
+            env,
+            dbPoolFactory,
+            now: now(),
+            limits: observationLimits,
+          });
+          respondJson(res, ingestResult.statusCode, requestId, ingestResult.body);
           return;
         }
 

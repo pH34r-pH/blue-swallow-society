@@ -31,7 +31,8 @@ The Bicep module file is still named `infra/vm-echo-lab.bicep` for continuity, b
 |---|---|---|---|
 | `GET /healthz` | none | implemented | Secret-free process health. Does not check PostgreSQL and does not expose dependency state. |
 | `GET /readyz` | none | implemented | Checks DB configuration, PostgreSQL connectivity, and `schema_migrations` latest version. Fails closed with sanitized JSON. |
-| `/api/v1/*` | bearer/operator token required | scaffold | Denies unauthenticated requests by default; authenticated requests receive controlled `not_implemented` until product routes land. |
+| `/api/v1/*` | bearer/operator token required | gated | Denies unauthenticated requests by default and enforces token scopes/source authority before route handlers. |
+| `POST /api/v1/observations/batch` | `observations:write` bearer token + source authority | implemented | Authenticated Wardriver/RaID/Greenfeed batch ingest with `Idempotency-Key`, immutable observation rows, and sync receipts. |
 
 Planned `/api/v1/*` routes remain those in [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md): observation batch ingest, Cybermap viewport/cell/entity reads, source catalog lookup, sensorium sessions, direct observations, and Mosaic/Murmurs memory sync.
 
@@ -59,6 +60,8 @@ Supported settings:
 | `CYBERMAP_AUTH_TOKEN_HASHES` | unset | Comma-separated `sha256:<hex>` hashes for emergency operator-only bootstrap when JSON registry injection is not available. Prefer `CYBERMAP_AUTH_REGISTRY_JSON`. |
 | `CYBERMAP_INGEST_RATE_LIMIT` / `CYBERMAP_INGEST_RATE_WINDOW_MS` | `60` / `60000` | Public HTTPS write/ingest rate limit per token ID (or source IP before auth identity exists, derived from nginx-managed `X-Real-IP`). |
 | `CYBERMAP_READ_RATE_LIMIT` / `CYBERMAP_READ_RATE_WINDOW_MS` | `300` / `60000` | Public HTTPS read rate limit per token ID (or source IP before auth identity exists, derived from nginx-managed `X-Real-IP`). |
+| `CYBERMAP_OBSERVATION_BATCH_MAX_ITEMS` | `100` | Maximum observations accepted by `POST /api/v1/observations/batch` in one sync batch. |
+| `CYBERMAP_OBSERVATION_PAYLOAD_LIMIT_BYTES` | `16384` | Maximum JSON byte size for each observation `payload`; the whole HTTP request is still capped by `CYBERMAP_BODY_LIMIT_BYTES`. |
 | `CYBERMAP_PRIVATE_MESH_ONLY` | unset | Set `true` only when VM ingress is restricted to a private mesh such as Tailscale; disables public rate-limit enforcement. |
 
 Missing `CYBERMAP_DATABASE_URL` does **not** crash-loop the API. `/readyz` returns HTTP 503 with `dependencies.postgres.status = "not_configured"` and a non-secret `missing` list. Driver errors are collapsed to `db_unavailable` so passwords, URLs, private hostnames, and raw connection strings never leave the process.
@@ -97,6 +100,84 @@ Token generation/rotation runbook:
 2. Store only `sha256:<hex>` in `CYBERMAP_AUTH_REGISTRY_JSON` and/or `api_tokens.token_hash`.
 3. To rotate, add the new hash with a new `tokenId` and short overlap window, deploy/reload, move the client, then set the old row `revoked_at` and remove it from runtime JSON.
 4. To revoke immediately, remove the hash from `CYBERMAP_AUTH_REGISTRY_JSON` and set `api_tokens.revoked_at`; no API response or log should include the revoked plaintext token.
+
+## Observation batch ingest
+
+`POST /api/v1/observations/batch` is the P0 write spine for Wardriver/RaID devices, Greenfeed workers, Jetson jobs, and future owned devices. It requires a bearer token with `observations:write` and source authority that matches the claimed `source_id` and `source_class`; clients cannot self-assert authority by changing request fields.
+
+Required request headers:
+
+| Header | Purpose |
+|---|---|
+| `Authorization: Bearer ***` | Service/device token. Runtime stores and logs only the configured `sha256:` hash identity metadata. |
+| `Idempotency-Key` | Batch-level sync key. Replays with the same `(source_id, token registry client identity, Idempotency-Key)` and identical normalized payload return the previous receipt without inserting duplicate immutable observations. |
+| `Content-Type: application/json` | JSON batch body. |
+
+Canonical body shape:
+
+```json
+{
+  "source_id": "00000000-0000-4000-8000-000000000001",
+  "source_class": "owned_device",
+  "client_id": "optional-reported-client-id",
+  "session_id": "optional-session-uuid",
+  "authorized_scope_ref": "optional-authorization-ref",
+  "provenance": { "adapter": "wardriver-raid", "chain": ["device-local"] },
+  "observations": [
+    {
+      "kind": "wifi_ap",
+      "external_observation_key": "device-local-key",
+      "idempotency_key": "item-key-within-batch",
+      "observed_at": "2026-07-10T11:59:00.000Z",
+      "lat": 47.6205,
+      "lon": -122.3493,
+      "confidence": 0.875,
+      "pii_status": "redacted",
+      "retention_class": "summary_only",
+      "payload": { "ssid_hash": "sha256:<hash>", "bssid_hash": "sha256:<hash>" },
+      "provenance": { "sensor": "wardriver" }
+    }
+  ]
+}
+```
+
+Validation gates:
+
+- Missing/invalid bearer token returns `auth_required` or `auth_forbidden` before storage.
+- Missing `Idempotency-Key` returns `idempotency_key_required`; the API does not use client-provided item keys as the P0 batch replay key.
+- `source_id`, `source_class`, `kind`, `observed_at`, `lat`, `lon`, `confidence`, `pii_status`, `retention_class`, batch/observation UUID references, batch provenance, and observation provenance are validated before DB writes.
+- The request `client_id` is optional reported metadata only; sync receipts and idempotency partitioning use the authenticated token registry identity, not a client-supplied string.
+- `observations` must contain at least one item.
+- `lat`/`lon` are normalized into PostGIS `geom = ST_SetSRID(ST_MakePoint(lon, lat), 4326)`.
+- App code computes geohash-equivalent cell IDs in `h3_7`, `h3_9`, and `h3_11` (`gh7:*`, `gh9:*`, `gh11:*`) so PostgreSQL does not require an H3 extension for P0.
+- Whole request bodies are capped by `CYBERMAP_BODY_LIMIT_BYTES`; each observation `payload` is capped by `CYBERMAP_OBSERVATION_PAYLOAD_LIMIT_BYTES`; batch count is capped by `CYBERMAP_OBSERVATION_BATCH_MAX_ITEMS`.
+- Green source classes (`green_public`, `green_owned`, `green_authorized`) may preload. `owned_device` and `local_observation` are direct/local. `grey_enrichment`, `orange_exposure`, and `red_restricted` require provenance trigger metadata with a `source_class` from a local/owned/green source and an observation/session/authorized-scope reference; self-asserted top-level strings are not sufficient. Violations return `source_policy_forbidden`.
+- Product entities for `private-person`, `face`, `license-plate`, or `private-residence` are rejected by default, as are raw payload keys such as raw frames, face images, license-plate images, or raw PII.
+- Raw/PII explicit retention (`raw_frame_explicit`, `pii_explicit`, or `pii_status=operator_explicit`) requires `raw_payload_ref`, `operator_approved_raw_ref`, `authorized_scope_ref`, and an authenticated token with `observations:raw-retention` scope; otherwise the route returns `raw_retention_forbidden`.
+
+Successful inserts create immutable rows in `observations`, update `sync_batches`, and return a receipt:
+
+```json
+{
+  "ok": true,
+  "duplicate": false,
+  "receipt": {
+    "batch_id": "<uuid>",
+    "source_id": "00000000-0000-4000-8000-000000000001",
+    "source_class": "owned_device",
+    "client_id": "<token-registry-token-id>",
+    "idempotency_key": "batch-key",
+    "status": "applied",
+    "observation_count": 1,
+    "observation_ids": ["<uuid>"],
+    "payload_hash": "sha256:<hash>",
+    "received_at": "2026-07-10T12:00:00.000Z",
+    "completed_at": "2026-07-10T12:00:00.000Z"
+  }
+}
+```
+
+Duplicate batch submissions with the same normalized payload return HTTP 200 with `duplicate: true` and the original `receipt`; first writes return HTTP 201. Reusing the same idempotency key for a different normalized payload returns HTTP 409 `idempotency_key_conflict`.
 
 ## PgBouncer and pooling
 
