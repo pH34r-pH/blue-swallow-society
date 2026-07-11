@@ -448,8 +448,9 @@ test('auth persistence schema stores token hashes, client types, revocation, and
   const migrationNames = readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort();
   const coreMigration = readFileSync(new URL('0001_cybermap_core.sql', migrationsDir), 'utf8').toLowerCase();
   const authMigration = readFileSync(new URL('0002_cybermap_auth_registry.sql', migrationsDir), 'utf8').toLowerCase();
+  const cellProvenanceMigration = readFileSync(new URL('0003_cybermap_cells_provenance.sql', migrationsDir), 'utf8').toLowerCase();
 
-  assert.deepEqual(migrationNames, ['0001_cybermap_core.sql', '0002_cybermap_auth_registry.sql']);
+  assert.deepEqual(migrationNames, ['0001_cybermap_core.sql', '0002_cybermap_auth_registry.sql', '0003_cybermap_cells_provenance.sql']);
   assert.doesNotMatch(coreMigration, /create\s+table\s+api_tokens|cybermap_client_type/);
   assert.match(authMigration, /^\s*begin;/i);
   assert.match(authMigration, /insert\s+into\s+schema_migrations\s*\(\s*version\s*\)\s*values\s*\(\s*'0002_cybermap_auth_registry'\s*\)/i);
@@ -467,6 +468,10 @@ test('auth persistence schema stores token hashes, client types, revocation, and
   assert.match(authMigration, /foreign\s+key\s*\(\s*source_id\s*,\s*source_class\s*\)\s+references\s+source_catalog\s*\(\s*id\s*,\s*source_class\s*\)/);
   assert.match(authMigration, /source_class\s+source_class\s+not\s+null/);
   assert.doesNotMatch(authMigration, /plain(text)?_?token|token_secret|api_token\s+text/);
+  assert.match(cellProvenanceMigration, /^\s*begin;/i);
+  assert.match(cellProvenanceMigration, /add\s+column\s+if\s+not\s+exists\s+provenance\s+jsonb/);
+  assert.match(cellProvenanceMigration, /insert\s+into\s+schema_migrations\s*\(\s*version\s*\)\s*values\s*\(\s*'0003_cybermap_cells_provenance'\s*\)/i);
+  assert.match(cellProvenanceMigration, /commit;\s*$/i);
 });
 
 test('VM docs describe hashed auth registry, source scopes, rate limits, and token rotation without plaintext token settings', () => {

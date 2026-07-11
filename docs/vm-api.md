@@ -33,8 +33,12 @@ The Bicep module file is still named `infra/vm-echo-lab.bicep` for continuity, b
 | `GET /readyz` | none | implemented | Checks DB configuration, PostgreSQL connectivity, and `schema_migrations` latest version. Fails closed with sanitized JSON. |
 | `/api/v1/*` | bearer/operator token required | gated | Denies unauthenticated requests by default and enforces token scopes/source authority before route handlers. |
 | `POST /api/v1/observations/batch` | `observations:write` bearer token + source authority | implemented | Authenticated Wardriver/RaID/Greenfeed batch ingest with `Idempotency-Key`, immutable observation rows, entity materialization, and sync receipts. |
+| `GET /api/v1/cybermap/viewport?bbox=&zoom=&layers=&since=` | `cybermap:read` bearer token + source class authority | implemented | Bounded viewport read over materialized `cybermap_cells`; maps zoom to app-computed `gh7`/`gh9`/`gh11` resolution and returns projected cells with freshness, salience/confidence, provenance, and caveats. |
+| `GET /api/v1/cybermap/cells/{h3Cell}` | `cybermap:read` bearer token + source class authority | implemented | Cell detail/provenance drilldown with bounded observation links; accepts app-computed `gh7:*`, `gh9:*`, or `gh11:*` IDs only. |
+| `GET /api/v1/entities/{id}` | `cybermap:read` bearer token + source class authority | implemented | Entity summary plus bounded observation links. Raw observation payloads, raw frames, and raw PII columns are never selected. |
+| `GET /api/v1/sources?bbox=&class=` | `sources:read` or `cybermap:read` bearer token + source class authority | implemented | Bounded source catalog / Greenfeed discovery with optional bbox and exact source-class filters. |
 
-Planned `/api/v1/*` routes remain those in [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md): observation batch ingest, Cybermap viewport/cell/entity reads, source catalog lookup, sensorium sessions, direct observations, and Mosaic/Murmurs memory sync.
+Remaining planned `/api/v1/*` routes are those in [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md): sensorium sessions, direct observations, and Mosaic/Murmurs memory sync.
 
 ## Database configuration
 
@@ -53,7 +57,7 @@ Supported settings:
 | `CYBERMAP_DB_POOL_MAX` | `5` | Hard cap for the Node `pg` pool. Values above 5 are clamped for Flexible Server B1MS. |
 | `CYBERMAP_DB_CONNECT_TIMEOUT_MS` | `3000` | PostgreSQL connection timeout used by `/readyz` and future DB-backed routes. |
 | `CYBERMAP_DB_IDLE_TIMEOUT_MS` | `10000` | Idle timeout for the low-cardinality app pool. |
-| `CYBERMAP_EXPECTED_MIGRATION` | `0002_cybermap_auth_registry` | Migration version `/readyz` expects to see as the latest row in `schema_migrations`. |
+| `CYBERMAP_EXPECTED_MIGRATION` | `0003_cybermap_cells_provenance` | Migration version `/readyz` expects to see as the latest row in `schema_migrations`. |
 | `CYBERMAP_MIGRATIONS_DIR` | `/opt/cybermap-api/db/migrations` | Optional override for the migration runner. |
 | `CYBERMAP_DB_SSL` / `CYBERMAP_DB_SSLMODE` | unset | Set to `require` when connecting directly to Azure PostgreSQL instead of local PgBouncer. |
 | `CYBERMAP_AUTH_REGISTRY_JSON` | unset | JSON array of hashed API token registry records. Each record carries `tokenHash` (`sha256:<hex>`), `tokenId`, `clientType`, `scopes`, `sourceIds`, `sourceClasses`, `expiresAt`, and optional revocation metadata. |
@@ -179,6 +183,36 @@ Successful inserts create immutable rows in `observations`, update `sync_batches
 ```
 
 Duplicate batch submissions with the same normalized payload return HTTP 200 with `duplicate: true` and the original `receipt`; first writes return HTTP 201. Reusing the same idempotency key for a different normalized payload returns HTTP 409 `idempotency_key_conflict`.
+
+## Cybermap read APIs
+
+Read routes require a valid service/device token with `cybermap:read` (or `sources:read` for `/sources`) plus registered `sourceClasses`. They use fixed product query shapes only; there is no arbitrary SQL-like filter language.
+
+### `GET /api/v1/cybermap/viewport?bbox=&zoom=&layers=&since=`
+
+Required query:
+
+- `bbox=west,south,east,north` in WGS84 degrees. P0 rejects antimeridian-crossing boxes, out-of-range coordinates, and boxes wider/taller than 2 degrees or larger than 2 square degrees.
+- `zoom=0..20`, mapped in app code to stored cell resolution: `0..8 -> gh7`, `9..14 -> gh9`, `15..20 -> gh11`.
+
+Optional query:
+
+- `layers=green_preload,local_owned,exposure_enrichment`; unknown layers return `layer_invalid`.
+- `since=<ISO timestamp>` filters by caller-visible projected cell `updated_at`; hidden local/owned/restricted layer updates do not make green-only results appear fresh.
+
+The response is bounded to 250 cells and includes `resolution`, normalized `bbox`, `source_classes`, per-cell `source_classes`, `freshness`, `caveats`, `salience`, `confidence` when available, and materialization `provenance`. The database candidate scan is also bounded, then cells are projected through caller authority before `since`, sorting, truncation, and top-level freshness/`updated_at` reporting. Grey/orange/red `exposure_enrichment` layers are projected through caller authority: operator scope can see all, matching restricted `sourceClasses` or `authorized-scope:*` registry scopes can see matching gates, and other callers receive `restricted_layer_filtered` caveats with the layer removed. Non-restricted materialized layers are also checked against the caller's registered source classes; local/owned layers are omitted with `source_class_layer_filtered` when the token only has green authority.
+
+### `GET /api/v1/cybermap/cells/{h3Cell}`
+
+`h3Cell` must be an app-computed `gh7:*`, `gh9:*`, or `gh11:*` ID whose precision matches the prefix. The route returns the projected cell summary plus at most 100 observation links (`id`, `kind`, `source_id`, `source_class`, `observed_at`, `confidence`, `provenance`). It does not select raw observation `payload`, raw frame refs, or raw PII columns.
+
+### `GET /api/v1/entities/{id}`
+
+`id` must be a UUID. The route returns entity kind, stable key, display name, source class, first/last seen timestamps, app-computed cell IDs, labels, confidence, sanitized properties, provenance, caveats, and at most 100 observation links from `entity_observations`. Unsafe property keys such as raw frames, SSIDs/BSSIDs, face/license plate images, raw PII, emails, phones, and raw payload refs are stripped before response serialization.
+
+### `GET /api/v1/sources?bbox=&class=`
+
+The source catalog route returns enabled `source_catalog` entries using exact source-class authority and optional bounded bbox intersection. `class` accepts only canonical source classes (`green_public`, `green_owned`, `green_authorized`, `owned_device`, `local_observation`, `grey_enrichment`, `orange_exposure`, `red_restricted`); unauthorized or malformed classes are rejected before any database query. Responses are bounded to 100 sources and include freshness (`last_checked_at`, `cache_ttl_seconds`, `stale`), provenance, and caveats such as `green_preload_allowed`.
 
 ## PgBouncer and pooling
 

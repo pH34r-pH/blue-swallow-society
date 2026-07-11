@@ -51,14 +51,18 @@ test('VM Bicep provisions Cybermap API gateway services instead of public echo i
     'cybermap-api.service',
     'cybermap-worker.service',
     '/opt/cybermap-api/server.mjs',
+    '/opt/cybermap-api/source-registry.mjs',
+    '/opt/cybermap-api/cybermap-read.mjs',
     '/opt/cybermap-api/db.mjs',
     '/opt/cybermap-api/migrate.mjs',
+    '/opt/cybermap-api/db/migrations/0003_cybermap_cells_provenance.sql',
     '/opt/cybermap-worker/worker.mjs',
     '/opt/cybermap-worker/cell-materialization.mjs',
     'NodeSource Node.js 20',
     'pgbouncer',
     '127.0.0.1:8000',
     'EnvironmentFile=-/etc/cybermap-api.env',
+    'CYBERMAP_EXPECTED_MIGRATION=0003_cybermap_cells_provenance',
     'destinationPortRange: \'443\'',
   ], 'Cybermap VM cloud-init');
   assertIncludesAll(apiServer, ['rateLimitHook', 'requestId', 'checkDatabaseReadiness'], 'Cybermap API source');
@@ -112,13 +116,13 @@ test('Cybermap API service exposes secret-free health, DB readiness failure, aut
     assert.equal(limited.status, 413);
     assert.equal(limited.json.error.code, 'body_too_large');
 
-    const placeholder = await request(server, {
+    const readWithoutDb = await request(server, {
       path: '/api/v1/sources',
       headers: { Authorization: 'Bearer test-token' },
     });
-    assert.equal(placeholder.status, 501);
-    assert.equal(placeholder.json.error.code, 'not_implemented');
-    assert.ok(placeholder.headers['x-request-id'], 'request id should be generated when absent');
+    assert.equal(readWithoutDb.status, 503);
+    assert.equal(readWithoutDb.json.error.code, 'db_not_configured');
+    assert.ok(readWithoutDb.headers['x-request-id'], 'request id should be generated when absent');
 
     assert.ok(logs.every((entry) => typeof entry === 'object' && entry.requestId && entry.statusCode), 'logs should be structured JSON-ready objects with request ids and statuses');
   } finally {

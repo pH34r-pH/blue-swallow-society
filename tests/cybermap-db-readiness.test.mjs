@@ -90,7 +90,7 @@ test('/readyz reports DB connectivity and latest migration version on mocked suc
   const { createCybermapApiServer } = await import('../vm/cybermap-api/server.mjs');
   const pool = makePool((sql) => {
     if (/select\s+1\s+as\s+ok/i.test(sql)) return { rows: [{ ok: 1 }] };
-    if (/from\s+schema_migrations/i.test(sql)) return { rows: [{ version: '0002_cybermap_auth_registry' }] };
+    if (/from\s+schema_migrations/i.test(sql)) return { rows: [{ version: '0003_cybermap_cells_provenance' }] };
     assert.fail(`unexpected query: ${sql}`);
   });
   const server = createCybermapApiServer({
@@ -106,11 +106,38 @@ test('/readyz reports DB connectivity and latest migration version on mocked suc
     assert.equal(ready.status, 200);
     assert.equal(ready.json.ok, true);
     assert.equal(ready.json.dependencies.postgres.status, 'ready');
-    assert.equal(ready.json.dependencies.postgres.migration.current, '0002_cybermap_auth_registry');
-    assert.equal(ready.json.dependencies.postgres.migration.expected, '0002_cybermap_auth_registry');
+    assert.equal(ready.json.dependencies.postgres.migration.current, '0003_cybermap_cells_provenance');
+    assert.equal(ready.json.dependencies.postgres.migration.expected, '0003_cybermap_cells_provenance');
     assert.doesNotMatch(ready.text, /super-secret|postgresql:\/\//i);
     assert.ok(pool.queries.some(({ sql }) => /select\s+1\s+as\s+ok/i.test(sql)));
     assert.ok(pool.queries.some(({ sql }) => /schema_migrations/i.test(sql)));
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('/readyz rejects databases that are still on the pre-read-api migration', async () => {
+  const { createCybermapApiServer } = await import('../vm/cybermap-api/server.mjs');
+  const pool = makePool((sql) => {
+    if (/select\s+1\s+as\s+ok/i.test(sql)) return { rows: [{ ok: 1 }] };
+    if (/from\s+schema_migrations/i.test(sql)) return { rows: [{ version: '0002_cybermap_auth_registry' }] };
+    assert.fail(`unexpected query: ${sql}`);
+  });
+  const server = createCybermapApiServer({
+    env: { CYBERMAP_DATABASE_URL: 'postgresql://cybermap@127.0.0.1:6432/cybermap' },
+    logger: () => {},
+    now: () => new Date('2026-07-10T00:00:00.000Z'),
+    dbPoolFactory: () => pool,
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+
+  try {
+    const ready = await request(server, { path: '/readyz' });
+    assert.equal(ready.status, 503);
+    assert.equal(ready.json.ok, false);
+    assert.equal(ready.json.dependencies.postgres.status, 'migration_mismatch');
+    assert.equal(ready.json.dependencies.postgres.migration.current, '0002_cybermap_auth_registry');
+    assert.equal(ready.json.dependencies.postgres.migration.expected, '0003_cybermap_cells_provenance');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -177,10 +204,11 @@ test('VM deployment config wires PgBouncer, package scripts, migration startup c
   for (const needle of [
     'CYBERMAP_DATABASE_URL',
     'CYBERMAP_DB_POOL_MAX=5',
-    'CYBERMAP_EXPECTED_MIGRATION=0002_cybermap_auth_registry',
+    'CYBERMAP_EXPECTED_MIGRATION=0003_cybermap_cells_provenance',
     'migrate.mjs --if-configured',
     '/opt/cybermap-api/db/migrations/0001_cybermap_core.sql',
     '/opt/cybermap-api/db/migrations/0002_cybermap_auth_registry.sql',
+    '/opt/cybermap-api/db/migrations/0003_cybermap_cells_provenance.sql',
     'X-Real-IP $remote_addr',
     'X-Forwarded-For $remote_addr',
     'default_pool_size = 5',

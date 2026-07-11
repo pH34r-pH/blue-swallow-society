@@ -101,6 +101,7 @@ function createCellPool(rows) {
           freshness,
           caveats,
           salience,
+          provenance,
         ] = params;
         const key = `${resolution}|${h3Cell}`;
         const row = {
@@ -117,6 +118,7 @@ function createCellPool(rows) {
           freshness: parseJson(freshness),
           caveats: parseJson(caveats),
           salience,
+          provenance: parseJson(provenance),
         };
         this.upsertCount += 1;
         this.cells.set(key, row);
@@ -181,6 +183,9 @@ test('cell materialization aggregates multiple observations and entity-backed su
   ]);
   assert.equal(cell.freshness.last_observed_at, '2026-07-10T11:55:00.000Z');
   assert.equal(cell.freshness.age_seconds, 300);
+  assert.equal(cell.provenance.materialized_by, 'cybermap-worker/cell-materialization:v1');
+  assert.equal(cell.provenance.app_computed_cell, true);
+  assert.equal(cell.provenance.source_row_count, 2);
   assert.ok(cell.salience > 0);
   assert.equal(cell.geom.type, 'Polygon');
 });
@@ -274,11 +279,6 @@ test('grey orange and red layers are gated, provenance-bearing, and filtered wit
 
   await materializeCybermapCell(pool, { h3Cell: CELL_9, resolution: 9, now: NOW });
   const cell = pool.cells.get(`9|${CELL_9}`);
-  cell.provenance = {
-    materialized_by: 'cybermap-worker/cell-materialization:v1',
-    app_computed_cell: true,
-    source_row_count: 4,
-  };
 
   assert.equal(cell.layers.exposure_enrichment.gated, true);
   assert.equal(cell.layers.exposure_enrichment.global_preload, false);

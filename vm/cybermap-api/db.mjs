@@ -1,7 +1,7 @@
 const DEFAULT_POOL_MAX = 5;
 const DEFAULT_CONNECT_TIMEOUT_MS = 3000;
 const DEFAULT_IDLE_TIMEOUT_MS = 10000;
-const DEFAULT_EXPECTED_MIGRATION = '0002_cybermap_auth_registry';
+const DEFAULT_EXPECTED_MIGRATION = '0003_cybermap_cells_provenance';
 
 function parseBoundedInteger(value, fallback, { min = 1, max = Number.MAX_SAFE_INTEGER } = {}) {
   const parsed = Number.parseInt(String(value ?? ''), 10);

@@ -10,6 +10,7 @@ import {
 import { authorizeApiRequest, routeKindForRequest } from './source-registry.mjs';
 import { createPublicRateLimiter } from './rate-limit.mjs';
 import { handleObservationBatchRequest, observationIngestDefaults } from './observation-ingest.mjs';
+import { handleCybermapReadRequest } from './cybermap-read.mjs';
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 8000;
@@ -303,6 +304,20 @@ export function createCybermapApiServer(options = {}) {
             limits: observationLimits,
           });
           respondJson(res, ingestResult.statusCode, requestId, ingestResult.body);
+          return;
+        }
+
+        const readResult = await handleCybermapReadRequest({
+          method: req.method,
+          pathname: url.pathname,
+          searchParams: url.searchParams,
+          identity: authResult.identity,
+          env,
+          dbPoolFactory,
+          now: now(),
+        });
+        if (readResult?.handled) {
+          respondJson(res, readResult.statusCode, requestId, readResult.body);
           return;
         }
 

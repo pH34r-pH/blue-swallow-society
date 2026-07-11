@@ -465,6 +465,7 @@ function summaryParams(summary) {
     JSON.stringify(summary.freshness),
     JSON.stringify(summary.caveats),
     summary.salience,
+    JSON.stringify(summary.provenance),
   ];
 }
 
@@ -526,11 +527,11 @@ export async function materializeCybermapCell(pool, { h3Cell, resolution, now = 
   const upsert = await pool.query(`
     INSERT INTO cybermap_cells (
       h3_cell, resolution, geom, first_seen_at, last_seen_at, source_classes,
-      observation_count, entity_count, layers, counts, freshness, caveats, salience
+      observation_count, entity_count, layers, counts, freshness, caveats, salience, provenance
     )
     VALUES (
       $1, $2, ST_SetSRID(ST_GeomFromGeoJSON($3), 4326), $4::timestamptz, $5::timestamptz, $6::source_class[],
-      $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13
+      $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13, $14::jsonb
     )
     ON CONFLICT (h3_cell, resolution) DO UPDATE
     SET geom = EXCLUDED.geom,
@@ -544,9 +545,10 @@ export async function materializeCybermapCell(pool, { h3Cell, resolution, now = 
         counts = EXCLUDED.counts,
         freshness = EXCLUDED.freshness,
         caveats = EXCLUDED.caveats,
-        salience = EXCLUDED.salience
+        salience = EXCLUDED.salience,
+        provenance = EXCLUDED.provenance
     RETURNING h3_cell, resolution, first_seen_at, last_seen_at, source_classes,
-              observation_count, entity_count, layers, counts, freshness, caveats, salience
+              observation_count, entity_count, layers, counts, freshness, caveats, salience, provenance
   `, summaryParams(summary));
 
   return {
