@@ -15,13 +15,6 @@
       ]
     },
     {
-      "route": "/operator/",
-      "rewrite": "/operator/index.html",
-      "allowedRoles": [
-        "authenticated"
-      ]
-    },
-    {
       "route": "/operator/*",
       "allowedRoles": [
         "authenticated"

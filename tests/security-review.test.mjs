@@ -28,6 +28,19 @@ function routeConfig(route) {
   return staticWebApp.routes.find((entry) => entry.route === route);
 }
 
+function normalizedSwaRoute(route) {
+  return route === '/' ? route : route.replace(/\/+$/, '');
+}
+
+test('Static Web Apps routes do not collide after Azure trailing-slash normalization', () => {
+  const seen = new Map();
+  for (const route of staticWebApp.routes.map((entry) => entry.route)) {
+    const normalized = normalizedSwaRoute(route);
+    assert.ok(!seen.has(normalized), `${route} duplicates ${seen.get(normalized)} after SWA normalization`);
+    seen.set(normalized, route);
+  }
+});
+
 test('operator APIs use SWA auth or passcode-issued bearer tokens', () => {
   ['/api/wigle', '/api/agent', '/api/osint', '/api/tzeentch', '/api/validate-passcode'].forEach((route) => {
     assert.deepEqual(routeConfig(route)?.allowedRoles, ['authenticated'], `${route} should require Static Web Apps authentication`);
@@ -81,8 +94,6 @@ test('operator entrypoint is separate from the public face and unlinked from roo
 test('operator HTML, JS, CSS, modules, and legacy routes are SWA-auth protected', () => {
   assert.deepEqual(routeConfig('/operator')?.allowedRoles, ['authenticated']);
   assert.equal(routeConfig('/operator')?.rewrite, '/operator/index.html');
-  assert.deepEqual(routeConfig('/operator/')?.allowedRoles, ['authenticated']);
-  assert.equal(routeConfig('/operator/')?.rewrite, '/operator/index.html');
   assert.deepEqual(routeConfig('/operator/*')?.allowedRoles, ['authenticated']);
   assert.deepEqual(routeConfig('/agent')?.allowedRoles, ['authenticated']);
   assert.equal(routeConfig('/agent')?.rewrite, '/operator/agent.html');
