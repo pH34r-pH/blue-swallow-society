@@ -4,9 +4,9 @@
 
 **Created**: 2026-05-23
 
-**Status**: Draft
+**Status**: Draft (updated for Cybermap API gateway target as of 2026-07-10)
 
-**Input**: User description: "Deploy all Azure infrastructure for the Blue Swallow Society using Bicep templates, including a Static Web App, Ubuntu VM with echo service, networking, NSG rules, auto-shutdown schedule, and optional Azure OpenAI account"
+**Input**: User description: "Deploy all Azure infrastructure for the Blue Swallow Society using Bicep templates, including a Static Web App, Ubuntu VM with Cybermap API gateway services, networking, NSG rules, auto-shutdown schedule, and optional Azure OpenAI account"
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -20,19 +20,19 @@ Operators must be able to deploy the complete Blue Swallow Society infrastructur
 
 **Acceptance Scenarios**:
 1. **Given** a fresh resource group and valid parameters file, **When** the operator runs the Bicep deployment, **Then** all resources (Static Web App, VM, VNet, Public IP, NSG, NIC, auto-shutdown schedule) are created successfully
-2. **Given** the deployment completes, **When** the operator inspects resource outputs, **Then** `staticWebAppDefaultHostname`, `backendEchoBaseUrl`, and `vmPublicIp` are returned with correct values
-3. **Given** the deployment completes, **When** the operator checks the Static Web App app settings, **Then** `BACKEND_ECHO_BASE_URL` is configured with the VM's public IP and port 8080
+2. **Given** the deployment completes, **When** the operator inspects resource outputs, **Then** `staticWebAppDefaultHostname`, `backendApiBaseUrl`, and `vmPublicIp` are returned with correct values
+3. **Given** the deployment completes, **When** the operator checks the Static Web App app settings, **Then** `CYBERMAP_BACKEND_BASE_URL` is configured with the VM's HTTPS API gateway base URL and `CYBERMAP_BACKEND_TOKEN` is present for server-side SWA-to-VM auth
 
 ### User Story 2 - Secure Network Isolation (Priority: P2)
 
-The VM and its services must be protected by network isolation, with inbound traffic strictly limited to SSH and echo service access from explicitly allowed source IPs.
+The VM and its services must be protected by network isolation, with inbound traffic limited to SSH and HTTPS Cybermap API gateway access.
 
 **Why this priority**: The VM hosts backend services and may be used for experimentation; unrestricted public access violates the project's security-first constitution and anonymity principles.
 
 **Independent Test**: Can be fully tested by reviewing the NSG effective security rules and attempting connections from allowed and denied source IPs.
 
 **Acceptance Scenarios**:
-1. **Given** the Bicep deployment specifies `allowedSourceIp` as a specific `/32` range, **When** the NSG is provisioned, **Then** only ports 22 and 8080 have inbound allow rules, and all other inbound traffic is denied by default
+1. **Given** the Bicep deployment specifies `allowedSourceIp` as a specific `/32` range, **When** the NSG is provisioned, **Then** SSH 22 is constrained to that CIDR, HTTPS 443 is the product API ingress, and no public 8080 product rule exists
 2. **Given** the NSG is active, **When** a connection attempt originates from a source IP outside the allowed CIDR, **Then** the connection is dropped at the network layer
 3. **Given** the VM is provisioned, **When** inspected for authentication configuration, **Then** password authentication is disabled and only SSH key-based authentication is permitted
 
@@ -77,17 +77,17 @@ The infrastructure template must support optional Azure OpenAI deployment so tha
 - **FR-002**: The Bicep template MUST create an Azure Static Web App with Standard SKU
 - **FR-003**: The Bicep template MUST create a Ubuntu 22.04 LTS VM with SSH-key-only authentication
 - **FR-004**: The Bicep template MUST create a Virtual Network (`10.40.0.0/16`), Public IP, NSG, and NIC for the VM
-- **FR-005**: The NSG MUST restrict inbound traffic to ports 22 and 8080 from the parameterized `allowedSourceIp` CIDR
-- **FR-006**: The VM MUST be configured via cloud-init to install and start the echo Python service on port 8080
+- **FR-005**: The NSG MUST allow SSH 22 from the parameterized `allowedSourceIp` CIDR, allow HTTPS 443 for product API ingress, and avoid public 8080 product ingress
+- **FR-006**: The VM MUST be configured via cloud-init to install and start `cybermap-api.service`, `cybermap-worker.service`, nginx, and PgBouncer placeholders
 - **FR-007**: The Bicep template MUST create a DevTestLab auto-shutdown schedule for the VM with parameterized time and timezone
 - **FR-008**: The Bicep template MUST conditionally deploy an Azure OpenAI account when `deployOpenAi=true`
-- **FR-009**: The Static Web App MUST be updated with the `BACKEND_ECHO_BASE_URL` app setting pointing to the VM's public IP on port 8080
+- **FR-009**: The Static Web App MUST be updated with the `CYBERMAP_BACKEND_BASE_URL` app setting pointing to the VM's HTTPS API gateway base URL and `CYBERMAP_BACKEND_TOKEN` for the server-side proxy auth header
 - **FR-010**: All parameterizable values (location, names, prefix, SSH key, allowed IP, shutdown time) MUST be exposed as Bicep parameters
 
 ### Key Entities *(include if feature involves data)*
 - **ResourceGroup**: The Azure container for all project resources (`rg-blue-swallow`)
 - **StaticWebApp**: The managed frontend hosting surface with custom domain and API linkage support
-- **VirtualMachine**: The Ubuntu compute instance running the echo service, parameterized by size and auth
+- **VirtualMachine**: The Ubuntu compute instance running the Cybermap API gateway services, parameterized by size and auth
 - **VirtualNetwork**: The isolated network (`10.40.0.0/16`) containing the VM subnet
 - **NetworkSecurityGroup**: The inbound traffic filter enforcing least-privilege access to VM ports
 - **AutoShutdownSchedule**: The cost-control mechanism that deallocates the VM daily at a specified time
@@ -98,7 +98,7 @@ The infrastructure template must support optional Azure OpenAI deployment so tha
 ### Measurable Outcomes
 - **SC-001**: A complete deployment from a fresh resource group finishes successfully in under 10 minutes
 - **SC-002**: All resources are created with consistent naming based on the `prefix` parameter
-- **SC-003**: The VM echo service is reachable via the Static Web App `/api/echo` endpoint immediately after deployment
+- **SC-003**: The VM Cybermap API gateway exposes secret-free `/healthz` over the `backendApiBaseUrl` HTTPS endpoint after deployment
 - **SC-004**: The VM deallocates on schedule daily, reducing compute costs by at least 60% versus always-on operation
 - **SC-005**: Redeployment to an existing resource group completes without resource recreation when parameters are unchanged
 

@@ -7,7 +7,7 @@ The Blue Swallow Society static web application provides a cyberpunk-themed term
 
 ### Authentication System
 - Terminal-style login interface with passcode validation
-- Simulated backend validation (fallback to hardcoded passcode "blue-swallow" for development)
+- Server-side passcode validation via `/api/validate-passcode`; no client fallback secret
 - Session state management (`isAuthenticated` flag)
 - Logout functionality that resets interface and chat history
 
@@ -23,7 +23,7 @@ Four main tabs accessible after authentication:
 - Timestamped messages
 - Auto-scrolling to latest message
 - Chat history persistence in session
-- Simulated backend communication via `/api/agent` endpoint
+- Server-mediated agent communication via `/api/agent`
 
 ### UI Components
 - Custom terminal-styled login screen
@@ -35,9 +35,10 @@ Four main tabs accessible after authentication:
 ### API Integration
 The frontend communicates with the following backend endpoints:
 - `/api/validate-passcode` (POST) - Passcode validation
-- `/api/agent?prompt={message}` (GET) - Agent chat responses
-- `/api/echo?msg={message}` (GET) - Echo lab functionality (via proxy)
+- `/api/agent` (POST) - Agent chat responses
 - `/api/profile` (GET) - Protected profile endpoint (requires auth)
+- `/api/osint` and `/api/tzeentch` (POST/GET) - Operator-token protected analysis/dashboard endpoints
+- `/api/cybermap/*` (GET) - Operator-token protected same-origin proxy to VM Cybermap v1 read endpoints via `CYBERMAP_BACKEND_BASE_URL` + server-side `CYBERMAP_BACKEND_TOKEN`.
 
 ## Technical Implementation
 
@@ -58,6 +59,10 @@ The frontend communicates with the following backend endpoints:
 - Wide-screen breakpoint at 2560px with max-width container
 - `prefers-reduced-motion` media query disables non-essential animations
 
+### Godeye Cybermap
+- Godeye reads Cybermap viewport data only through the same-origin `/api/cybermap/viewport` Static Web App proxy; browsers never receive VM backend URLs, service tokens, or connection strings.
+- Empty, disconnected, or degraded Cybermap responses render as explicit empty/degraded states instead of sample cells, fake access points, or omniscient overlays.
+- The hosted map affordances surface backend-provided source class, freshness, confidence, salience, and caveats so operators can distinguish Green/public context from restricted or stale enrichment.
 
 ### Tzeentch Market Surface
 - `/api/tzeentch` serves a public read-only dashboard payload for the Tzeentch tab.
@@ -78,7 +83,7 @@ The frontend communicates with the following backend endpoints:
 
 ## Security Considerations
 - Authentication via Azure AD Easy Auth (in production)
-- Passcode validation should be backed by secure VM service
+- Passcode validation stays server-side; Cybermap VM routes require token-gated `/api/v1/*` access
 - API calls made to same-origin endpoints (via Static Web App routing)
 - No sensitive data stored in client-side storage
 - Input sanitization strips HTML tags and enforces max length on passcode field

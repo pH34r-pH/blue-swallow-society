@@ -80,7 +80,7 @@ The network console must be accessible and usable across different device sizes 
 - **FR-004**: System MUST provide a real-time chat interface with user/agent message styling and timestamps
 - **FR-005**: System MUST implement persistent chat history within the user's session
 - **FR-006**: System MUST provide logout functionality that clears session data and returns to login screen
-- **FR-007**: System MUST communicate with backend APIs for passcode validation (/api/validate-passcode), agent responses (/api/agent), echo functionality (/api/echo), and profile data (/api/profile)
+- **FR-007**: System MUST communicate with backend APIs for passcode validation (/api/validate-passcode), agent responses (/api/agent), operator dashboards (/api/tzeentch, /api/osint, /api/wigle), profile data (/api/profile), and future Cybermap `/api/v1/*` proxy routes
 - **FR-008**: System MUST implement responsive design principles using CSS flexbox and grid
 - **FR-009**: System MUST provide error messaging for authentication feedback and API errors
 - **FR-010**: System MUST implement cyberpunk-inspired visual styling with dark backgrounds and neon accents
@@ -101,7 +101,7 @@ The network console must be accessible and usable across different device sizes 
 
 ## Assumptions
 - Users have basic familiarity with terminal-style interfaces and web applications
-- The backend APIs (/api/validate-passcode, /api/agent, /api/echo, /api/profile) are available and functioning as specified
+- The backend APIs (/api/validate-passcode, /api/agent, /api/tzeentch, /api/osint, /api/wigle, /api/profile, /api/cybermap/*) are available and functioning as specified; Cybermap proxy routes use `CYBERMAP_BACKEND_BASE_URL` plus server-side `CYBERMAP_BACKEND_TOKEN`
 - Users have stable internet connectivity for real-time communication
 - Modern web browser support for ES6 JavaScript, CSS flexbox, and CSS grid
 - The hardcoded passcode "blue-swallow" is acceptable for development and testing purposes

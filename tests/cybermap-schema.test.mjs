@@ -7,6 +7,7 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const migration = read('vm/cybermap-api/db/migrations/0001_cybermap_core.sql');
 const migrationLower = migration.toLowerCase();
 const dbReadme = read('vm/cybermap-api/db/README.md');
+const cellProvenanceMigration = read('vm/cybermap-api/db/migrations/0003_cybermap_cells_provenance.sql').toLowerCase();
 
 function tableBlock(tableName) {
   const match = migrationLower.match(new RegExp(`create\\s+table\\s+(?:if\\s+not\\s+exists\\s+)?${tableName}\\s*\\((?<body>[\\s\\S]*?)\\n\\);`, 'i'));
@@ -85,8 +86,19 @@ test('cybermap core migration creates the complete append-only ledger and produc
     'observation_id uuid',
     'relationship text',
     'weight numeric',
+    'confidence numeric',
+    'first_seen_at timestamptz',
+    'last_seen_at timestamptz',
+    'source_observation_refs jsonb',
     'primary key',
   ], 'entity_observations');
+
+  assertIncludesAll(tableBlock('cybermap_cells'), [
+    'layers jsonb',
+    'freshness jsonb',
+    'caveats jsonb',
+  ], 'cybermap_cells safe materialized projection');
+  assert.match(cellProvenanceMigration, /alter\s+table\s+cybermap_cells[\s\S]*add\s+column\s+if\s+not\s+exists\s+provenance\s+jsonb/, 'cybermap_cells provenance should be added by an immutable follow-up migration');
 
   ['mosaic_memories', 'murmur_memories'].forEach((table) => {
     assertIncludesAll(tableBlock(table), [

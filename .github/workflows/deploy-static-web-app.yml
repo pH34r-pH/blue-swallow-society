@@ -31,7 +31,7 @@ jobs:
   deploy-infra:
     runs-on: ubuntu-latest
     outputs:
-      backendEchoBaseUrl: ${{ steps.deploy.outputs.backendEchoBaseUrl }}
+      backendApiBaseUrl: ${{ steps.deploy.outputs.backendApiBaseUrl }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -104,26 +104,34 @@ jobs:
               --query "[?properties.provisioningState=='Failed'].{resource:properties.targetResource.resourceName, type:properties.targetResource.resourceType, status:properties.statusMessage}" \
               -o json || true
             echo "::endgroup::"
-            echo "::group::Failed deployment operations (vm-echo-lab module)"
+            echo "::group::Failed deployment operations (vm-cybermap-api-gateway module)"
             az deployment operation group list \
               --resource-group "$RESOURCE_GROUP" \
-              --name vm-echo-lab \
+              --name vm-cybermap-api-gateway \
               --query "[?properties.provisioningState=='Failed'].{resource:properties.targetResource.resourceName, type:properties.targetResource.resourceType, status:properties.statusMessage}" \
               -o json || true
             echo "::endgroup::"
             exit $rc
           fi
-          backend=$(echo "$out" | jq -r '.backendEchoBaseUrl.value')
-          echo "backendEchoBaseUrl=$backend" >> "$GITHUB_OUTPUT"
+          backend=$(echo "$out" | jq -r '.backendApiBaseUrl.value')
+          echo "backendApiBaseUrl=$backend" >> "$GITHUB_OUTPUT"
 
       - name: Wire runtime app settings into SWA
+        env:
+          CYBERMAP_BACKEND_TOKEN: ${{ secrets.CYBERMAP_BACKEND_TOKEN }}
         run: |
+          if [ -z "$CYBERMAP_BACKEND_TOKEN" ]; then
+            echo "::error::CYBERMAP_BACKEND_TOKEN secret is required for the SWA -> VM Cybermap proxy."
+            exit 1
+          fi
+          echo "::add-mask::$CYBERMAP_BACKEND_TOKEN"
           swa_name=$(jq -r '.parameters.staticWebAppName.value' infra/main.parameters.json)
           az staticwebapp appsettings set \
             --name "$swa_name" \
             --resource-group "$RESOURCE_GROUP" \
             --setting-names \
-              BACKEND_ECHO_BASE_URL="${{ steps.deploy.outputs.backendEchoBaseUrl }}" \
+              CYBERMAP_BACKEND_BASE_URL="${{ steps.deploy.outputs.backendApiBaseUrl }}" \
+              CYBERMAP_BACKEND_TOKEN="$CYBERMAP_BACKEND_TOKEN" \
               BLUE_SWALLOW_PASSCODE_SHA256="$BLUE_SWALLOW_PASSCODE_SHA256"
 
   deploy-app:

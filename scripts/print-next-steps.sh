@@ -4,7 +4,7 @@ set -euo pipefail
 cat <<'EOF'
 Next steps:
   1. Review infra/main.parameters.json and set allowedSourceIp to your
-     developer IP address (NOT "*") before deploying to production.
+     developer IP address (NOT "*") before production SSH access.
      Run: curl -s https://ipinfo.io/ip  to discover your current IP.
 
   2. Dry-run the deployment before creating any resources:
@@ -22,13 +22,13 @@ Next steps:
   6. Push to main (or run "Deploy Infra + App" via workflow_dispatch).
      The workflow:
        - creates resource group rg-blue-swallow
-       - deploys infra/main.bicep (SWA + VM echo lab, optional OpenAI)
-       - sets BACKEND_ECHO_BASE_URL on the SWA
+       - deploys infra/main.bicep (SWA + Cybermap VM API gateway, optional OpenAI)
+       - sets CYBERMAP_BACKEND_BASE_URL/CYBERMAP_BACKEND_TOKEN on the SWA
        - uploads the app + API
        - wires blueswallow.co.in and www.blueswallow.co.in through Azure DNS to the canonical blue-swallow-swa Static Web App
      After cutover, delete the legacy Static Web Apps blue-swallow-society and wonderful-pond-0623ed81e so only blue-swallow-swa remains connected.
      Redeployments are idempotent — running the workflow again will
      update existing resources without destroying state.
 
-  7. Browse to the Static Web App default hostname and exercise /api/echo.
+  7. Browse to the Static Web App default hostname and verify Cybermap gateway health through the managed API once proxy routes land.
 EOF

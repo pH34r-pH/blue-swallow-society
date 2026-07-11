@@ -46,12 +46,13 @@ test('deployment config wires the canonical passcode hash into SWA app settings'
   assert.match(deployWorkflow, /az staticwebapp appsettings set[\s\S]*BLUE_SWALLOW_PASSCODE_SHA256=/);
 });
 
-test('device-local endpoints stay same-origin under the production CSP', () => {
+test('browser data endpoints stay same-origin under the production CSP', () => {
   const csp = staticWebApp.globalHeaders['Content-Security-Policy'];
   assert.match(csp, /connect-src 'self'(?:;|$)/);
   assert.ok(!indexHtml.includes('http://device.local'));
   assert.ok(!indexHtml.includes('placeholder="/api/ar-detections"'));
-  assert.ok(indexHtml.includes('placeholder="/api/wigle"'));
+  assert.ok(!indexHtml.includes('placeholder="/api/wigle"'));
+  assert.ok(mainJs.includes("fetch(new URL('/api/cybermap/viewport', window.location.origin).toString()"));
 });
 
 test('OSINT and agent prompts are sent via POST bodies, not URLs or persistent storage', () => {
@@ -102,10 +103,13 @@ test('local dev server returns JSON 501 for unmounted API routes instead of SPA 
   assert.ok(!localServer.includes("filePath = path.join(APP_DIR, 'index.html');\n    }\n    \n    fs.readFile"));
 });
 
-test('sample WiGLE state is explicitly labeled as demo data', () => {
-  assert.ok(mainJs.includes('Sample/demo WiGLE dataset loaded'));
-  assert.ok(!mainJs.includes("wigleStatus: 'Local WiGLE database is ready.'"));
-  assert.ok(indexHtml.includes('Sample/demo WiGLE dataset loaded'));
+test('Godeye runtime never seeds or falls back to demo map overlays', () => {
+  assert.ok(!mainJs.includes('createSampleWigleDataset'));
+  assert.ok(!mainJs.includes('Sample/demo WiGLE dataset loaded'));
+  assert.ok(!mainJs.includes('loadSampleWigleData'));
+  assert.ok(!mainJs.includes('wigleSampleBtn'));
+  assert.ok(!indexHtml.includes('Load sample data'));
+  assert.ok(!indexHtml.includes('Sample/demo WiGLE dataset loaded'));
 });
 
 test('stale shell CSS selectors are pruned', () => {

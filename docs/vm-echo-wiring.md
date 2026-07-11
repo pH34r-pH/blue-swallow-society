@@ -1,22 +1,11 @@
-# VM echo wiring
+# Retired VM echo wiring
 
-## VM service
-The VM bootstrap creates a tiny Python HTTP service that responds to:
-- `GET /echo?msg=hello`
+This note is historical. The previous VM echo lab was a scaffold used to prove Static Web App -> Function -> VM connectivity.
 
-## Static Web App proxy function
-The repo exposes:
-- `GET /api/echo?msg=hello`
+Current state:
+- Product VM ingress is the Cybermap gateway on HTTPS 443.
+- The VM runs `cybermap-api.service` on `localhost:8000` behind nginx.
+- The old echo endpoint is not a production route and should not be wired into new frontend or CI paths.
+- Runtime backend wiring now uses `CYBERMAP_BACKEND_BASE_URL` plus the server-side `CYBERMAP_BACKEND_TOKEN`.
 
-The function reads:
-- `BACKEND_ECHO_BASE_URL`
-
-and forwards to:
-```text
-${BACKEND_ECHO_BASE_URL}/echo?msg=hello
-```
-
-## App setting example
-```text
-BACKEND_ECHO_BASE_URL=http://20.20.20.20:8080
-```
+Use [`docs/vm-api.md`](./vm-api.md) for the active VM API gateway contract.

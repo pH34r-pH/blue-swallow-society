@@ -1,0 +1,17 @@
+{
+  "name": "cybermap-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Blue Swallow Society Cybermap VM API gateway scaffold.",
+  "scripts": {
+    "start": "node server.mjs",
+    "migrate": "node migrate.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

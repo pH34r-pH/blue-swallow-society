@@ -10,10 +10,17 @@ psql bss_cybermap_dev -v ON_ERROR_STOP=1 -f vm/cybermap-api/db/migrations/0001_c
 psql bss_cybermap_dev -c 'SELECT postgis_full_version();'
 ```
 
-Or point `DATABASE_URL` at an explicit libpq URL:
+Or point `CYBERMAP_DATABASE_URL` at an explicit libpq URL and use the checked-in runner:
 
 ```bash
-DATABASE_URL='postgresql://postgres:postgres@localhost:5432/bss_cybermap_dev'
+CYBERMAP_DATABASE_URL='postgresql://postgres:***@localhost:5432/bss_cybermap_dev' \
+  node vm/cybermap-api/migrate.mjs
+```
+
+Legacy direct `psql` application is still useful for disposable DB verification:
+
+```bash
+DATABASE_URL='postgresql://postgres:***@localhost:5432/bss_cybermap_dev'
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f vm/cybermap-api/db/migrations/0001_cybermap_core.sql
 ```
 
@@ -22,6 +29,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f vm/cybermap-api/db/migrations/0001_cy
 - Files are immutable once applied; append a new numbered migration for changes.
 - `schema_migrations` records applied versions.
 - `0001_cybermap_core.sql` enables PostGIS and pgcrypto, creates the observation ledger, and materializes Cybermap cells.
+- `0003_cybermap_cells_provenance.sql` backfills the materialized-cell provenance column for VMs that already applied the core migration before read APIs landed.
 - H3 cells (`h3_7`, `h3_9`, `h3_11`) are app-computed. Do not require a PostgreSQL H3 extension in P0.
 - Canonical source-class mapping: `public_greenfeed -> green_public`, `owned_greenfeed -> green_owned`, `authorized_greenfeed -> green_authorized`.
 - Green source classes may preload globally. Grey/orange/red rows must include local or explicitly authorized trigger metadata (`trigger_observation_id`, `session_id`, or `authorized_scope_ref`).

@@ -26,6 +26,13 @@
       ]
     },
     {
+      "route": "/api/cybermap/*",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
       "route": "/api/osint",
       "allowedRoles": [
         "anonymous",
@@ -47,13 +54,6 @@
     },
     {
       "route": "/api/validate-passcode",
-      "allowedRoles": [
-        "anonymous",
-        "authenticated"
-      ]
-    },
-    {
-      "route": "/api/echo",
       "allowedRoles": [
         "anonymous",
         "authenticated"

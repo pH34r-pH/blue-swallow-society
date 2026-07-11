@@ -23,7 +23,7 @@
 **Purpose**: Directory structure and parameter scaffolding
 
 - [x] T001 Verify `infra/` directory contains `main.bicep`, `vm-echo-lab.bicep`, `modules/openai.bicep`, and `main.parameters.json`
-- [x] T002 Review `infra/main.parameters.json` for completeness and update `allowedSourceIp` to developer IP instead of `*`
+- [x] T002 Review `infra/main.parameters.json` for completeness and document the `allowedSourceIp=*` SSH exposure risk
 
 ---
 
@@ -35,8 +35,8 @@
 
 - [x] T003 Review all Bicep parameters in `infra/main.bicep` (location, prefix, sshPublicKey, allowedSourceIp, autoShutdownTime, autoShutdownTimeZone, deployOpenAi, vmSize)
 - [x] T004 Review module references in `infra/main.bicep` for VM/networking and conditional OpenAI
-- [x] T005 Review deployment outputs in `infra/main.bicep` (staticWebAppDefaultHostname, backendEchoBaseUrl, vmPublicIp, openAiDeployed, openAiEndpoint)
-- [x] T006 Update `infra/main.parameters.json` with dev-safe defaults (restrict `allowedSourceIp` to developer IP)
+- [x] T005 Review deployment outputs in `infra/main.bicep` (staticWebAppDefaultHostname, backendApiBaseUrl, vmPublicIp, openAiDeployed, openAiEndpoint)
+- [x] T006 Update `infra/main.parameters.json` with an explicit warning to override `allowedSourceIp=*` before production
 - [x] T007 Review `scripts/print-next-steps.sh` for accurate post-deployment instructions
 
 **Checkpoint**: Foundation ready - Bicep files are syntactically valid and parameters are documented
@@ -52,8 +52,8 @@
 ### Tests for User Story 1
 
 - [ ] T008 [P] [US1] `az deployment group create` completes without errors
-- [ ] T009 [P] [US1] Deployment outputs include `staticWebAppDefaultHostname`, `backendEchoBaseUrl`, and `vmPublicIp`
-- [ ] T010 [P] [US1] Static Web App app settings include `BACKEND_ECHO_BASE_URL` pointing to VM public IP on port 8080
+- [ ] T009 [P] [US1] Deployment outputs include `staticWebAppDefaultHostname`, `backendApiBaseUrl`, and `vmPublicIp`
+- [ ] T010 [P] [US1] Static Web App app settings include `CYBERMAP_BACKEND_BASE_URL` pointing to the VM HTTPS API gateway base URL and `CYBERMAP_BACKEND_TOKEN` for server-side proxy auth
 
 ### Implementation for User Story 1
 
@@ -61,7 +61,7 @@
 - [x] T012 [US1] Review Static Web App resource in `infra/main.bicep` with Standard SKU
 - [x] T013 [US1] Review Ubuntu 22.04 LTS VM resource in `infra/vm-echo-lab.bicep` with SSH-key-only authentication
 - [x] T014 [US1] Review Virtual Network (`10.40.0.0/16`), Public IP, NSG, and NIC in `infra/vm-echo-lab.bicep`
-- [x] T015 [US1] Verify `scripts/wireup-backend-url.sh` updates SWA app settings with `BACKEND_ECHO_BASE_URL` from deployment outputs
+- [x] T015 [US1] Verify `scripts/wireup-backend-url.sh` updates SWA app settings with `CYBERMAP_BACKEND_BASE_URL` from deployment outputs plus the server-side `CYBERMAP_BACKEND_TOKEN`
 - [x] T016 [US1] Verify `infra/main.bicep` output includes `staticWebAppDefaultHostname`
 
 **Checkpoint**: User Story 1 is fully functional and independently testable
@@ -76,13 +76,13 @@
 
 ### Tests for User Story 2
 
-- [ ] T017 [P] [US2] Azure portal review: NSG has only two inbound allow rules (22, 8080)
+- [ ] T017 [P] [US2] Azure portal review: NSG allows SSH 22 and HTTPS 443, with no public 8080 product rule
 - [ ] T018 [P] [US2] nmap test: connection from unauthorized IP is dropped
 - [ ] T019 [P] [US2] Azure portal review: VM OS profile shows `disablePasswordAuthentication: true`
 
 ### Implementation for User Story 2
 
-- [x] T020 [US2] Review NSG in `infra/vm-echo-lab.bicep` with rules for ports 22 and 8080 restricted to `allowedSourceIp`
+- [x] T020 [US2] Review NSG in `infra/vm-echo-lab.bicep` with SSH 22 constrained by `allowedSourceIp`, HTTPS 443 as product ingress, and no public 8080 product rule
 - [x] T021 [US2] Verify NSG default inbound policy is Deny (implicit) in `infra/vm-echo-lab.bicep`
 - [x] T022 [US2] Verify `linuxConfiguration.disablePasswordAuthentication` is `true` in `infra/vm-echo-lab.bicep`
 - [x] T023 [US2] Add parameter validation documentation in `infra/main.parameters.json` warning against `*` in production
