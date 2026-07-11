@@ -51,6 +51,8 @@ test('VM Bicep provisions Cybermap API gateway services instead of public echo i
     'cybermap-api.service',
     'cybermap-worker.service',
     '/opt/cybermap-api/server.mjs',
+    '/opt/cybermap-api/rate-limit.mjs',
+    '/opt/cybermap-api/sensorium.mjs',
     '/opt/cybermap-api/db.mjs',
     '/opt/cybermap-api/migrate.mjs',
     '/opt/cybermap-worker/worker.mjs',

@@ -31,9 +31,43 @@ The Bicep module file is still named `infra/vm-echo-lab.bicep` for continuity, b
 |---|---|---|---|
 | `GET /healthz` | none | implemented | Secret-free process health. Does not check PostgreSQL and does not expose dependency state. |
 | `GET /readyz` | none | implemented | Checks DB configuration, PostgreSQL connectivity, and `schema_migrations` latest version. Fails closed with sanitized JSON. |
-| `/api/v1/*` | bearer/operator token required | scaffold | Denies unauthenticated requests by default; authenticated requests receive controlled `not_implemented` until product routes land. |
+| `POST /api/v1/sensorium/sessions` | `observations:write` or operator token | implemented | Starts/ends `dream_suspension`, `raid_sight`, and `greenfeed_jack_in` sessions with location basis, source, timestamp, and read-only retention/redaction policy. |
+| `POST /api/v1/direct-observations` | `observations:write` or operator token | implemented | Records claim-linked direct observation packets with visible summary, not-visible notes, confidence, caveats, evidence links, and effect-on-claim. |
+| other `/api/v1/*` | bearer/operator token required | scaffold | Denies unauthenticated requests by default; authenticated requests receive controlled `not_implemented` until product routes land. |
 
-Planned `/api/v1/*` routes remain those in [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md): observation batch ingest, Cybermap viewport/cell/entity reads, source catalog lookup, sensorium sessions, direct observations, and Mosaic/Murmurs memory sync.
+Planned `/api/v1/*` routes remain those in [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md): observation batch ingest, Cybermap viewport/cell/entity reads, source catalog lookup, and Mosaic/Murmurs memory sync.
+
+### Sensorium sessions
+
+`POST /api/v1/sensorium/sessions` uses a JSON body with `action: "start"` or `action: "end"`.
+
+Start requests require:
+
+- `state`: one of the canonical `SensoriumState` values: `dream_suspension`, `raid_sight`, `greenfeed_jack_in`.
+- `source_ref` and canonical backend `source_class`.
+- `location_basis`: object describing how the session is anchored. `location_basis.kind` is required and must match the state: `cyberspace_language_only` for `dream_suspension`, `operator_foreground_gps` for `raid_sight`, and `feed_coordinates` for `greenfeed_jack_in`. Location basis fields are allow-listed per kind so raw/private payload references cannot ride along as arbitrary metadata.
+- optional `retention_policy.raw_frame_retention`: `none`, `ephemeral`, or `explicit_capture_only`; default is `none`.
+
+State/source rules are enforced after auth even for operator tokens:
+
+- `dream_suspension` uses `local_observation` and represents language-only cyberspace drift.
+- `raid_sight` requires `owned_device`; it is an owned/foreground RaID camera/GPS/map/depth session.
+- `greenfeed_jack_in` requires a Green class: `green_public`, `green_owned`, or `green_authorized`. The proposal aliases `public_greenfeed`, `owned_greenfeed`, and `authorized_greenfeed` map to these backend classes; API clients should send the canonical backend names.
+
+End requests require `action: "end"` and `session_id`. Non-operator tokens may end only sessions whose stored `source_ref`/`source_class` remains inside their registered source authority; operator tokens may end any known session but still cannot bypass start-state safety rules. The response returns the persisted session record with `ended_at` set. Runtime route storage is the configured sensorium store; the current gateway default is process-local until the DB-backed ledger writer is wired.
+
+### Direct observations
+
+`POST /api/v1/direct-observations` requires:
+
+- `claim_ref`, `source_ref`, canonical `source_class`, and `location_basis` with required `kind` (`cyberspace_language_only`, `operator_foreground_gps`, or `feed_coordinates`) and allow-listed fields for that kind.
+- `visible_summary` plus `not_visible_notes[]` for what the view could not resolve.
+- `confidence`: `low`, `medium`, or `high`.
+- non-empty `caveats[]`.
+- `effect_on_claim`: `supports`, `weakens`, `contradicts`, or `inconclusive`.
+- optional `evidence_links[]` and `observed_at`; when `observed_at` is absent the gateway records server time.
+
+The route rejects `proved`/`disproved` certainty language, raw frame fields or payload references, and private visual/PII payload details by default. Returned packets include `retention_policy.raw_frame_retention = "none"` and `pii_redaction_required = true` unless the caller supplies a stricter accepted policy; `pii_redaction_required` cannot be disabled.
 
 ## Database configuration
 

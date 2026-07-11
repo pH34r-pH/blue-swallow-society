@@ -9,6 +9,11 @@ import {
 } from './auth.mjs';
 import { authorizeApiRequest, routeKindForRequest } from './source-registry.mjs';
 import { createPublicRateLimiter } from './rate-limit.mjs';
+import {
+  createInMemorySensoriumStore,
+  handleDirectObservationRequest,
+  handleSensoriumSessionRequest,
+} from './sensorium.mjs';
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 8000;
@@ -159,6 +164,7 @@ export function createCybermapApiServer(options = {}) {
   const serviceVersion = options.serviceVersion || process.env.CYBERMAP_API_VERSION || '0.1.0';
   const dbPoolFactory = options.dbPoolFactory;
   const expectedMigration = options.expectedMigration || env.CYBERMAP_EXPECTED_MIGRATION;
+  const sensoriumStore = options.sensoriumStore || createInMemorySensoriumStore();
 
   return http.createServer(async (req, res) => {
     const startedAt = Date.now();
@@ -278,6 +284,35 @@ export function createCybermapApiServer(options = {}) {
             rateLimitDecision.code || 'rate_limited',
             rateLimitDecision.message || 'Request rejected by rate limit policy.',
           ), rateLimitHeaders(rateLimitDecision));
+          return;
+        }
+
+        if (req.method === 'POST' && url.pathname === '/api/v1/sensorium/sessions') {
+          const result = handleSensoriumSessionRequest({
+            body: parsedBody.value,
+            now,
+            store: sensoriumStore,
+            identity: authResult.identity,
+          });
+          if (!result.ok) {
+            respondJson(res, result.statusCode || 400, requestId, errorBody(result.code, result.message));
+            return;
+          }
+          respondJson(res, result.statusCode, requestId, result.body);
+          return;
+        }
+
+        if (req.method === 'POST' && url.pathname === '/api/v1/direct-observations') {
+          const result = handleDirectObservationRequest({
+            body: parsedBody.value,
+            now,
+            store: sensoriumStore,
+          });
+          if (!result.ok) {
+            respondJson(res, result.statusCode || 400, requestId, errorBody(result.code, result.message));
+            return;
+          }
+          respondJson(res, result.statusCode, requestId, result.body);
           return;
         }
 
