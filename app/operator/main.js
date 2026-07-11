@@ -115,6 +115,7 @@ const state = {
 
 function init() {
   bindTabSystem();
+  bindOperatorDownloads();
 
   if (isOperatorEntrypoint()) {
     if (!getOperatorSession()) {
@@ -312,6 +313,67 @@ function resetConsoleToLogin() {
     // no-op
   }
   resetTabSelection();
+}
+
+function bindOperatorDownloads() {
+  document.querySelectorAll('[data-operator-download]').forEach((link) => {
+    link.addEventListener('click', handleOperatorDownload);
+  });
+}
+
+async function handleOperatorDownload(event) {
+  const link = event.currentTarget;
+  if (!(link instanceof HTMLAnchorElement)) {
+    return;
+  }
+
+  const session = getOperatorSession();
+  if (!session?.token) {
+    return;
+  }
+
+  event.preventDefault();
+  const originalText = link.textContent;
+  link.setAttribute('aria-busy', 'true');
+  link.textContent = 'Decrypting…';
+
+  try {
+    const response = await fetch(link.href, {
+      headers: buildOperatorHeaders({ Accept: '*/*' }),
+      credentials: 'same-origin',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Download denied (${response.status})`);
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const download = document.createElement('a');
+    download.href = objectUrl;
+    download.download = link.getAttribute('download') || inferDownloadName(link.href);
+    download.rel = 'noopener';
+    document.body.append(download);
+    download.click();
+    download.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  } catch (error) {
+    console.error('Operator download failed', error);
+    alert(error?.message || 'Operator download failed.');
+  } finally {
+    link.removeAttribute('aria-busy');
+    link.textContent = originalText;
+  }
+}
+
+function inferDownloadName(href) {
+  try {
+    const path = new URL(href, window.location.origin).pathname;
+    const leaf = path.split('/').filter(Boolean).pop();
+    return leaf || 'operator-download';
+  } catch {
+    return 'operator-download';
+  }
 }
 
 function bindTabSystem() {

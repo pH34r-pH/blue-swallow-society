@@ -185,6 +185,10 @@ test('APK downloads are removed from the public static surface and served only b
   assert.ok(!indexHtml.includes('/downloads/blue-swallow-wardriver.json'));
   assert.ok(operatorHtml.includes('/api/operator-downloads/wardriver/apk'));
   assert.ok(operatorHtml.includes('/api/operator-downloads/wardriver/metadata'));
+  assert.ok(operatorHtml.includes('data-operator-download="apk"'));
+  assert.match(operatorHtml, /download="blue-swallow-wardriver-2\.109-bss\.1-debug\.apk"/);
+  assert.ok(operatorMainJs.includes('handleOperatorDownload'));
+  assert.ok(operatorMainJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
   assert.ok(operatorDownloadsApi.includes('requireOperatorToken'));
   assert.ok(operatorDownloadsApi.includes('Content-Disposition'));
 });
