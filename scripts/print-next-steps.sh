@@ -23,7 +23,7 @@ Next steps:
      The workflow:
        - creates resource group rg-blue-swallow
        - deploys infra/main.bicep (SWA + Cybermap VM API gateway, optional OpenAI)
-       - sets BACKEND_API_BASE_URL on the SWA
+       - sets CYBERMAP_BACKEND_BASE_URL/CYBERMAP_BACKEND_TOKEN on the SWA
        - uploads the app + API
        - wires blueswallow.co.in and www.blueswallow.co.in through Azure DNS to the canonical blue-swallow-swa Static Web App
      After cutover, delete the legacy Static Web Apps blue-swallow-society and wonderful-pond-0623ed81e so only blue-swallow-swa remains connected.

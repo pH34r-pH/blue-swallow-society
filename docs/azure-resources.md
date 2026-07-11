@@ -100,7 +100,7 @@ The shared network already exports `postgresSubnetId`, `postgresPrivateDnsZoneId
 4. VM module consumes `appSubnetId` and provisions the Cybermap gateway host.
 5. Future PostgreSQL module consumes the exported PostgreSQL subnet/private DNS IDs.
 6. Optional OpenAI account deploys conditionally.
-7. CI writes `BACKEND_API_BASE_URL` and `BLUE_SWALLOW_PASSCODE_SHA256` into SWA app settings.
+7. CI writes `CYBERMAP_BACKEND_BASE_URL`, `CYBERMAP_BACKEND_TOKEN`, and `BLUE_SWALLOW_PASSCODE_SHA256` into SWA app settings.
 8. Custom domains are wired after SWA deployment using the existing Azure DNS zone for `blueswallow.co.in`.
 
 ## Configuration Files
@@ -118,7 +118,7 @@ Historical filename retained for module continuity. Current behavior provisions 
 - Auto-shutdown defaults to `0200` Pacific Standard Time.
 
 ### `scripts/wireup-backend-url.sh`
-Manual fallback helper for setting `BACKEND_API_BASE_URL` on the Static Web App. CI does this automatically from the Bicep output.
+Manual fallback helper for setting `CYBERMAP_BACKEND_BASE_URL` and `CYBERMAP_BACKEND_TOKEN` on the Static Web App. CI does this automatically from the Bicep output plus the `CYBERMAP_BACKEND_TOKEN` GitHub secret.
 
 ### `scripts/print-next-steps.sh`
 - Post-deployment script summarizing operator next steps.

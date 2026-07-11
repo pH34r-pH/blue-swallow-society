@@ -38,7 +38,7 @@ The frontend communicates with the following backend endpoints:
 - `/api/agent` (POST) - Agent chat responses
 - `/api/profile` (GET) - Protected profile endpoint (requires auth)
 - `/api/osint` and `/api/tzeentch` (POST/GET) - Operator-token protected analysis/dashboard endpoints
-- Future `/api/v1/*` proxy routes target the Cybermap VM gateway via `BACKEND_API_BASE_URL`
+- `/api/cybermap/*` (GET) - Operator-token protected same-origin proxy to VM Cybermap v1 read endpoints via `CYBERMAP_BACKEND_BASE_URL` + server-side `CYBERMAP_BACKEND_TOKEN`.
 
 ## Technical Implementation
 

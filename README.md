@@ -82,7 +82,7 @@ The home page includes:
 - sign in / sign out buttons (Easy Auth, AAD)
 - a protected profile call that hits `/api/profile`
 - same-origin operator/API calls through the Static Web App
-- Cybermap VM gateway wiring via `BACKEND_API_BASE_URL` for future `/api/v1/*` proxy routes
+- Cybermap VM gateway wiring via `CYBERMAP_BACKEND_BASE_URL` and server-side `CYBERMAP_BACKEND_TOKEN` for `/api/cybermap/*` proxy routes
 
 The WiGLE proxy at `/api/wigle` supports:
 - `mode=current` → AR current-state path. Reads the device-local WiGLE database/export through `WIGLE_LOCAL_DB_PATH` or `WIGLE_LOCAL_DB_URL`, filters to recent rows (`maxAgeSeconds`, default 45), and orders candidates by signal strength.
@@ -121,7 +121,7 @@ Follow [.github/workflows/setup-azure-creds.md](.github/workflows/setup-azure-cr
 The **Deploy Infra + App** workflow will:
 1. Create the resource group `rg-blue-swallow` if it does not exist.
 2. Run `az deployment group create` against `infra/main.bicep` (SWA resource `blue-swallow-swa` + Cybermap VM API gateway; OpenAI optional).
-3. Set `BACKEND_API_BASE_URL` and the canonical `BLUE_SWALLOW_PASSCODE_SHA256` runtime hash on the Static Web App.
+3. Set `CYBERMAP_BACKEND_BASE_URL`, `CYBERMAP_BACKEND_TOKEN`, and the canonical `BLUE_SWALLOW_PASSCODE_SHA256` runtime hash on the Static Web App.
 4. Deploy `app/` and `api/` to the Static Web App.
 5. Wire the apex `blueswallow.co.in` and `www.blueswallow.co.in` hostnames through the custom-domain helper script and Azure DNS in `rg-blue-swallow` (the DNS zone is referenced as an existing resource in `infra/custom-domains-dns.bicep`; the canonical SWA is `blue-swallow-swa`; legacy SWAs `blue-swallow-society` and `wonderful-pond-0623ed81e` have been deleted after cutover). The helper stages the Azure DNS apex A alias and `www` CNAME even before public delegation is live; final SWA custom-domain binding still requires the domain to be registered and delegated at the registrar to the Azure DNS nameservers.
 

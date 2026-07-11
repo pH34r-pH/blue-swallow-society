@@ -76,7 +76,7 @@ api/
 └── profile/             # Azure Function: GET /api/profile
 ```
 
-**Structure Decision**: Single-project static web app with co-located Azure Functions. The `app/` directory is the frontend root; `api/` contains serverless backends. Future Cybermap `/api/v1/*` proxy routes target the VM gateway via `BACKEND_API_BASE_URL` rather than the retired echo scaffold.
+**Structure Decision**: Single-project static web app with co-located Azure Functions. The `app/` directory is the frontend root; `api/` contains serverless backends. Cybermap `/api/cybermap/*` proxy routes target the VM gateway via `CYBERMAP_BACKEND_BASE_URL` and server-side `CYBERMAP_BACKEND_TOKEN` rather than the retired echo scaffold.
 
 ## Complexity Tracking
 

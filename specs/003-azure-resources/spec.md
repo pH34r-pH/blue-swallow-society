@@ -21,7 +21,7 @@ Operators must be able to deploy the complete Blue Swallow Society infrastructur
 **Acceptance Scenarios**:
 1. **Given** a fresh resource group and valid parameters file, **When** the operator runs the Bicep deployment, **Then** all resources (Static Web App, VM, VNet, Public IP, NSG, NIC, auto-shutdown schedule) are created successfully
 2. **Given** the deployment completes, **When** the operator inspects resource outputs, **Then** `staticWebAppDefaultHostname`, `backendApiBaseUrl`, and `vmPublicIp` are returned with correct values
-3. **Given** the deployment completes, **When** the operator checks the Static Web App app settings, **Then** `BACKEND_API_BASE_URL` is configured with the VM's HTTPS API gateway base URL
+3. **Given** the deployment completes, **When** the operator checks the Static Web App app settings, **Then** `CYBERMAP_BACKEND_BASE_URL` is configured with the VM's HTTPS API gateway base URL and `CYBERMAP_BACKEND_TOKEN` is present for server-side SWA-to-VM auth
 
 ### User Story 2 - Secure Network Isolation (Priority: P2)
 
@@ -81,7 +81,7 @@ The infrastructure template must support optional Azure OpenAI deployment so tha
 - **FR-006**: The VM MUST be configured via cloud-init to install and start `cybermap-api.service`, `cybermap-worker.service`, nginx, and PgBouncer placeholders
 - **FR-007**: The Bicep template MUST create a DevTestLab auto-shutdown schedule for the VM with parameterized time and timezone
 - **FR-008**: The Bicep template MUST conditionally deploy an Azure OpenAI account when `deployOpenAi=true`
-- **FR-009**: The Static Web App MUST be updated with the `BACKEND_API_BASE_URL` app setting pointing to the VM's HTTPS API gateway base URL
+- **FR-009**: The Static Web App MUST be updated with the `CYBERMAP_BACKEND_BASE_URL` app setting pointing to the VM's HTTPS API gateway base URL and `CYBERMAP_BACKEND_TOKEN` for the server-side proxy auth header
 - **FR-010**: All parameterizable values (location, names, prefix, SSH key, allowed IP, shutdown time) MUST be exposed as Bicep parameters
 
 ### Key Entities *(include if feature involves data)*

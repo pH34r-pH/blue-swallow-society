@@ -270,7 +270,7 @@ ExecStartPre=/usr/bin/node /opt/cybermap-api/migrate.mjs --if-configured
 ## Deployment configuration
 
 - Bicep output: `backendApiBaseUrl` (`https://<vm-public-ip>`).
-- SWA app setting: `BACKEND_API_BASE_URL`, used by future managed function proxy routes.
+- SWA app settings: `CYBERMAP_BACKEND_BASE_URL` and `CYBERMAP_BACKEND_TOKEN`, used by managed function proxy routes. The token is sent server-side as `X-Cybermap-Token` and is never exposed to the browser.
 - VM secret file: `/etc/cybermap-api.env` for `CYBERMAP_DATABASE_URL`, hashed auth registry JSON/hash settings, rate limits, and pool/readiness overrides.
 - PgBouncer config: `/etc/pgbouncer/pgbouncer.ini` and `/etc/pgbouncer/userlist.txt`, both operator-managed for actual credentials.
 
