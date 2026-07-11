@@ -85,6 +85,10 @@ test('cybermap core migration creates the complete append-only ledger and produc
     'observation_id uuid',
     'relationship text',
     'weight numeric',
+    'confidence numeric',
+    'first_seen_at timestamptz',
+    'last_seen_at timestamptz',
+    'source_observation_refs jsonb',
     'primary key',
   ], 'entity_observations');
 

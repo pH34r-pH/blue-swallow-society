@@ -110,14 +110,23 @@ function makeBatch(overrides = {}) {
   };
 }
 
+function parseJson(value) {
+  return typeof value === 'string' ? JSON.parse(value) : value;
+}
+
 function createIngestPool() {
   const batches = new Map();
   const observations = [];
+  const cyberEntities = new Map();
+  const entityObservations = new Map();
   const transactions = [];
   let batchSequence = 0;
+  let entitySequence = 0;
   const pool = {
     batches,
     observations,
+    cyberEntities,
+    entityObservations,
     transactions,
     queries: [],
     ended: false,
@@ -223,6 +232,71 @@ function createIngestPool() {
         observations.push(row);
         return { rows: [{ id: row.id }] };
       }
+      if (/insert into cyber_entities/i.test(text)) {
+        assert.match(text, /on conflict\s*\(\s*stable_key\s*\)/i, 'entity insert should upsert by stable_key');
+        const [
+          entityKind,
+          stableKey,
+          displayName,
+          sourceClass,
+          firstSeenAt,
+          lastSeenAt,
+          lon,
+          lat,
+          h3_7,
+          h3_9,
+          h3_11,
+          confidence,
+          labels,
+          properties,
+          provenance,
+        ] = params;
+        const existing = cyberEntities.get(stableKey);
+        const row = existing || { id: `entity-${++entitySequence}`, stableKey, labels: [] };
+        row.entityKind = entityKind;
+        row.displayName = displayName;
+        row.sourceClass = sourceClass;
+        row.firstSeenAt = existing && existing.firstSeenAt < firstSeenAt ? existing.firstSeenAt : firstSeenAt;
+        row.lastSeenAt = existing && existing.lastSeenAt > lastSeenAt ? existing.lastSeenAt : lastSeenAt;
+        row.lon = lon;
+        row.lat = lat;
+        row.h3_7 = h3_7;
+        row.h3_9 = h3_9;
+        row.h3_11 = h3_11;
+        row.confidence = Math.max(existing?.confidence ?? 0, confidence);
+        row.labels = [...new Set([...(existing?.labels || []), ...labels])];
+        row.properties = { ...(existing?.properties || {}), ...parseJson(properties) };
+        row.provenance = { ...(existing?.provenance || {}), ...parseJson(provenance) };
+        cyberEntities.set(stableKey, row);
+        return { rows: [{ id: row.id }] };
+      }
+      if (/insert into entity_observations/i.test(text)) {
+        assert.match(text, /on conflict\s*\(\s*entity_id\s*,\s*observation_id\s*,\s*relationship\s*\)/i, 'entity edge insert should upsert by entity/observation/relationship');
+        const [
+          entityId,
+          observationId,
+          relationship,
+          sourceClass,
+          weight,
+          confidence,
+          firstSeenAt,
+          lastSeenAt,
+          sourceObservationRefs,
+          provenance,
+        ] = params;
+        const key = `${entityId}|${observationId}|${relationship}`;
+        const existing = entityObservations.get(key);
+        const row = existing || { entityId, observationId, relationship };
+        row.sourceClass = sourceClass;
+        row.weight = Math.max(existing?.weight ?? 0, weight);
+        row.confidence = Math.max(existing?.confidence ?? 0, confidence);
+        row.firstSeenAt = existing && existing.firstSeenAt < firstSeenAt ? existing.firstSeenAt : firstSeenAt;
+        row.lastSeenAt = existing && existing.lastSeenAt > lastSeenAt ? existing.lastSeenAt : lastSeenAt;
+        row.sourceObservationRefs = [...new Set([...(existing?.sourceObservationRefs || []), ...parseJson(sourceObservationRefs)])];
+        row.provenance = { ...(existing?.provenance || {}), ...parseJson(provenance) };
+        entityObservations.set(key, row);
+        return { rows: [{ entity_id: entityId }] };
+      }
       if (/update sync_batches/i.test(text)) {
         const [batchId, completedAt, observationCount, payloadHash, requestMetadata] = params;
         const row = [...batches.values()].find((candidate) => candidate.id === batchId);
@@ -314,12 +388,34 @@ test('observation batch ingest stores normalized rows once and returns the previ
     assert.equal(stored.piiStatus, 'redacted');
     assert.equal(stored.retentionClass, 'summary_only');
 
+    assert.equal(pool.cyberEntities.size, 1, 'wifi observation should materialize one cyber_entities row');
+    const [entity] = pool.cyberEntities.values();
+    assert.equal(entity.entityKind, 'network');
+    assert.equal(entity.stableKey, 'wifi_ap:bssid_hash:sha256:bssid-fixture');
+    assert.equal(entity.sourceClass, 'owned_device');
+    assert.equal(entity.firstSeenAt, '2026-07-10T11:59:00.000Z');
+    assert.equal(entity.lastSeenAt, '2026-07-10T11:59:00.000Z');
+    assert.equal(entity.properties.bssid_hash, 'sha256:bssid-fixture');
+    assert.equal(entity.provenance.source_observation.id, 'obs-1');
+
+    assert.equal(pool.entityObservations.size, 1, 'wifi observation should materialize one entity_observations edge');
+    const [edge] = pool.entityObservations.values();
+    assert.equal(edge.observationId, 'obs-1');
+    assert.equal(edge.relationship, 'observed_as');
+    assert.equal(edge.sourceClass, 'owned_device');
+    assert.equal(edge.confidence, 0.875);
+    assert.equal(edge.firstSeenAt, '2026-07-10T11:59:00.000Z');
+    assert.equal(edge.lastSeenAt, '2026-07-10T11:59:00.000Z');
+    assert.deepEqual(edge.sourceObservationRefs, ['obs-1']);
+
     const duplicate = await ingestRequest(server, WARD_TOKEN, makeBatch({ client_id: 'client-controlled-partition' }), 'batch-alpha-001');
     assert.equal(duplicate.status, 200);
     assert.equal(duplicate.json.ok, true);
     assert.equal(duplicate.json.duplicate, true);
     assert.deepEqual(duplicate.json.receipt, first.json.receipt);
     assert.equal(pool.observations.length, 1, 'duplicate request must not insert another immutable observation');
+    assert.equal(pool.cyberEntities.size, 1, 'duplicate request must not insert another entity');
+    assert.equal(pool.entityObservations.size, 1, 'duplicate request must not insert another entity edge');
 
     const canonicalDuplicate = await ingestRequest(server, WARD_TOKEN, {
       observations: [
@@ -346,6 +442,8 @@ test('observation batch ingest stores normalized rows once and returns the previ
     assert.equal(canonicalDuplicate.json.duplicate, true);
     assert.deepEqual(canonicalDuplicate.json.receipt, first.json.receipt);
     assert.equal(pool.observations.length, 1, 'canonical duplicate request must not insert another observation');
+    assert.equal(pool.cyberEntities.size, 1, 'canonical duplicate request must not insert another entity');
+    assert.equal(pool.entityObservations.size, 1, 'canonical duplicate request must not insert another entity edge');
 
     const conflictingReplay = await ingestRequest(server, WARD_TOKEN, makeBatch({
       observations: [{ ...makeBatch().observations[0], confidence: 0.5 }],

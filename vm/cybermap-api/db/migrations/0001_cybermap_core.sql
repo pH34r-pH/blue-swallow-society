@@ -213,11 +213,18 @@ CREATE TABLE entity_observations (
   relationship text NOT NULL,
   source_class source_class NOT NULL,
   weight numeric(4,3) NOT NULL DEFAULT 1.000,
+  confidence numeric(4,3) NOT NULL DEFAULT 1.000,
+  first_seen_at timestamptz NOT NULL,
+  last_seen_at timestamptz NOT NULL,
+  source_observation_refs jsonb NOT NULL DEFAULT '[]'::jsonb,
   provenance jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (entity_id, observation_id, relationship),
   CHECK (relationship IN ('observed_as', 'supports', 'contradicts', 'located_near', 'derived_from', 'summarizes')),
-  CHECK (weight >= 0 AND weight <= 1)
+  CHECK (weight >= 0 AND weight <= 1),
+  CHECK (confidence >= 0 AND confidence <= 1),
+  CHECK (last_seen_at >= first_seen_at),
+  CHECK (jsonb_typeof(source_observation_refs) = 'array')
 );
 
 CREATE INDEX entity_observations_observation_idx ON entity_observations (observation_id, relationship);

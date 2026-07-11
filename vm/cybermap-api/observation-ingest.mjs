@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { createDefaultPool, loadDatabaseConfig } from './db.mjs';
 import { SOURCE_CLASSES, identityHasAnyScope } from './source-registry.mjs';
+import { materializeObservationEntities } from './entity-derivation.mjs';
 
 export const OBSERVATION_KINDS = Object.freeze([
   'wifi_ap',
@@ -647,7 +648,9 @@ export async function storeObservationBatch(pool, batch) {
         JSON.stringify(observation.payload),
         JSON.stringify(observation.provenance),
       ]);
-      observationIds.push(insertResult.rows[0].id);
+      const observationId = insertResult.rows[0].id;
+      observationIds.push(observationId);
+      await materializeObservationEntities(pool, { ...observation, id: observationId });
     }
 
     const completedAt = batch.now.toISOString();

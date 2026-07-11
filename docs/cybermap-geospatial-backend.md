@@ -194,6 +194,41 @@ CREATE INDEX observations_cell_idx ON observations (h3_9, observed_at DESC);
 CREATE INDEX observations_kind_idx ON observations (kind, source_class);
 CREATE INDEX observations_payload_gin ON observations USING gin (payload);
 
+CREATE TABLE cyber_entities (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_kind cyber_entity_kind NOT NULL,
+  stable_key text NOT NULL UNIQUE,
+  display_name text NOT NULL,
+  source_class source_class NOT NULL,
+  first_seen_at timestamptz NOT NULL,
+  last_seen_at timestamptz NOT NULL,
+  centroid geometry(Point, 4326),
+  h3_7 text,
+  h3_9 text,
+  h3_11 text,
+  confidence numeric(4,3) NOT NULL DEFAULT 1.000,
+  labels text[] NOT NULL DEFAULT ARRAY[]::text[],
+  properties jsonb NOT NULL DEFAULT '{}'::jsonb,
+  provenance jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE entity_observations (
+  entity_id uuid NOT NULL REFERENCES cyber_entities(id) ON DELETE CASCADE,
+  observation_id uuid NOT NULL REFERENCES observations(id) ON DELETE RESTRICT,
+  relationship text NOT NULL,
+  source_class source_class NOT NULL,
+  weight numeric(4,3) NOT NULL DEFAULT 1.000,
+  confidence numeric(4,3) NOT NULL DEFAULT 1.000,
+  first_seen_at timestamptz NOT NULL,
+  last_seen_at timestamptz NOT NULL,
+  source_observation_refs jsonb NOT NULL DEFAULT '[]'::jsonb,
+  provenance jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (entity_id, observation_id, relationship)
+);
+
 CREATE TABLE cybermap_cells (
   h3_cell text NOT NULL,
   resolution smallint NOT NULL,
@@ -208,6 +243,15 @@ CREATE TABLE cybermap_cells (
 ```
 
 H3 is intentionally app-computed. Do not require a PostgreSQL H3 extension for P0. PostGIS handles geometry; the app/worker computes grid cells for fast viewport fetches and map aggregation.
+
+Entity materialization is synchronous with accepted observation ingest for recognizable non-PII products:
+
+- `wifi_ap` observations derive `network` entities keyed by hashed BSSID/network identifiers.
+- `ble_device` observations derive `device` entities keyed by hashed device identifiers or coarse device class.
+- `greenfeed_snapshot` observations derive `feed` source entities and preserve green preload/source-class gates.
+- `claim_anchor` observations derive `claim` and/or `event` anchors.
+- Mapped place/source payloads can derive `place` or `feed` entities when the payload is not a private-person, face, license-plate, or private-residence product entity.
+- `entity_observations` carries relationship, confidence/weight, first/last seen, explicit source observation refs, and provenance including source class plus local/owned trigger metadata for grey/orange/red exposure entities.
 
 ## Cybermap materialization loop
 
