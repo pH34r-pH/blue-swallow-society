@@ -39,17 +39,17 @@ class CustomDomainScriptTests(unittest.TestCase):
                 'rg-blue-swallow',
                 'blue-swallow-swa',
                 'rg-blue-swallow',
-                'blueswallow.co.in',
-                'blueswallow.co.in',
-                'www.blueswallow.co.in',
+                'blueswallow.net',
+                'blueswallow.net',
+                'www.blueswallow.net',
             )
 
         self.assertFalse(configured)
         self.assertEqual(
             staged_records,
             [
-                ('A', ('rg-blue-swallow', 'blueswallow.co.in', '@', '/subscriptions/123/staticSites/blue-swallow-swa')),
-                ('CNAME', ('rg-blue-swallow', 'blueswallow.co.in', 'www', 'lively-pebble-0e8b1ec1e.7.azurestaticapps.net')),
+                ('A', ('rg-blue-swallow', 'blueswallow.net', '@', '/subscriptions/123/staticSites/blue-swallow-swa')),
+                ('CNAME', ('rg-blue-swallow', 'blueswallow.net', 'www', 'lively-pebble-0e8b1ec1e.7.azurestaticapps.net')),
             ],
         )
         create_token.assert_not_called()

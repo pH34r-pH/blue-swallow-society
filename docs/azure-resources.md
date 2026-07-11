@@ -144,10 +144,12 @@ The VM uses cloud-init to automatically configure the echo service:
 5. PostgreSQL Flexible Server module (added by the datastore slice) must consume `postgresSubnetId` and `postgresPrivateDnsZoneId`/`postgresPrivateDnsZoneName` from the shared network module; it must not create a hidden second VNet.
 6. Optional OpenAI account deployed conditionally
 7. Static Web App updated with `BACKEND_ECHO_BASE_URL` app setting from VM output
-8. Custom domains wired after the SWA deployment using the existing Azure DNS zone:
-   - apex `blueswallow.co.in`
-   - `www.blueswallow.co.in`
-   - Azure DNS stages apex A alias + `www` CNAME before public delegation; final SWA custom-domain binding requires registrar-side registration/delegation to `ns1-09.azure-dns.com`, `ns2-09.azure-dns.net`, `ns3-09.azure-dns.org`, and `ns4-09.azure-dns.info`.
+8. Custom domains wired after the SWA deployment using the Azure DNS zone:
+   - apex `blueswallow.net`
+   - `www.blueswallow.net`
+   - The deploy workflow ensures the public Azure DNS zone exists before running the custom-domain helper.
+   - Azure DNS stages apex A alias + `www` CNAME before public delegation; final SWA custom-domain binding requires registrar-side registration/delegation to the Azure DNS zone nameservers.
+   - If Azure App Service Domains rejects the subscription as ineligible for domain purchase, register the domain through an external registrar and delegate it to the Azure DNS zone nameservers.
 
 ## Configuration Files
 
@@ -181,7 +183,7 @@ The VM uses cloud-init to automatically configure the echo service:
 - Includes `az deployment group what-if` dry-run instructions
 - Reminds operators to set `allowedSourceIp` to their developer IP
 - Documents deployment idempotency (re-runs update without destroying state)
-- Notes that the legacy SWA resources were deleted after cutover so only `blue-swallow-swa` remains connected to `blueswallow.co.in`
+- Notes that the legacy SWA resources were deleted after cutover so only `blue-swallow-swa` remains connected to `blueswallow.net`
 
 ### modules/network.bicep
 - **Encapsulates shared Cybermap network topology**

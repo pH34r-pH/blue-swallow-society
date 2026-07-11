@@ -35,7 +35,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
 DEFAULT_LEDGER = REPO_ROOT / "config" / "mosaic-murmurs-paper-ledger.json"
 DEFAULT_RUNTIME_DIR = Path.home() / ".hermes" / "mosaic-murmurs" / "morning-brief"
-USER_AGENT = "BlueSwallowMorningBrief/0.1 (https://blueswallow.co.in; local operator collector)"
+USER_AGENT = "BlueSwallowMorningBrief/0.1 (https://blueswallow.net; local operator collector)"
 MAX_SUMMARY_CHARS = 360
 
 MATERIALITY_KEYWORDS = {

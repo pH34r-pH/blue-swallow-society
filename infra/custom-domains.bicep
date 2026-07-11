@@ -4,13 +4,13 @@ targetScope = 'resourceGroup'
 param staticWebAppName string
 
 @description('Canonical apex hostname.')
-param apexHostname string = 'blueswallow.co.in'
+param apexHostname string = 'blueswallow.net'
 
 @description('WWW hostname.')
-param wwwHostname string = 'www.blueswallow.co.in'
+param wwwHostname string = 'www.blueswallow.net'
 
 @description('Azure DNS zone name.')
-param dnsZoneName string = 'blueswallow.co.in'
+param dnsZoneName string = 'blueswallow.net'
 
 resource swa 'Microsoft.Web/staticSites@2023-01-01' existing = {
   name: staticWebAppName

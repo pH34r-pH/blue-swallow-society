@@ -3,7 +3,7 @@ const { dirname } = require('node:path');
 const { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } = require('node:fs');
 const { requireOperatorToken } = require('../_lib/operator-auth');
 
-const USER_AGENT = 'BlueSwallowSociety/1.0 (+https://blueswallow.co.in)';
+const USER_AGENT = 'BlueSwallowSociety/1.0 (+https://blueswallow.net)';
 const DEFAULT_TIMEOUT_MS = 9000;
 const HN_API = 'https://hacker-news.firebaseio.com/v0';
 const REDDIT_API = 'https://www.reddit.com/r/all/hot.json?limit=25';

@@ -4,7 +4,7 @@ const net = require('node:net');
 const DEFAULT_TIMEOUT_MS = 9000;
 const HTML_TEXT_BYTES = 64 * 1024;
 const MAX_PUBLIC_REDIRECTS = 3;
-const USER_AGENT = 'BlueSwallowSociety/1.0 (+https://blueswallow.co.in)';
+const USER_AGENT = 'BlueSwallowSociety/1.0 (+https://blueswallow.net)';
 
 const defaultDnsLookup = (hostname) => dns.lookup(hostname, { all: true, verbatim: true });
 let dnsLookup = defaultDnsLookup;

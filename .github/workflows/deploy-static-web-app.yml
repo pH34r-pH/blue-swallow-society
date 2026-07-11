@@ -21,9 +21,9 @@ env:
   RESOURCE_GROUP: rg-blue-swallow
   LOCATION: westus2
   DNS_ZONE_RESOURCE_GROUP: rg-blue-swallow
-  DNS_ZONE_NAME: blueswallow.co.in
-  APEX_DOMAIN: blueswallow.co.in
-  WWW_DOMAIN: www.blueswallow.co.in
+  DNS_ZONE_NAME: blueswallow.net
+  APEX_DOMAIN: blueswallow.net
+  WWW_DOMAIN: www.blueswallow.net
   # SHA-256("blue-swallow"). Keep the canonical passcode server-side only.
   BLUE_SWALLOW_PASSCODE_SHA256: 1498079020c154198640fb47d5dba23a804f44ff805fac623c69202af9db2c80
 
@@ -139,6 +139,14 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Ensure public DNS zone exists
+        run: |
+          az network dns zone create \
+            --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
+            --name "$DNS_ZONE_NAME" \
+            --only-show-errors \
+            -o none
 
       - name: Fetch SWA deployment token
         id: swa-token

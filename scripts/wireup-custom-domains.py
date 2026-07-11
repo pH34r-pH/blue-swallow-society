@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wire blueswallow.co.in and www.blueswallow.co.in to the Static Web App.
+"""Wire blueswallow.net and www.blueswallow.net to the Static Web App.
 
 This script uses raw ARM HTTPS calls plus GitHub OIDC to avoid depending on
 Azure CLI subcommands that are not available in the runner image.
