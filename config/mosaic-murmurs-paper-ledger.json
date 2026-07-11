@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "currency": "USD",
+  "updated_at": null,
+  "notes": "Paper-only ledger for Mosaic & Murmurs morning briefs. Empty positions mean no simulated exposure and no buy/sell execution.",
+  "books": [
+    {
+      "id": "prediction_markets",
+      "display_name": "Prediction Markets",
+      "starting_equity": 0.0,
+      "closed_pnl": 0.0,
+      "high_water_mark": 0.0,
+      "positions": []
+    },
+    {
+      "id": "crypto",
+      "display_name": "Crypto",
+      "starting_equity": 0.0,
+      "closed_pnl": 0.0,
+      "high_water_mark": 0.0,
+      "positions": []
+    },
+    {
+      "id": "equity_watch",
+      "display_name": "Equity Watch",
+      "starting_equity": 0.0,
+      "closed_pnl": 0.0,
+      "high_water_mark": 0.0,
+      "positions": []
+    },
+    {
+      "id": "local_event_watch",
+      "display_name": "Local Event Watch",
+      "starting_equity": 0.0,
+      "closed_pnl": 0.0,
+      "high_water_mark": 0.0,
+      "positions": []
+    }
+  ]
+}

@@ -58,7 +58,17 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 │   ├── external-id-setup-checklist.md
 │   ├── mosaic-and-murmurs-operating-doctrine.md
 │   ├── mosaic-and-murmurs-s0-sensorium-proposal.md
+│   ├── mosaic-and-murmurs-morning-brief-proposal.md
+│   ├── mosaic-and-murmurs-morning-brief-implementation.md
+│   ├── mosaic-and-murmurs-source-expansion-research.md
+│   ├── microsoft-layoff-risk-radar.md
+│   ├── public-official-political-signal-radar.md
+│   ├── crypto-paper-trading-strategy-research.md
+│   ├── anti-surveillance-style-research.md
+│   ├── tzeentch-paper-api-status.md
 │   └── vm-echo-wiring.md
+├── config/
+│   └── mosaic-murmurs-paper-ledger.json        # paper-only morning brief books/positions
 ├── infra/
 │   ├── main.bicep                  # single entrypoint, composes VM + optional OpenAI
 │   ├── custom-domains.bicep        # custom-domain bindings for the Static Web App
@@ -69,6 +79,7 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 │       └── openai.bicep            # optional Azure OpenAI account
 └── scripts/
     ├── local-dev.ps1
+    ├── mosaic-murmurs-morning-brief-collect.py  # public-source morning brief collector
     ├── print-next-steps.sh
     ├── wireup-custom-domains.py    # helper script used by CI for custom-domain wiring
     └── wireup-backend-url.sh

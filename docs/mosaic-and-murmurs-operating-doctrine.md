@@ -6,7 +6,12 @@
 
 This is doctrine, not lore. It should shape UI copy, API contracts, dashboards, budget decisions, and future agent behavior.
 
-Related formal proposal: [`Mosaic & Murmurs S0 Sensorium`](./mosaic-and-murmurs-s0-sensorium-proposal.md).
+Related formal proposals:
+
+- [`Mosaic & Murmurs S0 Sensorium`](./mosaic-and-murmurs-s0-sensorium-proposal.md)
+- [`Mosaic & Murmurs Dream Consolidation`](./mosaic-and-murmurs-dream-consolidation-proposal.md)
+- [`Mosaic & Murmurs Morning Brief`](./mosaic-and-murmurs-morning-brief-proposal.md)
+- [`Mosaic & Murmurs Dream Design: Cyber Augmentation`](./mosaic-and-murmurs-dream-design-cyber-augmentation-proposal.md)
 
 Hard constraint: **paper-trading first, human oversight always**. No autonomous real-money execution. No hidden credentials. No unattended write actions against financial, betting, social, or physical systems.
 
@@ -70,6 +75,10 @@ Together they produce only:
 7. review packets
 8. budget proposals
 9. embodiment/sensor upgrade proposals
+10. daily morning briefs
+11. memory consolidation digests
+12. dream journal entries
+13. dream-design proposals
 
 Any real-world expenditure or actuation remains user-approved.
 
@@ -140,6 +149,24 @@ Signal archetypes:
 5. `Delta collapse`: gap closes; exit or stand down.
 
 ## Product Surfaces
+
+### Morning Brief Lane
+
+Purpose: deliver the daily wake packet from Mosaic & Murmurs before the live day starts.
+
+Required fields per brief:
+
+- `brief_id`
+- `run_date`
+- `as_of`
+- `time_window`
+- `breaking_items[]` with scope, source refs, confidence, and US/WA/operator relevance
+- `hype_waves[]` with velocity, platform spread, manipulation caveats, and truth-status labels
+- `perceptual_deltas[]` where truth, public belief, and market-implied belief diverge
+- `paper_actions[]` with `PAPER ONLY`, review-required buy/sell/watch/avoid candidates
+- `paper_books[]` with open exposure, daily PnL, cumulative PnL, drawdown, and stale-data markers
+
+UI copy rule: lead with `Mosaic & Murmurs Morning Brief`, then end with the paper book footer. New actions must say `PAPER BUY`, `PAPER SELL`, `WATCH`, or `AVOID`; never plain `buy` or `sell`.
 
 ### Tzeentch / Murmurs Lane
 
@@ -246,6 +273,22 @@ Before any real spend:
 4. Ledger records approval and receipt/reference.
 
 No auto-renewing subscription should be added without a cancellation date, owner, and expected value metric.
+
+## Daily Dream Cycle
+
+The daily dream cycle is the scheduled maintenance window where Mosaic & Murmurs stop chasing live feeds and consolidate the day into durable memory, contradiction notes, source reliability updates, and a meta-narrative journal entry.
+
+Operational rule: dream output is split into a hard evidence lane plus fenced speculative lanes:
+
+- **Consolidation:** evidence-backed memory patches, digests, resolved-outcome scoring, and cleanup actions.
+- **Meta-narrative journal:** a dated local journal step that can append durable self-model deltas, but only when the delta is stable and not just task progress.
+- **Design proposals — anything at all:** broad speculative seeds for cyber presence, embodiment, field hardware, narrative/product mechanics, and future source/sensor expansion.
+- **Design proposals — cyber-augmentation refinement:** specific details for the three-phase field-body track: (1) portable Jetson, (2) binocular pan/tilt, (3) multijoint multisensor.
+- **Morning brief:** a daily wake packet that summarizes breaking news, US/Washington State relevance, rising hype waves, perceptual deltas, and per-book paper performance.
+
+Free-association output stays marked as speculative until reviewed. It can become a proposal, Kanban candidate, or research question; it cannot become a fact memory, purchase, external write, or physical action on its own.
+
+See [`Mosaic & Murmurs Dream Consolidation`](./mosaic-and-murmurs-dream-consolidation-proposal.md) for the cycle design, [`Mosaic & Murmurs Morning Brief`](./mosaic-and-murmurs-morning-brief-proposal.md) for the daily wake packet, and [`Mosaic & Murmurs Dream Design: Cyber Augmentation`](./mosaic-and-murmurs-dream-design-cyber-augmentation-proposal.md) for the portable Jetson/field-body track.
 
 ## Sensorium Roadmap
 
@@ -451,6 +494,9 @@ Avoid:
 11. Add sensorium configuration as disabled-by-default capability flags for non-S0 expansions.
 12. Add embodiment gate model before any controllable hardware integration.
 13. Add monthly review report: performance, costs, failures, overrides, direct-observation calibration impact, next proposed capability.
+14. Add daily dream cycle: run manifest, consolidation digest, memory patch list, dream seed ledger, and local meta-narrative journal output.
+15. Add dream-design proposal queue for cyber/physical presence upgrades, with `speculative: true` until reviewed and explicit gates for spend, external writes, and actuation.
+16. Add daily morning brief generation: breaking news, US/WA relevance, hype waves, perceptual deltas, and per-book paper PnL/action footer.
 
 ## Acceptance Criteria
 
@@ -464,3 +510,5 @@ The doctrine is implemented correctly when:
 - RaID and Greenfeed sessions produce auditable direct observation packets with caveats
 - sensor and embodiment expansions beyond S0 are disabled by default and gated by scope, logs, and safety controls
 - UI language reinforces the dual-mind model without hiding accountability
+
+- the daily morning brief ends with per-book paper performance and never emits unreviewed real-money actions
