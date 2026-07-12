@@ -9,6 +9,7 @@ const migrationLower = migration.toLowerCase();
 const ingestMigration = read('vm/cybermap-api/db/migrations/0002_device_ingest_contract.sql');
 const ingestMigrationLower = ingestMigration.toLowerCase();
 const dbReadme = read('vm/cybermap-api/db/README.md');
+const installCybermapApi = read('infra/scripts/install-cybermap-api.sh');
 
 function tableBlock(tableName) {
   const match = migrationLower.match(new RegExp(`create\\s+table\\s+(?:if\\s+not\\s+exists\\s+)?${tableName}\\s*\\((?<body>[\\s\\S]*?)\\n\\);`, 'i'));
@@ -171,6 +172,15 @@ test('migration docs define the lightweight ordered SQL runner contract', () => 
   assert.match(dbReadme, /0001_cybermap_core\.sql/);
   assert.match(dbReadme, /public_greenfeed\s*->\s*green_public/);
   assert.match(dbReadme, /PostGIS/i);
+});
+
+test('VM Cybermap installer applies checked-in SQL migrations with psql', () => {
+  assert.match(installCybermapApi, /postgresql-client/);
+  assert.match(installCybermapApi, /psql\s+-v\s+ON_ERROR_STOP=1\s+-f\s+"\$file"/);
+  assert.match(installCybermapApi, /schema_migrations/);
+  assert.match(installCybermapApi, /0001_cybermap_core\.sql/);
+  assert.match(installCybermapApi, /0002_device_ingest_contract\.sql/);
+  assert.doesNotMatch(installCybermapApi, /scripts\/migrate\.mjs/);
 });
 
 test('device ingest migration stores only token digests and scoped enrollment state', () => {

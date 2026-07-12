@@ -14,7 +14,7 @@ if [ -z "$CYBERMAP_READ_TOKEN" ]; then
 fi
 
 apt-get update
-apt-get install -y ca-certificates curl gnupg tar
+apt-get install -y ca-certificates curl gnupg postgresql-client tar
 
 if ! command -v node >/dev/null 2>&1 || ! node --version | grep -Eq '^v22\.'; then
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
@@ -48,7 +48,29 @@ chmod 0600 /etc/bss/cybermap-api.env
 set -a
 . /etc/bss/cybermap-api.env
 set +a
-node scripts/migrate.mjs
+
+migration_applied() {
+  local version="$1"
+  local has_table
+  has_table="$(psql -v ON_ERROR_STOP=1 -Atqc "SELECT to_regclass('public.schema_migrations') IS NOT NULL")"
+  if [ "$has_table" != "t" ]; then
+    return 1
+  fi
+  [ "$(psql -v ON_ERROR_STOP=1 -Atqc "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = '$version')")" = "t" ]
+}
+
+run_migration() {
+  local version="$1"
+  local file="$2"
+  if migration_applied "$version"; then
+    echo "Migration $version already applied; skipping."
+    return 0
+  fi
+  psql -v ON_ERROR_STOP=1 -f "$file"
+}
+
+run_migration 0001_cybermap_core db/migrations/0001_cybermap_core.sql
+run_migration 0002_device_ingest_contract db/migrations/0002_device_ingest_contract.sql
 
 cat > /etc/systemd/system/bss-cybermap-api.service <<'UNIT'
 [Unit]
