@@ -46,7 +46,7 @@ test('Static Web Apps routes do not collide after Azure trailing-slash normaliza
 });
 
 test('operator APIs are reachable from the passcode login but fail closed on passcode-issued bearer tokens or cookies', () => {
-  ['/api/wigle', '/api/cybermap/viewport', '/api/agent', '/api/osint', '/api/tzeentch'].forEach((route) => {
+  ['/api/wigle', '/api/cybermap/viewport', '/api/cybermap/observations/batch', '/api/agent', '/api/osint', '/api/tzeentch'].forEach((route) => {
     assert.deepEqual(routeConfig(route)?.allowedRoles, ['anonymous', 'authenticated'], `${route} must not be SWA-AAD gated before token validation`);
   });
   assert.deepEqual(routeConfig('/api/validate-passcode')?.allowedRoles, ['anonymous', 'authenticated']);

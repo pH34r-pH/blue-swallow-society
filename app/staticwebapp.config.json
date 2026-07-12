@@ -46,6 +46,13 @@
       ]
     },
     {
+      "route": "/api/cybermap/observations/batch",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
       "route": "/api/osint",
       "allowedRoles": [
         "anonymous",

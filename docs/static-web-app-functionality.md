@@ -73,6 +73,8 @@ Passcode/operator APIs:
 - `/api/osint` (POST): public-source target scan / overview; requires operator token.
 - `/api/tzeentch` (GET): read-only dashboard and paper books; requires operator token.
 - `/api/wigle` (GET/POST): local/current WiGLE snapshot proxy; requires operator token.
+- `/api/cybermap/viewport` (POST): token-gated Godeye viewport proxy to the managed PostGIS backend; requires operator token.
+- `/api/cybermap/observations/batch` (POST): Wardriver observation-batch HTTPS ingress proxy to the VM backend; requires enrolled-device ingest headers.
 - `/api/agent` (POST): protected agent prompt route; requires operator token.
 - `/api/profile` (GET): protected profile endpoint.
 
