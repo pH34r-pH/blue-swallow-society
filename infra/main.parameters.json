@@ -14,6 +14,13 @@
     "vmSize": { "value": "Standard_B1ms" },
     "deployOpenAi": { "value": false },
     "autoShutdownTime": { "value": "0200" },
-    "autoShutdownTimeZone": { "value": "Pacific Standard Time" }
+    "autoShutdownTimeZone": { "value": "Pacific Standard Time" },
+    "enableAutoShutdown": { "value": false },
+    "postgresServerName": { "value": "blue-swallow-pg" },
+    "postgresDatabaseName": { "value": "cybermap" },
+    "postgresAdministratorLogin": { "value": "bssadmin" },
+    "postgresSkuName": { "value": "Standard_B1ms" },
+    "postgresStorageSizeGiB": { "value": 32 },
+    "postgresBackupRetentionDays": { "value": 7 }
   }
 }

@@ -100,7 +100,82 @@ export class MemoryObservationStore {
     return this.#observations.size;
   }
 
+  async queryViewport({ lat, lon, radiusMeters = 100, limit = 100, maxAgeMs = null, now = this.#now() } = {}) {
+    const center = { lat, lon };
+    const cutoffMs = Number.isFinite(maxAgeMs) ? new Date(now).getTime() - maxAgeMs : null;
+    const accessPoints = [...this.#observations.values()]
+      .map((entry) => toAccessPoint(entry, center))
+      .filter((record) => Number.isFinite(record.distanceMeters) && record.distanceMeters <= radiusMeters)
+      .filter((record) => !Number.isFinite(cutoffMs) || Date.parse(record.lastSeen) >= cutoffMs)
+      .sort((a, b) => Date.parse(b.lastSeen || 0) - Date.parse(a.lastSeen || 0))
+      .slice(0, limit);
+
+    return {
+      ok: true,
+      mode: 'viewport',
+      live: true,
+      current: Number.isFinite(maxAgeMs),
+      source: 'cybermap-postgis',
+      location: center,
+      radiusMeters,
+      maxAgeMs: Number.isFinite(maxAgeMs) ? maxAgeMs : undefined,
+      totalResults: accessPoints.length,
+      accessPoints,
+      updatedAt: accessPoints[0]?.lastSeen || new Date(now).toISOString(),
+      message: accessPoints.length > 0
+        ? 'Cybermap PostGIS viewport ready.'
+        : 'Cybermap PostGIS viewport returned no observations for this fix.',
+    };
+  }
+
   batchCount() {
     return this.#batches.size;
   }
+}
+
+function toAccessPoint(entry, center) {
+  const observation = entry.observation;
+  const payload = observation.payload || {};
+  const lat = observation.location.latitude;
+  const lon = observation.location.longitude;
+  const lastSeen = observation.observed_at;
+  return {
+    id: observation.external_observation_key,
+    kind: observation.kind,
+    ssid: stringOrNull(payload.ssid ?? payload.ssid_hmac) || 'hashed Wi-Fi AP',
+    bssid: stringOrNull(payload.bssid ?? payload.bssid_hmac),
+    signalDbm: finiteOrNull(payload.rssi_dbm ?? payload.signalDbm ?? payload.signal_dbm),
+    frequencyMhz: finiteOrNull(payload.frequency_mhz ?? payload.frequencyMhz),
+    channel: finiteOrNull(payload.channel),
+    security: stringOrNull(payload.security),
+    lat,
+    lon,
+    accuracyMeters: finiteOrNull(observation.location.accuracy_m),
+    confidence: observation.confidence,
+    source: entry.sourceClass,
+    sourceClass: entry.sourceClass,
+    lastSeen,
+    observedAt: lastSeen,
+    current: false,
+    distanceMeters: distanceMeters(center.lat, center.lon, lat, lon),
+    provenance: observation.provenance || {},
+  };
+}
+
+function finiteOrNull(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function stringOrNull(value) {
+  return typeof value === 'string' && value ? value : null;
+}
+
+function distanceMeters(lat1, lon1, lat2, lon2) {
+  const toRad = (degree) => degree * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 6_371_000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

@@ -32,10 +32,16 @@ jobs:
       - name: Run resource-group what-if
         env:
           SSH_KEY: ${{ secrets.VM_SSH_PUBLIC_KEY }}
+          POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          BSS_CYBERMAP_READ_TOKEN: ${{ secrets.BSS_CYBERMAP_READ_TOKEN }}
         run: |
           ssh_key=$(printf '%s' "$SSH_KEY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          postgres_password=$(printf '%s' "$POSTGRES_ADMIN_PASSWORD" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          cybermap_read_token=$(printf '%s' "$BSS_CYBERMAP_READ_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           az deployment group what-if \
             --resource-group "$RESOURCE_GROUP" \
             --template-file infra/main.bicep \
             --parameters @infra/main.parameters.json \
-            --parameters sshPublicKey="$ssh_key"
+            --parameters sshPublicKey="$ssh_key" \
+            --parameters postgresAdministratorLoginPassword="$postgres_password" \
+            --parameters cybermapReadToken="$cybermap_read_token"

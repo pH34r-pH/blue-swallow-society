@@ -341,7 +341,7 @@
                 <p class="eyebrow">// GODEYE //</p>
                 <h2>Hosted viewer</h2>
               </div>
-              <p class="panel-meta">Hosted OpenStreetMap viewer for local WiGLE review, aircraft-track scaffolds, and non-camera overlays.</p>
+              <p class="panel-meta">Hosted OpenStreetMap viewer for managed Cybermap observations, aircraft-track scaffolds, and non-camera overlays.</p>
             </div>
 
             <div class="godeye-layout">
@@ -375,35 +375,30 @@
                   <p class="sensor-label">Overlay slots</p>
                   <p>FlightRadar24 and other live tracks can be layered here without bringing the camera/AR client back into the hosted shell.</p>
                   <div class="overlay-slot-list">
-                    <span class="source-chip source-chip-live">WiGLE radius</span>
+                    <span class="source-chip source-chip-live">Cybermap radius</span>
                     <span class="source-chip">FlightRadar24 scaffold</span>
                     <span class="source-chip">MapLibre-ready</span>
                   </div>
                 </div>
 
                 <div class="geo-card">
-                  <p class="sensor-label">WiGLE sources</p>
+                  <p class="sensor-label">Cybermap source</p>
                   <label class="wigle-field" for="wigleEndpointInput">
-                    <span>Device-local WiGLE endpoint</span>
+                    <span>Godeye viewport API</span>
                     <input
                       id="wigleEndpointInput"
                       class="input dashboard-input"
                       type="url"
-                      placeholder="/api/wigle"
+                      placeholder="/api/cybermap/viewport"
                       autocomplete="off"
                       autocapitalize="none"
                       spellcheck="false"
                     />
                   </label>
-                  <label class="wigle-field" for="wigleFileInput">
-                    <span>Local database file</span>
-                    <input id="wigleFileInput" class="input dashboard-input" type="file" accept=".json,.csv,.ndjson,application/json,text/csv,text/plain" />
-                  </label>
                   <div class="wigle-action-row">
-                    <button id="wigleConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect current state</button>
-                    <button id="wigleSampleBtn" class="btn btn-secondary sensor-action" type="button">Load sample data</button>
+                    <button id="wigleConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect Cybermap viewport</button>
                   </div>
-                  <p id="wigleStatusText">Sample/demo WiGLE dataset loaded.</p>
+                  <p id="wigleStatusText">Godeye Cybermap viewport is not connected yet.</p>
                 </div>
 
                 <div class="geo-card">
@@ -412,8 +407,8 @@
                 </div>
 
                 <div class="geo-card">
-                  <p class="sensor-label">WiGLE map readout</p>
-                  <p id="godeyeWigleStatus">The map will show local WiGLE records within 100m of the current fix.</p>
+                  <p class="sensor-label">Godeye map readout</p>
+                  <p id="godeyeWigleStatus">The map will show managed Cybermap observations within 100m of the current fix.</p>
                   <div id="godeyeWigleList" class="wigle-list"></div>
                 </div>
 

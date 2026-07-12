@@ -8,7 +8,6 @@ import { initTzeentchDashboard, stopTzeentchDashboard } from './tzeentch.mjs';
 import {
   buildArCandidateBoxes,
   buildWigleMapState,
-  createSampleWigleDataset,
   filterWigleRecordsByRadius,
   isLiveWigleSnapshot,
   mergeWigleRecords,
@@ -28,6 +27,18 @@ const GEO_OPTIONS = {
   timeout: 10000,
 };
 const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
+const GODEYE_VIEWPORT_ENDPOINT = '/api/cybermap/viewport';
+
+function emptyWigleDataset(source = 'cybermap-postgis') {
+  return {
+    location: null,
+    accessPoints: [],
+    source,
+    mode: 'viewport',
+    live: false,
+    updatedAt: null,
+  };
+}
 
 const $ = (id) => document.getElementById(id);
 const $$ = (selector) => document.querySelectorAll(selector);
@@ -96,15 +107,15 @@ const state = {
   godeyeResizeBound: false,
   wigleBound: false,
   wigleRenderFrame: 0,
-  wigleData: createSampleWigleDataset(),
+  wigleData: emptyWigleDataset(),
   wigleLiveData: null,
   wigleLiveReady: false,
-  wigleLiveStatus: 'Device-local WiGLE current state is not connected yet.',
-  wigleLiveSourceLabel: 'current',
+  wigleLiveStatus: 'Godeye Cybermap viewport is not connected yet.',
+  wigleLiveSourceLabel: 'cybermap-postgis',
   wigleLivePollId: 0,
-  wigleEndpoint: '',
-  wigleStatus: 'Sample/demo WiGLE dataset loaded.',
-  wigleSourceLabel: 'sample',
+  wigleEndpoint: GODEYE_VIEWPORT_ENDPOINT,
+  wigleStatus: 'Godeye Cybermap viewport is not connected yet.',
+  wigleSourceLabel: 'cybermap-postgis',
   visionBound: false,
   visionRenderFrame: 0,
   visionData: { frame: null, detections: [] },
@@ -267,14 +278,14 @@ function resetConsoleToLogin() {
   stopArFeed();
   stopGodeyeFeed();
   state.currentLocation = null;
-  state.wigleData = createSampleWigleDataset();
+  state.wigleData = emptyWigleDataset();
   state.wigleLiveData = null;
   state.wigleLiveReady = false;
-  state.wigleLiveStatus = 'Device-local WiGLE current state is not connected yet.';
-  state.wigleLiveSourceLabel = 'current';
-  state.wigleEndpoint = '';
-  state.wigleStatus = 'Sample/demo WiGLE dataset loaded.';
-  state.wigleSourceLabel = 'sample';
+  state.wigleLiveStatus = 'Godeye Cybermap viewport is not connected yet.';
+  state.wigleLiveSourceLabel = 'cybermap-postgis';
+  state.wigleEndpoint = GODEYE_VIEWPORT_ENDPOINT;
+  state.wigleStatus = 'Godeye Cybermap viewport is not connected yet.';
+  state.wigleSourceLabel = 'cybermap-postgis';
   state.visionData = { frame: null, detections: [] };
   state.visionEndpoint = '';
   state.visionStatus = 'Live object detections are not connected yet.';
@@ -283,11 +294,7 @@ function resetConsoleToLogin() {
   state.arFullscreen = false;
   const endpointInput = $('wigleEndpointInput');
   if (endpointInput) {
-    endpointInput.value = '/api/wigle';
-  }
-  const fileInput = $('wigleFileInput');
-  if (fileInput) {
-    fileInput.value = '';
+    endpointInput.value = GODEYE_VIEWPORT_ENDPOINT;
   }
   const visionEndpointInput = $('visionEndpointInput');
   if (visionEndpointInput) {
@@ -297,7 +304,7 @@ function resetConsoleToLogin() {
   if (visionFileInput) {
     visionFileInput.value = '';
   }
-  setText('arStatusText', 'Camera feed off. Toggle on to request permissions and connect the device-local WiGLE current state.');
+  setText('arStatusText', 'Camera feed off. Toggle on to request permissions and connect the Godeye Cybermap viewport.');
   setText('geoStatusText', 'Geolocation permission has not been requested yet.');
   setText('wigleStatusText', state.wigleStatus);
   setText('visionStatusText', state.visionStatus);
@@ -656,7 +663,7 @@ async function enableArFeed() {
   }
 
   const live = await refreshLiveWigleFeed();
-  messages.push(live ? 'device-local WiGLE current state connected' : state.wigleLiveStatus || 'device-local WiGLE current state unavailable');
+  messages.push(live ? 'Godeye Cybermap viewport connected' : state.wigleLiveStatus || 'Godeye Cybermap viewport unavailable');
   startWigleLivePolling();
 
   if (status) {
@@ -702,10 +709,22 @@ function stopWigleLivePolling() {
 
 async function refreshLiveWigleFeed({ quiet = false } = {}) {
   const endpointInput = $('wigleEndpointInput');
-  const target = (endpointInput?.value.trim() || state.wigleEndpoint || '/api/wigle').trim();
+  const target = (endpointInput?.value.trim() || state.wigleEndpoint || GODEYE_VIEWPORT_ENDPOINT).trim();
+  const location = state.currentLocation || state.wigleData?.location;
 
   if (!target) {
-    setLiveWigleStatus('Device-local WiGLE endpoint is not configured.');
+    setLiveWigleStatus('Godeye Cybermap viewport endpoint is not configured.');
+    setWigleStatus('Godeye Cybermap viewport endpoint is not configured.');
+    state.wigleLiveReady = false;
+    state.wigleLiveData = null;
+    renderArCandidateLayer();
+    return false;
+  }
+
+  if (!location) {
+    const message = 'Godeye Cybermap viewport needs a current GPS fix before querying managed PostGIS.';
+    setLiveWigleStatus(message);
+    setWigleStatus(message);
     state.wigleLiveReady = false;
     state.wigleLiveData = null;
     renderArCandidateLayer();
@@ -714,28 +733,24 @@ async function refreshLiveWigleFeed({ quiet = false } = {}) {
 
   state.wigleEndpoint = target;
   if (!quiet) {
-    setLiveWigleStatus(`Checking device-local WiGLE current state from ${target}…`);
+    setLiveWigleStatus(`Checking Godeye Cybermap viewport from ${target}…`);
+    setWigleStatus(`Checking Godeye Cybermap viewport from ${target}…`);
   }
 
   try {
     const requestPayload = buildWigleRequestPayload({
-      mode: 'current',
-      limit: 12,
-      maxAgeSeconds: 45,
-      ...(state.currentLocation
-        ? {
-            lat: state.currentLocation.lat,
-            lon: state.currentLocation.lon,
-            radiusMeters: 100,
-          }
-        : {}),
+      lat: location.lat,
+      lon: location.lon,
+      radiusMeters: 100,
+      limit: 100,
+      maxAgeMs: 45_000,
     });
 
     const endpointUrl = new URL(target, window.location.origin).toString();
-    const sameOriginWigle = sameOriginPath(target, '/api/wigle');
+    const sameOriginGodeye = sameOriginPath(target, GODEYE_VIEWPORT_ENDPOINT);
     const response = await fetch(endpointUrl, {
       method: 'POST',
-      headers: sameOriginWigle
+      headers: sameOriginGodeye
         ? buildOperatorHeaders({
             Accept: 'application/json, text/plain, */*',
             'Content-Type': 'application/json',
@@ -764,27 +779,37 @@ async function refreshLiveWigleFeed({ quiet = false } = {}) {
       }
     }
 
-    const current = typeof payload === 'string' || Array.isArray(payload) || payload?.current === true || isLiveWigleSnapshot(payload);
-    const parsed = parseWiglePayload(payload, { source: current ? 'current' : 'database' });
-    const sourceLabel = parsed.source || payload?.source || target;
+    const current = payload?.live === true || isLiveWigleSnapshot(payload);
+    const parsed = parseWiglePayload(payload, { source: 'cybermap-postgis' });
+    const sourceLabel = parsed.source || payload?.source || 'cybermap-postgis';
+    const message = current
+      ? `Godeye Cybermap viewport connected from ${sourceLabel}.`
+      : `Godeye Cybermap viewport from ${sourceLabel} returned no recent observations.`;
 
+    applyWigleDataset(parsed, {
+      target: 'local',
+      sourceLabel,
+      message,
+      merge: false,
+      live: current,
+    });
     applyWigleDataset(parsed, {
       target: 'live',
       sourceLabel,
-      message: current
-        ? `Device-local WiGLE current state connected from ${sourceLabel}.`
-        : `WiGLE response from ${sourceLabel} has no recent current-state rows.`,
+      message,
       merge: false,
       live: current,
     });
 
     return current;
   } catch (error) {
-    console.error('Failed to load device-local WiGLE current state', error);
+    console.error('Failed to load Godeye Cybermap viewport', error);
     state.wigleLiveData = null;
     state.wigleLiveReady = false;
     state.wigleLiveSourceLabel = target;
-    setLiveWigleStatus(`Device-local WiGLE current state unavailable: ${error.message}`);
+    const message = `Godeye Cybermap viewport unavailable: ${error.message}`;
+    setLiveWigleStatus(message);
+    setWigleStatus(message);
     renderArCandidateLayer();
     return false;
   }
@@ -1058,7 +1083,7 @@ function stopArFeed() {
 
   const status = $('arStatusText');
   if (status && state.authenticated) {
-    status.textContent = 'Camera feed off. Toggle on to request permissions and check the device-local WiGLE current state.';
+    status.textContent = 'Camera feed off. Toggle on to request permissions and check the Godeye Cybermap viewport.';
   }
 
   syncArFeedToggle();
@@ -1127,8 +1152,8 @@ function renderArCandidateLayer() {
   const summary = state.arEnabled
     ? (state.wigleLiveReady
         ? `${state.wigleLiveStatus} · ${records.length} access point${records.length === 1 ? '' : 's'} · ${sourceLabel}`
-        : state.wigleLiveStatus || 'Device-local WiGLE current state is not available yet.')
-    : 'Camera feed off. Toggle on to request permissions and check the device-local WiGLE current state.';
+        : state.wigleLiveStatus || 'Godeye Cybermap viewport is not available yet.')
+    : 'Camera feed off. Toggle on to request permissions and check the Godeye Cybermap viewport.';
 
   if (status) {
     status.textContent = summary;
@@ -1146,11 +1171,11 @@ function renderArCandidateLayer() {
     const empty = document.createElement('p');
     empty.className = 'dashboard-empty-state';
     if (!state.arEnabled) {
-      empty.textContent = 'Toggle the camera feed on to check the device-local WiGLE current state.';
+      empty.textContent = 'Toggle the camera feed on to check the Godeye Cybermap viewport.';
     } else if (!state.wigleLiveReady) {
-      empty.textContent = 'Device-local WiGLE current state is not online yet.';
+      empty.textContent = 'Godeye Cybermap viewport is not online yet.';
     } else {
-      empty.textContent = 'Device-local WiGLE current state is online, but no recent observations have been reported yet.';
+      empty.textContent = 'Godeye Cybermap viewport is online, but no recent observations have been reported yet.';
     }
     overlay.replaceChildren(empty);
     return;
@@ -1158,7 +1183,7 @@ function renderArCandidateLayer() {
 
   const width = frame?.clientWidth || 1080;
   const height = frame?.clientHeight || 1920;
-  const activeLocation = state.currentLocation || state.wigleLiveData?.location || createSampleWigleDataset().location;
+  const activeLocation = state.currentLocation || state.wigleLiveData?.location || null;
   const candidatePlan = buildArCandidateBoxes({
     accessPoints: records,
     viewportWidth: width,
@@ -1517,11 +1542,9 @@ function bindWigleControls() {
 
   const endpointInput = $('wigleEndpointInput');
   const connectBtn = $('wigleConnectBtn');
-  const sampleBtn = $('wigleSampleBtn');
-  const fileInput = $('wigleFileInput');
 
   if (endpointInput) {
-    endpointInput.value = state.wigleEndpoint || endpointInput.value || '/api/wigle';
+    endpointInput.value = state.wigleEndpoint || endpointInput.value || GODEYE_VIEWPORT_ENDPOINT;
     endpointInput.addEventListener('change', () => {
       state.wigleEndpoint = endpointInput.value.trim();
     });
@@ -1529,64 +1552,23 @@ function bindWigleControls() {
 
   if (connectBtn) {
     connectBtn.addEventListener('click', () => {
-      const endpoint = endpointInput?.value.trim() || state.wigleEndpoint || '/api/wigle';
+      const endpoint = endpointInput?.value.trim() || state.wigleEndpoint || GODEYE_VIEWPORT_ENDPOINT;
       loadWigleEndpoint(endpoint);
     });
   }
 
-  if (sampleBtn) {
-    sampleBtn.addEventListener('click', () => {
-      loadSampleWigleData();
-    });
-  }
-
-  if (fileInput) {
-    fileInput.addEventListener('change', handleWigleFileChange);
-  }
 
   state.wigleBound = true;
 }
 
-async function loadSampleWigleData() {
-  applyWigleDataset(createSampleWigleDataset(), {
-    sourceLabel: 'sample',
-    message: 'Sample/demo WiGLE dataset loaded.',
-    merge: false,
-    target: 'local',
-  });
-}
-
 async function loadWigleEndpoint(endpoint) {
-  const target = (endpoint || '').trim() || '/api/wigle';
+  const target = (endpoint || '').trim() || GODEYE_VIEWPORT_ENDPOINT;
   state.wigleEndpoint = target;
   setLiveWigleStatus(`Connecting to ${target}…`);
   return refreshLiveWigleFeed({ quiet: false });
 }
 
-async function handleWigleFileChange(event) {
-  const file = event.target.files?.[0];
-  if (!file) {
-    return;
-  }
-
-  try {
-    const text = await file.text();
-    const parsed = parseWiglePayload(text, { source: 'database' });
-    applyWigleDataset(parsed, {
-      sourceLabel: file.name,
-      message: `Loaded ${parsed.accessPoints.length} WiGLE records from ${file.name}.`,
-      merge: true,
-      target: 'local',
-    });
-  } catch (error) {
-    console.error('Failed to load local WiGLE database', error);
-    setWigleStatus(`Local WiGLE database unavailable: ${error.message}`);
-  } finally {
-    event.target.value = '';
-  }
-}
-
-function applyWigleDataset(payload, { sourceLabel = 'sample', message = '', merge = true, target = 'local', live = target === 'live' } = {}) {
+function applyWigleDataset(payload, { sourceLabel = 'cybermap-postgis', message = '', merge = true, target = 'local', live = target === 'live' } = {}) {
   const parsed = payload && typeof payload === 'object' && Array.isArray(payload.accessPoints)
     ? payload
     : parseWiglePayload(payload, { source: sourceLabel });
@@ -1594,7 +1576,7 @@ function applyWigleDataset(payload, { sourceLabel = 'sample', message = '', merg
   if (target === 'live') {
     const currentRecords = Array.isArray(state.wigleLiveData?.accessPoints) ? state.wigleLiveData.accessPoints : [];
     const nextRecords = merge ? mergeWigleRecords(currentRecords, parsed.accessPoints) : mergeWigleRecords(parsed.accessPoints);
-    const nextLocation = parsed.location || state.currentLocation || state.wigleLiveData?.location || createSampleWigleDataset().location;
+    const nextLocation = parsed.location || state.currentLocation || state.wigleLiveData?.location || null;
 
     state.wigleLiveData = {
       location: nextLocation,
@@ -1602,28 +1584,30 @@ function applyWigleDataset(payload, { sourceLabel = 'sample', message = '', merg
       source: sourceLabel,
       updatedAt: parsed.updatedAt || new Date().toISOString(),
       live,
-      mode: live ? 'current' : 'database',
+      mode: 'viewport',
     };
     state.wigleLiveReady = live;
     state.wigleLiveSourceLabel = sourceLabel;
 
     setLiveWigleStatus(message || (live
-      ? `Device-local WiGLE current state ready from ${sourceLabel}.`
-      : `WiGLE response from ${sourceLabel} has no recent current-state rows.`));
+      ? `Godeye Cybermap viewport ready from ${sourceLabel}.`
+      : `Godeye Cybermap viewport from ${sourceLabel} returned no recent observations.`));
   } else {
     const currentRecords = Array.isArray(state.wigleData?.accessPoints) ? state.wigleData.accessPoints : [];
     const nextRecords = merge ? mergeWigleRecords(currentRecords, parsed.accessPoints) : mergeWigleRecords(parsed.accessPoints);
-    const nextLocation = parsed.location || state.currentLocation || state.wigleData?.location || createSampleWigleDataset().location;
+    const nextLocation = parsed.location || state.currentLocation || state.wigleData?.location || null;
 
     state.wigleData = {
       location: nextLocation,
       accessPoints: nextRecords,
       source: sourceLabel,
       updatedAt: parsed.updatedAt || new Date().toISOString(),
+      mode: 'viewport',
+      live,
     };
     state.wigleSourceLabel = sourceLabel;
 
-    setWigleStatus(message || `Loaded ${nextRecords.length} WiGLE records.`);
+    setWigleStatus(message || `Loaded ${nextRecords.length} Cybermap observation${nextRecords.length === 1 ? '' : 's'}.`);
   }
 
   renderWigleViews();
@@ -1656,7 +1640,7 @@ function renderWigleList(container, records, limit = 6) {
   if (!limitedRecords.length) {
     const empty = document.createElement('p');
     empty.className = 'dashboard-empty-state';
-    empty.textContent = 'WiGLE data will appear here when available.';
+    empty.textContent = 'Cybermap observations will appear here when available.';
     container.replaceChildren(empty);
     return;
   }
@@ -1678,7 +1662,7 @@ function renderWigleList(container, records, limit = 6) {
       record.channel ? `ch ${record.channel}` : null,
       record.signalBand || null,
       record.source || null,
-    ].filter(Boolean).join(' · ') || 'WiGLE network';
+    ].filter(Boolean).join(' · ') || 'Cybermap observation';
     item.appendChild(meta);
 
     const detail = document.createElement('p');
@@ -1701,8 +1685,8 @@ function renderWigleList(container, records, limit = 6) {
 function renderGodeyeWigleList() {
   const list = $('godeyeWigleList');
   const records = state.wigleData?.accessPoints || [];
-  const location = state.currentLocation || state.wigleData?.location || createSampleWigleDataset().location;
-  const nearbyRecords = filterWigleRecordsByRadius(records, location, 100);
+  const location = state.currentLocation || state.wigleData?.location || null;
+  const nearbyRecords = location ? filterWigleRecordsByRadius(records, location, 100) : records;
   if (!list) {
     return;
   }
@@ -1738,6 +1722,9 @@ function handleGeoPosition(position) {
   renderGodeyeFields();
   renderWigleViews();
   scheduleGodeyeRender();
+  if (state.authenticated) {
+    void refreshLiveWigleFeed({ quiet: true });
+  }
 }
 
 function handleGeoError(error) {
@@ -1775,7 +1762,7 @@ function scheduleGodeyeRender() {
 }
 
 function renderGodeyeFields() {
-  const location = state.currentLocation || state.wigleData?.location || createSampleWigleDataset().location;
+  const location = state.currentLocation || state.wigleData?.location || null;
 
   setText('geoLat', location ? location.lat.toFixed(6) : '—');
   setText('geoLon', location ? location.lon.toFixed(6) : '—');
@@ -1785,13 +1772,13 @@ function renderGodeyeFields() {
 
   const coords = $('godeyeCoords');
   if (coords) {
-    coords.textContent = state.currentLocation
-      ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy || 0)}m · 100m WiGLE radius`
-      : `Sample/demo fix ${formatCoordinatePair(location.lat, location.lon)} · sample WiGLE dataset loaded`;
+    coords.textContent = location
+      ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy || 0)}m · 100m Cybermap radius`
+      : 'No GPS fix yet · tap enable to query managed Cybermap data';
   }
 
   if (!state.currentLocation && state.authenticated) {
-    updateGodeyeStatus('Tap enable to request GPS and center the map on your current fix.');
+    updateGodeyeStatus('Tap enable to request GPS and query managed Cybermap observations around your current fix.');
   }
 }
 
@@ -1801,9 +1788,26 @@ function renderGodeyeMap() {
   const marker = $('godeyeMarker');
   const wigleMarkers = $('godeyeWigleMarkers');
   const accuracy = $('godeyeAccuracy');
-  const location = state.currentLocation || state.wigleData?.location || createSampleWigleDataset().location;
+  const location = state.currentLocation || state.wigleData?.location || null;
 
   if (!viewport || !tilesLayer || !marker || !accuracy || !wigleMarkers) {
+    return;
+  }
+
+  if (!location) {
+    tilesLayer.replaceChildren();
+    wigleMarkers.replaceChildren();
+    viewport.classList.remove('has-fix');
+    marker.style.opacity = '0';
+    accuracy.style.opacity = '0';
+    const coords = $('godeyeCoords');
+    if (coords) {
+      coords.textContent = 'No GPS fix yet · tap enable to query managed Cybermap data';
+    }
+    const status = $('godeyeWigleStatus');
+    if (status) {
+      status.textContent = state.wigleStatus;
+    }
     return;
   }
 
@@ -1881,7 +1885,7 @@ function renderGodeyeMap() {
     network.appendChild(meta);
 
     const detail = document.createElement('span');
-    detail.textContent = `${ap.detail || 'WiGLE network'}${Number.isFinite(ap.distanceMeters) ? ` · ${Math.round(ap.distanceMeters)} m away` : ''}${ap.bearing !== null && ap.bearing !== undefined ? ` · ${Math.round(ap.bearing)}°` : ''}`;
+    detail.textContent = `${ap.detail || 'Cybermap observation'}${Number.isFinite(ap.distanceMeters) ? ` · ${Math.round(ap.distanceMeters)} m away` : ''}${ap.bearing !== null && ap.bearing !== undefined ? ` · ${Math.round(ap.bearing)}°` : ''}`;
     network.appendChild(detail);
 
     markerFragment.appendChild(network);
@@ -1893,15 +1897,15 @@ function renderGodeyeMap() {
   if (coords) {
     coords.textContent = state.currentLocation
       ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy)}m`
-      : `Sample/demo fix ${formatCoordinatePair(location.lat, location.lon)} · WiGLE overlay active`;
+      : `${formatCoordinatePair(location.lat, location.lon)} · Cybermap overlay active`;
   }
 
   const status = $('godeyeWigleStatus');
   if (status) {
     const strongest = mapState.stats.strongest;
     status.textContent = strongest
-      ? `${state.wigleStatus} · ${mapState.stats.total} local network${mapState.stats.total === 1 ? '' : 's'} within 100m · strongest ${strongest.ssid} ${strongest.signalDbm} dBm · ${strongest.signalBand}`
-      : `${state.wigleStatus} · No local WiGLE records within 100m of this fix.`;
+      ? `${state.wigleStatus} · ${mapState.stats.total} managed Cybermap observation${mapState.stats.total === 1 ? '' : 's'} within 100m · strongest ${strongest.ssid} ${strongest.signalDbm} dBm · ${strongest.signalBand}`
+      : `${state.wigleStatus} · No managed Cybermap observations within 100m of this fix.`;
   }
 }
 

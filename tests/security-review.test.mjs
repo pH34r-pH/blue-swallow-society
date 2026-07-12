@@ -46,17 +46,19 @@ test('Static Web Apps routes do not collide after Azure trailing-slash normaliza
 });
 
 test('operator APIs are reachable from the passcode login but fail closed on passcode-issued bearer tokens or cookies', () => {
-  ['/api/wigle', '/api/agent', '/api/osint', '/api/tzeentch'].forEach((route) => {
+  ['/api/wigle', '/api/cybermap/viewport', '/api/agent', '/api/osint', '/api/tzeentch'].forEach((route) => {
     assert.deepEqual(routeConfig(route)?.allowedRoles, ['anonymous', 'authenticated'], `${route} must not be SWA-AAD gated before token validation`);
   });
   assert.deepEqual(routeConfig('/api/validate-passcode')?.allowedRoles, ['anonymous', 'authenticated']);
   assert.deepEqual(routeConfig('/api/operator-shell')?.allowedRoles, ['anonymous', 'authenticated']);
   assert.deepEqual(routeConfig('/api/operator-downloads/wardriver/*')?.allowedRoles, ['anonymous', 'authenticated']);
 
+  const cybermapViewportApi = read('api/cybermap-viewport/index.js');
   assert.ok(read('api/osint/index.js').includes('requireOperatorToken'));
   assert.ok(read('api/tzeentch/index.js').includes('requireOperatorToken'));
   assert.ok(agentApi.includes('requireOperatorToken'));
   assert.ok(wigleApi.includes('requireOperatorToken'));
+  assert.ok(cybermapViewportApi.includes('requireOperatorToken'));
   assert.ok(operatorDownloadsApi.includes('requireOperatorToken'));
   assert.ok(agentJs.includes('Authorization: `Bearer ${session.token}`'));
   assert.ok(agentJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
@@ -150,10 +152,11 @@ test('device-local endpoints stay same-origin under the production CSP', () => {
   assert.match(csp, /connect-src 'self'(?:;|$)/);
   assert.ok(!indexHtml.includes('http://device.local'));
   assert.ok(!indexHtml.includes('placeholder="/api/ar-detections"'));
-  assert.ok(operatorShell.includes('placeholder="/api/wigle"'));
+  assert.ok(operatorShell.includes('placeholder="/api/cybermap/viewport"'));
 });
 
-test('OSINT, WiGLE coordinates, and agent prompts are sent via POST bodies, not URLs or persistent storage', () => {
+test('OSINT, Cybermap coordinates, and agent prompts are sent via POST bodies, not URLs or persistent storage', () => {
+  const cybermapViewportApi = read('api/cybermap-viewport/index.js');
   assert.ok(tzeentchJs.includes("fetch(new URL('/api/osint', window.location.origin).toString()"));
   assert.ok(tzeentchJs.includes("method: 'POST'"));
   assert.ok(tzeentchJs.includes('body: JSON.stringify'));
@@ -178,13 +181,10 @@ test('OSINT, WiGLE coordinates, and agent prompts are sent via POST bodies, not 
   assert.ok(operatorMainJs.includes('buildOperatorHeaders({'));
   assert.ok(!operatorMainJs.includes('buildWigleEndpointUrl'));
   assert.ok(!operatorMainJs.includes("url.searchParams.set('lat'"));
-  assert.ok(wigleApi.includes('hasSensitiveLocationQuery'));
-  assert.ok(wigleApi.includes('WiGLE location coordinates must be sent in the POST body'));
-  assert.ok(wigleApi.includes("getBodyValue(req, 'lat'"));
-  assert.ok(wigleApi.includes('Direct WiGLE API lookup is disabled'));
-  assert.ok(!wigleApi.includes("searchParams.set('latrange"));
-  assert.ok(!wigleApi.includes("searchParams.set('closestLat'"));
-  assert.ok(!wigleApi.includes('api.wigle.net/api/v2/network/search'));
+  assert.ok(cybermapViewportApi.includes('hasSensitiveLocationQuery'));
+  assert.ok(cybermapViewportApi.includes('Cybermap location coordinates must be sent in the POST body'));
+  assert.ok(cybermapViewportApi.includes("getBodyValue(req, 'lat'"));
+  assert.ok(!cybermapViewportApi.includes('api.wigle.net/api/v2/network/search'));
 });
 
 test('APK downloads are removed from the public static surface and served only by the operator-token API', () => {
@@ -226,10 +226,14 @@ test('local dev server returns JSON 501 for unmounted API routes instead of SPA 
   assert.ok(!localServer.includes("filePath = path.join(APP_DIR, 'index.html');\n    }\n    \n    fs.readFile"));
 });
 
-test('sample WiGLE state is explicitly labeled as demo data', () => {
-  assert.ok(operatorMainJs.includes('Sample/demo WiGLE dataset loaded'));
-  assert.ok(!operatorMainJs.includes("wigleStatus: 'Local WiGLE database is ready.'"));
-  assert.ok(operatorShell.includes('Sample/demo WiGLE dataset loaded'));
+test('Godeye runtime exposes only real Cybermap viewport paths, not sample/demo WiGLE state', () => {
+  const runtimeSources = [operatorMainJs, operatorShell].join('\n');
+  assert.ok(operatorMainJs.includes("'/api/cybermap/viewport'"));
+  assert.ok(operatorShell.includes('placeholder="/api/cybermap/viewport"'));
+  assert.ok(!runtimeSources.includes('Sample/demo WiGLE dataset loaded'));
+  assert.ok(!runtimeSources.includes('Load sample data'));
+  assert.ok(!runtimeSources.includes('wigleSampleBtn'));
+  assert.ok(!operatorMainJs.includes('createSampleWigleDataset'));
 });
 
 test('stale shell CSS selectors are pruned', () => {

@@ -28,6 +28,35 @@ param autoShutdownTime string = '0200'
 @description('Time zone for the auto-shutdown schedule (Windows ID, e.g. "Pacific Standard Time").')
 param autoShutdownTimeZone string = 'Pacific Standard Time'
 
+@description('Set true to keep the VM auto-shutdown schedule enabled. Cybermap hot-stack validation disables it.')
+param enableAutoShutdown bool = false
+
+@description('PostgreSQL Flexible Server FQDN for the Cybermap API.')
+param postgresServerFqdn string
+
+@description('PostgreSQL database name for the Cybermap API.')
+param postgresDatabaseName string = 'cybermap'
+
+@description('PostgreSQL administrator login used by the P0 Cybermap service and migration runner.')
+param postgresAdministratorLogin string = 'bssadmin'
+
+@secure()
+@description('PostgreSQL administrator password. Passed into the VM extension as a protected setting.')
+param postgresAdministratorLoginPassword string
+
+@secure()
+@description('Shared backend read token used by SWA Functions when proxying operator-only Cybermap viewport reads to the VM API.')
+param cybermapReadToken string
+
+@description('Public repository tarball used by the VM extension to install vm/cybermap-api.')
+param cybermapSourceTarballUrl string = 'https://github.com/pH34r-pH/blue-swallow-society/archive/refs/heads/main.tar.gz'
+
+@description('Port exposed by the Cybermap API on the VM. SWA Functions proxy to this port.')
+param cybermapApiPort int = 8080
+
+@description('Opaque value used to force the VM Custom Script extension to re-run on each deployment.')
+param cybermapDeploymentVersion string = utcNow()
+
 var cloudInit = '''#cloud-config
 package_update: true
 write_files:
@@ -185,6 +214,54 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-03-01' = {
   }
 }
 
+var cybermapInstallScriptTemplate = loadTextContent('scripts/install-cybermap-api.sh')
+var cybermapInstallScript = replace(
+  replace(
+    replace(
+      replace(
+        replace(
+          replace(
+            replace(
+              cybermapInstallScriptTemplate,
+              '__POSTGRES_PASSWORD_B64__',
+              base64(postgresAdministratorLoginPassword)
+            ),
+            '__CYBERMAP_READ_TOKEN_B64__',
+            base64(cybermapReadToken)
+          ),
+          '__CYBERMAP_SOURCE_TARBALL_URL__',
+          cybermapSourceTarballUrl
+        ),
+        '__POSTGRES_SERVER_FQDN__',
+        postgresServerFqdn
+      ),
+      '__POSTGRES_DATABASE_NAME__',
+      postgresDatabaseName
+    ),
+    '__POSTGRES_ADMINISTRATOR_LOGIN__',
+    postgresAdministratorLogin
+  ),
+  '__CYBERMAP_API_PORT__',
+  string(cybermapApiPort)
+)
+
+resource cybermapApiExtension 'Microsoft.Compute/virtualMachines/extensions@2024-03-01' = {
+  parent: vm
+  name: 'install-cybermap-api'
+  location: location
+  properties: {
+    publisher: 'Microsoft.Azure.Extensions'
+    type: 'CustomScript'
+    typeHandlerVersion: '2.1'
+    autoUpgradeMinorVersion: true
+    forceUpdateTag: cybermapDeploymentVersion
+    settings: {}
+    protectedSettings: {
+      script: base64(cybermapInstallScript)
+    }
+  }
+}
+
 /*
  * Daily auto-shutdown to cap cost. notificationSettings is intentionally
  * omitted — when status=Disabled the 2018-09-15 API can reject partially
@@ -194,7 +271,7 @@ resource autoShutdown 'Microsoft.DevTestLab/schedules@2018-09-15' = {
   name: 'shutdown-computevm-${vmName}'
   location: location
   properties: {
-    status: 'Enabled'
+    status: enableAutoShutdown ? 'Enabled' : 'Disabled'
     taskType: 'ComputeVmShutdownTask'
     dailyRecurrence: {
       time: autoShutdownTime
@@ -206,3 +283,4 @@ resource autoShutdown 'Microsoft.DevTestLab/schedules@2018-09-15' = {
 
 output publicIpAddress string = pip.properties.ipAddress
 output backendEchoBaseUrl string = 'http://${pip.properties.ipAddress}:8080'
+output backendCybermapBaseUrl string = 'http://${pip.properties.ipAddress}:${cybermapApiPort}'

@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import http from 'node:http';
 
 import { IngestError } from './auth.mjs';
@@ -5,6 +6,7 @@ import { ContractError, validateObservationBatch } from './contracts.mjs';
 
 const MAX_BODY_BYTES = 1_048_576;
 const INGEST_PATH = '/api/v1/observations/batch';
+const VIEWPORT_PATH = '/api/v1/cybermap/viewport';
 
 export function createCybermapApiServer({ store, now = Date.now, logger = null, ingestDeadlineMs = 5_000 } = {}) {
   if (!store) throw new TypeError('store is required');
@@ -23,9 +25,17 @@ export function createRequestHandler({ store, now = Date.now, logger = null, ing
       if (request.method === 'GET' && url.pathname === '/healthz') {
         return sendJson(response, 200, { ok: true, service: 'bss-cybermap-api' });
       }
+      if (request.method === 'GET' && url.pathname === '/echo') {
+        return sendJson(response, 200, buildEchoPayload(url));
+      }
       if (request.method === 'GET' && url.pathname === '/readyz') {
         const readiness = await store.ready();
         return sendJson(response, readiness.ok ? 200 : 503, readiness);
+      }
+      if (request.method === 'GET' && url.pathname === VIEWPORT_PATH) {
+        requireBackendReadToken(request);
+        const viewport = await handleCybermapViewport(url, { store, now });
+        return sendJson(response, 200, viewport);
       }
       if (request.method !== 'POST' || url.pathname !== INGEST_PATH) {
         request.resume();
@@ -79,6 +89,79 @@ async function handleObservationBatch(request, response, { store, now, ingestDea
   return sendJson(response, result.statusCode, result.receipt, {
     'Idempotent-Replayed': String(result.replayed),
   });
+}
+
+function buildEchoPayload(url) {
+  const query = {};
+  for (const key of new Set(url.searchParams.keys())) {
+    query[key] = url.searchParams.getAll(key);
+  }
+  return {
+    ok: true,
+    echo: url.searchParams.get('msg') || '',
+    path: url.pathname,
+    query,
+  };
+}
+
+async function handleCybermapViewport(url, { store, now }) {
+  if (typeof store.queryViewport !== 'function') {
+    throw new IngestError('viewport_unavailable', 'Cybermap viewport reads are not available.', { statusCode: 503 });
+  }
+
+  const lat = parseFiniteNumber(url.searchParams.get('lat') ?? url.searchParams.get('latitude'));
+  const lon = parseFiniteNumber(url.searchParams.get('lon') ?? url.searchParams.get('longitude'));
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    throw new IngestError('invalid_viewport', 'lat and lon query parameters are required.', { statusCode: 400 });
+  }
+
+  const radiusMeters = clampFiniteNumber(url.searchParams.get('radiusMeters'), 25, 5_000, 100);
+  const limit = Math.trunc(clampFiniteNumber(url.searchParams.get('limit'), 1, 500, 100));
+  const maxAgeMs = url.searchParams.has('maxAgeMs')
+    ? clampFiniteNumber(url.searchParams.get('maxAgeMs'), 1_000, 86_400_000, 45_000)
+    : null;
+  const clock = parseTimestampMs(url.searchParams.get('now'));
+  const nowMs = Number.isFinite(clock) ? clock : now();
+
+  return store.queryViewport({ lat, lon, radiusMeters, limit, maxAgeMs, now: new Date(nowMs) });
+}
+
+function requireBackendReadToken(request) {
+  const expected = String(process.env.BSS_CYBERMAP_READ_TOKEN || '').trim();
+  if (!expected) {
+    throw new IngestError('read_token_unconfigured', 'Cybermap read token is not configured.', { statusCode: 503 });
+  }
+  const actual = singleHeader(request, 'x-blue-swallow-cybermap-read-token');
+  if (!safeEqualString(actual, expected)) {
+    throw new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
+  }
+}
+
+function parseFiniteNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function parseTimestampMs(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) return numeric;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function clampFiniteNumber(value, minimum, maximum, fallback) {
+  const number = parseFiniteNumber(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(maximum, Math.max(minimum, number));
+}
+
+function safeEqualString(actual, expected) {
+  if (!actual || !expected) return false;
+  const left = Buffer.from(String(actual));
+  const right = Buffer.from(String(expected));
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
 function singleHeader(request, name) {

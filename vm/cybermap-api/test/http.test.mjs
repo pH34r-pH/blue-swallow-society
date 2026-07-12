@@ -185,3 +185,64 @@ test('bounds authenticated ingest execution before a slow store can pin a reques
     assert.equal((await response.json()).error, 'ingest_deadline_exceeded');
   });
 });
+
+test('serves token-gated Cybermap viewport reads from ingested real observations only', async () => {
+  const previousReadToken = process.env.BSS_CYBERMAP_READ_TOKEN;
+  process.env.BSS_CYBERMAP_READ_TOKEN = 'test-cybermap-read-token-32-byte-minimum';
+  try {
+    const { server } = makeServer();
+    await withServer(server, async (baseUrl) => {
+      const batch = validBatch({
+        observations: [
+          validObservation({
+            payload: {
+              bssid_hmac: 'hmac-sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+              ssid_hmac: 'hmac-sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210',
+              rssi_dbm: -67,
+              frequency_mhz: 2412,
+              passive_only: true,
+            },
+          }),
+        ],
+      });
+      await fetch(`${baseUrl}/api/v1/observations/batch`, {
+        method: 'POST',
+        headers: ingestHeaders(batch),
+        body: JSON.stringify(batch),
+      });
+
+      const anonymous = await fetch(`${baseUrl}/api/v1/cybermap/viewport?lat=47.6062&lon=-122.3321`);
+      assert.equal(anonymous.status, 403);
+
+      const response = await fetch(`${baseUrl}/api/v1/cybermap/viewport?lat=47.6062&lon=-122.3321&radiusMeters=100&limit=10`, {
+        headers: { 'x-blue-swallow-cybermap-read-token': process.env.BSS_CYBERMAP_READ_TOKEN },
+      });
+      assert.equal(response.status, 200);
+      const body = await response.json();
+      assert.equal(body.ok, true);
+      assert.equal(body.source, 'cybermap-postgis');
+      assert.equal(body.mode, 'viewport');
+      assert.equal(body.live, true);
+      assert.equal(body.totalResults, 1);
+      assert.equal(body.accessPoints[0].ssid, 'hmac-sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210');
+      assert.ok(body.accessPoints[0].distanceMeters <= 100);
+    });
+  } finally {
+    if (previousReadToken === undefined) delete process.env.BSS_CYBERMAP_READ_TOKEN;
+    else process.env.BSS_CYBERMAP_READ_TOKEN = previousReadToken;
+  }
+});
+
+test('keeps legacy echo probe alive on the Cybermap API port during migration', async () => {
+  const { server } = makeServer();
+  await withServer(server, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/echo?msg=hello%20black%20ice`);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      ok: true,
+      echo: 'hello black ice',
+      path: '/echo',
+      query: { msg: ['hello black ice'] },
+    });
+  });
+});

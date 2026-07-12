@@ -47,7 +47,7 @@ jobs:
 
       - name: Ensure resource providers are registered
         run: |
-          for ns in Microsoft.Compute Microsoft.Network Microsoft.Web Microsoft.DevTestLab; do
+          for ns in Microsoft.Compute Microsoft.Network Microsoft.Web Microsoft.DevTestLab Microsoft.DBforPostgreSQL; do
             state=$(az provider show --namespace "$ns" --query registrationState -o tsv)
             if [ "$state" != "Registered" ]; then
               echo "Registering $ns (current state: $state)..."
@@ -74,13 +74,55 @@ jobs:
           esac
           echo "SSH public key looks well-formed (length=${#trimmed})."
 
+      - name: Validate backend secret formats
+        env:
+          POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          BSS_CYBERMAP_READ_TOKEN: ${{ secrets.BSS_CYBERMAP_READ_TOKEN }}
+        run: |
+          password=$(printf '%s' "$POSTGRES_ADMIN_PASSWORD" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          read_token=$(printf '%s' "$BSS_CYBERMAP_READ_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [ -z "$password" ]; then
+            echo "::error::POSTGRES_ADMIN_PASSWORD secret is empty."
+            exit 1
+          fi
+          if ! printf '%s' "$password" | grep -Eq '^[A-Za-z0-9._~-]{24,128}$'; then
+            echo "::error::POSTGRES_ADMIN_PASSWORD must be 24-128 URL/systemd-safe characters: A-Z a-z 0-9 . _ ~ -."
+            exit 1
+          fi
+          if [ -z "$read_token" ]; then
+            echo "::error::BSS_CYBERMAP_READ_TOKEN secret is empty."
+            exit 1
+          fi
+          if ! printf '%s' "$read_token" | grep -Eq '^[A-Za-z0-9._~-]{32,256}$'; then
+            echo "::error::BSS_CYBERMAP_READ_TOKEN must be 32-256 URL/systemd-safe characters: A-Z a-z 0-9 . _ ~ -."
+            exit 1
+          fi
+          echo "Backend secret shapes accepted."
+
+      - name: Start existing VM for extension deployment
+        run: |
+          vm_name="$(jq -r '.parameters.prefix.value' infra/main.parameters.json)-vm"
+          if az vm show --resource-group "$RESOURCE_GROUP" --name "$vm_name" -o none 2>/dev/null; then
+            state=$(az vm get-instance-view --resource-group "$RESOURCE_GROUP" --name "$vm_name" --query "instanceView.statuses[?starts_with(code,'PowerState/')].code | [0]" -o tsv)
+            echo "VM $vm_name state before deployment: $state"
+            if [ "$state" != "PowerState/running" ]; then
+              az vm start --resource-group "$RESOURCE_GROUP" --name "$vm_name"
+            fi
+          else
+            echo "VM $vm_name does not exist yet; ARM deployment will create it running."
+          fi
+
       - name: Deploy infrastructure
         id: deploy
         env:
           SSH_KEY: ${{ secrets.VM_SSH_PUBLIC_KEY }}
+          POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          BSS_CYBERMAP_READ_TOKEN: ${{ secrets.BSS_CYBERMAP_READ_TOKEN }}
         run: |
-          # Trim any stray whitespace/newlines from the secret before passing to az.
+          # Trim any stray whitespace/newlines from secrets before passing to az.
           ssh_key=$(printf '%s' "$SSH_KEY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          postgres_password=$(printf '%s' "$POSTGRES_ADMIN_PASSWORD" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          cybermap_read_token=$(printf '%s' "$BSS_CYBERMAP_READ_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           set +e
           out=$(az deployment group create \
             --resource-group "$RESOURCE_GROUP" \
@@ -88,6 +130,9 @@ jobs:
             --template-file infra/main.bicep \
             --parameters infra/main.parameters.json \
             --parameters sshPublicKey="$ssh_key" \
+            --parameters postgresAdministratorLoginPassword="$postgres_password" \
+            --parameters cybermapReadToken="$cybermap_read_token" \
+            --parameters cybermapDeploymentVersion="${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}" \
             --query properties.outputs -o json 2>az_stderr.log)
           rc=$?
           set -e
@@ -112,17 +157,21 @@ jobs:
             exit $rc
           fi
           backend=$(echo "$out" | jq -r '.backendEchoBaseUrl.value')
+          cybermap_backend=$(echo "$out" | jq -r '.backendCybermapBaseUrl.value')
           echo "backendEchoBaseUrl=$backend" >> "$GITHUB_OUTPUT"
+          echo "backendCybermapBaseUrl=$cybermap_backend" >> "$GITHUB_OUTPUT"
 
       - name: Wire runtime app settings into SWA
         env:
           BLUE_SWALLOW_PASSCODE_SHA256: ${{ secrets.BLUE_SWALLOW_PASSCODE_SHA256 }}
           BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY: ${{ secrets.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY }}
+          BSS_CYBERMAP_READ_TOKEN: ${{ secrets.BSS_CYBERMAP_READ_TOKEN }}
         run: |
           passcode_hash=$(printf '%s' "$BLUE_SWALLOW_PASSCODE_SHA256" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           signing_key=$(printf '%s' "$BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-          if [ -z "$passcode_hash" ] || [ -z "$signing_key" ]; then
-            echo "::error::BLUE_SWALLOW_PASSCODE_SHA256 and BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY secrets must be configured."
+          cybermap_read_token=$(printf '%s' "$BSS_CYBERMAP_READ_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [ -z "$passcode_hash" ] || [ -z "$signing_key" ] || [ -z "$cybermap_read_token" ]; then
+            echo "::error::BLUE_SWALLOW_PASSCODE_SHA256, BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY, and BSS_CYBERMAP_READ_TOKEN secrets must be configured."
             exit 1
           fi
           if ! printf '%s' "$passcode_hash" | grep -Eq '^[a-fA-F0-9]{64}$'; then
@@ -140,6 +189,8 @@ jobs:
             --resource-group "$RESOURCE_GROUP" \
             --setting-names \
               BACKEND_ECHO_BASE_URL="${{ steps.deploy.outputs.backendEchoBaseUrl }}" \
+              BACKEND_CYBERMAP_BASE_URL="${{ steps.deploy.outputs.backendCybermapBaseUrl }}" \
+              BSS_CYBERMAP_READ_TOKEN="$cybermap_read_token" \
               BLUE_SWALLOW_PASSCODE_SHA256="$passcode_hash" \
               BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY="$signing_key"
 

@@ -242,6 +242,114 @@ export class PostgresObservationStore {
       client.release();
     }
   }
+  async queryViewport({ lat, lon, radiusMeters = 100, limit = 100, maxAgeMs = null, now = new Date() } = {}) {
+    const center = { lat, lon };
+    const cutoff = Number.isFinite(maxAgeMs) ? new Date(new Date(now).getTime() - maxAgeMs).toISOString() : null;
+    const result = await this.#pool.query(
+      `SELECT
+         id::text AS id,
+         external_observation_key,
+         source_class::text AS source_class,
+         kind::text AS kind,
+         observed_at,
+         ingested_at,
+         ST_Y(geom)::float8 AS lat,
+         ST_X(geom)::float8 AS lon,
+         confidence::float8 AS confidence,
+         payload,
+         provenance,
+         h3_7,
+         h3_9,
+         h3_11,
+         ST_Distance(
+           geom::geography,
+           ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
+         )::float8 AS distance_meters
+       FROM observations
+       WHERE source_class = ANY($5::source_class[])
+         AND ST_DWithin(
+           geom::geography,
+           ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
+           $3
+         )
+         AND ($6::timestamptz IS NULL OR observed_at >= $6::timestamptz)
+       ORDER BY observed_at DESC, ingested_at DESC
+       LIMIT $4`,
+      [
+        lat,
+        lon,
+        radiusMeters,
+        limit,
+        ['green_public', 'green_owned', 'green_authorized', 'owned_device', 'local_observation'],
+        cutoff,
+      ],
+    );
+
+    const accessPoints = result.rows.map((row) => rowToAccessPoint(row));
+    return {
+      ok: true,
+      mode: 'viewport',
+      live: true,
+      current: Number.isFinite(maxAgeMs),
+      source: 'cybermap-postgis',
+      location: center,
+      radiusMeters,
+      maxAgeMs: Number.isFinite(maxAgeMs) ? maxAgeMs : undefined,
+      totalResults: accessPoints.length,
+      accessPoints,
+      updatedAt: accessPoints[0]?.lastSeen || new Date(now).toISOString(),
+      message: accessPoints.length > 0
+        ? 'Cybermap PostGIS viewport ready.'
+        : 'Cybermap PostGIS viewport returned no observations for this fix.',
+    };
+  }
+}
+
+function rowToAccessPoint(row) {
+  const payload = parseJsonObject(row.payload || {});
+  const provenance = parseJsonObject(row.provenance || {});
+  const lastSeen = toIsoString(row.observed_at);
+  return {
+    id: row.external_observation_key || row.id,
+    kind: row.kind,
+    ssid: stringOrNull(payload.ssid ?? payload.ssid_hmac) || 'hashed Wi-Fi AP',
+    bssid: stringOrNull(payload.bssid ?? payload.bssid_hmac),
+    signalDbm: finiteOrNull(payload.rssi_dbm ?? payload.signalDbm ?? payload.signal_dbm),
+    frequencyMhz: finiteOrNull(payload.frequency_mhz ?? payload.frequencyMhz),
+    channel: finiteOrNull(payload.channel),
+    security: stringOrNull(payload.security),
+    lat: finiteOrNull(row.lat),
+    lon: finiteOrNull(row.lon),
+    accuracyMeters: finiteOrNull(provenance?.server_ingest?.location_accuracy_m),
+    confidence: finiteOrNull(row.confidence),
+    source: row.source_class,
+    sourceClass: row.source_class,
+    lastSeen,
+    observedAt: lastSeen,
+    current: false,
+    distanceMeters: finiteOrNull(row.distance_meters),
+    h3: {
+      r7: row.h3_7,
+      r9: row.h3_9,
+      r11: row.h3_11,
+    },
+    provenance,
+  };
+}
+
+function finiteOrNull(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function stringOrNull(value) {
+  return typeof value === 'string' && value ? value : null;
+}
+
+function toIsoString(value) {
+  if (value instanceof Date) return value.toISOString();
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
 }
 
 async function insertObservations(client, { credential, batch, batchId, entries }) {

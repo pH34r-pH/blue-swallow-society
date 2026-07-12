@@ -28,6 +28,41 @@ param autoShutdownTime string = '0200'
 @description('IANA/Windows time zone ID used by the auto-shutdown schedule.')
 param autoShutdownTimeZone string = 'Pacific Standard Time'
 
+@description('Set true to keep daily VM auto-shutdown enabled. Leave false for hot-stack Cybermap validation.')
+param enableAutoShutdown bool = false
+
+@description('PostgreSQL Flexible Server name. Must be globally unique.')
+param postgresServerName string = '${prefix}-pg'
+
+@description('PostgreSQL database name for Cybermap/PostGIS state.')
+param postgresDatabaseName string = 'cybermap'
+
+@description('PostgreSQL administrator login used by the P0 migration runner/API service.')
+param postgresAdministratorLogin string = 'bssadmin'
+
+@secure()
+@description('PostgreSQL administrator password. Pass via GitHub secret POSTGRES_ADMIN_PASSWORD.')
+param postgresAdministratorLoginPassword string
+
+@description('Lowest-tier PostgreSQL Flexible Server SKU for validation. Do not raise without explicit cost review.')
+param postgresSkuName string = 'Standard_B1ms'
+
+@description('Initial PostgreSQL storage size in GiB. Azure minimum is 32 GiB.')
+param postgresStorageSizeGiB int = 32
+
+@description('PostgreSQL backup retention days.')
+param postgresBackupRetentionDays int = 7
+
+@secure()
+@description('Shared backend read token used by SWA Functions when proxying operator-only Cybermap viewport reads to the VM API.')
+param cybermapReadToken string
+
+@description('Public repository tarball used by the VM extension to install vm/cybermap-api.')
+param cybermapSourceTarballUrl string = 'https://github.com/pH34r-pH/blue-swallow-society/archive/refs/heads/main.tar.gz'
+
+@description('Opaque value used to force the VM Custom Script extension to re-run on each deployment.')
+param cybermapDeploymentVersion string = utcNow()
+
 /*
  * Static Web App (Standard SKU so we can use app settings + linked APIs)
  */
@@ -60,6 +95,25 @@ module networkModule 'modules/network.bicep' = {
 }
 
 /*
+ * Low-cost managed PostgreSQL/PostGIS backend for Cybermap state.
+ */
+module postgresModule 'modules/postgres-flexible.bicep' = {
+  name: 'postgres-flexible'
+  params: {
+    location: location
+    serverName: postgresServerName
+    databaseName: postgresDatabaseName
+    administratorLogin: postgresAdministratorLogin
+    administratorLoginPassword: postgresAdministratorLoginPassword
+    skuName: postgresSkuName
+    storageSizeGiB: postgresStorageSizeGiB
+    backupRetentionDays: postgresBackupRetentionDays
+    delegatedSubnetResourceId: networkModule.outputs.postgresSubnetId
+    privateDnsZoneArmResourceId: networkModule.outputs.postgresPrivateDnsZoneId
+  }
+}
+
+/*
  * VM consumes the shared app subnet; it no longer creates an isolated VNet.
  */
 module vmModule 'vm-echo-lab.bicep' = {
@@ -71,8 +125,16 @@ module vmModule 'vm-echo-lab.bicep' = {
     allowedSourceIp: allowedSourceIp
     autoShutdownTime: autoShutdownTime
     autoShutdownTimeZone: autoShutdownTimeZone
+    enableAutoShutdown: enableAutoShutdown
     vmSize: vmSize
     appSubnetId: networkModule.outputs.appSubnetId
+    postgresServerFqdn: postgresModule.outputs.fullyQualifiedDomainName
+    postgresDatabaseName: postgresModule.outputs.databaseName
+    postgresAdministratorLogin: postgresAdministratorLogin
+    postgresAdministratorLoginPassword: postgresAdministratorLoginPassword
+    cybermapReadToken: cybermapReadToken
+    cybermapSourceTarballUrl: cybermapSourceTarballUrl
+    cybermapDeploymentVersion: cybermapDeploymentVersion
   }
 }
 
@@ -90,6 +152,7 @@ module openAiModule 'modules/openai.bicep' = if (deployOpenAi) {
 output staticWebAppDefaultHostname string = swa.properties.defaultHostname
 output staticWebAppResourceId string = swa.id
 output backendEchoBaseUrl string = vmModule.outputs.backendEchoBaseUrl
+output backendCybermapBaseUrl string = vmModule.outputs.backendCybermapBaseUrl
 output vmPublicIp string = vmModule.outputs.publicIpAddress
 output vnetId string = networkModule.outputs.vnetId
 output appSubnetId string = networkModule.outputs.appSubnetId
@@ -97,5 +160,12 @@ output postgresSubnetId string = networkModule.outputs.postgresSubnetId
 output postgresPrivateDnsZoneId string = networkModule.outputs.postgresPrivateDnsZoneId
 output postgresPrivateDnsZoneName string = networkModule.outputs.postgresPrivateDnsZoneName
 output postgresPrivateDnsZoneVirtualNetworkLinkId string = networkModule.outputs.postgresPrivateDnsZoneVirtualNetworkLinkId
+output postgresServerName string = postgresModule.outputs.serverName
+output postgresServerFqdn string = postgresModule.outputs.fullyQualifiedDomainName
+output postgresDatabaseName string = postgresModule.outputs.databaseName
+output postgresSkuName string = postgresModule.outputs.skuName
+output postgresStorageSizeGiB int = postgresModule.outputs.storageSizeGiB
+output postgresGeoRedundantBackup string = postgresModule.outputs.geoRedundantBackup
+output postgresHighAvailabilityMode string = postgresModule.outputs.highAvailabilityMode
 output openAiDeployed bool = deployOpenAi
 output openAiEndpoint string = deployOpenAi ? openAiModule!.outputs.endpoint : ''
