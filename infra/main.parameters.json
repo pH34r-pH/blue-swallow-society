@@ -17,7 +17,7 @@
     "autoShutdownTime": { "value": "0200" },
     "autoShutdownTimeZone": { "value": "Pacific Standard Time" },
     "enableAutoShutdown": { "value": false },
-    "postgresServerName": { "value": "blue-swallow-pg" },
+    "postgresServerName": { "value": "blue-swallow-pg-wus3" },
     "postgresDatabaseName": { "value": "cybermap" },
     "postgresAdministratorLogin": { "value": "bssadmin" },
     "postgresSkuName": { "value": "Standard_B1ms" },
