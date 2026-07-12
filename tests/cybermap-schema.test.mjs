@@ -176,6 +176,7 @@ test('migration docs define the lightweight ordered SQL runner contract', () => 
 
 test('VM Cybermap installer applies checked-in SQL migrations with psql', () => {
   assert.match(installCybermapApi, /postgresql-client/);
+  assert.match(installCybermapApi, /DATABASE_URL=postgresql:\/\/__POSTGRES_ADMINISTRATOR_LOGIN__:\$POSTGRES_PASSWORD@__POSTGRES_SERVER_FQDN__:5432\/__POSTGRES_DATABASE_NAME__\?sslmode=require/);
   assert.match(installCybermapApi, /psql\s+-v\s+ON_ERROR_STOP=1\s+-f\s+"\$file"/);
   assert.match(installCybermapApi, /schema_migrations/);
   assert.match(installCybermapApi, /0001_cybermap_core\.sql/);
