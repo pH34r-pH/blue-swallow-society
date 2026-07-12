@@ -10,6 +10,7 @@ const operatorLoaderJs = readFileSync(new URL('../app/operator/loader.js', impor
 const mainJs = readFileSync(new URL('../app/operator/main.js', import.meta.url), 'utf8');
 const tzeentchJs = readFileSync(new URL('../app/operator/tzeentch.mjs', import.meta.url), 'utf8');
 const stylesCss = readFileSync(new URL('../app/operator/styles.css', import.meta.url), 'utf8');
+const rootStylesCss = readFileSync(new URL('../app/styles.css', import.meta.url), 'utf8');
 
 test('root face is the unchanged Blue Swallow Society passcode split screen', () => {
   assert.match(indexHtml, /<body data-mode="login">/);
@@ -22,6 +23,20 @@ test('root face is the unchanged Blue Swallow Society passcode split screen', ()
   assert.ok(!indexHtml.includes('/downloads/blue-swallow-wardriver.json'));
   assert.ok(!indexHtml.includes('/operator/'));
   assert.ok(!indexHtml.includes('OPERATOR CONSOLE'));
+});
+
+test('root login and standard public branch use the restored white/blue theme, not the operator dark shell', () => {
+  assert.match(indexHtml, /<meta name="color-scheme" content="light" \/>/);
+  assert.match(indexHtml, /<meta name="theme-color" content="#f8fafc" \/>/);
+
+  assert.match(rootStylesCss, /color-scheme:\s*light\s*;/);
+  assert.match(rootStylesCss, /linear-gradient\(180deg, #f8fafc 0%, #e5ecf6 100%\)/);
+  assert.match(rootStylesCss, /\.terminal-panel\.login-panel\s*\{[\s\S]*background:\s*linear-gradient\(180deg, rgba\(255, 255, 255, 0\.96\), rgba\(247, 250, 255, 0\.9\)\)/);
+  assert.match(rootStylesCss, /\.login-btn\.btn\s*\{[\s\S]*background:\s*linear-gradient\(180deg, #2563eb, #1d4ed8\)/);
+  assert.match(rootStylesCss, /\.standard-site\s*\{[\s\S]*background:[\s\S]*linear-gradient\(180deg, #f8fafc 0%, #e5ecf6 100%\)/);
+  assert.match(rootStylesCss, /\.standard-site \.panel\s*\{[\s\S]*background:\s*rgba\(255, 255, 255, 0\.92\)/);
+  assert.doesNotMatch(rootStylesCss, /color-scheme:\s*dark\s*;/);
+  assert.doesNotMatch(rootStylesCss, /--neon-|#040611|#070c18|repeating-linear-gradient/);
 });
 
 test('root login branches server-side: operator token opens /operator, every non-token response opens the standard site', () => {

@@ -7,9 +7,9 @@
   "fileName": "blue-swallow-wardriver-2.109-bss.1-debug.apk",
   "downloadPath": "/api/operator-downloads/wardriver/apk",
   "metadataPath": "/api/operator-downloads/wardriver/metadata",
-  "sizeBytes": 64826299,
-  "sha256": "f50d2dcf726ef52297968e1a0af9119c7569b7692e1813d70a1ed0274ba95a0e",
-  "updatedAt": "2026-07-10T07:26:32Z",
+  "sizeBytes": 67008791,
+  "sha256": "36f63de4670f8665158f73f088f5ccd2f10035057d33669a3a7e479cd6ac9376",
+  "updatedAt": "2026-07-12T00:19:34Z",
   "notes": [
     "Branded co-installable WiGLE fork APK.",
     "Debug build; Android may require sideload approval.",
