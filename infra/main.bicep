@@ -1,7 +1,10 @@
 targetScope = 'resourceGroup'
 
-@description('Azure region for all resources.')
+@description('Azure region for the SWA/VM/backend gateway resources.')
 param location string = resourceGroup().location
+
+@description('Azure region for PostgreSQL Flexible Server. Kept separate because some subscriptions restrict PostgreSQL provisioning in the VM/SWA region.')
+param postgresLocation string = location
 
 @description('Static Web App name. Must be unique within the subscription/region scope of SWA.')
 param staticWebAppName string
@@ -80,6 +83,7 @@ resource swa 'Microsoft.Web/staticSites@2023-01-01' = {
 }
 
 var vnetName = '${prefix}-vm-vnet'
+var postgresVnetName = '${prefix}-pg-vnet'
 var postgresPrivateDnsZoneName = '${prefix}.postgres.database.azure.com'
 
 /*
@@ -89,7 +93,9 @@ module networkModule 'modules/network.bicep' = {
   name: 'network'
   params: {
     location: location
+    postgresLocation: postgresLocation
     vnetName: vnetName
+    postgresVnetName: postgresVnetName
     postgresPrivateDnsZoneName: postgresPrivateDnsZoneName
   }
 }
@@ -100,7 +106,7 @@ module networkModule 'modules/network.bicep' = {
 module postgresModule 'modules/postgres-flexible.bicep' = {
   name: 'postgres-flexible'
   params: {
-    location: location
+    location: postgresLocation
     serverName: postgresServerName
     databaseName: postgresDatabaseName
     administratorLogin: postgresAdministratorLogin
@@ -155,6 +161,7 @@ output backendEchoBaseUrl string = vmModule.outputs.backendEchoBaseUrl
 output backendCybermapBaseUrl string = vmModule.outputs.backendCybermapBaseUrl
 output vmPublicIp string = vmModule.outputs.publicIpAddress
 output vnetId string = networkModule.outputs.vnetId
+output postgresVnetId string = networkModule.outputs.postgresVnetId
 output appSubnetId string = networkModule.outputs.appSubnetId
 output postgresSubnetId string = networkModule.outputs.postgresSubnetId
 output postgresPrivateDnsZoneId string = networkModule.outputs.postgresPrivateDnsZoneId
