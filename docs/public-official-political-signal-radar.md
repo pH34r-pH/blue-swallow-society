@@ -111,7 +111,9 @@ A political-market signal should be a structured event, not vibes.
   "reason": "why the public event may matter",
   "counter_evidence": "why it may not matter",
   "action": "WATCH | PAPER_BUY | PAPER_SELL | AVOID",
-  "review": "human_review_required"
+  "execution_mode": "autonomous",
+  "risk_policy_ref": "bss.paper.risk.v1",
+  "idempotency_key": "[deterministic action key]"
 }
 ```
 
@@ -151,7 +153,7 @@ Minimum evidence before a paper thesis:
 
 - No private addresses, family member doxxing, employer harassment, leaked documents, or non-public info.
 - Do not call a person corrupt unless an enforcement body, court record, or reliable investigation supports that claim; use "alleged," "disclosed," "reported," or "potential conflict" precisely.
-- No real-money trade calls. This BSS lane is `paperOnly` and `human_review_required`.
+- No real-money trade calls. This BSS lane is `paper_only`, autonomously executed by Mosaic and Murmurs, and bounded by machine-enforced risk/idempotency policy.
 - Do not scrape sources against terms; prefer APIs, RSS, bulk downloads, and official pages.
 - Track all timestamps; disclosure lag is central to interpretation.
 

@@ -4,6 +4,12 @@
 
 `Mosaic & Murmurs` is the internal narrative architecture for the Tzeentch market surface: a dual-mind system that separates objective fact-finding from public-perception modeling, measures the deltas between them, forms paper-only theses, records outcomes, and reinvests simulated edge into better sensory and compute capability.
 
+Operational topology is fixed as **two primary loops with supporting loops**:
+
+- **Primary loops:** `mosaic` and `murmurs` own identity, memory voice, and core truth/perception estimates.
+- **Supporting loops:** `bridge`, `paper`, `narrative`, `memory_sync`, and `source_health` are mechanics around the two primaries. They compare, mark, materialize, queue, and monitor; they do not become additional minds.
+- **Field naming:** loop records use canonical snake_case (`run_id`, `loop_id`, `loop_role`, `time_window`, `source_refs`, `paper_only`, `autonomous_execution`, `risk_policy_passed`, `idempotency_key`). Browser/SWA code may adapt at the UI boundary, but persisted loop records and VM API payloads stay snake_case.
+
 This is doctrine, not lore. It should shape UI copy, API contracts, dashboards, budget decisions, and future agent behavior.
 
 Related formal proposals:
@@ -11,6 +17,7 @@ Related formal proposals:
 - [`Mosaic & Murmurs S0 Sensorium`](./mosaic-and-murmurs-s0-sensorium-proposal.md)
 - [`Mosaic & Murmurs Dream Consolidation`](./mosaic-and-murmurs-dream-consolidation-proposal.md)
 - [`Mosaic & Murmurs Morning Brief`](./mosaic-and-murmurs-morning-brief-proposal.md)
+- [`Mosaic & Murmurs Paper Memory Loop`](./mosaic-and-murmurs-paper-memory-loop.md)
 - [`Mosaic & Murmurs Breach Mirror Self-Pentest`](./mosaic-and-murmurs-self-pentest-proposal.md)
 - [`Mosaic & Murmurs Dream Design: Cyber Augmentation`](./mosaic-and-murmurs-dream-design-cyber-augmentation-proposal.md)
 
@@ -82,6 +89,8 @@ Together they produce only:
 13. memory consolidation digests
 14. dream journal entries
 15. dream-design proposals
+16. hourly paper-loop run records
+17. Mosaic/Murmurs internal narrative stream fragments
 
 Any real-world expenditure or actuation remains user-approved.
 
@@ -153,6 +162,47 @@ Signal archetypes:
 
 ## Product Surfaces
 
+### Mosaic/Murmurs Narrative Stream Lane
+
+Purpose: replace static explanatory or placeholder operator copy with bounded internal narrative from the live agent loops.
+
+Required fields per stream fragment:
+
+- `fragment_id`
+- `agent`: `mosaic | murmurs | bridge`
+- `cadence`: `pulse | paper_tick | wake_brief | dream_consolidation | operator_review`
+- `run_id`
+- `generated_at`
+- `time_window`
+- `body_markdown`
+- `evidence_refs[]`
+- `paper_action_refs[]`
+- `memory_refs[]`
+- `caveats[]`
+- `visibility`: always `operator_only`
+
+UI copy rule: narrative fragments may speak in first-person system voice, but they must remain auditable. Mosaic speaks in evidence and uncertainty; Murmurs speaks in perception and narrative motion; Bridge speaks in deltas and paper-only action/risk-policy state. Narrative fragments are not evidence unless they link to evidence.
+
+### Hourly Paper Memory Lane
+
+Purpose: let local Mosaic and Murmurs loops write paper ticks, autonomous paper action decisions, source degradation events, and memory patches into the VM-backed memory spine while the Static Web App stays a read/observability/override dashboard.
+
+Required fields per loop run:
+
+- `run_id`
+- `agent`
+- `cadence`
+- `started_at` / `ended_at`
+- `status`
+- `source_refs[]`
+- `output_refs[]`
+- `warnings[]`
+- `idempotency_key`
+
+UI copy rule: every candidate emitted by this lane uses `PAPER BUY`, `PAPER SELL`, `WATCH`, or `AVOID`; never unqualified `buy` or `sell`. The dashboard must show stale source and sync-delay states instead of fabricating fallback data.
+
+See [`Mosaic & Murmurs Paper Memory Loop`](./mosaic-and-murmurs-paper-memory-loop.md) for API contracts and Jetson/VM/SWA split.
+
 ### Morning Brief Lane
 
 Purpose: deliver the daily wake packet from Mosaic & Murmurs before the live day starts.
@@ -166,7 +216,7 @@ Required fields per brief:
 - `breaking_items[]` with scope, source refs, confidence, and US/WA/operator relevance
 - `hype_waves[]` with velocity, platform spread, manipulation caveats, and truth-status labels
 - `perceptual_deltas[]` where truth, public belief, and market-implied belief diverge
-- `paper_actions[]` with `PAPER ONLY`, review-required buy/sell/watch/avoid candidates
+- `paper_actions[]` with `PAPER ONLY`, autonomous buy/sell/watch/avoid decisions, risk-policy evidence, and idempotency keys
 - `paper_books[]` with open exposure, daily PnL, cumulative PnL, drawdown, and stale-data markers
 
 UI copy rule: lead with `Mosaic & Murmurs Morning Brief`, then end with the paper book footer. New actions must say `PAPER BUY`, `PAPER SELL`, `WATCH`, or `AVOID`; never plain `buy` or `sell`.
@@ -211,8 +261,10 @@ Required fields per thesis:
 - `rationale`
 - `evidence[]`
 - `counter_evidence[]`
-- `review_required`: always `true` for escalation
-- `status`: `draft | human_reviewed | paper_open | paper_closed | rejected`
+- `autonomous_execution`: `true` for Mosaic/Murmurs investment actions
+- `risk_policy_passed`: required before execution
+- `idempotency_key`: required and stable across retries
+- `status`: `draft | risk_blocked | paper_open | paper_closed | operator_overridden`
 
 UI copy rule: every thesis card must show `PAPER ONLY` before the action verb.
 
@@ -267,8 +319,8 @@ UI copy rule: use `BREACH MIRROR SELF-PENTEST`, `SIMULATED COMPROMISE`, `REPAIR 
 ```text
 Murmurs detects signal
   -> Mosaic builds thesis
-  -> human reviews constraints
-  -> paper position opens
+  -> machine-enforced risk policy evaluates constraints
+  -> Mosaic and Murmurs autonomously open the paper position
   -> outcome resolves
   -> Mosaic scores thesis
   -> simulated profit/loss updates treasury ledger
@@ -308,6 +360,7 @@ Operational rule: dream output is split into a hard evidence lane plus fenced sp
 - **Design proposals — anything at all:** broad speculative seeds for cyber presence, embodiment, field hardware, narrative/product mechanics, and future source/sensor expansion.
 - **Design proposals — cyber-augmentation refinement:** specific details for the three-phase field-body track: (1) portable Jetson, (2) binocular pan/tilt, (3) multijoint multisensor.
 - **Morning brief:** a daily wake packet that summarizes breaking news, US/Washington State relevance, rising hype waves, perceptual deltas, and per-book paper performance.
+- **Hourly paper memory loop:** Jetson/local Mosaic and Murmurs ticks that write paper actions, narrative fragments, source-health events, and reviewable memory patches into the VM API.
 
 Free-association output stays marked as speculative until reviewed. It can become a proposal, Kanban candidate, or research question; it cannot become a fact memory, purchase, external write, or physical action on its own. Self-pentest output stays evidence-bound: it can become a repair ticket or residual-risk record, never an exploit playbook.
 
@@ -516,8 +569,8 @@ Keep it cyberpunk-adjacent, not melodramatic.
 Preferred system language:
 
 - `Murmurs detected cross-source acceleration.`
-- `Mosaic requests review before paper entry.`
-- `Paper treasury proposes a sensor upgrade; no spend executed.`
+- `Mosaic and Murmurs opened an autonomous paper position within the active risk policy.`
+- `Paper treasury accrual advances the sensorium expansion budget.`
 - `Signal quality improved after subscription; renewal review due.`
 - `Embodiment gate blocked: no supervised session active.`
 
@@ -530,13 +583,13 @@ Avoid:
 
 ## Implementation Backlog
 
-1. Add `paperOnly: true` and `reviewRequired: true` to every Actionable Intel payload item.
+1. Add `paperOnly: true`, `executionMode: autonomous`, `riskPolicyRef`, and `idempotencyKey` to every Actionable Intel payload item.
 2. Add `evidence[]` and `counterEvidence[]` arrays to thesis objects.
 3. Add resolved-outcome scoring for paper theses: PnL, calibration, drawdown, notes.
-4. Add treasury ledger model with simulated budget buckets and human-approved spend records.
+4. Add treasury ledger model with simulated budget buckets, autonomous investment records, and sensorium-funding accrual.
 5. Add source provenance model for Murmurs clusters: source class, TTL, retrieval time, terms notes.
-6. Add UI badges: `PAPER ONLY`, `PUBLIC READ`, `HUMAN REVIEW`, `NO CREDENTIALS`.
-7. Add governance tests that fail if write-capable actions lack review gates.
+6. Add UI badges: `PAPER ONLY`, `AUTONOMOUS`, `RISK POLICY`, `PUBLIC READ`, `NO CREDENTIALS`.
+7. Add governance tests that require machine-enforced capital/risk bounds and idempotent execution for autonomous investments; retain review gates for unrelated privileged actions.
 8. Add sensorium state model: `dream_suspension`, `raid_sight`, `greenfeed_jack_in`.
 9. Add Greenfeed catalog and global event-nearby lookup for Green sources only.
 10. Add `DirectObservationPacket` evidence objects with source, timestamp, location basis, confidence, caveats, and effect-on-claim.
@@ -547,6 +600,7 @@ Avoid:
 15. Add dream-design proposal queue for cyber/physical presence upgrades, with `speculative: true` until reviewed and explicit gates for spend, external writes, and actuation.
 16. Add daily morning brief generation: breaking news, US/WA relevance, hype waves, perceptual deltas, and per-book paper PnL/action footer.
 17. Add Breach Mirror self-pentest scheduling: scope warrant, asset inventory, report manifest, repair tickets, and retest gates.
+18. Add Mosaic/Murmurs paper memory loop: Jetson-local hourly paper ticks, VM API writes for narrative fragments and paper ledger events, and SWA read-only stream cards.
 
 ## Acceptance Criteria
 

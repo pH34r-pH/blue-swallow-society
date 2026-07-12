@@ -1,0 +1,187 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import { createCybermapApiServer } from '../src/server.mjs';
+import { MemoryObservationStore } from '../src/memory-store.mjs';
+import { hashToken } from '../src/auth.mjs';
+import { DEVICE_ID, INGEST_TOKEN, ingestHeaders, validBatch, validObservation, withServer } from './helpers.mjs';
+
+function makeServer() {
+  const store = new MemoryObservationStore({
+    credentials: [{
+      device_id: DEVICE_ID,
+      source_id: 'source-owned-device-1',
+      source_class: 'owned_device',
+      token_sha256: hashToken(INGEST_TOKEN),
+      scopes: ['observations:write'],
+      enabled: true,
+    }],
+    now: () => new Date('2026-07-11T18:43:00.000Z'),
+    randomUuid: () => '00000000-0000-4000-8000-000000000001',
+  });
+  return { store, server: createCybermapApiServer({ store, now: () => Date.parse('2026-07-11T18:43:00.000Z') }) };
+}
+
+class SlowApplyStore extends MemoryObservationStore {
+  async applyBatch(args) {
+    await new Promise((resolve) => setTimeout(resolve, 75));
+    return super.applyBatch(args);
+  }
+}
+
+test('health and readiness expose no credential material', async () => {
+  const { server } = makeServer();
+  await withServer(server, async (baseUrl) => {
+    const health = await fetch(`${baseUrl}/healthz`);
+    assert.equal(health.status, 200);
+    assert.deepEqual(await health.json(), { ok: true, service: 'bss-cybermap-api' });
+
+    const ready = await fetch(`${baseUrl}/readyz`);
+    assert.equal(ready.status, 200);
+    assert.deepEqual(await ready.json(), { ok: true, database: 'ready', migrations: 'ready' });
+  });
+});
+
+test('requires ingest authentication and matching header/body identities', async () => {
+  const { server } = makeServer();
+  await withServer(server, async (baseUrl) => {
+    const batch = validBatch();
+    const anonymous = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(batch),
+    });
+    assert.equal(anonymous.status, 403);
+    assert.deepEqual(await anonymous.json(), { ok: false, error: 'forbidden' });
+
+    const mismatch = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST',
+      headers: ingestHeaders(batch, { 'idempotency-key': 'different-key' }),
+      body: JSON.stringify(batch),
+    });
+    assert.equal(mismatch.status, 400);
+    assert.equal((await mismatch.json()).error, 'idempotency_key_mismatch');
+
+    const unsafe = validBatch({ observations: [validObservation({ payload: { raw_frame: 'forbidden' } })] });
+    const invalidCredential = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST',
+      headers: ingestHeaders(unsafe, { 'x-blue-swallow-ingest-token': 'invalid-token-value' }),
+      body: JSON.stringify(unsafe),
+    });
+    assert.equal(invalidCredential.status, 403);
+    assert.deepEqual(await invalidCredential.json(), { ok: false, error: 'forbidden' });
+  });
+});
+
+test('accepts one authenticated batch and marks exact replay without creating duplicates', async () => {
+  const { server, store } = makeServer();
+  await withServer(server, async (baseUrl) => {
+    const batch = validBatch();
+    const first = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST',
+      headers: ingestHeaders(batch),
+      body: JSON.stringify(batch),
+    });
+    assert.equal(first.status, 201);
+    assert.equal(first.headers.get('cache-control'), 'no-store');
+    assert.equal(first.headers.get('idempotent-replayed'), 'false');
+    const firstReceipt = await first.json();
+    assert.equal(firstReceipt.accepted_count, 1);
+
+    const replay = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST',
+      headers: ingestHeaders(batch),
+      body: JSON.stringify(batch),
+    });
+    assert.equal(replay.status, 200);
+    assert.equal(replay.headers.get('idempotent-replayed'), 'true');
+    assert.deepEqual(await replay.json(), firstReceipt);
+    assert.equal(store.observationCount(), 1);
+  });
+});
+
+test('returns conflict for changed payload under the same batch or observation key', async () => {
+  const { server } = makeServer();
+  await withServer(server, async (baseUrl) => {
+    const firstBatch = validBatch();
+    await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST', headers: ingestHeaders(firstBatch), body: JSON.stringify(firstBatch),
+    });
+
+    const reusedBatch = validBatch({ observations: [validObservation({ confidence: 0.3 })] });
+    const batchConflict = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST', headers: ingestHeaders(reusedBatch), body: JSON.stringify(reusedBatch),
+    });
+    assert.equal(batchConflict.status, 409);
+    assert.equal((await batchConflict.json()).error, 'idempotency_key_reused');
+
+    const reusedObservation = validBatch({
+      idempotency_key: 'batch-00000000-0000-4000-8000-000000000002',
+      observations: [validObservation({ confidence: 0.3 })],
+    });
+    const observationConflict = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST', headers: ingestHeaders(reusedObservation), body: JSON.stringify(reusedObservation),
+    });
+    assert.equal(observationConflict.status, 409);
+    assert.equal((await observationConflict.json()).error, 'observation_key_reused');
+  });
+});
+
+test('rejects unsupported content types and oversized bodies while accepting passive observation payloads', async () => {
+  const { server } = makeServer();
+  await withServer(server, async (baseUrl) => {
+    const batch = validBatch();
+    const unsupported = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST', headers: ingestHeaders(batch, { 'content-type': 'text/plain' }), body: JSON.stringify(batch),
+    });
+    assert.equal(unsupported.status, 415);
+
+    const passive = validBatch({ observations: [validObservation({ payload: { bssid: '00:11:22:33:44:55', ssid: 'Public Broadcast Name', raw_frame: 'base64:management' } })] });
+    const passiveResponse = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST', headers: ingestHeaders(passive), body: JSON.stringify(passive),
+    });
+    assert.equal(passiveResponse.status, 201);
+
+    const oversizedBody = JSON.stringify({ padding: 'x'.repeat(1_048_577) });
+    const oversized = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST',
+      headers: {
+        ...ingestHeaders(batch),
+        'content-length': String(Buffer.byteLength(oversizedBody)),
+      },
+      body: oversizedBody,
+    });
+    assert.equal(oversized.status, 413);
+  });
+});
+
+test('bounds authenticated ingest execution before a slow store can pin a request', async () => {
+  const store = new SlowApplyStore({
+    credentials: [{
+      device_id: DEVICE_ID,
+      source_id: 'source-owned-device-1',
+      source_class: 'owned_device',
+      token_sha256: hashToken(INGEST_TOKEN),
+      scopes: ['observations:write'],
+      enabled: true,
+    }],
+    now: () => new Date('2026-07-11T18:43:00.000Z'),
+    randomUuid: () => '00000000-0000-4000-8000-000000000001',
+  });
+  const server = createCybermapApiServer({
+    store,
+    now: () => Date.parse('2026-07-11T18:43:00.000Z'),
+    ingestDeadlineMs: 10,
+  });
+
+  await withServer(server, async (baseUrl) => {
+    const batch = validBatch();
+    const response = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST',
+      headers: ingestHeaders(batch),
+      body: JSON.stringify(batch),
+    });
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error, 'ingest_deadline_exceeded');
+  });
+});

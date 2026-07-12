@@ -1,40 +1,92 @@
 {
-  "schema_version": 1,
-  "currency": "USD",
-  "updated_at": null,
-  "notes": "Paper-only ledger for Mosaic & Murmurs morning briefs. Empty positions mean no simulated exposure and no buy/sell execution.",
   "books": [
     {
-      "id": "prediction_markets",
+      "book_id": "prediction_markets",
+      "cash_balance": 1000.0,
+      "closed_pnl": 0.0,
       "display_name": "Prediction Markets",
-      "starting_equity": 0.0,
-      "closed_pnl": 0.0,
-      "high_water_mark": 0.0,
-      "positions": []
+      "high_water_mark": 1000.0,
+      "instrument_type": "prediction_market",
+      "loop_affinity": "bridge",
+      "positions": [],
+      "starting_balance": 1000.0,
+      "status": "active",
+      "strategy": "Paper-only probability deltas where Mosaic evidence and Murmurs belief diverge from market-implied odds."
     },
     {
-      "id": "crypto",
+      "book_id": "crypto",
+      "cash_balance": 1000.0,
+      "closed_pnl": 0.0,
       "display_name": "Crypto",
-      "starting_equity": 0.0,
-      "closed_pnl": 0.0,
-      "high_water_mark": 0.0,
-      "positions": []
+      "high_water_mark": 1000.0,
+      "instrument_type": "crypto",
+      "loop_affinity": "bridge",
+      "positions": [],
+      "starting_balance": 1000.0,
+      "status": "active",
+      "strategy": "Paper-only liquid crypto momentum/reversion signals from public market and perception feeds."
     },
     {
-      "id": "equity_watch",
+      "book_id": "equity_watch",
+      "cash_balance": 1000.0,
+      "closed_pnl": 0.0,
       "display_name": "Equity Watch",
-      "starting_equity": 0.0,
-      "closed_pnl": 0.0,
-      "high_water_mark": 0.0,
-      "positions": []
+      "high_water_mark": 1000.0,
+      "instrument_type": "equity_watch",
+      "loop_affinity": "mosaic",
+      "positions": [],
+      "starting_balance": 1000.0,
+      "status": "active",
+      "strategy": "Paper-only watchlist for public-company, macro, and regulatory signals; no brokerage execution."
     },
     {
-      "id": "local_event_watch",
-      "display_name": "Local Event Watch",
-      "starting_equity": 0.0,
+      "book_id": "local_event_watch",
+      "cash_balance": 1000.0,
       "closed_pnl": 0.0,
-      "high_water_mark": 0.0,
-      "positions": []
+      "display_name": "Local Event Watch",
+      "high_water_mark": 1000.0,
+      "instrument_type": "local_event_watch",
+      "loop_affinity": "mosaic",
+      "positions": [],
+      "starting_balance": 1000.0,
+      "status": "active",
+      "strategy": "Paper-only Seattle/Bellevue/Redmond and Washington State event-risk theses."
+    },
+    {
+      "book_id": "ai_cyber_watch",
+      "cash_balance": 1000.0,
+      "closed_pnl": 0.0,
+      "display_name": "AI/Cyber Watch",
+      "high_water_mark": 1000.0,
+      "instrument_type": "other_paper_only",
+      "loop_affinity": "murmurs",
+      "positions": [],
+      "starting_balance": 1000.0,
+      "status": "active",
+      "strategy": "Paper-only AI, security, breach, and agent-tooling hype/fact deltas."
     }
-  ]
+  ],
+  "currency": "USD",
+  "field_naming": {
+    "canonical_case": "snake_case",
+    "scope": "local append-only records and VM API payloads",
+    "ui_boundary": "SWA JavaScript may adapt to camelCase internally, but persisted loop records stay snake_case."
+  },
+  "loop_topology": {
+    "primary_loops": [
+      "mosaic",
+      "murmurs"
+    ],
+    "rule": "Mosaic and Murmurs are the two primary owned loops; Bridge, paper, narrative, memory_sync, and source_health are supporting loops.",
+    "supporting_loops": [
+      "bridge",
+      "paper",
+      "narrative",
+      "memory_sync",
+      "source_health"
+    ]
+  },
+  "notes": "Paper-only ledger for Mosaic & Murmurs morning briefs. Empty positions mean no simulated exposure and no buy/sell execution.",
+  "schema_version": 2,
+  "updated_at": "2026-07-12T15:12:53Z"
 }

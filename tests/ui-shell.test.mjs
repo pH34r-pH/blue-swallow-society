@@ -57,6 +57,23 @@ test('standard personal site is the non-operator branch and contains no wardrive
   assert.ok(!indexHtml.includes('co.blueswallow.wardriver'));
 });
 
+test('standard personal site exposes event calendar, list view, and name-based supply claim hooks', () => {
+  [
+    'id="eventsCalendar"',
+    'id="eventsList"',
+    'id="eventClaimName"',
+    'id="eventClaimNameStatus"',
+    'Events calendar',
+    'List view',
+    'Supply claims',
+  ].forEach((needle) => assert.ok(indexHtml.includes(needle), needle));
+
+  assert.match(rootMainJs, /initPublicEvents\(\)/);
+  assert.match(rootMainJs, /renderEventsCalendar\(/);
+  assert.match(rootMainJs, /renderEventsList\(/);
+  assert.match(rootMainJs, /handleSupplyClaim\(/);
+});
+
 test('operator entrypoint requires an existing passcode-issued session before showing the console', () => {
   assert.ok(operatorHtml.includes('operatorLoader'));
   assert.ok(operatorHtml.includes('/operator/loader.js'));

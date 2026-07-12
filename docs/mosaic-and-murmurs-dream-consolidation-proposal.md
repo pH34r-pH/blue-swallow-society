@@ -10,6 +10,7 @@ Related notes:
 - `mosaic-and-murmurs-s0-sensorium-proposal.md`
 - `mosaic-and-murmurs-dream-design-cyber-augmentation-proposal.md`
 - `mosaic-and-murmurs-morning-brief-proposal.md`
+- `mosaic-and-murmurs-paper-memory-loop.md`
 - `mosaic-and-murmurs-self-pentest-proposal.md`
 - `kismet-wardriving-sensor-spine-research.md`
 - `cybermap-geospatial-backend.md`
@@ -27,6 +28,7 @@ Related notes:
 6. **Proposal queue:** convert good dream seeds into reviewable proposals, Kanban cards, or research tasks only after explicit gating.
 7. **Morning brief:** publish a daily wake packet with breaking news, US/Washington relevance, hype waves, perceptual deltas, and paper-book performance.
 8. **Self-pentest repair:** run scoped Breach Mirror reviews, convert every simulated compromise into a repair ticket, and preserve retest evidence before promotion.
+9. **Paper memory sync:** fold hourly Mosaic/Murmurs paper ticks, narrative fragments, source-health events, and paper ledger outcomes into the same VM-backed memory spine.
 
 ## Non-goals
 

@@ -80,14 +80,15 @@ The collector currently polls read-only public market endpoints:
 
 ## Paper ledger semantics
 
-The launch ledger has four flat books:
+The launch ledger has five flat $1,000 paper books:
 
 - `prediction_markets`
 - `crypto`
 - `equity_watch`
 - `local_event_watch`
+- `ai_cyber_watch`
 
-Open positions can be added manually to `config/mosaic-murmurs-paper-ledger.json`. A position without a current `mark_price` marks its book `stale`; stale books suppress new buy/sell candidates in the operator-facing brief. The job is paper-only and never writes to exchange, wallet, brokerage, social, or prediction-market accounts.
+Open positions can be added manually to `config/mosaic-murmurs-paper-ledger.json`. A position without a current `mark_price` marks its book `stale`; stale books suppress new buy/sell candidates in the operator-facing brief. Mosaic and Murmurs execute paper actions autonomously only after machine-enforced capital, exposure, drawdown, cooldown, stale-data, and idempotency checks pass; there is no per-action human review gate. The job is paper-only and never writes to exchange, wallet, brokerage, social, or prediction-market accounts.
 
 Minimal position shape:
 
@@ -111,7 +112,7 @@ The cron agent must:
 1. Use only the collector packet and injected dream-cycle context as evidence unless it explicitly performs additional source retrieval.
 2. Emit sections: Mosaic breaking reality, Murmurs hype weather, Bridge perceptual deltas, New paper actions, Paper book footer, Source manifest.
 3. Label facts, official statements, viral narratives, market-implied belief, and unknown/stale data separately.
-4. Keep all actions paper-only and `human_review_required`.
+4. Keep all actions paper-only and autonomously executable only after machine-enforced capital, exposure, drawdown, cooldown, stale-data, and idempotency checks pass.
 5. Suppress buy/sell actions when the affected book or market data is stale.
 6. Include the manifest path and generated-at timestamp.
 

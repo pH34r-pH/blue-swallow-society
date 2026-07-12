@@ -33,11 +33,12 @@ CREATE TYPE cyber_retention_class AS ENUM (
   'hash_only',
   'operator_artifact',
   'raw_frame_explicit',
-  'pii_explicit'
+  'pii_explicit',
+  'full_fidelity'
 );
 
 COMMENT ON TYPE cyber_retention_class IS
-  'Raw frames and PII are disabled by default. raw_frame_explicit and pii_explicit require operator approval metadata and a non-payload artifact reference.';
+  'full_fidelity preserves passively observed RF identifiers, names, and management-frame metadata for authenticated cross-reference; summary/hash modes remain available for derived products.';
 
 CREATE TYPE cyber_entity_kind AS ENUM (
   'network',
@@ -136,8 +137,6 @@ CREATE TABLE observations (
   confidence numeric(4,3) NOT NULL DEFAULT 1.000,
   pii_status text NOT NULL DEFAULT 'redacted',
   retention_class cyber_retention_class NOT NULL DEFAULT 'summary_only',
-  raw_payload_ref text,
-  operator_approved_raw_ref text,
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
   provenance jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -147,18 +146,13 @@ CREATE TABLE observations (
   CHECK (observed_at <= ingested_at + interval '5 minutes'),
   CHECK (geom IS NULL OR (h3_7 IS NOT NULL AND h3_9 IS NOT NULL AND h3_11 IS NOT NULL)),
   CHECK (confidence >= 0 AND confidence <= 1),
-  CHECK (pii_status IN ('none', 'redacted', 'hashed', 'operator_explicit')),
+  CHECK (pii_status IN ('none', 'redacted', 'hashed', 'observed', 'operator_explicit')),
   CHECK (
     source_class not in ('grey_enrichment', 'orange_exposure', 'red_restricted')
     OR trigger_observation_id is not null
     OR session_id is not null
     OR authorized_scope_ref is not null
-  ),
-  CHECK (
-    retention_class NOT IN ('raw_frame_explicit', 'pii_explicit')
-    OR (raw_payload_ref IS NOT NULL AND operator_approved_raw_ref IS NOT NULL AND authorized_scope_ref IS NOT NULL)
-  ),
-  CHECK (NOT (payload ?| ARRAY['raw_frame', 'raw_frames', 'face_image', 'license_plate_image', 'raw_pii']))
+  )
 );
 
 COMMENT ON TABLE observations IS

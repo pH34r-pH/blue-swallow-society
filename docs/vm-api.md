@@ -1,9 +1,9 @@
 # VM API Specification
 
 ## Overview
-The Blue Swallow Society VM currently hosts a simple echo service that serves as the backend connectivity proof for API calls from the Static Web App. This echo service is scaffold-only.
+The deployed Blue Swallow Society VM still hosts the echo connectivity proof. The repository now also contains the first executable Cybermap ingest service under `vm/cybermap-api/`: authenticated, strict, idempotent Wardriver observation batches backed by PostgreSQL/PostGIS. That source implementation is not yet promoted to the VM, so the deployed endpoint remains scaffold-only.
 
-The target VM service is the **Cybermap API gateway**: authenticated `/api/v1/*` endpoints for observation ingest, viewport queries, source catalogs, sensorium sessions, direct observation packets, and Mosaic/Murmurs memory sync. The durable datastore is Azure Database for PostgreSQL Flexible Server with PostGIS. See [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md) for the target design.
+The target VM service is the **Cybermap API gateway**: authenticated `/api/v1/*` endpoints for observation ingest, viewport queries, source catalogs, sensorium sessions, direct observation packets, and Mosaic/Murmurs memory sync. The durable datastore is Azure Database for PostgreSQL Flexible Server with PostGIS. See [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md) for the target design and [`vm/cybermap-api/README.md`](../vm/cybermap-api/README.md) for the implemented P0 ingest contract.
 
 ## Target Cybermap API
 
@@ -12,7 +12,7 @@ P0 endpoints replacing the echo lab:
 | Endpoint | Purpose |
 |---|---|
 | `GET /healthz` | VM/API health, no secrets |
-| `GET /readyz` | DB connectivity and migration state |
+| `GET /readyz` | DB connectivity, migration state, and materializer readiness |
 | `POST /api/v1/observations/batch` | Wardriver/RaID/Greenfeed batch ingest with idempotency |
 | `GET /api/v1/cybermap/viewport?bbox=&zoom=&layers=&since=` | Godeye map viewport query |
 | `GET /api/v1/cybermap/cells/{h3Cell}` | Cell detail/provenance drilldown |
@@ -20,10 +20,47 @@ P0 endpoints replacing the echo lab:
 | `GET /api/v1/sources?bbox=&class=` | Greenfeed/source catalog lookup |
 | `POST /api/v1/sensorium/sessions` | Start/end RaID or Greenfeed session record |
 | `POST /api/v1/direct-observations` | Claim-linked direct observation packet |
-| `GET /api/v1/memories?since=` | Mosaic/Murmurs memory sync pull |
-| `POST /api/v1/memories` | Distilled memory writeback |
+| `POST /api/v1/agent-loops/runs` | Start a Mosaic, Murmurs, Bridge, paper tick, or dream run manifest with idempotency |
+| `PATCH /api/v1/agent-loops/runs/{run_id}` | Complete/fail a loop run and attach output refs |
+| `GET /api/v1/agent-loops/status?agent=&since=` | Loop health, last successful tick, source degradation, and outbox backlog state |
+| `POST /api/v1/narrative/fragments` | Append operator-visible Mosaic/Murmurs/Bridge stream-of-consciousness fragments |
+| `GET /api/v1/narrative/stream?agent=&cadence=&since=&limit=` | Pull narrative fragments for SWA dashboard stream cards |
+| `POST /api/v1/journal-entries` | Append daily Mosaic/Murmurs meta-narrative journal entries |
+| `GET /api/v1/journal-entries?agent=&date=&limit=` | Read daily journal history for operator review/export |
+| `GET /api/v1/paper/books` | Paper book exposure, PnL, stale marks, cooldowns, and status |
+| `POST /api/v1/paper/action-decisions` | Append autonomous paper-only buy/sell/watch/avoid decisions with evidence, risk-policy result, and idempotency key |
+| `POST /api/v1/paper/ledger-events` | Append fills, marks, exits, stale-source suppressions, skips, and operator overrides |
+| `GET /api/v1/paper/actions?status=&book=&since=` | Read autonomous paper action and override history |
+| `GET /api/v1/memories?agent=&since=` | Mosaic/Murmurs memory sync pull |
+| `POST /api/v1/memories/patches` | Evidence-backed memory patch writeback, review-gated unless explicitly auto-mergeable |
+| `POST /api/v1/source-reliability/events` | Source reliability and retrieval degradation events |
 
-The sections below document the existing echo proof-of-connectivity state.
+The sections below document the deployed echo proof-of-connectivity state.
+
+### Implemented P0 ingest slice
+
+The source implementation now provides:
+
+- strict `bss.observation_batch.v1` and `bss.sync_receipt.v1` contracts;
+- scoped digest-only device credentials;
+- required device and idempotency headers;
+- exact-replay receipts and changed-content conflicts at batch and observation identity levels;
+- passive-observation payload preservation with explicit redaction/retention classes, plus body and count limits;
+- PostgreSQL transactions with bounded lock/statement/idle timeouts, live credential revalidation, non-blocking batch advisory locks, sorted observation locks, active-session ownership checks, and retryable busy/error normalization;
+- app-computed H3 7/9/11 and server-derived PostGIS geometry;
+- migration `0002_device_ingest_contract.sql` for credentials, content hashes, batch links, NULL-closed final receipt constraints, and durable receipt shape checks;
+- typed Android batch serialization with semantic timestamp validation, device/idempotency envelope binding, receipt-aware encrypted outbox transitions, and HTTPS-only production upload transport.
+
+Promotion remains blocked on managed-database migration execution, device enrollment/Keystore ownership, real scanner-record export, WorkManager scheduling/status UI, VM service deployment, disposable/managed PostGIS concurrency proof, and a live-device replay test.
+
+Target write semantics for the VM API:
+
+- Mosaic and Murmurs are the only primary loops. `bridge`, `paper`, `narrative`, `memory_sync`, and `source_health` are supporting loops around them.
+- Loop/write payload fields use canonical snake_case: `run_id`, `loop_id`, `loop_role`, `generated_at`, `time_window`, `source_refs`, `output_refs`, `paper_only`, `autonomous_execution`, `risk_policy_passed`, `idempotency_key`.
+- Browser clients never call the VM directly; SWA Functions proxy token-gated read/observability/override paths.
+- Jetson/local agent loops write to `/api/v1/*` with scoped loop/device tokens, idempotency keys, and append-only records.
+- Static Web App assets must never contain loop write tokens or database credentials.
+- Mosaic and Murmurs execute paper investments autonomously without a per-action human review gate. Machine-enforced capital, exposure, drawdown, cooldown, stale-data, and idempotency controls are mandatory. Real-money/account-bound execution remains outside this P0 contract.
 
 ## Service Architecture
 
@@ -45,12 +82,12 @@ The sections below document the existing echo proof-of-connectivity state.
 
 ### Primary Endpoint: `/echo`
 - **Method**: GET
-- **Parameters**: 
+- **Parameters**:
   - `msg` (query string, required): The message to echo back
 - **Success Response**:
   - **Status**: 200 OK
   - **Headers**: `Content-Type: application/json`
-  - **Body**: 
+  - **Body**:
     ```json
     {
       "ok": true,
@@ -61,7 +98,7 @@ The sections below document the existing echo proof-of-connectivity state.
     }
     ```
 - **Error Responses**:
-  - **Missing msg parameter**: 
+  - **Missing msg parameter**:
     - Status: 200 OK (service treats empty as valid)
     - Body: `{"ok": true, "echo": "", "host": "...", "path": "/echo", "query": {"msg": [""]}}`
   - **Invalid path** (anything other than `/echo`):
@@ -127,7 +164,7 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({'ok': False, 'error': 'Not found'}).encode())
             return
-        
+
         query = parse_qs(parsed.query)
         msg = query.get('msg', [''])[0]
         body = {

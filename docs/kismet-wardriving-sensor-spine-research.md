@@ -146,17 +146,17 @@ The important move: **Kismet is not the map and not the memory.** Kismet is the 
 ```json
 {
   "kind": "wifi_ap",
-  "source_class": "owned_device",
+  "source_class": "green_owned",
   "observed_at": "2026-07-11T00:00:00Z",
   "geom": { "lat": 47.0, "lon": -122.0, "accuracy_m": 8.5 },
   "confidence": 0.7,
-  "retention_class": "metadata_only",
-  "pii_status": "minimized",
+  "retention_class": "full_fidelity",
+  "pii_status": "observed",
   "payload": {
     "schema": "bss.kismet.wifi_ap.v1",
     "kismet_device_key": "...",
-    "bssid_hash_or_mac_policy": "local-clear/offbox-hash",
-    "ssid_policy": "retain-if-public-or-owned",
+    "bssid_policy": "passive-observed-retained-under-full_fidelity",
+    "ssid_policy": "passive-broadcast-retained-under-full_fidelity",
     "signal_dbm": -62,
     "channel": 6,
     "phy": "IEEE802.11",
@@ -176,7 +176,7 @@ The important move: **Kismet is not the map and not the memory.** Kismet is the 
 
 ## Privacy and safety gates
 
-- Default product sync is **metadata-first**: device summaries, signal, location basis, source health, and caveats. No packet payloads off-box by default.
+- Default product sync is **passive-observation first**: source/retention-tagged device summaries, broadcast identifiers, signal, location basis, source health, and caveats. Active/probe packet payloads stay off-box by default.
 - Raw packets/PCAP are local-only debug artifacts with explicit operator capture and short retention.
 - Strip packet contents before sharing a kismetdb file or before using it as a portable archive outside the controlled device.
 - Treat BSS off-box MAC/BSSID handling as a policy choice: local-clear for owned/debug; hash or coarsen for public/demo views where appropriate.

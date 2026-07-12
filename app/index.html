@@ -38,23 +38,43 @@
         <p class="eyebrow">Event Planning</p>
         <h1>Small gatherings, clean logistics.</h1>
         <p>
-          A lightweight personal planning page for private gatherings: dates, venues, guest notes, and day-of coordination.
+          A lightweight personal planning page for private gatherings: dates, venues, needed supplies, and day-of coordination.
         </p>
       </section>
 
-      <section class="standard-grid" aria-label="Planning notes">
-        <article class="panel">
-          <h2>Planning</h2>
-          <p>Keep scope small, names clear, and every next action visible.</p>
-        </article>
-        <article class="panel">
-          <h2>Schedule</h2>
-          <p>Draft arrival windows, setup blocks, and teardown notes before invites go out.</p>
-        </article>
-        <article class="panel">
-          <h2>Contact</h2>
-          <p>Send the date, headcount, and constraints; I will turn it into a checklist.</p>
-        </article>
+      <section class="claim-panel panel" aria-labelledby="supplyClaimHeading">
+        <div>
+          <p class="eyebrow">Supply claims</p>
+          <h2 id="supplyClaimHeading">Claim needed supplies</h2>
+          <p>Enter a name, then mark an open supply as yours. Choose the same name later to erase it from your claims.</p>
+        </div>
+        <label class="name-entry" for="eventClaimName">
+          <span>Your name</span>
+          <input id="eventClaimName" class="input" type="text" autocomplete="name" placeholder="Name for supply claims" />
+        </label>
+        <p id="eventClaimNameStatus" class="claim-status" aria-live="polite">No name selected yet.</p>
+      </section>
+
+      <section class="events-layout" aria-label="Public events">
+        <section class="events-calendar-panel panel" aria-labelledby="eventsCalendarHeading">
+          <div class="section-heading">
+            <p class="eyebrow">Events calendar</p>
+            <h2 id="eventsCalendarHeading">Calendar view</h2>
+          </div>
+          <div id="eventsCalendar" class="events-calendar" aria-live="polite">
+            <p class="loading-note">Loading calendar…</p>
+          </div>
+        </section>
+
+        <section class="events-list-panel panel" aria-labelledby="eventsListHeading">
+          <div class="section-heading">
+            <p class="eyebrow">List view</p>
+            <h2 id="eventsListHeading">Upcoming events</h2>
+          </div>
+          <div id="eventsList" class="events-list" aria-live="polite">
+            <p class="loading-note">Loading events…</p>
+          </div>
+        </section>
       </section>
     </main>
 

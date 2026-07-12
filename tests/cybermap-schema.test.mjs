@@ -6,6 +6,8 @@ const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const migration = read('vm/cybermap-api/db/migrations/0001_cybermap_core.sql');
 const migrationLower = migration.toLowerCase();
+const ingestMigration = read('vm/cybermap-api/db/migrations/0002_device_ingest_contract.sql');
+const ingestMigrationLower = ingestMigration.toLowerCase();
 const dbReadme = read('vm/cybermap-api/db/README.md');
 
 function tableBlock(tableName) {
@@ -151,18 +153,17 @@ test('non-green enrichment is gated by local or authorized trigger metadata', ()
   ], 'source_catalog preload gate');
 });
 
-test('raw frames and PII are disabled-by-default retention classes instead of default payload fields', () => {
+test('passively observed RF identifiers and management-frame metadata have an explicit full-fidelity retention class', () => {
   assert.match(migrationLower, /create\s+type\s+cyber_retention_class\s+as\s+enum/);
   assertIncludesAll(migrationLower, [
     "'summary_only'",
     "'hash_only'",
-    "'raw_frame_explicit'",
-    "'pii_explicit'",
-    "default 'summary_only'",
-    'raw_payload_ref text',
-    'operator_approved_raw_ref text',
-    "payload ?| array['raw_frame', 'raw_frames', 'face_image', 'license_plate_image', 'raw_pii']",
-  ], 'retention/PII guardrails');
+    "'full_fidelity'",
+    "payload jsonb not null",
+  ], 'passive observation retention');
+  const observations = tableBlock('observations');
+  assert.doesNotMatch(observations, /operator_approved_raw_ref/);
+  assert.doesNotMatch(observations, /payload \?\| array\['raw_frame'/);
 });
 
 test('migration docs define the lightweight ordered SQL runner contract', () => {
@@ -170,4 +171,38 @@ test('migration docs define the lightweight ordered SQL runner contract', () => 
   assert.match(dbReadme, /0001_cybermap_core\.sql/);
   assert.match(dbReadme, /public_greenfeed\s*->\s*green_public/);
   assert.match(dbReadme, /PostGIS/i);
+});
+
+test('device ingest migration stores only token digests and scoped enrollment state', () => {
+  assert.match(ingestMigrationLower, /create\s+table\s+device_ingest_credentials/);
+  assert.match(ingestMigrationLower, /token_sha256\s+text\s+not\s+null\s+unique/);
+  assert.match(ingestMigrationLower, /check\s*\(\s*token_sha256\s*~\s*'\^\[a-f0-9\]\{64\}\$'/);
+  assert.match(ingestMigrationLower, /scopes\s+text\[\]\s+not\s+null/);
+  assert.match(ingestMigrationLower, /enabled\s+boolean\s+not\s+null/);
+  assert.doesNotMatch(ingestMigrationLower, /\bplaintext_token\b|\braw_token\b/);
+});
+
+test('device ingest migration links observations to batches and persists stable receipts', () => {
+  assert.match(ingestMigrationLower, /alter\s+table\s+observations\s+add\s+column\s+sync_batch_id\s+uuid/);
+  assert.match(ingestMigrationLower, /add\s+column\s+content_hash\s+text/);
+  assert.match(ingestMigrationLower, /alter\s+table\s+sync_batches[\s\S]*accepted_count\s+integer/);
+  assert.match(ingestMigrationLower, /duplicate_count\s+integer/);
+  assert.match(ingestMigrationLower, /response_status\s+smallint/);
+  assert.match(ingestMigrationLower, /receipt\s+jsonb/);
+  assert.match(ingestMigrationLower, /receipt\s+is\s+not\s+null/);
+  assert.match(ingestMigrationLower, /foreign\s+key\s*\(session_id,\s*source_id\)[\s\S]*references\s+sensorium_sessions\s*\(id,\s*source_id\)/);
+  assert.match(ingestMigrationLower, /foreign\s+key\s*\(sync_batch_id,\s*source_id\)[\s\S]*references\s+sync_batches\s*\(id,\s*source_id\)/);
+  assert.match(ingestMigrationLower, /sync_batches_applied_receipt_complete/);
+  assert.match(ingestMigrationLower, /create\s+trigger\s+sync_batches_finalized_update_guard/);
+  assert.match(ingestMigrationLower, /finalized sync batches are immutable/);
+  assert.match(ingestMigrationLower, /insert\s+into\s+schema_migrations\s*\(version\)\s*values\s*\('0002_device_ingest_contract'\)/);
+});
+
+test('device ingest migration pins receipt identity and counts to the durable batch row', () => {
+  assert.match(ingestMigrationLower, /receipt\s*->>\s*'server_batch_id'\s*=\s*id::text/);
+  assert.match(ingestMigrationLower, /receipt\s*->>\s*'status'\s*=\s*status/);
+  assert.match(ingestMigrationLower, /jsonb_typeof\(receipt\s*->\s*'accepted_count'\)\s*=\s*'number'/);
+  assert.match(ingestMigrationLower, /jsonb_typeof\(receipt\s*->\s*'validation_errors'\)\s*=\s*'array'/);
+  assert.match(ingestMigrationLower, /\(receipt\s*->>\s*'server_clock'\)::timestamptz\s*=\s*completed_at/);
+  assert.match(ingestMigrationLower, /response_status\s+is\s+not\s+null/);
 });

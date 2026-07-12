@@ -248,7 +248,9 @@ Each paper strategy should persist:
   "fees_bps": 20,
   "slippage_bps": 20,
   "benchmark": "BTC buy-and-hold",
-  "human_review_required": true
+  "execution_mode": "autonomous",
+  "risk_policy_ref": "bss.paper.risk.v1",
+  "idempotency_key": "[deterministic action key]"
 }
 ```
 

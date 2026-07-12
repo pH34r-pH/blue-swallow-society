@@ -1,0 +1,17 @@
+{
+  "name": "@blue-swallow-society/cybermap-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start": "node src/main.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "h3-js": "^4.3.0",
+    "pg": "^8.16.3"
+  }
+}

@@ -9,26 +9,63 @@ const HN_API = 'https://hacker-news.firebaseio.com/v0';
 const REDDIT_API = 'https://www.reddit.com/r/all/hot.json?limit=25';
 const COINGECKO_API = 'https://api.coingecko.com/api/v3';
 const POLYMARKET_API = 'https://gamma-api.polymarket.com';
-const PAPER_STARTING_CASH = 10_000;
+const PAPER_STARTING_CASH = 1_000;
 const PAPER_ORDER_FRACTION = 0.12;
+const FIELD_NAMING = {
+  canonical_case: 'snake_case',
+  scope: 'local append-only records and VM API payloads',
+  ui_boundary: 'SWA JavaScript may adapt to camelCase internally, but persisted loop records stay snake_case.',
+};
+const LOOP_TOPOLOGY = {
+  primary_loops: ['mosaic', 'murmurs'],
+  supporting_loops: ['bridge', 'paper', 'narrative', 'memory_sync', 'source_health'],
+  rule: 'Mosaic and Murmurs are the two primary owned loops; Bridge, paper, narrative, memory_sync, and source_health are supporting loops.',
+};
 const PAPER_STRATEGIES = [
   {
-    id: 'murmur-momentum',
-    account: 'paper-momentum-001',
-    name: 'Murmur Momentum',
-    strategy: 'Buy high-volume crypto assets showing positive public-feed momentum, then mark gains against spot.',
+    id: 'prediction_markets',
+    account: 'paper-prediction-markets-001',
+    name: 'Prediction Markets',
+    loopAffinity: 'bridge',
+    instrumentType: 'prediction_market',
+    orderModel: 'prediction_market_probability',
+    strategy: 'Paper-only probability deltas where Mosaic evidence and Murmurs belief diverge from market-implied odds.',
   },
   {
-    id: 'contrarian-reversion',
-    account: 'paper-reversion-001',
-    name: 'Contrarian Reversion',
-    strategy: 'Buy liquid drawdowns and trim crowded winners; assumes mean reversion over the next loop.',
+    id: 'crypto',
+    account: 'paper-crypto-001',
+    name: 'Crypto',
+    loopAffinity: 'bridge',
+    instrumentType: 'crypto',
+    orderModel: 'crypto_momentum',
+    strategy: 'Paper-only liquid crypto momentum/reversion signals from public market and perception feeds.',
   },
   {
-    id: 'prediction-arb',
-    account: 'paper-polymarket-001',
-    name: 'Prediction Arb',
-    strategy: 'Paper-buy liquid Polymarket outcomes near price discovery and track probability mark-to-market.',
+    id: 'equity_watch',
+    account: 'paper-equity-watch-001',
+    name: 'Equity Watch',
+    loopAffinity: 'mosaic',
+    instrumentType: 'equity_watch',
+    orderModel: 'watch_only',
+    strategy: 'Paper-only watchlist for public-company, macro, and regulatory signals; no brokerage execution.',
+  },
+  {
+    id: 'local_event_watch',
+    account: 'paper-local-event-watch-001',
+    name: 'Local Event Watch',
+    loopAffinity: 'mosaic',
+    instrumentType: 'local_event_watch',
+    orderModel: 'watch_only',
+    strategy: 'Paper-only Seattle/Bellevue/Redmond and Washington State event-risk theses.',
+  },
+  {
+    id: 'ai_cyber_watch',
+    account: 'paper-ai-cyber-watch-001',
+    name: 'AI/Cyber Watch',
+    loopAffinity: 'murmurs',
+    instrumentType: 'other_paper_only',
+    orderModel: 'watch_only',
+    strategy: 'Paper-only AI, security, breach, and agent-tooling hype/fact deltas.',
   },
 ];
 const paperBookState = new Map();
@@ -203,6 +240,8 @@ function buildPaperBooks({ crypto = {}, polymarket = {}, operator = operatorFrom
       cadence: 'per live feed refresh',
       strategyCount: books.length,
       iterationCount: books.reduce((max, book) => Math.max(max, book.iteration || 0), 0),
+      field_naming: FIELD_NAMING,
+      loop_topology: LOOP_TOPOLOGY,
       riskNote: 'No live orders. Books are warm-function paper ledgers and may cold-start if the serverless worker is recycled.',
     },
     benchmark,
@@ -289,13 +328,19 @@ function getPaperLedgerPath() {
 function createPaperBook(strategy, now) {
   return {
     id: strategy.id,
+    bookId: strategy.id,
     account: strategy.account,
     name: strategy.name,
+    displayName: strategy.name,
+    loopAffinity: strategy.loopAffinity,
+    instrumentType: strategy.instrumentType,
+    orderModel: strategy.orderModel,
     strategy: strategy.strategy,
     createdAt: now,
     updatedAt: now,
     iteration: 0,
     startingCash: PAPER_STARTING_CASH,
+    startingBalance: PAPER_STARTING_CASH,
     cash: PAPER_STARTING_CASH,
     equity: PAPER_STARTING_CASH,
     realizedPnl: 0,
@@ -322,7 +367,7 @@ function buildPaperBenchmark(cryptoMarkets = []) {
 }
 
 function buildPaperOrder(strategyId, book, { cryptoMarkets = [], activeMarkets = [], now }) {
-  if (strategyId === 'murmur-momentum') {
+  if (strategyId === 'crypto') {
     const candidate = cryptoMarkets
       .filter((market) => !isStablecoin(market.symbol) && (toNumber(market.priceChange24h) || 0) > 0)
       .sort((left, right) => cryptoMomentumScore(right) - cryptoMomentumScore(left))[0];
@@ -330,24 +375,7 @@ function buildPaperOrder(strategyId, book, { cryptoMarkets = [], activeMarkets =
     return cryptoPaperOrder('buy', candidate, book, now, `Momentum score ${roundNumber(cryptoMomentumScore(candidate), 2)} from public price/volume feeds.`);
   }
 
-  if (strategyId === 'contrarian-reversion') {
-    const heldWinner = book.positions
-      .filter((position) => position.instrumentType === 'crypto')
-      .map((position) => ({ position, market: cryptoMarkets.find((market) => market.id === position.assetId) }))
-      .filter((entry) => entry.market && (toNumber(entry.market.priceChange24h) || 0) > 4)
-      .sort((left, right) => (toNumber(right.market.priceChange24h) || 0) - (toNumber(left.market.priceChange24h) || 0))[0];
-    if (heldWinner) {
-      return cryptoPaperOrder('sell', heldWinner.market, book, now, `Trim ${heldWinner.market.symbol} after ${formatSignedPercentApi(heldWinner.market.priceChange24h)} 24h run-up.`);
-    }
-
-    const drawdown = cryptoMarkets
-      .filter((market) => !isStablecoin(market.symbol) && (toNumber(market.priceChange24h) || 0) < 0)
-      .sort((left, right) => (toNumber(left.priceChange24h) || 0) - (toNumber(right.priceChange24h) || 0))[0];
-    if (!drawdown) return null;
-    return cryptoPaperOrder('buy', drawdown, book, now, `Mean-reversion entry after ${formatSignedPercentApi(drawdown.priceChange24h)} 24h drawdown.`);
-  }
-
-  if (strategyId === 'prediction-arb') {
+  if (strategyId === 'prediction_markets') {
     const market = activeMarkets
       .filter((entry) => Number.isFinite(entry.yesPrice) && entry.yesPrice > 0.12 && entry.yesPrice < 0.88)
       .sort((left, right) => (toNumber(right.liquidity) || 0) - (toNumber(left.liquidity) || 0))[0];

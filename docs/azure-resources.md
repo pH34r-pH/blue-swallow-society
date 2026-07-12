@@ -17,7 +17,7 @@ This document specifies the Azure infrastructure resources deployed for the Blue
 - **Type**: `Microsoft.Web/staticSites@2023-01-01`
 - **SKU**: Standard (enables custom domains, staging slots, linked APIs)
 - **Properties**: Minimal (relies on linked APIs and app settings)
-- **Outputs**: 
+- **Outputs**:
   - `defaultHostname`: Static web app URL
   - `resourceId`: Static web app ARM resource ID (used by the apex alias record)
 
@@ -88,7 +88,7 @@ The VM uses cloud-init to automatically configure the echo service:
 - **Type**: `Microsoft.CognitiveServices/accounts@2023-05-01`
 - **Kind**: OpenAI
 - **SKU**: S0 (standard)
-- **Outputs**: 
+- **Outputs**:
   - `endpoint`: OpenAI service endpoint URL
 
 ## Parameters

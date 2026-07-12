@@ -301,4 +301,4 @@ P0 should not expose arbitrary SQL-ish filtering. Keep query shapes product-spec
 - Greenfeed preload is allowed only for Green/public-owned-authorized sources.
 - Grey/orange/red enrichment is locally/owned-triggered and provenance-marked.
 - Every map cell exposes source class, freshness, confidence/salience, and caveats.
-- No raw PII or raw frames are retained or published by default.
+- No private PII, credentials, camera frames, or active/probe packet captures are retained or published by default; passively broadcast RF identifiers and management-frame metadata require explicit source/retention tags.

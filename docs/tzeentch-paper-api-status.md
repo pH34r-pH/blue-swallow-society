@@ -6,7 +6,7 @@
 
 ## Answer
 
-Yes: the Tzeentch paper API handler is working in a direct local function smoke test. It returned HTTP `200`, `ok: true`, `publicOnly: true`, `paperOnly: true`, and three paper books.
+Yes: the Tzeentch paper API handler is working in a direct local function smoke test. It returned HTTP `200`, `ok: true`, `publicOnly: true`, `paperOnly: true`, and three legacy warm-memory paper books. This smoke output predates the canonical five `$1,000 paper` book doctrine.
 
 The live smoke test produced:
 
@@ -22,7 +22,7 @@ The live smoke test produced:
 }
 ```
 
-Per-book first-iteration smoke output:
+Legacy per-book first-iteration smoke output:
 
 | Book | Equity | Cash | Positions | Pending orders | Total PnL | Return | Iteration |
 |---|---:|---:|---:|---:|---:|---:|---:|

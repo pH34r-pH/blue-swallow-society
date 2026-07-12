@@ -228,7 +228,11 @@ test('api/tzeentch returns a bearer-token protected read-only payload', async ()
   assert.equal(context.res.body.crypto.markets.length, 1);
   assert.equal(context.res.body.polymarket.newMarkets.length, 1);
   assert.equal(context.res.body.polymarket.resolvedMarkets.length, 1);
-  assert.equal(context.res.body.paperBooks.books.length, 3);
+  assert.equal(context.res.body.paperBooks.books.length, 5);
+  assert.equal(context.res.body.paperBooks.loop.field_naming.canonical_case, 'snake_case');
+  assert.deepEqual(context.res.body.paperBooks.loop.loop_topology.primary_loops, ['mosaic', 'murmurs']);
+  assert.ok(context.res.body.paperBooks.loop.loop_topology.supporting_loops.includes('bridge'));
+  assert.ok(context.res.body.paperBooks.books.every((book) => book.startingCash === 1000));
   assert.ok(context.res.body.paperBooks.books.some((book) => book.pendingOrders.length > 0));
   assert.match(context.res.body.crypto.markets[0].symbol, /BTC/);
   });

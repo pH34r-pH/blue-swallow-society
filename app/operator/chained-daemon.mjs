@@ -43,12 +43,12 @@ const SELF_PENTEST_RULES = Object.freeze([
   },
   {
     id: 'missing-human-review-gate',
-    title: 'Action path lacks human-review gate',
+    title: 'Non-investment action path lacks human-review gate',
     severity: 'medium',
-    matches: (asset) => asset.actionCapable && !asset.reviewRequired,
-    evidence: (asset) => `${asset.name} can propose or perform actions but reviewRequired=false.`,
-    repair: 'Add reviewRequired=true and block execution until the operator approves the exact action and scope.',
-    verification: 'Run governance tests that fail if write/spend/trade/actuation actions lack review gates.',
+    matches: (asset) => asset.actionCapable && !asset.reviewRequired && !isAuthorizedAutonomousInvestment(asset),
+    evidence: (asset) => `${asset.name} can propose or perform non-investment actions but reviewRequired=false.`,
+    repair: 'Add reviewRequired=true unless the action is an explicitly autonomous, risk-policy-bound Mosaic/Murmurs investment surface.',
+    verification: 'Run governance tests that distinguish autonomous investments from review-gated tool, write, spend, and actuation paths.',
   },
   {
     id: 'missing-security-headers',
@@ -79,12 +79,21 @@ const SELF_PENTEST_RULES = Object.freeze([
   },
   {
     id: 'paper-action-without-paper-only-gate',
-    title: 'Paper/financial action surface lacks paper-only review gates',
+    title: 'Paper/financial action surface is not isolated to paper execution',
     severity: 'high',
-    matches: (asset) => isPaperFinancialAsset(asset) && (!asset.paperOnly || !asset.reviewRequired),
-    evidence: (asset) => `${asset.name} is financial/action-capable with paperOnly=${asset.paperOnly} and reviewRequired=${asset.reviewRequired}.`,
-    repair: 'Mark the surface paperOnly=true, require human_review_required/reviewRequired=true, and block real-money/account-bound writes.',
-    verification: 'Run governance tests that paper actions cannot emit unreviewed buy/sell or real-money execution payloads.',
+    matches: (asset) => isPaperFinancialAsset(asset) && !asset.paperOnly,
+    evidence: (asset) => `${asset.name} is financial/action-capable with paperOnly=${asset.paperOnly}.`,
+    repair: 'Mark the surface paperOnly=true and block real-money/account-bound writes until a separate autonomous-capital policy authorizes them.',
+    verification: 'Run governance tests that paper actions cannot emit real-money execution payloads.',
+  },
+  {
+    id: 'autonomous-investment-without-risk-policy',
+    title: 'Autonomous investment surface lacks a bounded risk policy',
+    severity: 'high',
+    matches: (asset) => isPaperFinancialAsset(asset) && asset.autonomousInvestment && !asset.riskPolicyBound,
+    evidence: (asset) => `${asset.name} is autonomousInvestment=true with riskPolicyBound=${asset.riskPolicyBound}.`,
+    repair: 'Attach an explicit capital, exposure, drawdown, stale-data, and execution policy; autonomy does not require per-action human review.',
+    verification: 'Run governance tests proving autonomous investment remains bounded by machine-enforced risk and idempotent execution controls.',
   },
 ]);
 
@@ -640,6 +649,10 @@ function isPaperFinancialAsset(asset) {
   return PAPER_FINANCIAL_KINDS.has(asset.kind) || asset.tags.some((tag) => PAPER_FINANCIAL_KINDS.has(tag)) || asset.instrumentType || asset.paperActionCapable;
 }
 
+function isAuthorizedAutonomousInvestment(asset) {
+  return isPaperFinancialAsset(asset) && asset.autonomousInvestment && asset.riskPolicyBound;
+}
+
 function normalizeSelfPentestAssets(assets) {
   return (Array.isArray(assets) ? assets : [])
     .map((asset, index) => normalizeSelfPentestAsset(asset, index))
@@ -666,6 +679,8 @@ function normalizeSelfPentestAsset(asset, index) {
     actionCapable: asset.actionCapable === true,
     reviewRequired: asset.reviewRequired === true || asset.human_review_required === true,
     paperOnly: asset.paperOnly === true || asset.paper_only === true,
+    autonomousInvestment: asset.autonomousInvestment === true || asset.autonomous_investment === true,
+    riskPolicyBound: asset.riskPolicyBound === true || asset.risk_policy_bound === true,
     paperActionCapable: asset.paperActionCapable === true || asset.paper_action_capable === true,
     instrumentType: cleanString(asset.instrumentType || asset.instrument_type),
     toolCapabilities: normalizeStringArray(asset.toolCapabilities || asset.tool_capabilities || asset.capabilities).map((capability) => capability.toLowerCase()),

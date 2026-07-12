@@ -5,8 +5,8 @@ This starter repo gives you:
 - A **publicly accessible website** on **Azure Static Web Apps**
 - **GitHub Actions CI/CD** for the frontend, managed API, infrastructure, and custom-domain wiring
 - A small **Azure Functions proxy API** exposed as `/api/echo`, `/api/profile`, and `/api/agent`
-- An **Ubuntu VM** currently hosting a simple echo service, with a target path to become the Cybermap API gateway
-- A **Cybermap-first geospatial backend design** using Azure Database for PostgreSQL Flexible Server B1MS + PostGIS
+- An **Ubuntu VM** currently hosting a simple echo service; the first authenticated/idempotent Cybermap ingest service now exists in source but is not deployed
+- A **Cybermap-first geospatial backend design and P0 ingest implementation** using Azure Database for PostgreSQL Flexible Server B1MS + PostGIS
 - A clean place to add **local model experiments** later on the VM
 - An optional **Azure OpenAI** account, gated by a single Bicep parameter
 - Documentation to evolve toward **Microsoft Entra External ID** for customer sign-up/sign-in later
@@ -20,12 +20,14 @@ Azure Static Web App (public face + protected /operator console)
   ↓
 /api/* (managed Azure Functions proxy)
   ↓
-VM API gateway on Ubuntu (current scaffold: echo service)
+VM API gateway on Ubuntu (deployed scaffold: echo; source P0: authenticated ingest)
   ↓
 Azure Database for PostgreSQL Flexible Server B1MS + PostGIS (target Cybermap store)
 ```
 
 The browser never calls the VM directly. The frontend calls the Static Web App API, and the API proxies the request to the VM.
+
+The audited implementation-versus-design matrix is maintained in [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-system-implementation-delta.md). It distinguishes deployed, working-tree, prototype, schema-only, and designed-only capabilities across the website, VM/API, and Wardriver.
 
 ---
 
@@ -64,7 +66,9 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 ├── docs/
 │   ├── architecture.md
 │   ├── ai-options-and-budget.md
+│   ├── blue-swallow-system-implementation-delta.md
 │   ├── cybermap-geospatial-backend.md
+│   ├── wardriver-raid-backend-repair-plan.md
 │   ├── external-id-setup-checklist.md
 │   ├── mosaic-and-murmurs-operating-doctrine.md
 │   ├── mosaic-and-murmurs-s0-sensorium-proposal.md
@@ -88,12 +92,19 @@ The browser never calls the VM directly. The frontend calls the Static Web App A
 │   ├── vm-echo-lab.bicep           # VM + NSG + cloud-init + auto-shutdown
 │   └── modules/
 │       └── openai.bicep            # optional Azure OpenAI account
-└── scripts/
-    ├── local-dev.ps1
-    ├── mosaic-murmurs-morning-brief-collect.py  # public-source morning brief collector
-    ├── print-next-steps.sh
-    ├── wireup-custom-domains.py    # helper script used by CI for custom-domain wiring
-    └── wireup-backend-url.sh
+├── scripts/
+│   ├── local-dev.ps1
+│   ├── mosaic-murmurs-morning-brief-collect.py  # public-source morning brief collector
+│   ├── print-next-steps.sh
+│   ├── wireup-custom-domains.py    # helper script used by CI for custom-domain wiring
+│   └── wireup-backend-url.sh
+└── vm/
+    └── cybermap-api/
+        ├── README.md                    # P0 authenticated/idempotent ingest contract
+        ├── package.json
+        ├── src/                         # HTTP, validation, memory/PostgreSQL stores
+        ├── test/
+        └── db/migrations/               # ordered PostGIS + ingest migrations
 ```
 
 ## What the website does
@@ -105,6 +116,7 @@ The split behavior is server-side:
 - the canonical operator passcode is configured only as the GitHub/Azure secret `BLUE_SWALLOW_PASSCODE_SHA256`;
 - a matching passcode receives a signed operator session token and opens `/operator`;
 - any non-matching passcode falls through to the standard event-planning personal page;
+- the standard page currently renders an events calendar, list view, and local-browser supply-claim POC seeded with **The Great Northern Hoot** camping trip at Penrose Point State Park, site 83, July 17–20, 2026;
 - no browser bundle contains the canonical passcode literal or hash.
 
 The hidden operator half lives under `/operator` and `/agent`:

@@ -5,7 +5,7 @@
 **Scope:** Blue Swallow Society / Tzeentch / Mosaic & Murmurs / paper treasury
 **Related doctrine:** [`docs/mosaic-and-murmurs-operating-doctrine.md`](./mosaic-and-murmurs-operating-doctrine.md)
 **Related implementation:** [`Morning Brief Implementation`](./mosaic-and-murmurs-morning-brief-implementation.md)
-**Related proposals:** [`Dream Consolidation`](./mosaic-and-murmurs-dream-consolidation-proposal.md), [`S0 Sensorium`](./mosaic-and-murmurs-s0-sensorium-proposal.md)
+**Related proposals:** [`Dream Consolidation`](./mosaic-and-murmurs-dream-consolidation-proposal.md), [`S0 Sensorium`](./mosaic-and-murmurs-s0-sensorium-proposal.md), [`Paper Memory Loop`](./mosaic-and-murmurs-paper-memory-loop.md)
 
 ## Executive summary
 
@@ -26,7 +26,7 @@ The brief should end with a hard **paper book footer**: every open paper book, c
 3. Surface rising public-perception waves before they fully become mainstream news.
 4. Connect news/trend deltas to paper-only market theses without laundering hype into fact.
 5. Report per-book paper performance: up/down direction, absolute delta, percentage delta, open risk, and drawdown.
-6. Emit new paper `buy`, `sell`, `avoid`, or `watch` candidates only with evidence, counter-evidence, expiry, and human-review state.
+6. Emit and autonomously apply paper `buy`, `sell`, `avoid`, or `watch` decisions only with evidence, counter-evidence, expiry, idempotency, and machine-enforced risk-policy state.
 7. Keep provenance, confidence, source class, and retrieval time visible enough for audit.
 
 ## Non-goals
@@ -89,7 +89,7 @@ Required inputs:
 - closed/resolved paper positions and realized paper PnL
 - current paper marks/prices from allowed market-data adapters
 - proposed order candidates from the delta bridge
-- risk limits, cooldowns, and human-review status
+- risk limits, cooldowns, autonomous execution status, and idempotency state
 
 ## Morning brief shape
 
@@ -125,6 +125,7 @@ Every brief ends with a per-book table:
 | `crypto` | 0 | `$0 paper` | `$0 / 0.0%` | `$0 / 0.0%` | `0.0%` | `none` | `flat` |
 | `equity_watch` | 0 | `$0 paper` | `$0 / 0.0%` | `$0 / 0.0%` | `0.0%` | `watch only` | `no execution` |
 | `local_event_watch` | 0 | `$0 paper` | `$0 / 0.0%` | `$0 / 0.0%` | `0.0%` | `watch only` | `no execution` |
+| `ai_cyber_watch` | 0 | `$0 paper` | `$0 / 0.0%` | `$0 / 0.0%` | `0.0%` | `watch only` | `flat` |
 
 Book names are configurable. The brief must still report **each configured book** even if the book is flat.
 
@@ -139,7 +140,7 @@ Mosaic thesis: <evidence-bound claim>
 Murmurs signal: <perception/hype movement>
 Bridge delta: <truth/perception/market gap>
 Counter-evidence: <why this could be wrong>
-Review: human_review_required
+Execution: autonomous; risk_policy: passed; idempotency: <key>
 ```
 
 Use `PAPER SELL` for exits/reductions, `WATCH` for no-entry monitoring, and `AVOID` for hype that outruns truth.
@@ -185,33 +186,38 @@ type HypeWave = {
 };
 
 type PaperBookSummary = {
-  bookId: string;
-  displayName: string;
-  openPositionCount: number;
-  grossPaperExposure: number;
-  dailyPnl: number;
-  dailyPnlPct: number;
-  cumulativePnl: number;
-  cumulativePnlPct: number;
-  maxDrawdownPct: number;
-  status: 'flat' | 'up' | 'down' | 'mixed' | 'review_required';
+  book_id: 'prediction_markets' | 'crypto' | 'equity_watch' | 'local_event_watch' | 'ai_cyber_watch';
+  display_name: string;
+  starting_balance: 1000;
+  open_position_count: number;
+  gross_paper_exposure: number;
+  daily_pnl: number;
+  daily_pnl_pct: number;
+  cumulative_pnl: number;
+  cumulative_pnl_pct: number;
+  drawdown_pct: number;
+  stale_open_marks: number;
+  status: 'flat' | 'up' | 'down' | 'mixed' | 'stale' | 'review_required';
 };
 
 type PaperActionCandidate = {
-  id: string;
-  action: 'paper_buy' | 'paper_sell' | 'watch' | 'avoid';
-  bookId: string;
-  instrumentType: 'prediction_market' | 'crypto' | 'equity_watch' | 'other_paper_only';
-  instrumentRef: string;
-  paperSize: number;
+  candidate_id: string;
+  action: 'PAPER_BUY' | 'PAPER_SELL' | 'WATCH' | 'AVOID';
+  book_id: string;
+  instrument_type: 'prediction_market' | 'crypto' | 'equity_watch' | 'local_event_watch' | 'other_paper_only';
+  instrument_ref: string;
+  paper_size: number;
   thesis: string;
-  evidenceRefs: string[];
-  counterEvidenceRefs: string[];
-  entryCondition?: string;
-  exitCondition?: string;
-  expiresAt: string;
+  evidence_refs: string[];
+  counter_evidence_refs: string[];
+  entry_condition?: string;
+  exit_condition?: string;
+  expires_at: string;
   confidence: 'low' | 'medium' | 'high';
-  reviewRequired: true;
+  autonomous_execution: true;
+  risk_policy_passed: true;
+  idempotency_key: string;
+  paper_only: true;
 };
 ```
 
@@ -244,7 +250,7 @@ Bridge rank prefers deltas where Mosaic confidence, Murmurs velocity, and market
 
 ## Governance
 
-- Every action candidate is paper-only and review-required.
+- Every action is autonomous and paper-only, with machine-enforced capital, exposure, drawdown, cooldown, stale-data, and idempotency controls; no per-action human review gate exists.
 - The brief must distinguish `reported fact`, `official statement`, `unverified claim`, `viral narrative`, and `market-implied belief`.
 - US/WA relevance is a ranking boost, not a filter; global events can lead if materially important.
 - Social/trend sources are public-perception inputs; they do not promote to Mosaic fact memory without evidence.
@@ -288,7 +294,7 @@ Bridge rank prefers deltas where Mosaic confidence, Murmurs velocity, and market
 - The brief includes rising viral trends/hype waves as perception states, not facts.
 - The brief includes perceptual deltas that connect news/trends to markets only when source evidence supports the link.
 - The brief ends with a per-book paper footer showing up/down direction and magnitude.
-- New paper buy/sell candidates include book, instrument, paper size, evidence, counter-evidence, entry/exit logic, expiry, and `reviewRequired: true`.
+- New paper buy/sell decisions include book, instrument, paper size, evidence, counter-evidence, entry/exit logic, expiry, risk-policy result, and idempotency key.
 - Stale or missing market data prevents new paper orders for affected books and marks affected PnL as stale.
 - No real-money, account-bound, social-posting, or physical actions execute from the brief.
 
@@ -296,6 +302,6 @@ Bridge rank prefers deltas where Mosaic confidence, Murmurs velocity, and market
 
 1. What is the default delivery target: Discord home channel, local vault note, email, dashboard, or all?
 2. What exact source seed list should P0 use for Washington State and Seattle-area alerts?
-3. Which books are canonical at launch: `prediction_markets`, `crypto`, `equity_watch`, `local_event_watch`, or a different taxonomy?
+3. Which market-data adapters and mark-price rules should each canonical five-book lane trust at launch?
 4. Should weekends use the same format or a lighter weekend watch mode?
 5. What PnL basis should paper books use when market data is closed, delayed, or stale?

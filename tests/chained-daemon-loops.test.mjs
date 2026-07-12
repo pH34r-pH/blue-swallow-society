@@ -236,6 +236,54 @@ test('self-pentest detects prompt-tool and paper-action gate failures', () => {
   assert.ok(run.repairTickets.some((ticket) => ticket.findingKey === 'paper-action-without-paper-only-gate:paper-action-surface'));
 });
 
+test('autonomous Mosaic and Murmurs investment actions do not require human review', () => {
+  const run = buildChainedDaemonSelfPentestRun({
+    warrant: {
+      allowedAssetIds: ['autonomous-paper-treasury'],
+      operator: 'test-operator',
+    },
+    assets: [{
+      id: 'autonomous-paper-treasury',
+      name: 'Mosaic and Murmurs autonomous paper treasury',
+      owned: true,
+      authorized: true,
+      kind: 'paper-financial',
+      actionCapable: true,
+      paperOnly: true,
+      autonomousInvestment: true,
+      riskPolicyBound: true,
+      reviewRequired: false,
+      evidenceRefs: ['docs/mosaic-and-murmurs-operating-doctrine.md'],
+    }],
+  }, { now: NOW });
+
+  assert.ok(!run.findings.some((finding) => finding.ruleId === 'missing-human-review-gate'));
+  assert.ok(!run.findings.some((finding) => finding.ruleId === 'paper-action-without-paper-only-gate'));
+});
+
+test('autonomous investment actions without a risk policy remain a governance finding', () => {
+  const run = buildChainedDaemonSelfPentestRun({
+    warrant: {
+      allowedAssetIds: ['unbounded-autonomous-treasury'],
+      operator: 'test-operator',
+    },
+    assets: [{
+      id: 'unbounded-autonomous-treasury',
+      name: 'Unbounded autonomous treasury',
+      owned: true,
+      authorized: true,
+      kind: 'paper-financial',
+      actionCapable: true,
+      paperOnly: true,
+      autonomousInvestment: true,
+      riskPolicyBound: false,
+      reviewRequired: false,
+    }],
+  }, { now: NOW });
+
+  assert.ok(run.findings.some((finding) => finding.ruleId === 'autonomous-investment-without-risk-policy'));
+});
+
 test('tier 2 sensor fleet keeps expanded local sensors disabled until opt-in and privacy gates pass', () => {
   const manifest = buildTier2SensorFleetManifest({
     operator: 'test-operator',

@@ -70,7 +70,7 @@ The Blue Swallow Society static web application implements a cyberpunk/terminal-
 ### Buttons
 - **Primary**: Neon background with dark text, glow effect on hover
 - **Secondary**: Dark background with neon border and text
-- **States**: 
+- **States**:
   - Normal: Solid colors
   - Hover: Increased opacity/glow
   - Active/Pressed: Reduced opacity/scale
@@ -78,7 +78,7 @@ The Blue Swallow Society static web application implements a cyberpunk/terminal-
 - **Typography**: Monospace, medium weight, letter-spacing
 
 ### Tab System
-- **Tabs**: 
+- **Tabs**:
   - Active: Neon background with dark text
   - Inactive: Dark background with neon text/border
   - Hover: Slight brightness increase
@@ -86,7 +86,7 @@ The Blue Swallow Society static web application implements a cyberpunk/terminal-
 - **Indicators**: Active tab highlighted with color change
 
 ### Chat Interface
-- **Messages Container**: 
+- **Messages Container**:
   - Dark background
   - Scrollable with smooth scrolling
   - Padding for message bubbles
@@ -120,15 +120,15 @@ The Blue Swallow Society static web application implements a cyberpunk/terminal-
 - **Loading States**: Subtle animation or pulsing effect
 
 ### Interactive Elements
-- **Hover Effects**: 
+- **Hover Effects**:
   - Buttons: Brightness increase or glow
   - Links/Text: Underline or color shift
   - Cards/Panels: Subtle elevation or border change
-- **Focus States**: 
+- **Focus States**:
   - Outline: Neon color, 2px width
   - Outline-offset: 2px
   - Alternative: Background/color change
-- **Transitions**: 
+- **Transitions**:
   - Duration: 150ms-300ms
   - Easing: ease-in-out or cubic-bezier variants
   - Properties: background-color, border-color, opacity, transform
