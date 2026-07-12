@@ -156,7 +156,7 @@ test('Obscura renders Tzeentch sub-tabs and switches to the Crypto panel', async
         ok: true,
         operatorSession: {
           token: 'browser-token',
-          expiresAt: '2026-07-12T20:00:00Z',
+          expiresAt: '2099-07-12T20:00:00Z',
           ttlSeconds: 28800,
         },
       });
@@ -243,7 +243,7 @@ function operatorSessionSeedScript() {
     <script>
       sessionStorage.setItem('blue-swallow-society:operator-session', JSON.stringify({
         token: 'browser-token',
-        expiresAt: '2026-07-12T20:00:00Z',
+        expiresAt: '2099-07-12T20:00:00Z',
         ttlSeconds: 28800,
       }));
     </script>
@@ -302,7 +302,7 @@ function browserBootScript() {
           await sleep(50);
           sessionStorage.setItem('blue-swallow-society:operator-session', JSON.stringify({
             token: 'browser-token',
-            expiresAt: '2026-07-12T20:00:00Z',
+            expiresAt: '2099-07-12T20:00:00Z',
             ttlSeconds: 28800,
           }));
 
