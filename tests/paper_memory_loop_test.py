@@ -14,7 +14,7 @@ SCRIPT_PATH = REPO_ROOT / "scripts" / "mosaic-murmurs-paper-memory-loop.py"
 
 
 class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
-    def test_tick_writes_snake_case_records_for_two_primary_loops_and_five_books(self):
+    def test_tick_writes_snake_case_records_for_two_primary_loops_and_twenty_four_books(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             ledger_path = root / "ledger.json"
@@ -56,7 +56,7 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
             self.assertEqual(packet["field_naming"]["canonical_case"], "snake_case")
             self.assertEqual(packet["loop_topology"]["primary_loops"], ["mosaic", "murmurs"])
             self.assertIn("bridge", packet["loop_topology"]["supporting_loops"])
-            self.assertEqual(packet["paper_book_count"], 5)
+            self.assertEqual(packet["paper_book_count"], 24)
             self.assertEqual({book["starting_balance"] for book in packet["paper_books"]}, {2000.0})
             self.assertEqual({book["cash_balance"] for book in packet["paper_books"]}, {1000.0})
             self.assertEqual({book["gross_paper_exposure"] for book in packet["paper_books"]}, {1000.0})
@@ -67,13 +67,16 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
                 [run["loop_id"] for run in latest_state["last_runs"] if run["loop_role"] == "primary"],
                 ["mosaic", "murmurs"],
             )
-            self.assertEqual(len(latest_state["paper_books"]), 5)
+            self.assertEqual(len(latest_state["paper_books"]), 24)
+            self.assertEqual(latest_state["canonical_paper_state"]["schema_version"], "bss.paper_state.v2")
+            self.assertEqual(len(latest_state["canonical_paper_state"]["ledger"]["books"]), 24)
+            self.assertTrue(latest_state["canonical_paper_state"]["recent_paper_trades"])
             filled = [
                 candidate
                 for candidate in latest_state["last_paper_action_candidates"]
                 if candidate["status"] == "paper_filled"
             ]
-            self.assertAlmostEqual(sum(candidate["paper_size"] for candidate in filled), 5000.0, places=2)
+            self.assertAlmostEqual(sum(candidate["paper_size"] for candidate in filled), 24_000.0, places=2)
             self.assertTrue(all(candidate["autonomous_execution"] for candidate in filled))
             self.assertTrue(all(candidate["risk_policy_passed"] for candidate in filled))
             self.assertTrue(all(not candidate["human_review_required"] for candidate in filled))
@@ -82,10 +85,18 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
             self.assertTrue(all("run_id" in run and "started_at" in run for run in latest_state["last_runs"]))
             self.assertTrue(all("runId" not in run and "startedAt" not in run for run in latest_state["last_runs"]))
 
-            candidate_log = state_dir / "paper_action_candidates.jsonl"
-            event_log = state_dir / "paper_ledger_events.jsonl"
-            candidate_lines_before = candidate_log.read_text(encoding="utf-8").splitlines()
-            event_lines_before = event_log.read_text(encoding="utf-8").splitlines()
+            record_lines_before = {
+                name: Path(path).read_text(encoding="utf-8").splitlines()
+                for name, path in latest_state["record_files"].items()
+            }
+            interrupted_name = "paper_ledger_events"
+            interrupted_path = Path(latest_state["record_files"][interrupted_name])
+            interrupted_path.write_text("\n".join(record_lines_before[interrupted_name][:-1]) + "\n", encoding="utf-8")
+            replay_path = next((state_dir / "replay_states").glob("*.json"))
+            interrupted_journal = json.loads(replay_path.read_text(encoding="utf-8"))
+            interrupted_journal["committed"] = False
+            replay_path.write_text(json.dumps(interrupted_journal), encoding="utf-8")
+            (state_dir / "latest_state.json").unlink()
             replay = subprocess.run(
                 result.args,
                 cwd=REPO_ROOT,
@@ -99,8 +110,22 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
             self.assertEqual(replay_state["canonical_paper_state"], latest_state["canonical_paper_state"])
             self.assertEqual(replay_state["last_paper_action_candidates"], latest_state["last_paper_action_candidates"])
             self.assertEqual(replay_state["last_paper_ledger_events"], latest_state["last_paper_ledger_events"])
-            self.assertEqual(candidate_log.read_text(encoding="utf-8").splitlines(), candidate_lines_before)
-            self.assertEqual(event_log.read_text(encoding="utf-8").splitlines(), event_lines_before)
+            for name, path in replay_state["record_files"].items():
+                self.assertEqual(Path(path).read_text(encoding="utf-8").splitlines(), record_lines_before[name])
+
+            replay_record_path = next((state_dir / "replay_states").glob("*.json"))
+            replay_record = json.loads(replay_record_path.read_text(encoding="utf-8"))
+            replay_record["canonical_paper_state"]["generated_at"] = "2026-07-13T01:00:01Z"
+            replay_record_path.write_text(json.dumps(replay_record), encoding="utf-8")
+            corrupt_replay = subprocess.run(
+                result.args,
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertNotEqual(corrupt_replay.returncode, 0)
+            self.assertIn("canonical state digest mismatch", corrupt_replay.stderr)
 
 
 if __name__ == "__main__":

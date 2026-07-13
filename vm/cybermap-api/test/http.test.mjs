@@ -1,10 +1,205 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createCybermapApiServer } from '../src/server.mjs';
+import { createCybermapApiServer, validatePaperState } from '../src/server.mjs';
 import { MemoryObservationStore } from '../src/memory-store.mjs';
 import { hashToken } from '../src/auth.mjs';
 import { DEVICE_ID, INGEST_TOKEN, ingestHeaders, validBatch, validObservation, withServer } from './helpers.mjs';
+
+const PAPER_LINES = ['standard', 'aggressive', 'hyper_aggressive'];
+const PAPER_STRATEGIES = [
+  'prediction_markets',
+  'crypto',
+  'equity_watch',
+  'local_event_watch',
+  'ai_cyber_watch',
+  'cross_asset_momentum',
+  'contrarian_reversion',
+  'volatility_barbell',
+];
+const PAPER_BOOK_IDS = PAPER_LINES.flatMap((lineId) => PAPER_STRATEGIES.map((strategyId) => `${lineId}__${strategyId}`));
+const PAPER_NOW_MS = Date.parse('2026-07-11T18:43:00.000Z');
+
+function paperProfile(lineId) {
+  return {
+    target_gross_fraction: lineId === 'standard' ? 0.8 : lineId === 'aggressive' ? 0.95 : 1,
+    max_position_fraction: lineId === 'standard' ? 0.4 : lineId === 'aggressive' ? 0.65 : 1,
+    target_position_count: lineId === 'hyper_aggressive' ? 1 : lineId === 'aggressive' ? 2 : 3,
+    minimum_order_notional: lineId === 'standard' ? 40 : lineId === 'aggressive' ? 20 : 5,
+  };
+}
+
+function canonicalPaperState({ generatedAt = '2026-07-11T18:43:00.000Z' } = {}) {
+  const books = PAPER_BOOK_IDS.map((book_id) => {
+    const [line_id, strategy_id] = book_id.split('__');
+    const positionType = strategy_id === 'prediction_markets' ? 'prediction_market' : strategy_id === 'crypto' ? 'crypto' : 'equity';
+    return {
+      book_id,
+      display_name: `${line_id} / ${strategy_id}`,
+      line_id,
+      line_display_name: line_id,
+      strategy_id,
+      strategy_display_name: strategy_id,
+      aggression_profile: paperProfile(line_id),
+      loop_affinity: 'mosaic',
+      instrument_type: 'mixed',
+      strategy: 'test strategy',
+      starting_balance: 2000,
+      cash_balance: 1000,
+      initial_bank_capital: 1000,
+      initial_investment_capital: 1000,
+      additional_capital_contribution: 1000,
+      funding_migration_applied: true,
+      initial_allocation_complete: true,
+      initial_allocation_at: generatedAt,
+      positions: [{
+        position_id: `${book_id}:position`,
+        instrument_ref: `${positionType}:${book_id}:seed`,
+        instrument_type: positionType,
+        symbol: 'SEED',
+        title: 'Seed position',
+        quantity: positionType === 'prediction_market' ? 2000 : 1,
+        entry_price: positionType === 'prediction_market' ? 0.5 : 1000,
+        mark_price: positionType === 'prediction_market' ? 0.5 : 1000,
+        previous_mark_price: positionType === 'prediction_market' ? 0.5 : 1000,
+        cost_basis: 1000,
+        market_value: 1000,
+        mark_status: 'fresh',
+        source_id: 'test-source',
+        source_url: 'https://example.test/seed',
+        opened_at: generatedAt,
+        updated_at: generatedAt,
+      }],
+      realized_pnl: 0,
+      equity: 2000,
+      previous_equity: 2000,
+      high_water_mark: 2000,
+      max_drawdown_pct: 0,
+      last_trade_at: generatedAt,
+      last_decision_at: generatedAt,
+      status: 'flat',
+      postmortem_required: false,
+      crashed_at: null,
+      crash_reason: null,
+      created_at: generatedAt,
+      updated_at: generatedAt,
+    };
+  });
+  const summaries = books.map((book) => ({
+    book_id: book.book_id,
+    display_name: book.display_name,
+    line_id: book.line_id,
+    line_display_name: book.line_display_name,
+    strategy_id: book.strategy_id,
+    strategy_display_name: book.strategy_display_name,
+    aggression_profile: structuredClone(book.aggression_profile),
+    starting_balance: 2000,
+    cash_balance: 1000,
+    equity: 2000,
+    open_position_count: 1,
+    gross_paper_exposure: 1000,
+    daily_pnl: 0,
+    daily_pnl_pct: 0,
+    realized_pnl: 0,
+    unrealized_pnl: 0,
+    cumulative_pnl: 0,
+    cumulative_pnl_pct: 0,
+    drawdown_pct: 0,
+    max_drawdown_pct: 0,
+    stale_open_marks: 0,
+    status: 'flat',
+    postmortem_required: false,
+    crashed_at: null,
+  }));
+  const action = {
+    candidate_id: 'decision-1',
+    decision_id: 'decision-1',
+    idempotency_key: 'decision-key-1',
+    book_id: 'standard__crypto',
+    action: 'PAPER_BUY',
+    status: 'paper_filled',
+    instrument_ref: 'crypto:bitcoin',
+    instrument_type: 'crypto',
+    symbol: 'BTC',
+    paper_size: 100,
+    mark_price: 100,
+    thesis: 'test thesis',
+    risk_policy_checks: ['paper_only', 'fresh mark'],
+    risk_policy_passed: true,
+    paper_only: true,
+    autonomous_execution: true,
+    human_review_required: false,
+    review_required: false,
+    generated_at: generatedAt,
+    source_ref: 'test-source',
+    source_url: 'https://example.test/action',
+  };
+  const fill = {
+    event_id: 'fill-1',
+    decision_id: 'decision-1',
+    idempotency_key: 'decision-key-1',
+    book_id: 'standard__crypto',
+    event_type: 'paper_fill',
+    action: 'PAPER_BUY',
+    instrument_ref: 'crypto:bitcoin',
+    quantity: 1,
+    mark_price: 100,
+    paper_size: 100,
+    realized_pnl: 0,
+    cash_before: 1100,
+    cash_after: 1000,
+    position_quantity_before: 0,
+    position_quantity_after: 1,
+    generated_at: generatedAt,
+    paper_only: true,
+    autonomous_execution: true,
+  };
+  const mark = {
+    event_id: 'mark-1',
+    idempotency_key: 'mark-key-1',
+    event_type: 'mark',
+    generated_at: generatedAt,
+    paper_only: true,
+    ...structuredClone(summaries[0]),
+  };
+  return {
+    schema_version: 'bss.paper_state.v2',
+    generated_at: generatedAt,
+    paper_only: true,
+    autonomous_execution: true,
+    ledger: {
+      schema_version: 4,
+      currency: 'USD',
+      paper_only: true,
+      autonomous_execution: true,
+      book_dimensions: {
+        lines: PAPER_LINES.map((line_id, order) => ({ line_id, display_name: line_id, order })),
+        strategies: PAPER_STRATEGIES.map((strategy_id, order) => ({
+          strategy_id,
+          display_name: strategy_id,
+          order,
+        })),
+      },
+      books,
+      archived_books: [],
+      processed_idempotency_keys: ['paper-tick-2026-07-11T18:43:00Z'],
+      updated_at: generatedAt,
+    },
+    paper_books: summaries,
+    paper_action_candidates: [action],
+    paper_ledger_events: [fill, mark],
+    recent_paper_trades: [structuredClone(fill)],
+    governance: {
+      paper_only: true,
+      autonomous_paper_execution: true,
+      human_review_required_for_actions: false,
+      no_real_money_execution: true,
+      stale_marks_block_new_buys: true,
+      crash_requires_postmortem: true,
+      loss_budget: 'entire_book_balance',
+    },
+  };
+}
 
 function makeServer() {
   const store = new MemoryObservationStore({
@@ -236,24 +431,7 @@ test('serves token-gated Cybermap viewport reads from ingested real observations
 test('stores and serves one token-gated canonical autonomous paper state idempotently', async () => {
   const previousToken = process.env.BSS_PAPER_STATE_TOKEN;
   process.env.BSS_PAPER_STATE_TOKEN = 'test-paper-state-token-32-byte-minimum';
-  const state = {
-    schema_version: 'bss.paper_state.v1',
-    generated_at: '2026-07-11T18:43:00.000Z',
-    paper_only: true,
-    autonomous_execution: true,
-    ledger: {
-      schema_version: 3,
-      paper_only: true,
-      books: ['prediction_markets', 'crypto', 'equity_watch', 'local_event_watch', 'ai_cyber_watch'].map((book_id) => ({
-        book_id,
-        starting_balance: 2000,
-        cash_balance: 1000,
-        positions: [{ instrument_ref: `${book_id}:seed`, quantity: 1, mark_price: 1000 }],
-      })),
-    },
-    paper_books: [],
-    paper_action_candidates: [],
-  };
+  const state = canonicalPaperState();
   try {
     const { server } = makeServer();
     await withServer(server, async (baseUrl) => {
@@ -265,6 +443,26 @@ test('stores and serves one token-gated canonical autonomous paper state idempot
         'x-blue-swallow-paper-state-token': process.env.BSS_PAPER_STATE_TOKEN,
         'idempotency-key': 'paper-tick-2026-07-11T18:43:00Z',
       };
+      const malformed = structuredClone(state);
+      malformed.ledger.books[1] = structuredClone(malformed.ledger.books[0]);
+      const rejected = await fetch(`${baseUrl}/api/v1/paper/state`, {
+        method: 'PUT',
+        headers: { ...headers, 'idempotency-key': 'invalid-duplicate-book' },
+        body: JSON.stringify(malformed),
+      });
+      assert.equal(rejected.status, 400);
+      assert.equal((await rejected.json()).error, 'invalid_paper_state');
+
+      const unexpected = structuredClone(state);
+      unexpected.private_secret = 'must-not-store';
+      const unexpectedRejected = await fetch(`${baseUrl}/api/v1/paper/state`, {
+        method: 'PUT',
+        headers: { ...headers, 'idempotency-key': 'invalid-unexpected-field' },
+        body: JSON.stringify(unexpected),
+      });
+      assert.equal(unexpectedRejected.status, 400);
+      assert.equal((await unexpectedRejected.json()).error, 'invalid_paper_state');
+
       const first = await fetch(`${baseUrl}/api/v1/paper/state`, {
         method: 'PUT', headers, body: JSON.stringify(state),
       });
@@ -291,6 +489,168 @@ test('stores and serves one token-gated canonical autonomous paper state idempot
       assert.equal(body.source, 'mosaic-murmurs-paper-engine');
       assert.deepEqual(body.state, state);
     });
+  } finally {
+    if (previousToken === undefined) delete process.env.BSS_PAPER_STATE_TOKEN;
+    else process.env.BSS_PAPER_STATE_TOKEN = previousToken;
+  }
+});
+
+test('paper-state validator recursively rejects unknown nested fields and string numerics', () => {
+  assert.deepEqual(validatePaperState(canonicalPaperState(), PAPER_NOW_MS), canonicalPaperState());
+
+  const unknownMutations = [
+    (state) => { state.ledger.book_dimensions.private_secret = true; },
+    (state) => { state.ledger.book_dimensions.lines[0].private_secret = true; },
+    (state) => { state.ledger.book_dimensions.strategies[0].private_secret = true; },
+    (state) => { state.ledger.books[0].aggression_profile.private_secret = true; },
+    (state) => { state.ledger.books[0].positions[0].private_secret = true; },
+    (state) => { state.paper_books[0].aggression_profile.private_secret = true; },
+    (state) => { state.paper_action_candidates[0].private_secret = true; },
+    (state) => { state.paper_ledger_events[0].private_secret = true; },
+    (state) => { state.recent_paper_trades[0].private_secret = true; },
+    (state) => { state.governance.private_secret = true; },
+  ];
+  for (const mutate of unknownMutations) {
+    const state = canonicalPaperState();
+    mutate(state);
+    assert.throws(
+      () => validatePaperState(state, PAPER_NOW_MS),
+      (error) => error.code === 'invalid_paper_state' && error.statusCode === 400,
+    );
+  }
+
+  const numericMutations = [
+    (state) => { state.ledger.schema_version = '4'; },
+    (state) => { state.ledger.book_dimensions.lines[0].order = '0'; },
+    (state) => { state.ledger.books[0].aggression_profile.target_gross_fraction = '0.8'; },
+    (state) => { state.ledger.books[0].starting_balance = '2000'; },
+    (state) => { state.ledger.books[0].positions[0].quantity = '1'; },
+    (state) => { state.paper_books[0].equity = '2000'; },
+    (state) => { state.paper_action_candidates[0].paper_size = '100'; },
+    (state) => { state.paper_ledger_events[0].cash_after = '1000'; },
+    (state) => { state.recent_paper_trades[0].mark_price = '100'; },
+  ];
+  for (const mutate of numericMutations) {
+    const state = canonicalPaperState();
+    mutate(state);
+    assert.throws(() => validatePaperState(state, PAPER_NOW_MS), { code: 'invalid_paper_state' });
+  }
+});
+
+test('paper-state validator bounds risk checks, validates source URLs, and caps every variable collection', () => {
+  const malformedRiskChecks = canonicalPaperState();
+  malformedRiskChecks.paper_action_candidates[0].risk_policy_checks = 'paper_only';
+  assert.throws(() => validatePaperState(malformedRiskChecks, PAPER_NOW_MS), { code: 'invalid_paper_state' });
+
+  const tooManyRiskChecks = canonicalPaperState();
+  tooManyRiskChecks.paper_action_candidates[0].risk_policy_checks = Array.from({ length: 33 }, (_, index) => `check-${index}`);
+  assert.throws(() => validatePaperState(tooManyRiskChecks, PAPER_NOW_MS), { code: 'invalid_paper_state' });
+
+  const oversizedRiskCheck = canonicalPaperState();
+  oversizedRiskCheck.paper_action_candidates[0].risk_policy_checks = ['x'.repeat(257)];
+  assert.throws(() => validatePaperState(oversizedRiskCheck, PAPER_NOW_MS), { code: 'invalid_paper_state' });
+
+  for (const mutate of [
+    (state) => { state.ledger.books[0].positions[0].source_url = 'javascript:alert(1)'; },
+    (state) => { state.paper_action_candidates[0].source_url = 'https://user:password@example.test/private'; },
+  ]) {
+    const state = canonicalPaperState();
+    mutate(state);
+    assert.throws(() => validatePaperState(state, PAPER_NOW_MS), { code: 'invalid_paper_state' });
+  }
+
+  const collectionMutations = [
+    (state) => {
+      const position = state.ledger.books[0].positions[0];
+      state.ledger.books[0].positions = Array.from({ length: 65 }, (_, index) => ({
+        ...structuredClone(position),
+        position_id: `position-${index}`,
+        instrument_ref: `instrument-${index}`,
+      }));
+    },
+    (state) => {
+      state.ledger.archived_books = Array.from({ length: 65 }, (_, index) => ({
+        book_id: `legacy-${index}`,
+        archived_at: state.generated_at,
+        archive_reason: 'migration',
+      }));
+    },
+    (state) => { state.ledger.processed_idempotency_keys = Array.from({ length: 513 }, (_, index) => `tick-${index}`); },
+    (state) => {
+      const action = state.paper_action_candidates[0];
+      state.paper_action_candidates = Array.from({ length: 257 }, (_, index) => ({
+        ...structuredClone(action), candidate_id: `candidate-${index}`, decision_id: `decision-${index}`, idempotency_key: `action-${index}`,
+      }));
+    },
+    (state) => {
+      const event = state.paper_ledger_events[0];
+      state.paper_ledger_events = Array.from({ length: 257 }, (_, index) => ({
+        ...structuredClone(event), event_id: `event-${index}`, idempotency_key: `event-${index}`,
+      }));
+    },
+    (state) => {
+      const fill = state.recent_paper_trades[0];
+      state.recent_paper_trades = Array.from({ length: 65 }, (_, index) => ({
+        ...structuredClone(fill), event_id: `recent-${index}`, idempotency_key: `recent-${index}`,
+      }));
+    },
+  ];
+  for (const mutate of collectionMutations) {
+    const state = canonicalPaperState();
+    mutate(state);
+    assert.throws(() => validatePaperState(state, PAPER_NOW_MS), { code: 'invalid_paper_state' });
+  }
+});
+
+test('paper-state validator enforces strict RFC3339, future skew, three-hour freshness, and nested timestamps', () => {
+  for (const generatedAt of [
+    '2026-07-11T15:42:59.999Z',
+    '2026-07-11 18:43:00Z',
+    '2026-02-30T18:43:00Z',
+    '2026-07-11T18:48:00.001Z',
+  ]) {
+    assert.throws(
+      () => validatePaperState(canonicalPaperState({ generatedAt }), PAPER_NOW_MS),
+      { code: 'invalid_paper_state' },
+    );
+  }
+
+  const nestedTimestampMutations = [
+    (state) => { state.ledger.updated_at = '2026-07-11 18:43:00Z'; },
+    (state) => { state.ledger.books[0].created_at = 'not-a-timestamp'; },
+    (state) => { state.ledger.books[0].positions[0].updated_at = '2026-02-30T18:43:00Z'; },
+    (state) => { state.paper_books[0].crashed_at = 'tomorrow'; },
+    (state) => { state.paper_action_candidates[0].generated_at = '2026-07-11T18:48:00.001Z'; },
+    (state) => { state.paper_ledger_events[0].generated_at = '2026-07-11T18:43Z'; },
+    (state) => { state.recent_paper_trades[0].generated_at = '2026-07-11'; },
+  ];
+  for (const mutate of nestedTimestampMutations) {
+    const state = canonicalPaperState();
+    mutate(state);
+    assert.throws(() => validatePaperState(state, PAPER_NOW_MS), { code: 'invalid_paper_state' });
+  }
+});
+
+test('paper-state GET returns 503 instead of serving stale or corrupt stored state', async () => {
+  const previousToken = process.env.BSS_PAPER_STATE_TOKEN;
+  process.env.BSS_PAPER_STATE_TOKEN = 'test-paper-state-token-32-byte-minimum';
+  try {
+    for (const state of [canonicalPaperState({ generatedAt: '2026-07-11T15:42:59.999Z' }), { corrupt: true }]) {
+      const store = {
+        async ready() { return { ok: true }; },
+        async getPaperState() {
+          return { idempotencyKey: 'stored-state', appliedAt: '2026-07-11T18:43:00.000Z', state };
+        },
+      };
+      const server = createCybermapApiServer({ store, now: () => PAPER_NOW_MS });
+      await withServer(server, async (baseUrl) => {
+        const response = await fetch(`${baseUrl}/api/v1/paper/state`, {
+          headers: { 'x-blue-swallow-paper-state-token': process.env.BSS_PAPER_STATE_TOKEN },
+        });
+        assert.equal(response.status, 503);
+        assert.deepEqual(await response.json(), { ok: false, error: 'paper_state_unavailable' });
+      });
+    }
   } finally {
     if (previousToken === undefined) delete process.env.BSS_PAPER_STATE_TOKEN;
     else process.env.BSS_PAPER_STATE_TOKEN = previousToken;

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { PostgresObservationStore } from '../src/postgres-store.mjs';
 import { hashToken } from '../src/auth.mjs';
 import { DEVICE_ID, INGEST_TOKEN, validBatch } from './helpers.mjs';
+import { hashCanonicalJson } from '../src/contracts.mjs';
 
 class ScriptedClient {
   constructor(steps) {
@@ -275,6 +276,68 @@ test('Postgres applyBatch validates durable replay receipts before returning the
     new PostgresObservationStore({ pool }).applyBatch({ credential: credentialRow, batch }),
     (error) => error.code === 'storage_contract_rejected' && error.statusCode === 422,
   );
+});
+
+test('Postgres paper snapshots replay exact key/payload and keep the transaction serialized', async () => {
+  const state = { generated_at: '2026-07-11T18:43:00.000Z', sequence: 1 };
+  const payloadHash = hashCanonicalJson(state);
+  const pool = new FakePool({ clientSteps: [
+    { sql: /^BEGIN$/i },
+    { sql: /SET LOCAL lock_timeout/i },
+    { sql: /pg_advisory_xact_lock\(hashtextextended\('mosaic-murmurs-paper-state'/i },
+    {
+      sql: /FROM paper_state_updates[\s\S]*FOR UPDATE/i,
+      rows: [{ payload_hash: payloadHash, state }],
+    },
+    { sql: /^COMMIT$/i },
+  ] });
+
+  const result = await new PostgresObservationStore({ pool }).putPaperState({
+    idempotencyKey: 'paper-key-1',
+    state: structuredClone(state),
+  });
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.replayed, true);
+  assert.deepEqual(result.state, state);
+  assert.equal(pool.client.released, true);
+  assert.equal(pool.client.unconsumedSteps, 0);
+});
+
+test('Postgres paper snapshots reject older and equal-time changed payloads under the state lock', async () => {
+  const currentState = { generated_at: '2026-07-11T18:43:00.000Z', sequence: 1 };
+  const currentHash = hashCanonicalJson(currentState);
+  const cases = [
+    {
+      state: { ...currentState, generated_at: '2026-07-11T18:42:59.999Z' },
+      code: 'stale_paper_state',
+    },
+    {
+      state: { ...currentState, sequence: 2 },
+      code: 'paper_state_conflict',
+    },
+  ];
+  for (const scenario of cases) {
+    const pool = new FakePool({ clientSteps: [
+      { sql: /^BEGIN$/i },
+      { sql: /SET LOCAL lock_timeout/i },
+      { sql: /pg_advisory_xact_lock\(hashtextextended\('mosaic-murmurs-paper-state'/i },
+      { sql: /FROM paper_state_updates[\s\S]*FOR UPDATE/i, rows: [] },
+      {
+        sql: /FROM paper_state_current[\s\S]*FOR UPDATE/i,
+        rows: [{ generated_at: new Date(currentState.generated_at), payload_hash: currentHash }],
+      },
+      { sql: /^ROLLBACK$/i },
+    ] });
+    await assert.rejects(
+      new PostgresObservationStore({ pool }).putPaperState({
+        idempotencyKey: `paper-${scenario.code}`,
+        state: scenario.state,
+      }),
+      (error) => error.code === scenario.code && error.statusCode === 409,
+    );
+    assert.equal(pool.client.released, true);
+    assert.equal(pool.client.unconsumedSteps, 0);
+  }
 });
 
 test('Postgres applyBatch fails fast instead of blocking indefinitely on an in-flight batch lock', async () => {

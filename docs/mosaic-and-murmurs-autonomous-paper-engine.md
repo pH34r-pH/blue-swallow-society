@@ -1,27 +1,40 @@
 # Mosaic & Murmurs Autonomous Paper Engine
 
-Status: implemented contract target
+Status: implemented 3×8 contract
 Scope: autonomous **paper-only** simulation; no brokerage, wallet, exchange, account-bound write, or real-money adapter
 
 ## Capital contract
 
-Each canonical book begins with `$2,000` paper equity:
+Each of the 24 independent books begins with exactly `$2,000` paper equity:
 
-- `$1,000` initial bank allocation;
-- `$1,000` additional contribution, which must be converted to fresh-mark paper positions on the first eligible tick;
-- post-seed target: exactly `$1,000` gross paper exposure and `$1,000` cash.
+- `$1,000` initial investment capital, converted into fresh-mark seed positions on the first eligible tick;
+- `$1,000` bank capital;
+- no cross-book cash, positions, P/L, high-water mark, or crash state.
 
-The contribution is idempotent. Migrating a schema-v2 `$1,000` flat book applies it once; replaying the same or later tick never contributes it again.
+The first allocation is idempotent. The next eligible tick moves each line toward its aggression target. A schema-v2/v3 legacy five-book ledger is archived for audit and replaced by a clean 24-book matrix; legacy losses are not inherited by the new books.
 
-## Canonical books and seed baskets
+## Three aggression lines
 
-| Book | Initial paper allocation |
-|---|---|
-| `prediction_markets` | `$500` YES + `$500` NO in the same highest-liquidity eligible binary market. This is a market-neutral starting benchmark, not a directional claim. |
-| `crypto` | Equal-weight BTC, ETH, and SOL. |
-| `equity_watch` | Equal-weight SPY, QQQ, and MSFT. |
-| `local_event_watch` | Equal-weight MSFT, AMZN, COST, SBUX, and BA as a transparent Seattle/Redmond/PNW economic proxy basket. |
-| `ai_cyber_watch` | Equal-weight HACK, CIBR, and AIQ. |
+| Line | Target gross exposure | Target positions | Single-position cap | Material-order threshold | Intent |
+|---|---:|---:|---:|---:|---|
+| `standard` | 80% of equity | 3 | 40% | `$40` | aggressive baseline with a modest reserve |
+| `aggressive` | 95% of equity | 2 | 65% | `$20` | concentrated rotation with little idle cash |
+| `hyper_aggressive` | 100% of equity | 1 | 100% | `$5` | all-in concentration on the strategy's selected mark |
+
+All lines seed with the same `$1,000` exposure / `$1,000` bank starting point. Aggression changes concentration, deployed capital, and turnover after seed; it does not create leverage or negative cash.
+
+## Eight strategy archetypes
+
+| Strategy | Initial `$1,000` seed | Selection rule after seed |
+|---|---|---|
+| `prediction_markets` | `$500` YES + `$500` NO in the highest-liquidity eligible binary market | one favored outcome per market, ranked by explicit signal then momentum/liquidity |
+| `crypto` | equal-weight BTC, ETH, SOL | strongest liquid crypto momentum |
+| `equity_watch` | equal-weight SPY, QQQ, MSFT | strongest index/large-cap momentum |
+| `local_event_watch` | equal-weight MSFT, AMZN, COST, SBUX, BA | strongest PNW economic-proxy momentum |
+| `ai_cyber_watch` | equal-weight HACK, CIBR, AIQ | strongest AI/cyber thematic momentum |
+| `cross_asset_momentum` | equal-weight BTC, QQQ, AIQ | strongest marks across crypto and equity risk assets |
+| `contrarian_reversion` | equal-weight ETH, AMZN, CIBR | weakest liquid cross-asset marks, deliberately testing mean reversion |
+| `volatility_barbell` | equal-weight SPY, SOL, AIQ | alternating strongest and weakest high-beta marks |
 
 No synthetic price is allowed. A book seeds only when every required mark is valid and fresh. A source outage blocks that book rather than fabricating a fill.
 
@@ -43,50 +56,32 @@ The engine is a pure transition:
   -> (next ledger, action decisions, append-only ledger events)
 ```
 
-After initial allocation, each book computes target notionals:
+After initial allocation, each book ranks every fresh instrument eligible for its strategy and computes target notionals from its aggression profile. Momentum strategies remain allocated even when every signal is negative: they choose the least-bad eligible marks rather than liquidating defensively. Contrarian and barbell strategies use their own deterministic ordering. Sells execute before buys in the same rebalance so rotation does not create a temporary cash-out bias.
 
-- prediction markets: hold the neutral YES/NO seed unless an explicit evidence-derived `signal_score` crosses the directional threshold; then rebalance toward the supported side;
-- crypto/equity/local/AI-cyber baskets: rank fresh instruments by normalized momentum. Positive instruments receive target exposure; non-positive instruments are reduced or exited;
-- the engine trades only a material target delta and records `WATCH` when the delta is below the threshold.
+No LLM text directly executes a fill. LLM output may supply evidence or a bounded signal input, but deterministic policy owns pricing, selection, sizing, and accounting.
 
-No LLM text directly executes a fill. LLM output may supply evidence or a bounded signal input, but deterministic policy owns pricing, risk, sizing, and accounting.
-
-## Risk policy
+## Risk and terminal policy
 
 Machine-enforced before every autonomous fill:
 
-- `paper_only == true` and no real-execution adapter exists;
+- `paper_only == true`; no real-execution adapter exists;
 - fresh instrument mark and source provenance required;
-- exactly one contribution/seed migration per book;
-- maximum target gross exposure: 50% of current book equity;
-- maximum single-instrument exposure: 25% of current book equity;
-- maximum one-order notional: `$500`;
-- minimum material order: `$25`;
-- no leverage, shorting, or negative cash;
-- one-hour buy/rebalance cooldown per book; risk-reducing sells remain allowed;
-- 10% drawdown stop and 5% daily-loss stop block buys but permit exits;
+- exactly one `$1,000` seed allocation per book;
+- profile-specific gross exposure, concentration, order maximum, and materiality threshold;
+- no leverage, shorting, cross-book transfers, or negative cash;
 - deterministic idempotency keys suppress replayed decisions and fills;
-- stale or incomplete marks produce `AVOID`/blocked decisions, never a buy;
-- human review is not required for policy-passing paper fills, but every decision remains operator-auditable.
+- stale or incomplete marks produce blocked decisions, never fabricated buys;
+- no drawdown stop, daily-loss stop, or negative-momentum cash-out rule;
+- policy-passing paper fills require no human review.
 
-## Accounting and records
+The full `$2,000` balance is the book's loss budget. When marked equity reaches `$0.01` or less after initial allocation, the book enters terminal `crashed` state, emits `book_crashed` plus `POSTMORTEM_REQUIRED`, and stops trading. Restart requires a human postmortem that distinguishes bad luck from a bad strategy; ordinary trades remain autonomous.
 
-Canonical persisted data is snake_case.
+## Accounting, sync, and status
 
-Each fill records:
+Canonical persisted data is snake_case. Ledger schema is `4`; synchronized paper-state schema is `bss.paper_state.v2`.
 
-- decision, order, and event IDs;
-- run/idempotency key;
-- book and instrument identity;
-- action, quantity, mark, notional, and source reference;
-- risk-policy checks and pass/fail result;
-- pre/post cash, position quantity, and book equity;
-- `paper_only: true`, `autonomous_execution: true`, and `human_review_required: false` for accepted fills.
+Each book persists line and strategy identity, aggression profile, cash, positions, realized/unrealized P/L, equity, high-water mark, drawdown, prior-close snapshot, crash state, last trade time, and processed idempotency keys. Legacy five-book state is retained under `archived_books`.
 
-Books persist cash, positions, realized and unrealized P/L, equity, high-water mark, current drawdown, maximum drawdown, prior close snapshot, last trade time, and processed idempotency keys.
+Each fill records decision/order/event IDs, idempotency key, book and instrument identity, action, quantity, mark, notional, provenance, risk checks, pre/post accounting, and paper-only governance. The synchronized state includes bounded `recent_paper_trades` so dashboards and graphic renderers can show durable activity rather than only the current tick.
 
-The ledger snapshot is a materialized projection. Action decisions and ledger events remain append-only audit records.
-
-## Ownership boundary
-
-The local scheduled Python engine is the sole decision/risk/execution owner. Browser GET requests must not create fills. The Tzeentch UI is a read adapter over the latest materialized state. A VM/Postgres synchronization boundary may durably store ticks, decisions, and events, but it must not contain a second strategy engine.
+The local scheduled Python engine is the sole decision/risk/execution owner. Browser GET requests never create fills. The VM API validates the complete 3×8 matrix and stores the latest canonical state. Tzeentch and morning-brief collectors are read adapters over that state.

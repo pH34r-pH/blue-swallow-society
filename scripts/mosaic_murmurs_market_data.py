@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from typing import Any, Callable
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 USER_AGENT = "BlueSwallowSociety/1.0 (+https://blueswallow.net)"
@@ -26,18 +26,20 @@ POLYMARKET_URL = "https://gamma-api.polymarket.com/markets?" + urlencode(
         "ascending": "false",
     }
 )
+POLYMARKET_MARKET_URL = "https://gamma-api.polymarket.com/markets/{market_id}"
 CBOE_URL = "https://cdn.cboe.com/api/global/delayed_quotes/quotes/{symbol}.json"
+CROSS_ASSET_BOOK_TAGS = ["cross_asset_momentum", "contrarian_reversion", "volatility_barbell"]
 EQUITY_BOOK_TAGS = {
-    "SPY": ["equity_watch"],
-    "QQQ": ["equity_watch"],
-    "MSFT": ["equity_watch", "local_event_watch"],
-    "AMZN": ["local_event_watch"],
-    "COST": ["local_event_watch"],
-    "SBUX": ["local_event_watch"],
-    "BA": ["local_event_watch"],
-    "HACK": ["ai_cyber_watch"],
-    "CIBR": ["ai_cyber_watch"],
-    "AIQ": ["ai_cyber_watch"],
+    "SPY": ["equity_watch", *CROSS_ASSET_BOOK_TAGS],
+    "QQQ": ["equity_watch", *CROSS_ASSET_BOOK_TAGS],
+    "MSFT": ["equity_watch", "local_event_watch", *CROSS_ASSET_BOOK_TAGS],
+    "AMZN": ["local_event_watch", *CROSS_ASSET_BOOK_TAGS],
+    "COST": ["local_event_watch", *CROSS_ASSET_BOOK_TAGS],
+    "SBUX": ["local_event_watch", *CROSS_ASSET_BOOK_TAGS],
+    "BA": ["local_event_watch", *CROSS_ASSET_BOOK_TAGS],
+    "HACK": ["ai_cyber_watch", *CROSS_ASSET_BOOK_TAGS],
+    "CIBR": ["ai_cyber_watch", *CROSS_ASSET_BOOK_TAGS],
+    "AIQ": ["ai_cyber_watch", *CROSS_ASSET_BOOK_TAGS],
 }
 
 
@@ -159,7 +161,7 @@ def parse_coingecko_markets(payload: Any, now: datetime) -> list[dict[str, Any]]
                 "as_of": as_of,
                 "source_id": "coingecko_markets",
                 "source_url": f"https://www.coingecko.com/en/coins/{asset_id}",
-                "book_tags": ["crypto"],
+                "book_tags": ["crypto", *CROSS_ASSET_BOOK_TAGS],
             }
         )
     return instruments
@@ -181,12 +183,19 @@ def parse_polymarket_markets(payload: Any, now: datetime) -> list[dict[str, Any]
         names = {name for name, _ in normalized}
         if not {"YES", "NO"}.issubset(names):
             continue
-        as_of = normalize_iso(market.get("updatedAt") or market.get("createdAt")) or iso_z(now)
+        as_of = normalize_iso(market.get("updatedAt") or market.get("createdAt"))
+        if as_of is None:
+            continue
+        settled = market.get("closed") is True
+        if settled:
+            settled_marks = sorted(mark for name, mark in normalized if name in {"YES", "NO"})
+            if settled_marks != [0.0, 1.0]:
+                continue
         title = str(market.get("question") or market.get("title") or market_id)
         slug = str(market.get("slug") or "")
         source_url = f"https://polymarket.com/event/{slug}" if slug else "https://polymarket.com/"
         for outcome, mark in normalized:
-            if outcome not in {"YES", "NO"} or not 0 < mark < 1:
+            if outcome not in {"YES", "NO"} or (not settled and not 0 < mark < 1):
                 continue
             instruments.append(
                 {
@@ -208,9 +217,31 @@ def parse_polymarket_markets(payload: Any, now: datetime) -> list[dict[str, Any]
                     "source_id": "polymarket_gamma",
                     "source_url": source_url,
                     "book_tags": ["prediction_markets"],
+                    "settled": settled,
                 }
             )
     return instruments
+
+
+def held_prediction_market_ids(ledger: Any) -> list[str]:
+    market_ids: set[str] = set()
+    if not isinstance(ledger, dict) or not isinstance(ledger.get("books"), list):
+        return []
+    for book in ledger["books"]:
+        if not isinstance(book, dict) or not isinstance(book.get("positions"), list):
+            continue
+        for position in book["positions"]:
+            if not isinstance(position, dict) or position.get("instrument_type") != "prediction_market":
+                continue
+            market_id = position.get("market_id")
+            if not isinstance(market_id, str) or not market_id.strip():
+                instrument_ref = position.get("instrument_ref")
+                if isinstance(instrument_ref, str) and instrument_ref.startswith("polymarket:"):
+                    parts = instrument_ref.split(":")
+                    market_id = parts[1] if len(parts) >= 3 else ""
+            if isinstance(market_id, str) and market_id.strip() and len(market_id.strip()) <= 200:
+                market_ids.add(market_id.strip())
+    return sorted(market_ids)
 
 
 def collect_market_snapshot(
@@ -218,6 +249,7 @@ def collect_market_snapshot(
     *,
     timeout: int = 12,
     fetcher: Callable[[str, int], Any] = fetch_json,
+    held_prediction_market_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     current = now or datetime.now(timezone.utc)
     instruments: list[dict[str, Any]] = []
@@ -233,6 +265,21 @@ def collect_market_snapshot(
     except Exception as exc:
         errors.append({"source_id": "polymarket_gamma", "error": f"{type(exc).__name__}: {exc}"})
 
+    active_market_ids = {
+        str(item.get("market_id"))
+        for item in instruments
+        if item.get("instrument_type") == "prediction_market" and item.get("market_id")
+    }
+    for market_id in sorted(set(held_prediction_market_ids or [])):
+        if not isinstance(market_id, str) or not market_id or len(market_id) > 200 or market_id in active_market_ids:
+            continue
+        url = POLYMARKET_MARKET_URL.format(market_id=quote(market_id, safe=""))
+        try:
+            payload = fetcher(url, timeout)
+            instruments.extend(parse_polymarket_markets([payload] if isinstance(payload, dict) else [], current))
+        except Exception as exc:
+            errors.append({"source_id": f"polymarket_gamma:{market_id}", "error": f"{type(exc).__name__}: {exc}"})
+
     for symbol, book_tags in EQUITY_BOOK_TAGS.items():
         try:
             parsed = parse_cboe_quote(fetcher(CBOE_URL.format(symbol=symbol), timeout), current, book_tags)
@@ -243,6 +290,12 @@ def collect_market_snapshot(
         except Exception as exc:
             errors.append({"source_id": f"cboe:{symbol}", "error": f"{type(exc).__name__}: {exc}"})
 
+    deduplicated = {
+        item["instrument_ref"]: item
+        for item in instruments
+        if isinstance(item.get("instrument_ref"), str)
+    }
+    instruments = [deduplicated[ref] for ref in sorted(deduplicated)]
     return {
         "schema_version": 1,
         "generated_at": iso_z(current),

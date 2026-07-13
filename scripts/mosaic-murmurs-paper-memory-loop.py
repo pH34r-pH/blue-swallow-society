@@ -8,17 +8,23 @@ marks, and append-only audit records. It has no real-money execution adapter.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
 import sys
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from mosaic_murmurs_market_data import collect_market_snapshot as collect_live_market_snapshot
-from mosaic_murmurs_paper_sync import PaperSyncError, build_paper_state, read_token_file, sync_paper_state
+from mosaic_murmurs_market_data import (
+    collect_market_snapshot as collect_live_market_snapshot,
+    held_prediction_market_ids,
+)
+from mosaic_murmurs_paper_sync import PaperSyncError, build_paper_state, read_token_file, sync_paper_state, validate_paper_state
 from mosaic_murmurs_paper_engine import (
+    BOOK_IDS as ENGINE_BOOK_IDS,
     BOOK_SPECS as ENGINE_BOOK_SPECS,
     default_ledger as engine_default_ledger,
     migrate_ledger as engine_migrate_ledger,
@@ -135,6 +141,15 @@ def stable_id(prefix: str, *parts: Any) -> str:
     return f"{prefix}_{digest}"
 
 
+def canonical_json_hash(value: Any) -> str:
+    encoded = json.dumps(value, separators=(",", ":"), sort_keys=True, ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def replay_record_path(state_dir: Path, engine_key: str) -> Path:
+    return state_dir / "replay_states" / f"{hashlib.sha256(engine_key.encode('utf-8')).hexdigest()}.json"
+
+
 def load_json(path: Path, default: Any) -> Any:
     try:
         if path.exists():
@@ -146,16 +161,102 @@ def load_json(path: Path, default: Any) -> Any:
 
 def write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    encoded = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent, delete=False) as handle:
+            temporary_path = Path(handle.name)
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+        directory_fd = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
+def record_identity(record: dict[str, Any]) -> str:
+    for key in ("event_id", "decision_id", "patch_id", "fragment_id", "run_id", "reliability_event_id"):
+        value = record.get(key)
+        if isinstance(value, str) and value:
+            return f"{key}:{value}"
+    return f"hash:{canonical_json_hash(record)}"
 
 
 def append_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
     if not records:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
+    existing: dict[str, str] = {}
+    if path.exists():
+        with path.open("r", encoding="utf-8") as handle:
+            for line_number, line in enumerate(handle, start=1):
+                if not line.strip():
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    raise RuntimeError(f"corrupt JSONL record at {path}:{line_number}") from exc
+                if not isinstance(record, dict):
+                    raise RuntimeError(f"non-object JSONL record at {path}:{line_number}")
+                identity = record_identity(record)
+                digest = canonical_json_hash(record)
+                if identity in existing and existing[identity] != digest:
+                    raise RuntimeError(f"conflicting durable JSONL identity {identity} in {path}")
+                existing[identity] = digest
+    pending: list[dict[str, Any]] = []
+    for record in records:
+        identity = record_identity(record)
+        digest = canonical_json_hash(record)
+        if identity in existing:
+            if existing[identity] != digest:
+                raise RuntimeError(f"conflicting retry for durable JSONL identity {identity} in {path}")
+            continue
+        existing[identity] = digest
+        pending.append(record)
+    if not pending:
+        return
     with path.open("a", encoding="utf-8") as handle:
-        for record in records:
-            handle.write(json.dumps(record, sort_keys=True) + "\n")
+        for record in pending:
+            handle.write(json.dumps(record, separators=(",", ":"), sort_keys=True) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def recent_paper_fills(
+    path: Path,
+    current_events: list[dict[str, Any]],
+    *,
+    active_book_ids: set[str] | None = None,
+    limit: int = 64,
+) -> list[dict[str, Any]]:
+    by_id: dict[str, dict[str, Any]] = {}
+    if path.exists():
+        try:
+            for line in path.read_text(encoding="utf-8").splitlines():
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(event, dict) and event.get("event_type") == "paper_fill":
+                    by_id[str(event.get("event_id") or stable_id("legacy_fill", line))] = event
+        except OSError:
+            pass
+    for event in current_events:
+        if isinstance(event, dict) and event.get("event_type") == "paper_fill":
+            by_id[str(event.get("event_id") or stable_id("current_fill", json.dumps(event, sort_keys=True)))] = event
+    active = set(ENGINE_BOOK_IDS) if active_book_ids is None else active_book_ids
+    fills = [event for event in by_id.values() if event.get("book_id") in active]
+    fills.sort(key=lambda event: (str(event.get("generated_at") or ""), str(event.get("event_id") or "")), reverse=True)
+    return fills[:limit]
 
 
 def default_ledger() -> dict[str, Any]:
@@ -427,18 +528,34 @@ def resolve_loop_ids(requested: list[str]) -> list[str]:
 
 
 def run_tick(args: argparse.Namespace) -> dict[str, Any]:
+    state_dir = Path(args.state_dir).expanduser()
+    state_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = state_dir / ".paper-tick.lock"
+    descriptor = os.open(lock_path, os.O_CREAT | os.O_RDWR | getattr(os, "O_CLOEXEC", 0), 0o600)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        return _run_tick_locked(args)
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
+
+
+def _run_tick_locked(args: argparse.Namespace) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     window_start = now - timedelta(hours=args.window_hours)
     window = {"start": iso_z(window_start), "end": iso_z(now)}
     ledger_path = Path(args.ledger).expanduser()
     state_dir = Path(args.state_dir).expanduser()
-    previous_latest_state = load_json(state_dir / "latest_state.json", {})
     ledger, ledger_loaded = load_ledger(ledger_path)
     snapshot = collect_source_snapshot(Path(args.morning_state).expanduser())
     if args.market_snapshot:
         market_snapshot = load_json(Path(args.market_snapshot).expanduser(), {})
     else:
-        market_snapshot = collect_live_market_snapshot(now, timeout=args.market_timeout)
+        market_snapshot = collect_live_market_snapshot(
+            now,
+            timeout=args.market_timeout,
+            held_prediction_market_ids=held_prediction_market_ids(ledger),
+        )
     market_errors = market_snapshot.get("errors") if isinstance(market_snapshot, dict) else []
     if market_errors:
         snapshot.setdefault("warnings", []).extend(
@@ -483,8 +600,8 @@ def run_tick(args: argparse.Namespace) -> dict[str, Any]:
     canonical_action_candidates = action_candidates
     canonical_ledger_events = ledger_events
     if engine_result["replayed"]:
-        canonical_action_candidates = previous_latest_state.get("last_paper_action_candidates") or previous_latest_state.get("canonical_paper_state", {}).get("latest_actions") or []
-        canonical_ledger_events = previous_latest_state.get("last_paper_ledger_events") or previous_latest_state.get("canonical_paper_state", {}).get("latest_ledger_events") or []
+        canonical_action_candidates = []
+        canonical_ledger_events = []
     memory_patches = make_memory_patches(runs, now)
     source_events = make_source_events(source_run, snapshot, now)
 
@@ -504,28 +621,62 @@ def run_tick(args: argparse.Namespace) -> dict[str, Any]:
         run["output_refs"] = output_refs_by_run.get(run["run_id"], [])
         run["status"] = "review_required" if run["loop_id"] in {"bridge", "memory_sync"} or run["review_required"] else "completed"
 
-    previous_paper_state = previous_latest_state.get("canonical_paper_state")
-    if engine_result["replayed"] and isinstance(previous_paper_state, dict):
-        paper_state = previous_paper_state
-    else:
-        paper_state = build_paper_state(ledger, books, canonical_action_candidates, canonical_ledger_events, now)
-    paper_state_sync: dict[str, Any] = {"configured": bool(args.paper_sync_url), "attempted": False}
-    if args.paper_sync_url and not args.dry_run:
-        paper_state_sync["attempted"] = True
+    wrapper_records = {
+        "agent_loop_runs": runs,
+        "narrative_fragments": fragments,
+        "paper_action_candidates": action_candidates,
+        "paper_ledger_events": ledger_events,
+        "memory_patches": memory_patches,
+        "source_reliability_events": source_events,
+    }
+    replay_path = replay_record_path(state_dir, engine_key)
+    if engine_result["replayed"]:
+        replay_record = load_json(replay_path, None)
+        if not isinstance(replay_record, dict) or replay_record.get("engine_idempotency_key") != engine_key:
+            raise RuntimeError("exact replay requires its durable canonical replay record")
+        paper_state = replay_record.get("canonical_paper_state")
+        if not isinstance(paper_state, dict):
+            raise RuntimeError("exact replay record is missing canonical paper state")
         try:
-            token = os.environ.get("BSS_PAPER_STATE_TOKEN", "").strip() or read_token_file(args.paper_sync_token_file)
-            paper_state_sync.update(
-                sync_paper_state(
-                    args.paper_sync_url,
-                    token,
-                    engine_key,
-                    paper_state,
-                    timeout=args.paper_sync_timeout,
-                )
-            )
-        except PaperSyncError as exc:
-            paper_state_sync.update({"ok": False, "error": str(exc)})
-            snapshot.setdefault("warnings", []).append(str(exc))
+            validate_paper_state(paper_state)
+        except ValueError as exc:
+            raise RuntimeError("exact replay canonical paper state failed validation") from exc
+        if replay_record.get("canonical_state_hash") != canonical_json_hash(paper_state):
+            raise RuntimeError("exact replay canonical state digest mismatch")
+        if replay_record.get("ledger_hash") != canonical_json_hash(ledger):
+            raise RuntimeError("exact replay ledger digest mismatch")
+        stored_wrapper_records = replay_record.get("wrapper_records")
+        if not isinstance(stored_wrapper_records, dict) or set(stored_wrapper_records) != set(RECORD_FILES):
+            raise RuntimeError("exact replay record is missing wrapper records")
+        if replay_record.get("wrapper_records_hash") != canonical_json_hash(stored_wrapper_records):
+            raise RuntimeError("exact replay wrapper record digest mismatch")
+        if not all(isinstance(records, list) and all(isinstance(record, dict) for record in records) for records in stored_wrapper_records.values()):
+            raise RuntimeError("exact replay wrapper records are invalid")
+        wrapper_records = stored_wrapper_records
+        runs = wrapper_records["agent_loop_runs"]
+        fragments = wrapper_records["narrative_fragments"]
+        action_candidates = wrapper_records["paper_action_candidates"]
+        ledger_events = wrapper_records["paper_ledger_events"]
+        memory_patches = wrapper_records["memory_patches"]
+        source_events = wrapper_records["source_reliability_events"]
+        canonical_action_candidates = paper_state["paper_action_candidates"]
+        canonical_ledger_events = paper_state["paper_ledger_events"]
+        recent_trades = paper_state["recent_paper_trades"]
+    else:
+        recent_trades = recent_paper_fills(
+            state_dir / RECORD_FILES["paper_ledger_events"],
+            canonical_ledger_events,
+            active_book_ids={book["book_id"] for book in ledger["books"]},
+        )
+        paper_state = build_paper_state(
+            ledger,
+            books,
+            canonical_action_candidates,
+            canonical_ledger_events,
+            now,
+            recent_trades=recent_trades,
+        )
+    paper_state_sync: dict[str, Any] = {"configured": bool(args.paper_sync_url), "attempted": False}
 
     latest_state = {
         "schema_version": 2,
@@ -551,22 +702,59 @@ def run_tick(args: argparse.Namespace) -> dict[str, Any]:
         "paper_books": books,
         "last_runs": runs,
         "last_narrative_fragments": fragments,
-        "last_paper_action_candidates": canonical_action_candidates,
-        "last_paper_ledger_events": canonical_ledger_events,
+        "last_paper_action_candidates": paper_state["paper_action_candidates"],
+        "last_paper_ledger_events": paper_state["paper_ledger_events"],
+        "recent_paper_trades": paper_state["recent_paper_trades"],
         "last_memory_patches": memory_patches,
         "last_source_reliability_events": source_events,
         "record_files": {name: str(state_dir / filename) for name, filename in RECORD_FILES.items()},
     }
 
     if not args.dry_run:
+        if not engine_result["replayed"]:
+            write_json(
+                replay_path,
+                {
+                    "schema_version": 2,
+                    "engine_idempotency_key": engine_key,
+                    "ledger_hash": canonical_json_hash(ledger),
+                    "canonical_state_hash": canonical_json_hash(paper_state),
+                    "wrapper_records_hash": canonical_json_hash(wrapper_records),
+                    "canonical_paper_state": paper_state,
+                    "wrapper_records": wrapper_records,
+                    "committed": False,
+                },
+            )
         write_json(ledger_path, ledger)
-        append_jsonl(state_dir / RECORD_FILES["agent_loop_runs"], runs)
-        append_jsonl(state_dir / RECORD_FILES["narrative_fragments"], fragments)
-        append_jsonl(state_dir / RECORD_FILES["paper_action_candidates"], action_candidates)
-        append_jsonl(state_dir / RECORD_FILES["paper_ledger_events"], ledger_events)
-        append_jsonl(state_dir / RECORD_FILES["memory_patches"], memory_patches)
-        append_jsonl(state_dir / RECORD_FILES["source_reliability_events"], source_events)
+        for record_name, records in wrapper_records.items():
+            append_jsonl(state_dir / RECORD_FILES[record_name], records)
         write_json(state_dir / "latest_state.json", latest_state)
+
+        if args.paper_sync_url:
+            paper_state_sync["attempted"] = True
+            write_json(state_dir / "latest_state.json", latest_state)
+            try:
+                token = os.environ.get("BSS_PAPER_STATE_TOKEN", "").strip() or read_token_file(args.paper_sync_token_file)
+                paper_state_sync.update(
+                    sync_paper_state(
+                        args.paper_sync_url,
+                        token,
+                        engine_key,
+                        paper_state,
+                        timeout=args.paper_sync_timeout,
+                    )
+                )
+            except PaperSyncError as exc:
+                paper_state_sync.update({"ok": False, "error": str(exc)})
+                snapshot.setdefault("warnings", []).append(str(exc))
+            latest_state["source_warning_count"] = len(snapshot.get("warnings") or [])
+            write_json(state_dir / "latest_state.json", latest_state)
+
+        replay_record = load_json(replay_path, None)
+        if not isinstance(replay_record, dict):
+            raise RuntimeError("paper tick completion journal disappeared")
+        replay_record["committed"] = True
+        write_json(replay_path, replay_record)
 
     return latest_state
 

@@ -108,8 +108,14 @@ export class MemoryObservationStore {
       return { statusCode: 200, replayed: true, state: structuredClone(existing.state) };
     }
     const generatedAt = Date.parse(state.generated_at);
-    if (this.#paperState && generatedAt < Date.parse(this.#paperState.state.generated_at)) {
-      throw new IngestError('stale_paper_state', 'Older paper state cannot replace the current snapshot.', { statusCode: 409 });
+    if (this.#paperState) {
+      const currentGeneratedAt = Date.parse(this.#paperState.state.generated_at);
+      if (generatedAt < currentGeneratedAt) {
+        throw new IngestError('stale_paper_state', 'Older paper state cannot replace the current snapshot.', { statusCode: 409 });
+      }
+      if (generatedAt === currentGeneratedAt && payloadHash !== this.#paperState.payloadHash) {
+        throw new IngestError('paper_state_conflict', 'Changed paper state cannot reuse the current generated_at timestamp.', { statusCode: 409 });
+      }
     }
     const entry = { payloadHash, state: structuredClone(state), appliedAt: this.#now().toISOString() };
     this.#paperStateUpdates.set(idempotencyKey, entry);

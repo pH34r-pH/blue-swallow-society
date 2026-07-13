@@ -84,6 +84,37 @@ test('observation idempotency includes persisted batch semantics', async () => {
   );
 });
 
+test('paper snapshots replay only exact key/payload pairs and reject older or equal-time changed state', async () => {
+  const store = createStore();
+  const firstState = {
+    generated_at: '2026-07-11T18:43:00.000Z',
+    paper_only: true,
+    sequence: 1,
+  };
+  const first = await store.putPaperState({ idempotencyKey: 'paper-key-1', state: firstState });
+  const replay = await store.putPaperState({ idempotencyKey: 'paper-key-1', state: structuredClone(firstState) });
+  assert.equal(first.statusCode, 201);
+  assert.equal(first.replayed, false);
+  assert.equal(replay.statusCode, 200);
+  assert.equal(replay.replayed, true);
+
+  await assert.rejects(
+    store.putPaperState({
+      idempotencyKey: 'paper-key-older',
+      state: { ...firstState, generated_at: '2026-07-11T18:42:59.999Z' },
+    }),
+    (error) => error.code === 'stale_paper_state' && error.statusCode === 409,
+  );
+  await assert.rejects(
+    store.putPaperState({
+      idempotencyKey: 'paper-key-equal-changed',
+      state: { ...firstState, sequence: 2 },
+    }),
+    (error) => error.code === 'paper_state_conflict' && error.statusCode === 409,
+  );
+  assert.deepEqual((await store.getPaperState()).state, firstState);
+});
+
 test('counts an exact observation replay under a new batch and rejects changed-content key reuse', async () => {
   const store = createStore();
   const credential = await store.authenticate({ deviceId: DEVICE_ID, token: INGEST_TOKEN, requiredScope: 'observations:write' });

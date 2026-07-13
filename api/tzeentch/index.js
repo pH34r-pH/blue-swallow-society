@@ -16,51 +16,75 @@ const LOOP_TOPOLOGY = {
   supporting_loops: ['bridge', 'paper', 'narrative', 'memory_sync', 'source_health'],
   rule: 'Mosaic and Murmurs are the two primary owned loops; Bridge, paper, narrative, memory_sync, and source_health are supporting loops.',
 };
+const PAPER_LINES = Object.freeze([
+  { id: 'standard', name: 'Standard' },
+  { id: 'aggressive', name: 'Aggressive' },
+  { id: 'hyper_aggressive', name: 'Hyper-Aggressive' },
+]);
 const PAPER_STRATEGIES = [
   {
     id: 'prediction_markets',
-    account: 'paper-prediction-markets-001',
     name: 'Prediction Markets',
     loopAffinity: 'bridge',
     instrumentType: 'prediction_market',
     orderModel: 'prediction_market_probability',
-    strategy: 'Paper-only probability deltas where Mosaic evidence and Murmurs belief diverge from market-implied odds.',
+    strategy: 'Concentrated probability-edge rotation across liquid binary markets.',
   },
   {
     id: 'crypto',
-    account: 'paper-crypto-001',
-    name: 'Crypto',
+    name: 'Crypto Momentum',
     loopAffinity: 'bridge',
     instrumentType: 'crypto',
     orderModel: 'crypto_momentum',
-    strategy: 'Paper-only liquid crypto momentum/reversion signals from public market and perception feeds.',
+    strategy: 'Persistent liquid-crypto momentum rotation without a defensive cash-out rule.',
   },
   {
     id: 'equity_watch',
-    account: 'paper-equity-watch-001',
-    name: 'Equity Watch',
+    name: 'Index Momentum',
     loopAffinity: 'mosaic',
-    instrumentType: 'equity_watch',
-    orderModel: 'watch_only',
-    strategy: 'Paper-only watchlist for public-company, macro, and regulatory signals; no brokerage execution.',
+    instrumentType: 'equity',
+    orderModel: 'equity_momentum',
+    strategy: 'Broad-index and Microsoft momentum rotation through liquid public equities.',
   },
   {
     id: 'local_event_watch',
-    account: 'paper-local-event-watch-001',
-    name: 'Local Event Watch',
+    name: 'PNW Event Basket',
     loopAffinity: 'mosaic',
-    instrumentType: 'local_event_watch',
-    orderModel: 'watch_only',
-    strategy: 'Paper-only Seattle/Bellevue/Redmond and Washington State event-risk theses.',
+    instrumentType: 'equity',
+    orderModel: 'event_proxy_momentum',
+    strategy: 'Seattle, Bellevue, Redmond, and Washington economic proxy rotation.',
   },
   {
     id: 'ai_cyber_watch',
-    account: 'paper-ai-cyber-watch-001',
-    name: 'AI/Cyber Watch',
+    name: 'AI/Cyber Theme',
     loopAffinity: 'murmurs',
-    instrumentType: 'other_paper_only',
-    orderModel: 'watch_only',
-    strategy: 'Paper-only AI, security, breach, and agent-tooling hype/fact deltas.',
+    instrumentType: 'equity',
+    orderModel: 'thematic_momentum',
+    strategy: 'AI and cybersecurity thematic momentum across liquid ETFs.',
+  },
+  {
+    id: 'cross_asset_momentum',
+    name: 'Cross-Asset Rotation',
+    loopAffinity: 'bridge',
+    instrumentType: 'cross_asset',
+    orderModel: 'cross_asset_momentum',
+    strategy: 'Winner-take-more rotation across crypto and equity risk assets.',
+  },
+  {
+    id: 'contrarian_reversion',
+    name: 'Contrarian Reversion',
+    loopAffinity: 'murmurs',
+    instrumentType: 'cross_asset',
+    orderModel: 'mean_reversion',
+    strategy: 'Deliberately catches the weakest liquid cross-asset marks to test mean reversion.',
+  },
+  {
+    id: 'volatility_barbell',
+    name: 'Volatility Barbell',
+    loopAffinity: 'mosaic',
+    instrumentType: 'cross_asset',
+    orderModel: 'volatility_barbell',
+    strategy: 'Rotates between the strongest and weakest high-beta proxies.',
   },
 ];
 
@@ -80,7 +104,14 @@ module.exports = async function (context, req) {
       },
       body: {
         ok: true,
-        ...payload,
+        updatedAt: payload.updatedAt,
+        publicOnly: payload.publicOnly,
+        sourceFamilies: payload.sourceFamilies,
+        warnings: payload.warnings,
+        murmurs: payload.murmurs,
+        crypto: payload.crypto,
+        polymarket: payload.polymarket,
+        paperBooks: payload.paperBooks,
       },
     };
   } catch (error) {
@@ -233,20 +264,80 @@ async function fetchCanonicalPaperState({ warnings } = {}) {
 }
 
 function isCanonicalPaperState(state) {
-  const canonicalIds = new Set(PAPER_STRATEGIES.map((strategy) => strategy.id));
-  return state?.schema_version === 'bss.paper_state.v1'
-    && state.paper_only === true
-    && state.autonomous_execution === true
-    && state.ledger?.schema_version === 3
-    && state.ledger?.paper_only === true
-    && Array.isArray(state.ledger?.books)
-    && state.ledger.books.length === canonicalIds.size
-    && state.ledger.books.every((book) => canonicalIds.has(book?.book_id)
-      && Number(book?.starting_balance) === 2000
-      && Number.isFinite(Number(book?.cash_balance))
-      && Array.isArray(book?.positions))
-    && Array.isArray(state.paper_action_candidates)
-    && state.paper_action_candidates.every((action) => action?.paper_only === true);
+  const lineIds = PAPER_LINES.map((line) => line.id);
+  const strategyIds = PAPER_STRATEGIES.map((strategy) => strategy.id);
+  const bookIds = lineIds.flatMap((lineId) => strategyIds.map((strategyId) => `${lineId}__${strategyId}`));
+  const bookIdSet = new Set(bookIds);
+  const ledgerBooks = state?.ledger?.books;
+  if (state?.schema_version !== 'bss.paper_state.v2'
+      || state.paper_only !== true
+      || state.autonomous_execution !== true
+      || !validIsoTimestamp(state.generated_at)
+      || state.ledger?.schema_version !== 4
+      || state.ledger?.paper_only !== true
+      || !hasExactIds(state.ledger?.book_dimensions?.lines?.map((line) => line?.line_id), lineIds)
+      || !hasExactIds(state.ledger?.book_dimensions?.strategies?.map((strategy) => strategy?.strategy_id), strategyIds)
+      || !Array.isArray(ledgerBooks)
+      || !hasExactIds(ledgerBooks.map((book) => book?.book_id), bookIds)) return false;
+
+  if (!ledgerBooks.every((book) => book?.book_id === `${book?.line_id}__${book?.strategy_id}`
+      && lineIds.includes(book?.line_id)
+      && strategyIds.includes(book?.strategy_id)
+      && finiteNumber(book?.starting_balance) && book.starting_balance === 2000
+      && finiteNumber(book?.initial_bank_capital) && book.initial_bank_capital === 1000
+      && finiteNumber(book?.initial_investment_capital) && book.initial_investment_capital === 1000
+      && finiteNumber(book?.cash_balance) && book.cash_balance >= 0
+      && Array.isArray(book?.positions)
+      && book.positions.every((position) => position && typeof position === 'object' && !Array.isArray(position)
+        && finiteNumber(position.quantity) && position.quantity >= 0
+        && finiteNumber(position.mark_price) && position.mark_price >= 0))) return false;
+
+  if (!Array.isArray(state.paper_books)
+      || !hasExactIds(state.paper_books.map((book) => book?.book_id), bookIds)
+      || !state.paper_books.every((summary) => summary?.book_id === `${summary?.line_id}__${summary?.strategy_id}`
+        && finiteNumber(summary.starting_balance)
+        && finiteNumber(summary.cash_balance)
+        && finiteNumber(summary.gross_paper_exposure)
+        && finiteNumber(summary.equity))) return false;
+
+  const actions = state.paper_action_candidates;
+  const events = state.paper_ledger_events;
+  const recent = state.recent_paper_trades;
+  if (!Array.isArray(actions) || !Array.isArray(events) || !Array.isArray(recent) || recent.length > 64) return false;
+  if (!actions.every((action) => action && typeof action === 'object'
+      && action.paper_only === true
+      && bookIdSet.has(action.book_id)
+      && validIsoTimestamp(action.generated_at)
+      && typeof action.autonomous_execution === 'boolean'
+      && (!['PAPER_BUY', 'PAPER_SELL'].includes(action.action) || action.autonomous_execution === true))) return false;
+  if (!events.every((event) => event && typeof event === 'object'
+      && event.paper_only === true
+      && bookIdSet.has(event.book_id)
+      && validIsoTimestamp(event.generated_at)
+      && ['mark', 'paper_fill', 'book_crashed'].includes(event.event_type))) return false;
+  const recentIds = recent.map((event) => event?.event_id);
+  return recent.every((event) => event && typeof event === 'object'
+      && event.paper_only === true
+      && event.event_type === 'paper_fill'
+      && bookIdSet.has(event.book_id)
+      && validIsoTimestamp(event.generated_at)
+      && typeof event.event_id === 'string'
+      && event.event_id.length > 0)
+    && new Set(recentIds).size === recentIds.length;
+}
+
+function finiteNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function validIsoTimestamp(value) {
+  return typeof value === 'string' && value.length > 0 && Number.isFinite(Date.parse(value));
+}
+
+function hasExactIds(values, expected) {
+  if (!Array.isArray(values) || values.length !== expected.length) return false;
+  const unique = new Set(values);
+  return unique.size === expected.length && expected.every((value) => unique.has(value));
 }
 
 function buildCanonicalPaperBooks(backend) {
@@ -257,21 +348,25 @@ function buildCanonicalPaperBooks(backend) {
     paperOnly: true,
     autonomousExecution: true,
     summary: 'Canonical paper state is unavailable; no demo ledger was substituted.',
+    dimensions: null,
     loop: canonicalLoopMetadata(0, 0),
     books: [],
     actions: [],
     ledgerEvents: [],
+    recentTrades: [],
   };
   if (!isCanonicalPaperState(state)) return empty;
 
   const summaries = new Map((state.paper_books || []).map((book) => [book.book_id, book]));
-  const actions = state.paper_action_candidates || [];
-  const events = state.paper_ledger_events || [];
+  const actions = (state.paper_action_candidates || []).slice(0, 256);
+  const events = (state.paper_ledger_events || []).slice(0, 512);
+  const recentTrades = (state.recent_paper_trades || []).slice(0, 64);
   const iterationCount = Array.isArray(state.ledger.processed_idempotency_keys)
     ? state.ledger.processed_idempotency_keys.length
     : 0;
   const books = state.ledger.books.map((book) => {
-    const strategy = PAPER_STRATEGIES.find((item) => item.id === book.book_id) || {};
+    const strategy = PAPER_STRATEGIES.find((item) => item.id === book.strategy_id) || {};
+    const line = PAPER_LINES.find((item) => item.id === book.line_id) || {};
     const summary = summaries.get(book.book_id) || {};
     const equity = toNumber(summary.equity ?? book.equity) ?? (
       (toNumber(book.cash_balance) || 0)
@@ -280,10 +375,20 @@ function buildCanonicalPaperBooks(backend) {
     const startingBalance = toNumber(book.starting_balance) || 2000;
     const totalPnl = roundNumber(equity - startingBalance, 2);
     const bookActions = actions.filter((action) => action.book_id === book.book_id);
-    const bookEvents = events.filter((event) => event.book_id === book.book_id);
+    const bookEvents = recentTrades.filter((event) => event.book_id === book.book_id);
     return {
       id: book.book_id,
       bookId: book.book_id,
+      lineId: book.line_id,
+      lineName: book.line_display_name || line.name || book.line_id,
+      strategyId: book.strategy_id,
+      strategyName: book.strategy_display_name || strategy.name || book.strategy_id,
+      aggressionProfile: {
+        targetGrossFraction: toNumber(book.aggression_profile?.target_gross_fraction),
+        maxPositionFraction: toNumber(book.aggression_profile?.max_position_fraction),
+        targetPositionCount: toNumber(book.aggression_profile?.target_position_count),
+        minimumOrderNotional: toNumber(book.aggression_profile?.minimum_order_notional),
+      },
       account: `paper-${book.book_id.replaceAll('_', '-')}-canonical`,
       name: summary.display_name || book.display_name || strategy.name || book.book_id,
       displayName: summary.display_name || book.display_name || strategy.name || book.book_id,
@@ -294,10 +399,11 @@ function buildCanonicalPaperBooks(backend) {
       createdAt: state.ledger.created_at || state.generated_at,
       updatedAt: state.generated_at,
       iteration: iterationCount,
-      startingCash: startingBalance,
+      startingCash: toNumber(book.initial_bank_capital) || 1000,
+      startingInvestedCapital: toNumber(book.initial_investment_capital) || 1000,
       startingBalance,
       cash: roundNumber(book.cash_balance, 2),
-      investedCapital: roundNumber(startingBalance - (toNumber(book.cash_balance) || 0), 2),
+      investedCapital: roundNumber(summary.gross_paper_exposure, 2),
       equity: roundNumber(equity, 2),
       realizedPnl: roundNumber(summary.realized_pnl ?? book.realized_pnl, 2),
       unrealizedPnl: roundNumber(summary.unrealized_pnl, 2),
@@ -308,6 +414,9 @@ function buildCanonicalPaperBooks(backend) {
       grossPaperExposure: roundNumber(summary.gross_paper_exposure, 2),
       drawdownPct: roundNumber(summary.drawdown_pct, 4),
       maxDrawdownPct: roundNumber(summary.max_drawdown_pct, 4),
+      status: summary.status || book.status || 'unknown',
+      postmortemRequired: summary.postmortem_required === true || book.postmortem_required === true,
+      crashedAt: summary.crashed_at || book.crashed_at || null,
       positions: (book.positions || []).slice(0, 16).map(publicCanonicalPosition),
       pendingOrders: bookActions.slice(0, 16).map(publicCanonicalAction),
       tradeLog: bookEvents.slice(0, 24).map(publicCanonicalEvent),
@@ -319,10 +428,15 @@ function buildCanonicalPaperBooks(backend) {
     paperOnly: true,
     autonomousExecution: true,
     summary: `${books.length} canonical autonomous paper books; each began with $1,000 invested and $1,000 banked.`,
+    dimensions: {
+      lines: PAPER_LINES.map((line, order) => ({ lineId: line.id, name: line.name, order })),
+      strategies: PAPER_STRATEGIES.map((strategy, order) => ({ strategyId: strategy.id, name: strategy.name, order })),
+    },
     loop: canonicalLoopMetadata(books.length, iterationCount),
     books,
     actions: actions.map(publicCanonicalAction),
     ledgerEvents: events.map(publicCanonicalEvent),
+    recentTrades: recentTrades.map(publicCanonicalEvent),
   };
 }
 
@@ -374,22 +488,38 @@ function publicCanonicalAction(action) {
     notional: toNumber(action.paper_size) || 0,
     quantity: toNumber(action.quantity) || 0,
     status: String(action.status || '').replaceAll('_', '-'),
-    reason: action.reason || null,
-    createdAt: action.created_at || action.decided_at || null,
-    executedAt: action.filled_at || null,
+    reason: action.reason || action.thesis || null,
+    createdAt: action.created_at || action.decided_at || action.generated_at || null,
+    executedAt: action.filled_at || (action.status === 'paper_filled' ? action.generated_at : null),
     paperOnly: true,
     autonomousExecution: action.autonomous_execution !== false,
-    humanReviewRequired: false,
+    humanReviewRequired: action.human_review_required === true,
     sourceUrl: action.source_url || null,
   };
 }
 
 function publicCanonicalEvent(event) {
   return {
-    ...event,
     id: event.event_id,
+    eventType: event.event_type,
     bookId: event.book_id,
+    lineId: event.line_id || null,
+    strategyId: event.strategy_id || null,
+    side: String(event.action || '').replace('PAPER_', '').toLowerCase(),
+    action: event.action || null,
+    instrumentRef: event.instrument_ref || null,
+    quantity: toNumber(event.quantity) || 0,
+    notional: toNumber(event.paper_size) || 0,
+    mark: toNumber(event.mark_price),
+    realizedPnl: toNumber(event.realized_pnl) || 0,
+    cashBefore: toNumber(event.cash_before),
+    cashAfter: toNumber(event.cash_after),
+    equity: toNumber(event.equity),
+    status: event.status || null,
+    postmortemRequired: event.postmortem_required === true,
+    createdAt: event.generated_at || null,
     paperOnly: true,
+    autonomousExecution: event.autonomous_execution === true,
   };
 }
 

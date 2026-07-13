@@ -267,13 +267,21 @@ export class PostgresObservationStore {
         return { statusCode: 200, replayed: true, state: existing.rows[0].state };
       }
       const current = await client.query(
-        `SELECT generated_at
-         FROM paper_state_current
-         WHERE singleton = true
-         FOR UPDATE`,
+        `SELECT current.generated_at, updates.payload_hash
+         FROM paper_state_current AS current
+         JOIN paper_state_updates AS updates ON updates.id = current.update_id
+         WHERE current.singleton = true
+         FOR UPDATE OF current`,
       );
-      if (current.rows.length > 0 && new Date(state.generated_at) < new Date(current.rows[0].generated_at)) {
-        throw new IngestError('stale_paper_state', 'Older paper state cannot replace the current snapshot.', { statusCode: 409 });
+      if (current.rows.length > 0) {
+        const incomingTime = new Date(state.generated_at).getTime();
+        const currentTime = new Date(current.rows[0].generated_at).getTime();
+        if (incomingTime < currentTime) {
+          throw new IngestError('stale_paper_state', 'Older paper state cannot replace the current snapshot.', { statusCode: 409 });
+        }
+        if (incomingTime === currentTime && current.rows[0].payload_hash !== payloadHash) {
+          throw new IngestError('paper_state_conflict', 'Changed paper state cannot reuse the current generated_at timestamp.', { statusCode: 409 });
+        }
       }
       const inserted = await client.query(
         `INSERT INTO paper_state_updates (idempotency_key, payload_hash, generated_at, state)

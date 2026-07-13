@@ -17,14 +17,13 @@ def load_morning_module():
 
 
 class MorningBriefCollectorTests(unittest.TestCase):
-    def test_default_paper_books_include_all_five_awaiting_allocation_books(self):
+    def test_default_paper_books_include_full_three_by_eight_matrix_awaiting_allocation(self):
         module = load_morning_module()
         books = module.summarize_books(module.DEFAULT_LEDGER_DATA, Path("missing.json"), False)
 
-        self.assertEqual(
-            [book["bookId"] for book in books],
-            ["prediction_markets", "crypto", "equity_watch", "local_event_watch", "ai_cyber_watch"],
-        )
+        self.assertEqual(len(books), 24)
+        self.assertEqual({book["lineId"] for book in books}, {"standard", "aggressive", "hyper_aggressive"})
+        self.assertEqual(len({book["strategyId"] for book in books}), 8)
         self.assertTrue(all(book["status"] == "awaiting_initial_allocation" for book in books))
         self.assertTrue(all(book["grossPaperExposure"] == 0 for book in books))
         self.assertTrue(all(book["cashBalance"] == 2000 for book in books))
@@ -32,31 +31,28 @@ class MorningBriefCollectorTests(unittest.TestCase):
 
     def test_open_position_without_mark_is_stale(self):
         module = load_morning_module()
-        ledger = {
-            "books": [
-                {
-                    "book_id": "prediction_markets",
-                    "display_name": "Prediction Markets",
-                    "starting_balance": 2000,
-                    "cash_balance": 1000,
-                    "funding_migration_applied": True,
-                    "initial_allocation_complete": True,
-                    "positions": [
-                        {
-                            "instrument_ref": "example-market",
-                            "instrument_type": "prediction_market",
-                            "symbol": "YES",
-                            "quantity": 100,
-                            "entry_price": 0.42,
-                            "mark_price": 0.42,
-                            "mark_status": "stale",
-                        }
-                    ],
-                }
-            ]
-        }
+        ledger = module.engine_default_ledger(module.utc_now())
+        target = next(book for book in ledger["books"] if book["book_id"] == "standard__prediction_markets")
+        target.update(
+            {
+                "cash_balance": 1000,
+                "initial_allocation_complete": True,
+                "positions": [
+                    {
+                        "instrument_ref": "example-market",
+                        "instrument_type": "prediction_market",
+                        "symbol": "YES",
+                        "quantity": 100,
+                        "entry_price": 0.42,
+                        "mark_price": 0.42,
+                        "mark_status": "stale",
+                    }
+                ],
+            }
+        )
 
-        [book] = module.summarize_books(ledger, Path("ledger.json"), True)
+        books = module.summarize_books(ledger, Path("ledger.json"), True)
+        book = next(item for item in books if item["bookId"] == "standard__prediction_markets")
 
         self.assertEqual(book["status"], "stale")
         self.assertEqual(book["openPositionCount"], 1)
@@ -65,38 +61,34 @@ class MorningBriefCollectorTests(unittest.TestCase):
 
     def test_canonical_seeded_book_reports_cash_exposure_equity_and_zero_drawdown(self):
         module = load_morning_module()
-        ledger = {
-            "schema_version": 3,
-            "books": [
-                {
-                    "book_id": "crypto",
-                    "display_name": "Crypto",
-                    "starting_balance": 2000,
-                    "cash_balance": 1000,
-                    "funding_migration_applied": True,
-                    "initial_allocation_complete": True,
-                    "equity": 2000,
-                    "previous_equity": 2000,
-                    "high_water_mark": 2000,
-                    "positions": [
-                        {
-                            "instrument_ref": "crypto:bitcoin",
-                            "instrument_type": "crypto",
-                            "symbol": "BTC",
-                            "quantity": 10,
-                            "entry_price": 100,
-                            "mark_price": 100,
-                            "previous_mark_price": 100,
-                            "mark_status": "fresh",
-                        }
-                    ],
-                }
-            ],
-        }
+        ledger = module.engine_default_ledger(module.utc_now())
+        target = next(book for book in ledger["books"] if book["book_id"] == "standard__crypto")
+        target.update(
+            {
+                "cash_balance": 1000,
+                "initial_allocation_complete": True,
+                "equity": 2000,
+                "previous_equity": 2000,
+                "high_water_mark": 2000,
+                "positions": [
+                    {
+                        "instrument_ref": "crypto:bitcoin",
+                        "instrument_type": "crypto",
+                        "symbol": "BTC",
+                        "quantity": 10,
+                        "entry_price": 100,
+                        "mark_price": 100,
+                        "previous_mark_price": 100,
+                        "mark_status": "fresh",
+                    }
+                ],
+            }
+        )
 
-        [book] = module.summarize_books(ledger, Path("ledger.json"), True)
+        books = module.summarize_books(ledger, Path("ledger.json"), True)
+        book = next(item for item in books if item["bookId"] == "standard__crypto")
 
-        self.assertEqual(book["bookId"], "crypto")
+        self.assertEqual(book["bookId"], "standard__crypto")
         self.assertEqual(book["cashBalance"], 1000)
         self.assertEqual(book["grossPaperExposure"], 1000)
         self.assertEqual(book["equity"], 2000)
@@ -202,7 +194,8 @@ class MorningBriefCollectorTests(unittest.TestCase):
             self.assertTrue(Path(manifest["manifest_path"]).exists())
             self.assertEqual(packet["breaking_reality"][0]["title"], "Seattle emergency update")
             self.assertEqual(packet["hype_weather"][0]["title"], "New local LLM release spikes attention")
-            self.assertEqual(packet["paper_books"][0]["bookId"], "prediction_markets")
+            self.assertEqual(packet["paper_books"][0]["bookId"], "standard__prediction_markets")
+            self.assertEqual(len(packet["paper_books"]), 24)
             self.assertEqual(packet["paper_action_candidates"][0]["action"], "PAPER_BUY")
             self.assertTrue(packet["governance"]["paper_only"])
             self.assertTrue(packet["governance"]["autonomous_paper_execution"])

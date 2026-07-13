@@ -896,15 +896,8 @@ def position_mark_value(position: dict[str, Any], price_key: str) -> float | Non
 
 def summarize_books(ledger: dict[str, Any], ledger_path: Path, ledger_loaded: bool) -> list[dict[str, Any]]:
     raw_books = [book for book in ledger.get("books", []) if isinstance(book, dict)]
-    requested_ids = {
-        str(book.get("book_id") or book.get("id"))
-        for book in raw_books
-        if book.get("book_id") or book.get("id")
-    }
     normalized = engine_migrate_ledger(ledger if raw_books else DEFAULT_LEDGER_DATA, utc_now())
     books = normalized.get("books", [])
-    if requested_ids:
-        books = [book for book in books if book.get("book_id") in requested_ids]
 
     summaries: list[dict[str, Any]] = []
     for book in books:
@@ -912,6 +905,10 @@ def summarize_books(ledger: dict[str, Any], ledger_path: Path, ledger_loaded: bo
         summaries.append(
             {
                 "bookId": summary["book_id"],
+                "lineId": summary.get("line_id"),
+                "lineName": summary.get("line_display_name"),
+                "strategyId": summary.get("strategy_id"),
+                "strategyName": summary.get("strategy_display_name"),
                 "displayName": summary["display_name"],
                 "startingBalance": summary["starting_balance"],
                 "cashBalance": summary["cash_balance"],
@@ -927,6 +924,8 @@ def summarize_books(ledger: dict[str, Any], ledger_path: Path, ledger_loaded: bo
                 "drawdownPct": summary["drawdown_pct"],
                 "maxDrawdownPct": summary["max_drawdown_pct"],
                 "status": summary["status"],
+                "postmortemRequired": summary.get("postmortem_required", False),
+                "crashedAt": summary.get("crashed_at"),
                 "staleOpenMarks": summary["stale_open_marks"],
                 "initialAllocationComplete": bool(book.get("initial_allocation_complete")),
                 "ledgerLoaded": ledger_loaded,

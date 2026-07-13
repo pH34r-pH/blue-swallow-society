@@ -10,6 +10,19 @@ const require = createRequire(import.meta.url);
 const handler = require('../api/tzeentch/index.js');
 const { createOperatorToken } = require('../api/_lib/operator-auth.js');
 
+const PAPER_LINES = ['standard', 'aggressive', 'hyper_aggressive'];
+const PAPER_STRATEGIES = [
+  'prediction_markets',
+  'crypto',
+  'equity_watch',
+  'local_event_watch',
+  'ai_cyber_watch',
+  'cross_asset_momentum',
+  'contrarian_reversion',
+  'volatility_barbell',
+];
+const PAPER_BOOK_IDS = PAPER_LINES.flatMap((lineId) => PAPER_STRATEGIES.map((strategyId) => `${lineId}__${strategyId}`));
+
 function jsonResponse(body, { status = 200 } = {}) {
   return {
     ok: status >= 200 && status < 300,
@@ -63,40 +76,56 @@ function authorizationHeader({ operatorId } = {}) {
 
 
 function canonicalPaperBackendResponse() {
-  const ids = ['prediction_markets', 'crypto', 'equity_watch', 'local_event_watch', 'ai_cyber_watch'];
+  const books = PAPER_BOOK_IDS.map((book_id) => {
+    const [line_id, strategy_id] = book_id.split('__');
+    return {
+      book_id,
+      line_id,
+      line_display_name: line_id.replaceAll('_', ' '),
+      strategy_id,
+      strategy_display_name: strategy_id.replaceAll('_', ' '),
+      display_name: `${line_id.replaceAll('_', ' ')} / ${strategy_id.replaceAll('_', ' ')}`,
+      aggression_profile: { target_gross_fraction: line_id === 'standard' ? 0.8 : line_id === 'aggressive' ? 0.95 : 1, private_secret: 'leak-me' },
+      starting_balance: 2000,
+      initial_bank_capital: 1000,
+      initial_investment_capital: 1000,
+      cash_balance: 1000,
+      equity: 2000,
+      realized_pnl: 0,
+      positions: [{
+        instrument_ref: `${book_id}:seed`,
+        symbol: 'SEED',
+        quantity: 1,
+        entry_price: 1000,
+        mark_price: 1000,
+        market_value: 1000,
+        mark_status: 'fresh',
+      }],
+    };
+  });
   return {
     ok: true,
     source: 'mosaic-murmurs-paper-engine',
     state: {
-      schema_version: 'bss.paper_state.v1',
+      schema_version: 'bss.paper_state.v2',
       generated_at: '2026-07-13T01:00:00Z',
       paper_only: true,
       autonomous_execution: true,
       ledger: {
-        schema_version: 3,
+        schema_version: 4,
         paper_only: true,
         processed_idempotency_keys: ['tick-1'],
-        books: ids.map((book_id) => ({
-          book_id,
-          display_name: book_id.replaceAll('_', ' '),
-          starting_balance: 2000,
-          cash_balance: 1000,
-          equity: 2000,
-          realized_pnl: 0,
-          positions: [{
-            instrument_ref: `${book_id}:seed`,
-            symbol: 'SEED',
-            quantity: 1,
-            entry_price: 1000,
-            mark_price: 1000,
-            market_value: 1000,
-            mark_status: 'fresh',
-          }],
-        })),
+        book_dimensions: {
+          lines: PAPER_LINES.map((line_id, order) => ({ line_id, display_name: line_id, order })),
+          strategies: PAPER_STRATEGIES.map((strategy_id, order) => ({ strategy_id, display_name: strategy_id, order })),
+        },
+        books,
       },
-      paper_books: ids.map((book_id) => ({
-        book_id,
-        display_name: book_id.replaceAll('_', ' '),
+      paper_books: books.map((book) => ({
+        book_id: book.book_id,
+        line_id: book.line_id,
+        strategy_id: book.strategy_id,
+        display_name: book.display_name,
         starting_balance: 2000,
         cash_balance: 1000,
         equity: 2000,
@@ -111,7 +140,7 @@ function canonicalPaperBackendResponse() {
       })),
       paper_action_candidates: [{
         decision_id: 'decision-1',
-        book_id: 'crypto',
+        book_id: 'aggressive__crypto',
         action: 'PAPER_BUY',
         paper_size: 333.34,
         instrument_ref: 'crypto:bitcoin',
@@ -119,8 +148,21 @@ function canonicalPaperBackendResponse() {
         paper_only: true,
         autonomous_execution: true,
         human_review_required: false,
+        generated_at: '2026-07-13T01:00:00Z',
       }],
       paper_ledger_events: [],
+      recent_paper_trades: [{
+        event_id: 'fill-1',
+        event_type: 'paper_fill',
+        book_id: 'aggressive__crypto',
+        action: 'PAPER_BUY',
+        paper_size: 333.34,
+        instrument_ref: 'crypto:bitcoin',
+        mark_price: 60000,
+        paper_only: true,
+        generated_at: '2026-07-13T01:00:00Z',
+        private_secret: 'leak-me',
+      }],
     },
   };
 }
@@ -299,16 +341,23 @@ test('api/tzeentch returns a bearer-token protected read-only payload', async ()
   assert.equal(context.res.body.crypto.markets.length, 1);
   assert.equal(context.res.body.polymarket.newMarkets.length, 1);
   assert.equal(context.res.body.polymarket.resolvedMarkets.length, 1);
-  assert.equal(context.res.body.paperBooks.books.length, 5);
+  assert.equal(context.res.body.paperBooks.books.length, 24);
+  assert.equal(new Set(context.res.body.paperBooks.books.map((book) => book.lineId)).size, 3);
+  assert.equal(new Set(context.res.body.paperBooks.books.map((book) => book.strategyId)).size, 8);
   assert.equal(context.res.body.paperBooks.loop.field_naming.canonical_case, 'snake_case');
   assert.deepEqual(context.res.body.paperBooks.loop.loop_topology.primary_loops, ['mosaic', 'murmurs']);
   assert.ok(context.res.body.paperBooks.loop.loop_topology.supporting_loops.includes('bridge'));
   assert.ok(context.res.body.paperBooks.books.every((book) => book.startingBalance === 2000));
+  assert.ok(context.res.body.paperBooks.books.every((book) => book.startingCash === 1000));
+  assert.ok(context.res.body.paperBooks.books.every((book) => book.startingInvestedCapital === 1000));
   assert.ok(context.res.body.paperBooks.books.every((book) => book.cash === 1000));
   assert.ok(context.res.body.paperBooks.books.every((book) => book.positions.length === 1));
   assert.equal(context.res.body.paperBooks.autonomousExecution, true);
   assert.equal(context.res.body.paperBooks.source, 'mosaic-murmurs-paper-engine');
   assert.ok(context.res.body.paperBooks.books.some((book) => book.pendingOrders.length > 0));
+  assert.equal(context.res.body.paperBooks.recentTrades.length, 1);
+  assert.equal(context.res.body.paperBooks.recentTrades[0].notional, 333.34);
+  assert.equal(JSON.stringify(context.res.body).includes('leak-me'), false);
   assert.match(context.res.body.crypto.markets[0].symbol, /BTC/);
   });
 });
