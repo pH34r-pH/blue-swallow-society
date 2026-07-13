@@ -33,7 +33,18 @@ except ImportError:  # pragma: no cover - Python 3.11 is expected here.
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
-DEFAULT_LEDGER = REPO_ROOT / "config" / "mosaic-murmurs-paper-ledger.json"
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from mosaic_murmurs_paper_engine import (  # noqa: E402 - sibling script import
+    default_ledger as engine_default_ledger,
+    migrate_ledger as engine_migrate_ledger,
+    summarize_book as engine_summarize_book,
+)
+
+DEFAULT_PAPER_RUNTIME_DIR = Path.home() / ".hermes" / "mosaic-murmurs" / "paper-memory-loop"
+DEFAULT_LEDGER = DEFAULT_PAPER_RUNTIME_DIR / "paper-ledger.json"
+DEFAULT_PAPER_STATE = DEFAULT_PAPER_RUNTIME_DIR / "latest_state.json"
 DEFAULT_RUNTIME_DIR = Path.home() / ".hermes" / "mosaic-murmurs" / "morning-brief"
 USER_AGENT = "BlueSwallowMorningBrief/0.1 (https://blueswallow.net; local operator collector)"
 MAX_SUMMARY_CHARS = 360
@@ -378,46 +389,7 @@ JSON_SOURCES: list[dict[str, Any]] = [
     },
 ]
 
-DEFAULT_LEDGER_DATA = {
-    "schema_version": 1,
-    "currency": "USD",
-    "updated_at": None,
-    "notes": "Paper-only ledger. Empty positions mean no simulated exposure and no buy/sell execution.",
-    "books": [
-        {
-            "id": "prediction_markets",
-            "display_name": "Prediction Markets",
-            "starting_equity": 0.0,
-            "closed_pnl": 0.0,
-            "high_water_mark": 0.0,
-            "positions": [],
-        },
-        {
-            "id": "crypto",
-            "display_name": "Crypto",
-            "starting_equity": 0.0,
-            "closed_pnl": 0.0,
-            "high_water_mark": 0.0,
-            "positions": [],
-        },
-        {
-            "id": "equity_watch",
-            "display_name": "Equity Watch",
-            "starting_equity": 0.0,
-            "closed_pnl": 0.0,
-            "high_water_mark": 0.0,
-            "positions": [],
-        },
-        {
-            "id": "local_event_watch",
-            "display_name": "Local Event Watch",
-            "starting_equity": 0.0,
-            "closed_pnl": 0.0,
-            "high_water_mark": 0.0,
-            "positions": [],
-        },
-    ],
-}
+DEFAULT_LEDGER_DATA = engine_default_ledger(datetime.now(timezone.utc))
 
 TAG_RE = re.compile(r"<[^>]+>")
 WHITESPACE_RE = re.compile(r"\s+")
@@ -893,9 +865,21 @@ def dedupe_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def load_ledger(path: Path) -> tuple[dict[str, Any], bool]:
     if not path.exists():
-        return DEFAULT_LEDGER_DATA, False
+        return engine_default_ledger(utc_now()), False
     with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle), True
+        loaded = json.load(handle)
+    return loaded if isinstance(loaded, dict) else engine_default_ledger(utc_now()), True
+
+
+def load_paper_actions(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    actions = state.get("last_paper_action_candidates") if isinstance(state, dict) else None
+    return [action for action in (actions or []) if isinstance(action, dict)]
 
 
 def position_mark_value(position: dict[str, Any], price_key: str) -> float | None:
@@ -911,65 +895,45 @@ def position_mark_value(position: dict[str, Any], price_key: str) -> float | Non
 
 
 def summarize_books(ledger: dict[str, Any], ledger_path: Path, ledger_loaded: bool) -> list[dict[str, Any]]:
+    raw_books = [book for book in ledger.get("books", []) if isinstance(book, dict)]
+    requested_ids = {
+        str(book.get("book_id") or book.get("id"))
+        for book in raw_books
+        if book.get("book_id") or book.get("id")
+    }
+    normalized = engine_migrate_ledger(ledger if raw_books else DEFAULT_LEDGER_DATA, utc_now())
+    books = normalized.get("books", [])
+    if requested_ids:
+        books = [book for book in books if book.get("book_id") in requested_ids]
+
     summaries: list[dict[str, Any]] = []
-    for book in ledger.get("books", []):
-        positions = book.get("positions") or []
-        open_positions = [pos for pos in positions if not pos.get("closed_at")]
-        gross_exposure = 0.0
-        daily_pnl = 0.0
-        cumulative_pnl = float(book.get("closed_pnl") or 0.0)
-        stale_marks = 0
-        for position in open_positions:
-            quantity = float(position.get("quantity") or position.get("units") or 0.0)
-            entry_price = float(position.get("entry_price") or position.get("entryPrice") or 0.0)
-            paper_notional = position.get("paper_notional") or position.get("paperNotional")
-            gross_exposure += abs(float(paper_notional) if paper_notional is not None else quantity * entry_price)
-            mark = position_mark_value(position, "mark_price")
-            previous = position_mark_value(position, "previous_mark_price")
-            entry = position_mark_value({**position, "mark_price": entry_price}, "mark_price")
-            if mark is None:
-                stale_marks += 1
-                continue
-            if previous is None:
-                previous = entry if entry is not None else 0.0
-            if entry is None:
-                entry = 0.0
-            daily_pnl += mark - previous
-            cumulative_pnl += mark - entry
-        basis = float(book.get("starting_equity") or gross_exposure or 0.0)
-        daily_pct = (daily_pnl / basis * 100.0) if basis else 0.0
-        cumulative_pct = (cumulative_pnl / basis * 100.0) if basis else 0.0
-        high_water = float(book.get("high_water_mark") or max(basis + cumulative_pnl, basis, 0.0))
-        equity = basis + cumulative_pnl
-        drawdown_pct = ((high_water - equity) / high_water * 100.0) if high_water > 0 else 0.0
-        if stale_marks:
-            status = "stale"
-        elif not open_positions:
-            status = "flat"
-        elif cumulative_pnl > 0:
-            status = "up"
-        elif cumulative_pnl < 0:
-            status = "down"
-        else:
-            status = "mixed"
+    for book in books:
+        summary = engine_summarize_book(book)
         summaries.append(
             {
-                "bookId": book.get("id"),
-                "displayName": book.get("display_name") or book.get("id"),
-                "openPositionCount": len(open_positions),
-                "grossPaperExposure": round(gross_exposure, 2),
-                "dailyPnl": round(daily_pnl, 2),
-                "dailyPnlPct": round(daily_pct, 2),
-                "cumulativePnl": round(cumulative_pnl, 2),
-                "cumulativePnlPct": round(cumulative_pct, 2),
-                "maxDrawdownPct": round(drawdown_pct, 2),
-                "status": status,
-                "staleOpenMarks": stale_marks,
+                "bookId": summary["book_id"],
+                "displayName": summary["display_name"],
+                "startingBalance": summary["starting_balance"],
+                "cashBalance": summary["cash_balance"],
+                "equity": summary["equity"],
+                "openPositionCount": summary["open_position_count"],
+                "grossPaperExposure": summary["gross_paper_exposure"],
+                "dailyPnl": summary["daily_pnl"],
+                "dailyPnlPct": summary["daily_pnl_pct"],
+                "realizedPnl": summary["realized_pnl"],
+                "unrealizedPnl": summary["unrealized_pnl"],
+                "cumulativePnl": summary["cumulative_pnl"],
+                "cumulativePnlPct": summary["cumulative_pnl_pct"],
+                "drawdownPct": summary["drawdown_pct"],
+                "maxDrawdownPct": summary["max_drawdown_pct"],
+                "status": summary["status"],
+                "staleOpenMarks": summary["stale_open_marks"],
+                "initialAllocationComplete": bool(book.get("initial_allocation_complete")),
+                "ledgerLoaded": ledger_loaded,
+                "ledgerPath": str(ledger_path),
                 "newActions": "none",
             }
         )
-    if not summaries:
-        return summarize_books(DEFAULT_LEDGER_DATA, ledger_path, False)
     return summaries
 
 
@@ -1059,6 +1023,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     ledger_path = Path(args.ledger).expanduser()
     ledger, ledger_loaded = load_ledger(ledger_path)
     books = summarize_books(ledger, ledger_path, ledger_loaded)
+    paper_actions = load_paper_actions(Path(args.paper_state).expanduser())
 
     run_id = f"morning-brief-{local_generated.strftime('%Y-%m-%d')}"
     manifest = {
@@ -1081,13 +1046,14 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "hype_weather": [compact_item(item) for item in hype_items[: args.hype_limit]],
             "market_signals": [compact_item(item) for item in market_items[: args.market_limit]],
             "paper_books": books,
-            "paper_action_candidates": [],
+            "paper_action_candidates": paper_actions,
         },
         "raw_item_count": len(items),
         "all_items": [compact_item(item) for item in sorted(items, key=lambda entry: entry.get("score", 0), reverse=True)],
         "governance": {
             "paper_only": True,
-            "human_review_required_for_actions": True,
+            "autonomous_paper_execution": True,
+            "human_review_required_for_actions": False,
             "no_real_money_execution": True,
             "new_orders_suppressed_when_market_data_stale": True,
         },
@@ -1138,6 +1104,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--output-dir", default=str(DEFAULT_RUNTIME_DIR / "runs"))
     parser.add_argument("--state", default=str(DEFAULT_RUNTIME_DIR / "state.json"))
     parser.add_argument("--ledger", default=str(DEFAULT_LEDGER))
+    parser.add_argument("--paper-state", default=str(DEFAULT_PAPER_STATE))
     parser.add_argument("--window-hours", type=int, default=24)
     parser.add_argument("--timeout", type=int, default=12)
     parser.add_argument("--news-limit", type=int, default=10)

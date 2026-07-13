@@ -146,11 +146,11 @@ export function buildActionableIntelModel({ murmurs, crypto, polymarket, paperBo
 
   return {
     paperOnly: true,
-    reviewCadence: '24h',
+    reviewCadence: 'continuous autonomous paper loop',
     summary: deduped.length
-      ? `${deduped.length} paper candidates queued for review.`
-      : 'No strong paper candidates yet; keep gathering public signals.',
-    loopNote: 'Paper-only loop: record thesis, watch outcomes, and promote only net-positive patterns.',
+      ? `${deduped.length} autonomous paper decisions and marked theses.`
+      : 'No fresh autonomous paper decisions; stale-data gates remain closed.',
+    loopNote: 'Paper-only loop: decisions, fills, marks, and exits execute deterministically without human review or real-money rails.',
     paperBooks: paperBooks || buildPaperBooksModel({}, now),
     proposals: deduped,
   };
@@ -160,6 +160,8 @@ function buildPaperBooksModel(raw = {}, now = Date.now()) {
   const books = Array.isArray(raw.books) ? raw.books.map((book) => normalizePaperBook(book)).filter(Boolean) : [];
   const totalEquity = books.reduce((total, book) => total + (book.equity || 0), 0);
   const totalPnl = books.reduce((total, book) => total + (book.totalPnl || 0), 0);
+  const totalCash = books.reduce((total, book) => total + (book.cash || 0), 0);
+  const totalInvested = books.reduce((total, book) => total + (book.investedCapital || 0), 0);
   const bestBook = books.slice().sort((left, right) => (right.totalReturnPct || 0) - (left.totalReturnPct || 0))[0] || null;
 
   return {
@@ -169,8 +171,10 @@ function buildPaperBooksModel(raw = {}, now = Date.now()) {
     loop: raw.loop || null,
     benchmark: normalizePaperBenchmark(raw.benchmark),
     metrics: [
-      { label: 'Paper books', value: String(books.length), detail: 'Parallel strategy ledgers' },
-      { label: 'Net equity', value: formatCompactUsd(totalEquity), detail: 'Marked paper equity' },
+      { label: 'Paper books', value: String(books.length), detail: 'Autonomous strategy ledgers' },
+      { label: 'Invested', value: formatCompactUsd(totalInvested), detail: '$1k seed per book' },
+      { label: 'Banked cash', value: formatCompactUsd(totalCash), detail: 'Unallocated reserve' },
+      { label: 'Net equity', value: formatCompactUsd(totalEquity), detail: 'Cash + marked positions' },
       { label: 'Net P/L', value: formatSignedUsd(totalPnl), detail: 'Realized + unrealized' },
       { label: 'Best book', value: bestBook?.name || '—', detail: bestBook ? bestBook.returnLabel : 'Waiting for marks' },
     ],
@@ -188,6 +192,9 @@ function normalizePaperBook(book) {
   const alphaPct = toNumber(book.alphaPct) || totalReturnPct - benchmarkReturnPct;
   const equity = toNumber(book.equity) || 0;
   const totalPnl = toNumber(book.totalPnl) || 0;
+  const startingBalance = toNumber(book.startingBalance ?? book.startingCash) || 0;
+  const cash = toNumber(book.cash) || 0;
+  const investedCapital = toNumber(book.investedCapital) ?? Math.max(0, startingBalance - cash);
   const pendingOrders = Array.isArray(book.pendingOrders) ? book.pendingOrders.slice(0, 5).map(normalizePaperOrder).filter(Boolean) : [];
   const positions = Array.isArray(book.positions) ? book.positions.slice(0, 8).map(normalizePaperPosition).filter(Boolean) : [];
   const tradeLog = Array.isArray(book.tradeLog) ? book.tradeLog.slice(0, 8).map(normalizePaperOrder).filter(Boolean) : [];
@@ -199,7 +206,9 @@ function normalizePaperBook(book) {
     account: cleanString(book.account),
     strategy: cleanString(book.strategy),
     iteration: toNumber(book.iteration) || 0,
-    cash: toNumber(book.cash) || 0,
+    startingBalance,
+    investedCapital,
+    cash,
     equity,
     realizedPnl: toNumber(book.realizedPnl) || 0,
     unrealizedPnl: toNumber(book.unrealizedPnl) || 0,
@@ -279,7 +288,7 @@ function buildPaperBookProposal(book) {
     side: (book.alphaPct || 0) >= 0 ? 'buy' : 'sell',
     instrumentType: 'paper-book',
     assetId: book.id,
-    title: `Review ${book.name}`,
+    title: `Autonomous ${book.name}`,
     label: book.name,
     subtitle: book.account || 'paper ledger',
     thesis: book.strategy || 'Parallel paper strategy is accumulating marks against live public feeds.',
@@ -296,7 +305,7 @@ function buildPaperBookProposal(book) {
     confidence,
     paperOnly: true,
     horizon: 'next loop mark',
-    actionText: 'Review book',
+    actionText: 'Inspect autonomous book',
     sourceLinks: [],
   };
 }

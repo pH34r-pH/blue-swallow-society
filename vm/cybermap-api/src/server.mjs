@@ -7,6 +7,8 @@ import { ContractError, validateObservationBatch } from './contracts.mjs';
 const MAX_BODY_BYTES = 1_048_576;
 const INGEST_PATH = '/api/v1/observations/batch';
 const VIEWPORT_PATH = '/api/v1/cybermap/viewport';
+const PAPER_STATE_PATH = '/api/v1/paper/state';
+const PAPER_BOOK_IDS = Object.freeze(['prediction_markets', 'crypto', 'equity_watch', 'local_event_watch', 'ai_cyber_watch']);
 
 export function createCybermapApiServer({ store, now = Date.now, logger = null, ingestDeadlineMs = 5_000 } = {}) {
   if (!store) throw new TypeError('store is required');
@@ -36,6 +38,11 @@ export function createRequestHandler({ store, now = Date.now, logger = null, ing
         requireBackendReadToken(request);
         const viewport = await handleCybermapViewport(url, { store, now });
         return sendJson(response, 200, viewport);
+      }
+      if (url.pathname === PAPER_STATE_PATH && (request.method === 'GET' || request.method === 'PUT')) {
+        requirePaperStateToken(request);
+        if (request.method === 'GET') return await handlePaperStateRead(response, { store });
+        return await handlePaperStateWrite(request, response, { store, now });
       }
       if (request.method !== 'POST' || url.pathname !== INGEST_PATH) {
         request.resume();
@@ -91,6 +98,88 @@ async function handleObservationBatch(request, response, { store, now, ingestDea
   });
 }
 
+async function handlePaperStateWrite(request, response, { store, now }) {
+  if (typeof store.putPaperState !== 'function') {
+    throw new IngestError('paper_state_unavailable', 'Paper state persistence is not available.', { statusCode: 503 });
+  }
+  const contentType = String(request.headers['content-type'] ?? '').toLowerCase();
+  if (!contentType.startsWith('application/json')) {
+    request.resume();
+    throw new IngestError('unsupported_media_type', 'Content-Type must be application/json.', { statusCode: 415 });
+  }
+  const idempotencyKey = singleHeader(request, 'idempotency-key');
+  if (!idempotencyKey || idempotencyKey.length > 200) {
+    request.resume();
+    throw new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(await readBody(request));
+  } catch {
+    throw new IngestError('invalid_json', 'Malformed JSON.', { statusCode: 400 });
+  }
+  const state = validatePaperState(parsed, now());
+  const result = await store.putPaperState({ idempotencyKey, state });
+  return sendJson(response, result.statusCode, {
+    ok: true,
+    source: 'mosaic-murmurs-paper-engine',
+    idempotency_key: idempotencyKey,
+    generated_at: state.generated_at,
+  }, { 'Idempotent-Replayed': String(result.replayed) });
+}
+
+async function handlePaperStateRead(response, { store }) {
+  if (typeof store.getPaperState !== 'function') {
+    throw new IngestError('paper_state_unavailable', 'Paper state persistence is not available.', { statusCode: 503 });
+  }
+  const current = await store.getPaperState();
+  if (!current) throw new IngestError('paper_state_not_found', 'No paper state has been synchronized.', { statusCode: 404 });
+  return sendJson(response, 200, {
+    ok: true,
+    source: 'mosaic-murmurs-paper-engine',
+    idempotency_key: current.idempotencyKey,
+    updated_at: current.appliedAt,
+    state: current.state,
+  });
+}
+
+function validatePaperState(value, nowMs) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new IngestError('invalid_paper_state', 'Paper state must be an object.', { statusCode: 400 });
+  }
+  const generatedAt = Date.parse(value.generated_at);
+  if (value.schema_version !== 'bss.paper_state.v1'
+      || value.paper_only !== true
+      || value.autonomous_execution !== true
+      || !Number.isFinite(generatedAt)
+      || generatedAt > nowMs + 300_000) {
+    throw new IngestError('invalid_paper_state', 'Paper state envelope is invalid.', { statusCode: 400 });
+  }
+  const ledger = value.ledger;
+  if (!ledger || ledger.schema_version !== 3 || ledger.paper_only !== true || !Array.isArray(ledger.books)) {
+    throw new IngestError('invalid_paper_state', 'Canonical paper ledger is required.', { statusCode: 400 });
+  }
+  const bookIds = ledger.books.map((book) => book?.book_id);
+  if (bookIds.length !== PAPER_BOOK_IDS.length || PAPER_BOOK_IDS.some((bookId) => !bookIds.includes(bookId))) {
+    throw new IngestError('invalid_paper_state', 'All five canonical paper books are required.', { statusCode: 400 });
+  }
+  for (const book of ledger.books) {
+    if (Number(book?.starting_balance) !== 2000
+        || !Number.isFinite(Number(book?.cash_balance))
+        || Number(book.cash_balance) < 0
+        || !Array.isArray(book?.positions)) {
+      throw new IngestError('invalid_paper_state', 'Paper book accounting is invalid.', { statusCode: 400 });
+    }
+  }
+  if (!Array.isArray(value.paper_books) || !Array.isArray(value.paper_action_candidates)) {
+    throw new IngestError('invalid_paper_state', 'Paper summaries and actions must be arrays.', { statusCode: 400 });
+  }
+  if (value.paper_action_candidates.some((candidate) => candidate?.paper_only !== true)) {
+    throw new IngestError('invalid_paper_state', 'Every action must be paper-only.', { statusCode: 400 });
+  }
+  return structuredClone(value);
+}
+
 function buildEchoPayload(url) {
   const query = {};
   for (const key of new Set(url.searchParams.keys())) {
@@ -124,6 +213,17 @@ async function handleCybermapViewport(url, { store, now }) {
   const nowMs = Number.isFinite(clock) ? clock : now();
 
   return store.queryViewport({ lat, lon, radiusMeters, limit, maxAgeMs, now: new Date(nowMs) });
+}
+
+function requirePaperStateToken(request) {
+  const expected = String(process.env.BSS_PAPER_STATE_TOKEN || '').trim();
+  if (!expected) {
+    throw new IngestError('paper_state_token_unconfigured', 'Paper state token is not configured.', { statusCode: 503 });
+  }
+  const actual = singleHeader(request, 'x-blue-swallow-paper-state-token');
+  if (!safeEqualString(actual, expected)) {
+    throw new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
+  }
 }
 
 function requireBackendReadToken(request) {

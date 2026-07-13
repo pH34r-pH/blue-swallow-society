@@ -1,0 +1,12 @@
+# Graphify local indexing exclusions
+# Keep generated/private/binary artifacts out of semantic extraction.
+graphify-out/
+node_modules/
+dist/
+build/
+.next/
+coverage/
+**/__pycache__/
+**/*.pyc
+**/*.apk
+api/_private/downloads/

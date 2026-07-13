@@ -48,6 +48,10 @@ param postgresAdministratorLoginPassword string
 @description('Shared backend read token used by SWA Functions when proxying operator-only Cybermap viewport reads to the VM API.')
 param cybermapReadToken string
 
+@secure()
+@description('Dedicated token for canonical autonomous paper-state writes and reads.')
+param paperStateToken string
+
 @description('Public repository tarball used by the VM extension to install vm/cybermap-api.')
 param cybermapSourceTarballUrl string = 'https://github.com/pH34r-pH/blue-swallow-society/archive/refs/heads/main.tar.gz'
 
@@ -215,7 +219,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-03-01' = {
 }
 
 var cybermapInstallScriptTemplate = loadTextContent('scripts/install-cybermap-api.sh')
-var cybermapInstallScript = replace(
+var cybermapInstallScriptWithoutPaperToken = replace(
   replace(
     replace(
       replace(
@@ -243,6 +247,11 @@ var cybermapInstallScript = replace(
   ),
   '__CYBERMAP_API_PORT__',
   string(cybermapApiPort)
+)
+var cybermapInstallScript = replace(
+  cybermapInstallScriptWithoutPaperToken,
+  '__PAPER_STATE_TOKEN_B64__',
+  base64(paperStateToken)
 )
 
 resource cybermapApiExtension 'Microsoft.Compute/virtualMachines/extensions@2024-03-01' = {

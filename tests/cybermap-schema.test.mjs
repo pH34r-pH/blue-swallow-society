@@ -8,6 +8,8 @@ const migration = read('vm/cybermap-api/db/migrations/0001_cybermap_core.sql');
 const migrationLower = migration.toLowerCase();
 const ingestMigration = read('vm/cybermap-api/db/migrations/0002_device_ingest_contract.sql');
 const ingestMigrationLower = ingestMigration.toLowerCase();
+const paperStateMigration = read('vm/cybermap-api/db/migrations/0003_paper_state.sql');
+const paperStateMigrationLower = paperStateMigration.toLowerCase();
 const dbReadme = read('vm/cybermap-api/db/README.md');
 const installCybermapApi = read('infra/scripts/install-cybermap-api.sh');
 
@@ -181,6 +183,7 @@ test('VM Cybermap installer applies checked-in SQL migrations with psql', () => 
   assert.match(installCybermapApi, /schema_migrations/);
   assert.match(installCybermapApi, /0001_cybermap_core\.sql/);
   assert.match(installCybermapApi, /0002_device_ingest_contract\.sql/);
+  assert.match(installCybermapApi, /0003_paper_state\.sql/);
   assert.doesNotMatch(installCybermapApi, /scripts\/migrate\.mjs/);
 });
 
@@ -207,6 +210,16 @@ test('device ingest migration links observations to batches and persists stable 
   assert.match(ingestMigrationLower, /create\s+trigger\s+sync_batches_finalized_update_guard/);
   assert.match(ingestMigrationLower, /finalized sync batches are immutable/);
   assert.match(ingestMigrationLower, /insert\s+into\s+schema_migrations\s*\(version\)\s*values\s*\('0002_device_ingest_contract'\)/);
+});
+
+test('paper-state migration stores idempotent canonical snapshots and one current pointer', () => {
+  assert.match(paperStateMigrationLower, /create\s+table\s+if\s+not\s+exists\s+paper_state_updates/);
+  assert.match(paperStateMigrationLower, /idempotency_key\s+text\s+not\s+null\s+unique/);
+  assert.match(paperStateMigrationLower, /payload_hash\s+text\s+not\s+null/);
+  assert.match(paperStateMigrationLower, /state\s+jsonb\s+not\s+null/);
+  assert.match(paperStateMigrationLower, /create\s+table\s+if\s+not\s+exists\s+paper_state_current/);
+  assert.match(paperStateMigrationLower, /singleton\s+boolean\s+primary\s+key/);
+  assert.match(paperStateMigrationLower, /values\s*\('0003_paper_state'\)/);
 });
 
 test('device ingest migration pins receipt identity and counts to the durable batch row', () => {

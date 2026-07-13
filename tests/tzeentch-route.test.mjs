@@ -26,6 +26,8 @@ function withOperatorEnv(fn) {
     BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY: process.env.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY,
     BLUE_SWALLOW_OPERATOR_ID: process.env.BLUE_SWALLOW_OPERATOR_ID,
     BLUE_SWALLOW_PAPER_LEDGER_PATH: process.env.BLUE_SWALLOW_PAPER_LEDGER_PATH,
+    BACKEND_PAPER_STATE_BASE_URL: process.env.BACKEND_PAPER_STATE_BASE_URL,
+    BSS_PAPER_STATE_TOKEN: process.env.BSS_PAPER_STATE_TOKEN,
   };
   const ledgerDir = mkdtempSync(join(tmpdir(), 'bss-tzeentch-ledger-'));
   const digest = crypto.createHash('sha256').update('tzeentch-test-passcode').digest('hex');
@@ -35,6 +37,8 @@ function withOperatorEnv(fn) {
   process.env.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY = 'tzeentch-route-token-signing-key-32-bytes-minimum';
   process.env.BLUE_SWALLOW_OPERATOR_ID = 'operator-test';
   process.env.BLUE_SWALLOW_PAPER_LEDGER_PATH = join(ledgerDir, 'ledger.json');
+  process.env.BACKEND_PAPER_STATE_BASE_URL = 'http://paper-backend.test:8080';
+  process.env.BSS_PAPER_STATE_TOKEN = 'test-paper-state-token-32-byte-minimum';
   handler._resetPaperBooksForTests?.();
 
   return Promise.resolve()
@@ -58,8 +62,75 @@ function authorizationHeader({ operatorId } = {}) {
 }
 
 
-async function mockTzeentchFeedFetch(url) {
+function canonicalPaperBackendResponse() {
+  const ids = ['prediction_markets', 'crypto', 'equity_watch', 'local_event_watch', 'ai_cyber_watch'];
+  return {
+    ok: true,
+    source: 'mosaic-murmurs-paper-engine',
+    state: {
+      schema_version: 'bss.paper_state.v1',
+      generated_at: '2026-07-13T01:00:00Z',
+      paper_only: true,
+      autonomous_execution: true,
+      ledger: {
+        schema_version: 3,
+        paper_only: true,
+        processed_idempotency_keys: ['tick-1'],
+        books: ids.map((book_id) => ({
+          book_id,
+          display_name: book_id.replaceAll('_', ' '),
+          starting_balance: 2000,
+          cash_balance: 1000,
+          equity: 2000,
+          realized_pnl: 0,
+          positions: [{
+            instrument_ref: `${book_id}:seed`,
+            symbol: 'SEED',
+            quantity: 1,
+            entry_price: 1000,
+            mark_price: 1000,
+            market_value: 1000,
+            mark_status: 'fresh',
+          }],
+        })),
+      },
+      paper_books: ids.map((book_id) => ({
+        book_id,
+        display_name: book_id.replaceAll('_', ' '),
+        starting_balance: 2000,
+        cash_balance: 1000,
+        equity: 2000,
+        open_position_count: 1,
+        gross_paper_exposure: 1000,
+        daily_pnl: 0,
+        cumulative_pnl: 0,
+        cumulative_pnl_pct: 0,
+        drawdown_pct: 0,
+        max_drawdown_pct: 0,
+        status: 'flat',
+      })),
+      paper_action_candidates: [{
+        decision_id: 'decision-1',
+        book_id: 'crypto',
+        action: 'PAPER_BUY',
+        paper_size: 333.34,
+        instrument_ref: 'crypto:bitcoin',
+        status: 'paper_filled',
+        paper_only: true,
+        autonomous_execution: true,
+        human_review_required: false,
+      }],
+      paper_ledger_events: [],
+    },
+  };
+}
+
+async function mockTzeentchFeedFetch(url, options = {}) {
   const href = String(url);
+  if (href === 'http://paper-backend.test:8080/api/v1/paper/state') {
+    assert.equal(options.headers['X-Blue-Swallow-Paper-State-Token'], process.env.BSS_PAPER_STATE_TOKEN);
+    return jsonResponse(canonicalPaperBackendResponse());
+  }
   if (href.includes('hacker-news.firebaseio.com/v0/topstories.json')) {
     return jsonResponse([1]);
   }
@@ -232,13 +303,17 @@ test('api/tzeentch returns a bearer-token protected read-only payload', async ()
   assert.equal(context.res.body.paperBooks.loop.field_naming.canonical_case, 'snake_case');
   assert.deepEqual(context.res.body.paperBooks.loop.loop_topology.primary_loops, ['mosaic', 'murmurs']);
   assert.ok(context.res.body.paperBooks.loop.loop_topology.supporting_loops.includes('bridge'));
-  assert.ok(context.res.body.paperBooks.books.every((book) => book.startingCash === 1000));
+  assert.ok(context.res.body.paperBooks.books.every((book) => book.startingBalance === 2000));
+  assert.ok(context.res.body.paperBooks.books.every((book) => book.cash === 1000));
+  assert.ok(context.res.body.paperBooks.books.every((book) => book.positions.length === 1));
+  assert.equal(context.res.body.paperBooks.autonomousExecution, true);
+  assert.equal(context.res.body.paperBooks.source, 'mosaic-murmurs-paper-engine');
   assert.ok(context.res.body.paperBooks.books.some((book) => book.pendingOrders.length > 0));
   assert.match(context.res.body.crypto.markets[0].symbol, /BTC/);
   });
 });
 
-test('api/tzeentch persists paper books per operator across warm memory resets', async () => {
+test('api/tzeentch remains read-only and returns the same canonical backend ledger across requests', async () => {
   await withOperatorEnv(async () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = mockTzeentchFeedFetch;
@@ -247,25 +322,14 @@ test('api/tzeentch persists paper books per operator across warm memory resets',
       const first = { log: { error: () => {} } };
       await handler(first, { headers: new Headers(authorizationHeader({ operatorId: 'operator-alpha' })) });
       assert.equal(first.res.status, 200);
-      assert.equal(first.res.body.paperBooks.operatorId, 'operator-alpha');
-      assert.equal(first.res.body.paperBooks.books[0].iteration, 1);
-      assert.ok(first.res.body.paperBooks.books[0].tradeLog.length > 0);
-
-      handler._resetPaperBooksForTests?.({ memoryOnly: true });
 
       const second = { log: { error: () => {} } };
-      await handler(second, { headers: new Headers(authorizationHeader({ operatorId: 'operator-alpha' })) });
+      await handler(second, { headers: new Headers(authorizationHeader({ operatorId: 'operator-beta' })) });
       assert.equal(second.res.status, 200);
-      assert.equal(second.res.body.paperBooks.operatorId, 'operator-alpha');
-      assert.ok(second.res.body.paperBooks.books[0].iteration > first.res.body.paperBooks.books[0].iteration);
-      assert.ok(second.res.body.paperBooks.books[0].tradeLog.length >= first.res.body.paperBooks.books[0].tradeLog.length);
-
-      const other = { log: { error: () => {} } };
-      await handler(other, { headers: new Headers(authorizationHeader({ operatorId: 'operator-beta' })) });
-      assert.equal(other.res.status, 200);
-      assert.equal(other.res.body.paperBooks.operatorId, 'operator-beta');
-      assert.equal(other.res.body.paperBooks.books[0].iteration, 1);
-      assert.notEqual(other.res.body.paperBooks.operatorScope, second.res.body.paperBooks.operatorScope);
+      assert.deepEqual(second.res.body.paperBooks, first.res.body.paperBooks);
+      assert.equal(second.res.body.paperBooks.books[0].startingBalance, 2000);
+      assert.equal(second.res.body.paperBooks.books[0].cash, 1000);
+      assert.equal(second.res.body.paperBooks.books[0].positions.length, 1);
     } finally {
       globalThis.fetch = originalFetch;
     }

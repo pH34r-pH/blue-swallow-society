@@ -60,6 +60,10 @@ param postgresBackupRetentionDays int = 7
 @description('Shared backend read token used by SWA Functions when proxying operator-only Cybermap viewport reads to the VM API.')
 param cybermapReadToken string
 
+@secure()
+@description('Dedicated token used by the local autonomous paper engine and SWA to write/read the canonical VM paper-state snapshot.')
+param paperStateToken string
+
 @description('Public repository tarball used by the VM extension to install vm/cybermap-api.')
 param cybermapSourceTarballUrl string = 'https://github.com/pH34r-pH/blue-swallow-society/archive/refs/heads/main.tar.gz'
 
@@ -139,6 +143,7 @@ module vmModule 'vm-echo-lab.bicep' = {
     postgresAdministratorLogin: postgresAdministratorLogin
     postgresAdministratorLoginPassword: postgresAdministratorLoginPassword
     cybermapReadToken: cybermapReadToken
+    paperStateToken: paperStateToken
     cybermapSourceTarballUrl: cybermapSourceTarballUrl
     cybermapDeploymentVersion: cybermapDeploymentVersion
   }

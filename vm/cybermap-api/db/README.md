@@ -8,6 +8,7 @@ This directory uses ordered, checked-in PostgreSQL SQL migrations. P0 intentiona
 createdb bss_cybermap_dev
 psql bss_cybermap_dev -v ON_ERROR_STOP=1 -f vm/cybermap-api/db/migrations/0001_cybermap_core.sql
 psql bss_cybermap_dev -v ON_ERROR_STOP=1 -f vm/cybermap-api/db/migrations/0002_device_ingest_contract.sql
+psql bss_cybermap_dev -v ON_ERROR_STOP=1 -f vm/cybermap-api/db/migrations/0003_paper_state.sql
 psql bss_cybermap_dev -c 'SELECT postgis_full_version();'
 ```
 
@@ -17,6 +18,7 @@ Or point `DATABASE_URL` at an explicit libpq URL:
 DATABASE_URL='postgresql://postgres:postgres@localhost:5432/bss_cybermap_dev'
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f vm/cybermap-api/db/migrations/0001_cybermap_core.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f vm/cybermap-api/db/migrations/0002_device_ingest_contract.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f vm/cybermap-api/db/migrations/0003_paper_state.sql
 ```
 
 ## Migration contract
@@ -25,6 +27,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f vm/cybermap-api/db/migrations/0002_de
 - `schema_migrations` records applied versions.
 - `0001_cybermap_core.sql` enables PostGIS and pgcrypto, creates the observation ledger, and materializes Cybermap cells.
 - `0002_device_ingest_contract.sql` adds scoped device credential digests, durable sync receipts, observation content hashes, and batch links. It never stores raw ingest tokens.
+- `0003_paper_state.sql` stores idempotent autonomous paper-engine snapshots plus one current-state pointer; it contains no real-money execution credentials.
 - H3 cells (`h3_7`, `h3_9`, `h3_11`) are app-computed. Do not require a PostgreSQL H3 extension in P0.
 - Canonical source-class mapping: `public_greenfeed -> green_public`, `owned_greenfeed -> green_owned`, `authorized_greenfeed -> green_authorized`.
 - Green source classes may preload globally. Grey/orange/red rows must include local or explicitly authorized trigger metadata (`trigger_observation_id`, `session_id`, or `authorized_scope_ref`).

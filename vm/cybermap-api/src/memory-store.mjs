@@ -7,6 +7,8 @@ export class MemoryObservationStore {
   #credentials;
   #batches = new Map();
   #observations = new Map();
+  #paperStateUpdates = new Map();
+  #paperState = null;
   #now;
   #randomUuid;
 
@@ -94,6 +96,29 @@ export class MemoryObservationStore {
     }
     this.#batches.set(batchIdentity, { payloadHash, receipt: structuredClone(receipt) });
     return { statusCode: 201, replayed: false, receipt: structuredClone(receipt) };
+  }
+
+  async putPaperState({ idempotencyKey, state }) {
+    const payloadHash = hashCanonicalJson(state);
+    const existing = this.#paperStateUpdates.get(idempotencyKey);
+    if (existing) {
+      if (existing.payloadHash !== payloadHash) {
+        throw new IngestError('idempotency_key_reused', 'Idempotency key was reused with changed content.', { statusCode: 409 });
+      }
+      return { statusCode: 200, replayed: true, state: structuredClone(existing.state) };
+    }
+    const generatedAt = Date.parse(state.generated_at);
+    if (this.#paperState && generatedAt < Date.parse(this.#paperState.state.generated_at)) {
+      throw new IngestError('stale_paper_state', 'Older paper state cannot replace the current snapshot.', { statusCode: 409 });
+    }
+    const entry = { payloadHash, state: structuredClone(state), appliedAt: this.#now().toISOString() };
+    this.#paperStateUpdates.set(idempotencyKey, entry);
+    this.#paperState = { idempotencyKey, ...entry };
+    return { statusCode: 201, replayed: false, state: structuredClone(state) };
+  }
+
+  async getPaperState() {
+    return this.#paperState ? structuredClone(this.#paperState) : null;
   }
 
   observationCount() {

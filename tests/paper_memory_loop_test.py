@@ -3,7 +3,10 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
+
+from paper_engine_test import fresh_snapshot
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +20,11 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
             ledger_path = root / "ledger.json"
             state_dir = root / "state"
             morning_state = root / "missing-morning-state.json"
+            market_snapshot = root / "market-snapshot.json"
+            market_snapshot.write_text(
+                json.dumps(fresh_snapshot(datetime.now(timezone.utc))),
+                encoding="utf-8",
+            )
 
             result = subprocess.run(
                 [
@@ -28,6 +36,10 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
                     str(state_dir),
                     "--morning-state",
                     str(morning_state),
+                    "--market-snapshot",
+                    str(market_snapshot),
+                    "--idempotency-key",
+                    "integration-tick-1",
                     "--window-hours",
                     "1",
                 ],
@@ -43,7 +55,9 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
             self.assertEqual(packet["loop_topology"]["primary_loops"], ["mosaic", "murmurs"])
             self.assertIn("bridge", packet["loop_topology"]["supporting_loops"])
             self.assertEqual(packet["paper_book_count"], 5)
-            self.assertEqual({book["starting_balance"] for book in packet["paper_books"]}, {1000.0})
+            self.assertEqual({book["starting_balance"] for book in packet["paper_books"]}, {2000.0})
+            self.assertEqual({book["cash_balance"] for book in packet["paper_books"]}, {1000.0})
+            self.assertEqual({book["gross_paper_exposure"] for book in packet["paper_books"]}, {1000.0})
 
             latest_state = json.loads((state_dir / "latest_state.json").read_text(encoding="utf-8"))
             self.assertEqual({run["loop_role"] for run in latest_state["last_runs"]}, {"primary", "supporting"})
@@ -52,8 +66,17 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
                 ["mosaic", "murmurs"],
             )
             self.assertEqual(len(latest_state["paper_books"]), 5)
-            self.assertTrue(all(candidate["review_required"] for candidate in latest_state["last_paper_action_candidates"]))
+            filled = [
+                candidate
+                for candidate in latest_state["last_paper_action_candidates"]
+                if candidate["status"] == "paper_filled"
+            ]
+            self.assertAlmostEqual(sum(candidate["paper_size"] for candidate in filled), 5000.0, places=2)
+            self.assertTrue(all(candidate["autonomous_execution"] for candidate in filled))
+            self.assertTrue(all(candidate["risk_policy_passed"] for candidate in filled))
+            self.assertTrue(all(not candidate["human_review_required"] for candidate in filled))
             self.assertTrue(all(candidate["paper_only"] for candidate in latest_state["last_paper_action_candidates"]))
+            self.assertTrue(any(event["event_type"] == "paper_fill" for event in latest_state["last_paper_ledger_events"]))
             self.assertTrue(all("run_id" in run and "started_at" in run for run in latest_state["last_runs"]))
             self.assertTrue(all("runId" not in run and "startedAt" not in run for run in latest_state["last_runs"]))
 

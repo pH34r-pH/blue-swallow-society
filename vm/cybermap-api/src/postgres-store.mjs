@@ -3,7 +3,7 @@ import { latLngToCell } from 'h3-js';
 import { forbidden, hashToken, IngestError } from './auth.mjs';
 import { hashCanonicalJson, hashPersistedObservation } from './contracts.mjs';
 
-const REQUIRED_MIGRATIONS = Object.freeze(['0001_cybermap_core', '0002_device_ingest_contract']);
+const REQUIRED_MIGRATIONS = Object.freeze(['0001_cybermap_core', '0002_device_ingest_contract', '0003_paper_state']);
 
 /** Durable PostgreSQL/PostGIS implementation of the authenticated observation store contract. */
 export class PostgresObservationStore {
@@ -242,6 +242,87 @@ export class PostgresObservationStore {
       client.release();
     }
   }
+  async putPaperState({ idempotencyKey, state }) {
+    const client = await this.#pool.connect();
+    let transactionOpen = false;
+    try {
+      await client.query('BEGIN');
+      transactionOpen = true;
+      await client.query("SET LOCAL lock_timeout TO '2s'; SET LOCAL statement_timeout TO '3s'; SET LOCAL idle_in_transaction_session_timeout TO '10s'");
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('mosaic-murmurs-paper-state', 2))");
+      const payloadHash = hashCanonicalJson(state);
+      const existing = await client.query(
+        `SELECT payload_hash, state
+         FROM paper_state_updates
+         WHERE idempotency_key = $1
+         FOR UPDATE`,
+        [idempotencyKey],
+      );
+      if (existing.rows.length > 0) {
+        if (existing.rows[0].payload_hash !== payloadHash) {
+          throw new IngestError('idempotency_key_reused', 'Idempotency key was reused with changed content.', { statusCode: 409 });
+        }
+        await client.query('COMMIT');
+        transactionOpen = false;
+        return { statusCode: 200, replayed: true, state: existing.rows[0].state };
+      }
+      const current = await client.query(
+        `SELECT generated_at
+         FROM paper_state_current
+         WHERE singleton = true
+         FOR UPDATE`,
+      );
+      if (current.rows.length > 0 && new Date(state.generated_at) < new Date(current.rows[0].generated_at)) {
+        throw new IngestError('stale_paper_state', 'Older paper state cannot replace the current snapshot.', { statusCode: 409 });
+      }
+      const inserted = await client.query(
+        `INSERT INTO paper_state_updates (idempotency_key, payload_hash, generated_at, state)
+         VALUES ($1, $2, $3, $4::jsonb)
+         RETURNING id, applied_at`,
+        [idempotencyKey, payloadHash, state.generated_at, JSON.stringify(state)],
+      );
+      await client.query(
+        `INSERT INTO paper_state_current (singleton, update_id, idempotency_key, generated_at, state, updated_at)
+         VALUES (true, $1, $2, $3, $4::jsonb, $5)
+         ON CONFLICT (singleton) DO UPDATE
+         SET update_id = EXCLUDED.update_id,
+             idempotency_key = EXCLUDED.idempotency_key,
+             generated_at = EXCLUDED.generated_at,
+             state = EXCLUDED.state,
+             updated_at = EXCLUDED.updated_at`,
+        [inserted.rows[0].id, idempotencyKey, state.generated_at, JSON.stringify(state), inserted.rows[0].applied_at],
+      );
+      await client.query('COMMIT');
+      transactionOpen = false;
+      return { statusCode: 201, replayed: false, state: structuredClone(state) };
+    } catch (error) {
+      if (transactionOpen) {
+        try {
+          await client.query('ROLLBACK');
+        } catch {
+          // Preserve the original failure.
+        }
+      }
+      throw normalizeDatabaseError(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async getPaperState() {
+    const result = await this.#pool.query(
+      `SELECT idempotency_key, state, updated_at
+       FROM paper_state_current
+       WHERE singleton = true`,
+    );
+    if (result.rows.length === 0) return null;
+    return {
+      idempotencyKey: result.rows[0].idempotency_key,
+      state: result.rows[0].state,
+      appliedAt: new Date(result.rows[0].updated_at).toISOString(),
+    };
+  }
+
   async queryViewport({ lat, lon, radiusMeters = 100, limit = 100, maxAgeMs = null, now = new Date() } = {}) {
     const center = { lat, lon };
     const cutoff = Number.isFinite(maxAgeMs) ? new Date(new Date(now).getTime() - maxAgeMs).toISOString() : null;

@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Run Mosaic & Murmurs paper-memory loop ticks.
+"""Run autonomous Mosaic & Murmurs paper-memory loop ticks.
 
-The loop runtime is deliberately local-first and dependency-free. It writes
-append-only JSONL records with canonical snake_case field names, keeps the
-SWA/browser side read-only, and prepares paper-only review candidates without
-real-money execution.
+The local scheduler owns deterministic paper-only decisions, risk checks, fills,
+marks, and append-only audit records. It has no real-money execution adapter.
 """
 
 from __future__ import annotations
@@ -12,17 +10,30 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from mosaic_murmurs_market_data import collect_market_snapshot as collect_live_market_snapshot
+from mosaic_murmurs_paper_sync import PaperSyncError, build_paper_state, read_token_file, sync_paper_state
+from mosaic_murmurs_paper_engine import (
+    BOOK_SPECS as ENGINE_BOOK_SPECS,
+    default_ledger as engine_default_ledger,
+    migrate_ledger as engine_migrate_ledger,
+    process_tick as process_paper_tick,
+    summarize_book as engine_summarize_book,
+)
+
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
-DEFAULT_LEDGER = REPO_ROOT / "config" / "mosaic-murmurs-paper-ledger.json"
 DEFAULT_STATE_DIR = Path.home() / ".hermes" / "mosaic-murmurs" / "paper-memory-loop"
+DEFAULT_PAPER_SYNC_URL_FILE = Path.home() / ".config" / "blue-swallow" / "paper-state-url"
+DEFAULT_LEDGER = DEFAULT_STATE_DIR / "paper-ledger.json"
+DEFAULT_LEDGER_SEED = REPO_ROOT / "config" / "mosaic-murmurs-paper-ledger.json"
 DEFAULT_MORNING_STATE = Path.home() / ".hermes" / "mosaic-murmurs" / "morning-brief" / "state.json"
-BOOK_STARTING_BALANCE = 1_000.0
+BOOK_STARTING_BALANCE = 2_000.0
 
 PRIMARY_LOOPS: dict[str, dict[str, str]] = {
     "mosaic": {
@@ -77,43 +88,7 @@ FIELD_NAMING = {
     "ui_boundary": "SWA JavaScript may adapt to camelCase internally, but persisted loop records stay snake_case.",
 }
 
-BOOK_SPECS: list[dict[str, Any]] = [
-    {
-        "book_id": "prediction_markets",
-        "display_name": "Prediction Markets",
-        "loop_affinity": "bridge",
-        "instrument_type": "prediction_market",
-        "strategy": "Paper-only probability deltas where Mosaic evidence and Murmurs belief diverge from market-implied odds.",
-    },
-    {
-        "book_id": "crypto",
-        "display_name": "Crypto",
-        "loop_affinity": "bridge",
-        "instrument_type": "crypto",
-        "strategy": "Paper-only liquid crypto momentum/reversion signals from public market and perception feeds.",
-    },
-    {
-        "book_id": "equity_watch",
-        "display_name": "Equity Watch",
-        "loop_affinity": "mosaic",
-        "instrument_type": "equity_watch",
-        "strategy": "Paper-only watchlist for public-company, macro, and regulatory signals; no brokerage execution.",
-    },
-    {
-        "book_id": "local_event_watch",
-        "display_name": "Local Event Watch",
-        "loop_affinity": "mosaic",
-        "instrument_type": "local_event_watch",
-        "strategy": "Paper-only Seattle/Bellevue/Redmond and Washington State event-risk theses.",
-    },
-    {
-        "book_id": "ai_cyber_watch",
-        "display_name": "AI/Cyber Watch",
-        "loop_affinity": "murmurs",
-        "instrument_type": "other_paper_only",
-        "strategy": "Paper-only AI, security, breach, and agent-tooling hype/fact deltas.",
-    },
-]
+BOOK_SPECS: list[dict[str, Any]] = ENGINE_BOOK_SPECS
 
 RECORD_FILES = {
     "agent_loop_runs": "agent_loop_runs.jsonl",
@@ -184,72 +159,24 @@ def append_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
 
 
 def default_ledger() -> dict[str, Any]:
-    return {
-        "schema_version": 2,
-        "currency": "USD",
-        "updated_at": None,
-        "field_naming": FIELD_NAMING,
-        "loop_topology": LOOP_TOPOLOGY,
-        "notes": "Paper-only Mosaic & Murmurs ledger. No real-money execution; every action candidate remains human-reviewable.",
-        "books": [],
-    }
+    ledger = engine_default_ledger(datetime.now(timezone.utc))
+    ledger.update({"field_naming": FIELD_NAMING, "loop_topology": LOOP_TOPOLOGY})
+    return ledger
 
 
 def normalize_ledger(raw: dict[str, Any] | None) -> dict[str, Any]:
-    ledger = dict(raw) if isinstance(raw, dict) else default_ledger()
-    existing: dict[str, dict[str, Any]] = {}
-    for raw_book in ledger.get("books", []) or []:
-        if not isinstance(raw_book, dict):
-            continue
-        book_id = clean_string(raw_book.get("book_id") or raw_book.get("id"))
-        if book_id:
-            existing[book_id] = dict(raw_book)
-
-    normalized_books: list[dict[str, Any]] = []
-    for spec in BOOK_SPECS:
-        old = existing.get(spec["book_id"], {})
-        starting_balance = to_float(old.get("starting_balance", old.get("starting_equity")), BOOK_STARTING_BALANCE)
-        if starting_balance <= 0:
-            starting_balance = BOOK_STARTING_BALANCE
-        closed_pnl = round_money(old.get("closed_pnl", old.get("closedPnl", 0.0)))
-        cash_balance = to_float(old.get("cash_balance", old.get("cash", old.get("available_cash"))), starting_balance)
-        high_water = max(
-            to_float(old.get("high_water_mark", old.get("highWaterMark")), starting_balance),
-            starting_balance,
-        )
-        positions = old.get("positions") if isinstance(old.get("positions"), list) else []
-        normalized_books.append(
-            {
-                "book_id": spec["book_id"],
-                "display_name": clean_string(old.get("display_name")) or spec["display_name"],
-                "loop_affinity": clean_string(old.get("loop_affinity")) or spec["loop_affinity"],
-                "instrument_type": clean_string(old.get("instrument_type")) or spec["instrument_type"],
-                "strategy": clean_string(old.get("strategy")) or spec["strategy"],
-                "starting_balance": round_money(starting_balance),
-                "cash_balance": round_money(cash_balance),
-                "closed_pnl": closed_pnl,
-                "high_water_mark": round_money(high_water),
-                "positions": positions,
-                "status": clean_string(old.get("status")) or "active",
-            }
-        )
-
-    ledger.update(
-        {
-            "schema_version": 2,
-            "currency": clean_string(ledger.get("currency")) or "USD",
-            "updated_at": iso_z(datetime.now(timezone.utc)),
-            "field_naming": FIELD_NAMING,
-            "loop_topology": LOOP_TOPOLOGY,
-            "books": normalized_books,
-        }
-    )
+    ledger = engine_migrate_ledger(raw, datetime.now(timezone.utc))
+    ledger.update({"field_naming": FIELD_NAMING, "loop_topology": LOOP_TOPOLOGY})
     return ledger
 
 
 def load_ledger(path: Path) -> tuple[dict[str, Any], bool]:
-    raw = load_json(path, default_ledger())
-    return normalize_ledger(raw), path.exists()
+    loaded = path.exists()
+    if loaded:
+        raw = load_json(path, default_ledger())
+    else:
+        raw = load_json(DEFAULT_LEDGER_SEED, default_ledger())
+    return normalize_ledger(raw), loaded
 
 
 def position_value(position: dict[str, Any], price_field: str, fallback: float = 0.0) -> float:
@@ -262,57 +189,17 @@ def position_value(position: dict[str, Any], price_field: str, fallback: float =
 
 
 def summarize_book(book: dict[str, Any], ledger_loaded: bool, ledger_path: Path) -> dict[str, Any]:
-    positions = [position for position in (book.get("positions") or []) if isinstance(position, dict)]
-    open_positions = [position for position in positions if not position.get("closed_at") and not position.get("closedAt")]
-    gross_exposure = 0.0
-    daily_pnl = 0.0
-    cumulative_pnl = to_float(book.get("closed_pnl"), 0.0)
-    stale_open_marks = 0
-
-    for position in open_positions:
-        if not isinstance(position, dict):
-            continue
-        entry_value = position_value(position, "entry_price") or to_float(position.get("cost_basis"), 0.0)
-        previous_value = position_value(position, "previous_mark_price", entry_value)
-        current_mark = position.get("mark_price") or position.get("markPrice") or position.get("current_price") or position.get("currentPrice")
-        if current_mark is None:
-            stale_open_marks += 1
-            gross_exposure += entry_value
-            continue
-        current_value = position_value(position, "mark_price", entry_value)
-        gross_exposure += current_value
-        daily_pnl += current_value - previous_value
-        cumulative_pnl += current_value - entry_value
-
-    starting_balance = to_float(book.get("starting_balance"), BOOK_STARTING_BALANCE)
-    equity = starting_balance + cumulative_pnl
-    high_water_mark = max(to_float(book.get("high_water_mark"), starting_balance), equity, starting_balance)
-    drawdown_pct = ((high_water_mark - equity) / high_water_mark * 100.0) if high_water_mark else 0.0
-    daily_pnl_pct = (daily_pnl / starting_balance * 100.0) if starting_balance else 0.0
-    cumulative_pnl_pct = (cumulative_pnl / starting_balance * 100.0) if starting_balance else 0.0
-    status = "stale" if stale_open_marks else "flat" if not open_positions else "up" if cumulative_pnl > 0 else "down" if cumulative_pnl < 0 else "flat"
-
-    return {
-        "book_id": book["book_id"],
-        "display_name": book["display_name"],
-        "loop_affinity": book["loop_affinity"],
-        "instrument_type": book["instrument_type"],
-        "strategy": book["strategy"],
-        "starting_balance": round_money(starting_balance),
-        "cash_balance": round_money(book.get("cash_balance", starting_balance)),
-        "equity": round_money(equity),
-        "open_position_count": len(open_positions),
-        "gross_paper_exposure": round_money(gross_exposure),
-        "daily_pnl": round_money(daily_pnl),
-        "daily_pnl_pct": round(daily_pnl_pct, 2),
-        "cumulative_pnl": round_money(cumulative_pnl),
-        "cumulative_pnl_pct": round(cumulative_pnl_pct, 2),
-        "drawdown_pct": round(drawdown_pct, 2),
-        "stale_open_marks": stale_open_marks,
-        "status": status,
-        "ledger_loaded": ledger_loaded,
-        "ledger_path": str(ledger_path),
-    }
+    summary = engine_summarize_book(book)
+    summary.update(
+        {
+            "loop_affinity": book["loop_affinity"],
+            "instrument_type": book["instrument_type"],
+            "strategy": book["strategy"],
+            "ledger_loaded": ledger_loaded,
+            "ledger_path": str(ledger_path),
+        }
+    )
+    return summary
 
 
 def source_ref_from_item(item: dict[str, Any], index: int) -> dict[str, Any]:
@@ -471,65 +358,6 @@ def make_fragment(run: dict[str, Any], source_refs: list[dict[str, Any]], book_c
     }
 
 
-def make_action_candidates(run: dict[str, Any], books: list[dict[str, Any]], source_refs: list[dict[str, Any]], now: datetime) -> list[dict[str, Any]]:
-    candidates: list[dict[str, Any]] = []
-    expires_at = iso_z(now + timedelta(hours=24))
-    evidence_refs = [ref["source_ref"] for ref in source_refs[:6]]
-    for book in books:
-        action = "WATCH"
-        candidate_id = stable_id("candidate", run["run_id"], book["book_id"], action)
-        candidates.append(
-            {
-                "candidate_id": candidate_id,
-                "run_id": run["run_id"],
-                "action": action,
-                "book_id": book["book_id"],
-                "instrument_type": book["instrument_type"],
-                "instrument_ref": f"paper_book:{book['book_id']}",
-                "paper_size": 0.0,
-                "thesis": f"Keep {book['display_name']} active with ${book['starting_balance']:.0f} paper starting balance; wait for reviewed Mosaic/Murmurs delta before PAPER BUY/SELL.",
-                "mosaic_claim_refs": evidence_refs if book["loop_affinity"] in {"mosaic", "bridge"} else [],
-                "murmur_cluster_refs": evidence_refs if book["loop_affinity"] in {"murmurs", "bridge"} else [],
-                "perceptual_delta_refs": [stable_id("delta", run["run_id"], book["book_id"])],
-                "evidence_refs": evidence_refs,
-                "counter_evidence_refs": [],
-                "entry_condition": "Promote only after Mosaic evidence, Murmurs perception motion, and market/instrument mark are fresh enough for review.",
-                "exit_condition": "Expire if source state is stale, thesis is falsified, or human review rejects the packet.",
-                "expires_at": expires_at,
-                "confidence": "low" if not evidence_refs else "medium",
-                "review_required": True,
-                "status": "queued",
-                "paper_only": True,
-                "human_review_required": True,
-            }
-        )
-    return candidates
-
-
-def make_ledger_events(run: dict[str, Any], books: list[dict[str, Any]], now: datetime) -> list[dict[str, Any]]:
-    events = []
-    for book in books:
-        events.append(
-            {
-                "event_id": stable_id("ledger_event", run["run_id"], book["book_id"], "mark"),
-                "run_id": run["run_id"],
-                "book_id": book["book_id"],
-                "event_type": "mark",
-                "generated_at": iso_z(now),
-                "starting_balance": book["starting_balance"],
-                "cash_balance": book["cash_balance"],
-                "equity": book["equity"],
-                "gross_paper_exposure": book["gross_paper_exposure"],
-                "daily_pnl": book["daily_pnl"],
-                "cumulative_pnl": book["cumulative_pnl"],
-                "status": book["status"],
-                "paper_only": True,
-                "review_required": False,
-            }
-        )
-    return events
-
-
 def make_memory_patches(runs: list[dict[str, Any]], now: datetime) -> list[dict[str, Any]]:
     patches = []
     for run in runs:
@@ -605,8 +433,18 @@ def run_tick(args: argparse.Namespace) -> dict[str, Any]:
     ledger_path = Path(args.ledger).expanduser()
     state_dir = Path(args.state_dir).expanduser()
     ledger, ledger_loaded = load_ledger(ledger_path)
-    books = [summarize_book(book, ledger_loaded, ledger_path) for book in ledger["books"]]
     snapshot = collect_source_snapshot(Path(args.morning_state).expanduser())
+    if args.market_snapshot:
+        market_snapshot = load_json(Path(args.market_snapshot).expanduser(), {})
+    else:
+        market_snapshot = collect_live_market_snapshot(now, timeout=args.market_timeout)
+    market_errors = market_snapshot.get("errors") if isinstance(market_snapshot, dict) else []
+    if market_errors:
+        snapshot.setdefault("warnings", []).extend(
+            f"market source {error.get('source_id', 'unknown')}: {error.get('error', 'unavailable')}"
+            for error in market_errors
+            if isinstance(error, dict)
+        )
     loop_ids = resolve_loop_ids(args.loop)
 
     runs: list[dict[str, Any]] = []
@@ -616,7 +454,7 @@ def run_tick(args: argparse.Namespace) -> dict[str, Any]:
         refs = source_refs_for_loop(loop_id, snapshot)
         warnings = snapshot.get("warnings", [])[:]
         run = make_run(loop_id, args.cadence, window, now, refs, warnings)
-        fragment = make_fragment(run, refs, len(books), warnings, now)
+        fragment = make_fragment(run, refs, len(ledger["books"]), warnings, now)
         runs.append(run)
         fragments.append(fragment)
         output_refs_by_run.setdefault(run["run_id"], []).append(fragment["fragment_id"])
@@ -625,8 +463,22 @@ def run_tick(args: argparse.Namespace) -> dict[str, Any]:
     candidate_run = run_by_loop.get("bridge") or runs[0]
     paper_run = run_by_loop.get("paper") or candidate_run
     source_run = run_by_loop.get("source_health") or runs[-1]
-    action_candidates = make_action_candidates(candidate_run, books, source_refs_for_loop("bridge", snapshot), now)
-    ledger_events = make_ledger_events(paper_run, books, now)
+    engine_key = args.idempotency_key or paper_run["idempotency_key"]
+    engine_result = process_paper_tick(
+        ledger,
+        market_snapshot,
+        now=now,
+        run_idempotency_key=engine_key,
+    )
+    ledger = engine_result["ledger"]
+    ledger.update({"field_naming": FIELD_NAMING, "loop_topology": LOOP_TOPOLOGY})
+    books = [summarize_book(book, ledger_loaded, ledger_path) for book in ledger["books"]]
+    action_candidates = engine_result["decisions"]
+    ledger_events = engine_result["events"]
+    for candidate in action_candidates:
+        candidate.setdefault("run_id", candidate_run["run_id"])
+    for event in ledger_events:
+        event.setdefault("run_id", paper_run["run_id"])
     memory_patches = make_memory_patches(runs, now)
     source_events = make_source_events(source_run, snapshot, now)
 
@@ -646,6 +498,25 @@ def run_tick(args: argparse.Namespace) -> dict[str, Any]:
         run["output_refs"] = output_refs_by_run.get(run["run_id"], [])
         run["status"] = "review_required" if run["loop_id"] in {"bridge", "memory_sync"} or run["review_required"] else "completed"
 
+    paper_state = build_paper_state(ledger, books, action_candidates, ledger_events, now)
+    paper_state_sync: dict[str, Any] = {"configured": bool(args.paper_sync_url), "attempted": False}
+    if args.paper_sync_url and not args.dry_run:
+        paper_state_sync["attempted"] = True
+        try:
+            token = os.environ.get("BSS_PAPER_STATE_TOKEN", "").strip() or read_token_file(args.paper_sync_token_file)
+            paper_state_sync.update(
+                sync_paper_state(
+                    args.paper_sync_url,
+                    token,
+                    engine_key,
+                    paper_state,
+                    timeout=args.paper_sync_timeout,
+                )
+            )
+        except PaperSyncError as exc:
+            paper_state_sync.update({"ok": False, "error": str(exc)})
+            snapshot.setdefault("warnings", []).append(str(exc))
+
     latest_state = {
         "schema_version": 2,
         "updated_at": ended_at,
@@ -654,10 +525,18 @@ def run_tick(args: argparse.Namespace) -> dict[str, Any]:
         "cadence": args.cadence,
         "time_window": window,
         "paper_only": True,
-        "human_review_required_for_actions": True,
+        "autonomous_execution": True,
+        "human_review_required_for_actions": False,
+        "engine_idempotency_key": engine_key,
+        "engine_replayed": engine_result["replayed"],
+        "canonical_paper_state": paper_state,
+        "paper_state_sync": paper_state_sync,
         "ledger_path": str(ledger_path),
         "state_dir": str(state_dir),
         "source_manifest_path": snapshot.get("manifest_path"),
+        "market_snapshot_path": str(Path(args.market_snapshot).expanduser()) if args.market_snapshot else None,
+        "market_instrument_count": len(market_snapshot.get("instruments", [])) if isinstance(market_snapshot, dict) else 0,
+        "market_source_errors": market_errors or [],
         "source_warning_count": len(snapshot.get("warnings") or []),
         "paper_books": books,
         "last_runs": runs,
@@ -699,15 +578,28 @@ def cron_packet(state: dict[str, Any]) -> dict[str, Any]:
                 "book_id": book["book_id"],
                 "display_name": book["display_name"],
                 "starting_balance": book["starting_balance"],
+                "cash_balance": book["cash_balance"],
+                "gross_paper_exposure": book["gross_paper_exposure"],
                 "equity": book["equity"],
                 "status": book["status"],
             }
             for book in state["paper_books"]
         ],
         "paper_action_candidate_count": len(state["last_paper_action_candidates"]),
+        "paper_state_sync": state["paper_state_sync"],
         "source_warning_count": state["source_warning_count"],
         "latest_state_path": str(Path(state["state_dir"]) / "latest_state.json"),
     }
+
+
+def configured_paper_sync_url() -> str:
+    from_env = os.environ.get("BSS_PAPER_STATE_URL", "").strip()
+    if from_env:
+        return from_env
+    try:
+        return DEFAULT_PAPER_SYNC_URL_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -717,6 +609,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--ledger", default=str(DEFAULT_LEDGER))
     parser.add_argument("--state-dir", default=str(DEFAULT_STATE_DIR))
     parser.add_argument("--morning-state", default=str(DEFAULT_MORNING_STATE))
+    parser.add_argument("--market-snapshot", help="Read a deterministic market snapshot JSON instead of fetching public marks.")
+    parser.add_argument("--market-timeout", type=int, default=12)
+    parser.add_argument("--idempotency-key", help="Override the deterministic engine tick key; useful for replay-safe orchestration.")
+    parser.add_argument("--paper-sync-url", default=configured_paper_sync_url(), help="Optional VM canonical paper-state endpoint.")
+    parser.add_argument("--paper-sync-token-file", default=str(Path.home() / ".config" / "blue-swallow" / "paper-state-token"))
+    parser.add_argument("--paper-sync-timeout", type=int, default=12)
     parser.add_argument("--window-hours", type=int, default=1)
     parser.add_argument("--full", action="store_true", help="Print latest_state instead of a compact cron packet.")
     parser.add_argument("--dry-run", action="store_true", help="Build records without writing ledger/state files.")

@@ -233,6 +233,70 @@ test('serves token-gated Cybermap viewport reads from ingested real observations
   }
 });
 
+test('stores and serves one token-gated canonical autonomous paper state idempotently', async () => {
+  const previousToken = process.env.BSS_PAPER_STATE_TOKEN;
+  process.env.BSS_PAPER_STATE_TOKEN = 'test-paper-state-token-32-byte-minimum';
+  const state = {
+    schema_version: 'bss.paper_state.v1',
+    generated_at: '2026-07-11T18:43:00.000Z',
+    paper_only: true,
+    autonomous_execution: true,
+    ledger: {
+      schema_version: 3,
+      paper_only: true,
+      books: ['prediction_markets', 'crypto', 'equity_watch', 'local_event_watch', 'ai_cyber_watch'].map((book_id) => ({
+        book_id,
+        starting_balance: 2000,
+        cash_balance: 1000,
+        positions: [{ instrument_ref: `${book_id}:seed`, quantity: 1, mark_price: 1000 }],
+      })),
+    },
+    paper_books: [],
+    paper_action_candidates: [],
+  };
+  try {
+    const { server } = makeServer();
+    await withServer(server, async (baseUrl) => {
+      const anonymous = await fetch(`${baseUrl}/api/v1/paper/state`);
+      assert.equal(anonymous.status, 403);
+
+      const headers = {
+        'content-type': 'application/json',
+        'x-blue-swallow-paper-state-token': process.env.BSS_PAPER_STATE_TOKEN,
+        'idempotency-key': 'paper-tick-2026-07-11T18:43:00Z',
+      };
+      const first = await fetch(`${baseUrl}/api/v1/paper/state`, {
+        method: 'PUT', headers, body: JSON.stringify(state),
+      });
+      assert.equal(first.status, 201);
+      assert.equal(first.headers.get('idempotent-replayed'), 'false');
+
+      const replay = await fetch(`${baseUrl}/api/v1/paper/state`, {
+        method: 'PUT', headers, body: JSON.stringify(state),
+      });
+      assert.equal(replay.status, 200);
+      assert.equal(replay.headers.get('idempotent-replayed'), 'true');
+
+      const conflict = await fetch(`${baseUrl}/api/v1/paper/state`, {
+        method: 'PUT', headers, body: JSON.stringify({ ...state, generated_at: '2026-07-11T18:44:00.000Z' }),
+      });
+      assert.equal(conflict.status, 409);
+      assert.equal((await conflict.json()).error, 'idempotency_key_reused');
+
+      const read = await fetch(`${baseUrl}/api/v1/paper/state`, {
+        headers: { 'x-blue-swallow-paper-state-token': process.env.BSS_PAPER_STATE_TOKEN },
+      });
+      assert.equal(read.status, 200);
+      const body = await read.json();
+      assert.equal(body.source, 'mosaic-murmurs-paper-engine');
+      assert.deepEqual(body.state, state);
+    });
+  } finally {
+    if (previousToken === undefined) delete process.env.BSS_PAPER_STATE_TOKEN;
+    else process.env.BSS_PAPER_STATE_TOKEN = previousToken;
+  }
+});
+
 test('keeps legacy echo probe alive on the Cybermap API port during migration', async () => {
   const { server } = makeServer();
   await withServer(server, async (baseUrl) => {
