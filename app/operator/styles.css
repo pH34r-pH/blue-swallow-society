@@ -585,15 +585,15 @@ strong {
   top: 0;
   z-index: 30;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 0.6rem;
-  overflow-x: auto;
+  overflow: visible;
   padding: calc(var(--space-3) + env(safe-area-inset-top, 0px)) var(--space-4) var(--space-3);
   border-bottom: 1px solid var(--border-0);
   background: rgba(5, 8, 16, 0.9);
   backdrop-filter: blur(18px) saturate(120%);
-  scrollbar-width: none;
-  scroll-snap-type: x proximity;
 }
 
 .tab-bar::-webkit-scrollbar {
@@ -601,7 +601,8 @@ strong {
 }
 
 .tab-btn {
-  flex: 0 0 auto;
+  flex: 1 1 7.5rem;
+  max-width: 12rem;
   min-width: 7rem;
   min-height: 44px;
   padding: 0.78rem 1rem;
@@ -1192,6 +1193,113 @@ strong {
 
   .download-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.slang-stack,
+.slang-shell,
+.slang-section {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.slang-guidance,
+.slang-expansion-grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.slang-rule-card {
+  padding: var(--space-4);
+  border: 1px solid rgba(122, 159, 255, 0.14);
+  border-radius: var(--radius-md);
+  background: rgba(6, 10, 20, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.slang-rule-card p {
+  margin: 0;
+  color: var(--text-1);
+  line-height: 1.65;
+}
+
+.slang-section {
+  padding-top: var(--space-5);
+  border-top: 1px solid rgba(85, 232, 255, 0.12);
+}
+
+.slang-section h3 {
+  margin: 0;
+  color: var(--neon-cyan);
+}
+
+.slang-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid rgba(85, 232, 255, 0.14);
+  border-radius: var(--radius-md);
+  background: rgba(4, 8, 18, 0.72);
+}
+
+.slang-table {
+  width: 100%;
+  min-width: 52rem;
+  border-collapse: collapse;
+  color: var(--text-1);
+  font-size: 0.92rem;
+}
+
+.slang-table th,
+.slang-table td {
+  padding: 0.85rem 0.95rem;
+  border-bottom: 1px solid rgba(122, 159, 255, 0.12);
+  text-align: left;
+  vertical-align: top;
+}
+
+.slang-table thead th {
+  background: rgba(85, 232, 255, 0.07);
+  color: var(--neon-cyan);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.slang-table tbody th {
+  min-width: 11rem;
+  color: var(--neon-lime);
+  font-weight: 700;
+}
+
+.slang-table tbody tr:last-child th,
+.slang-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.slang-note-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--text-1);
+}
+
+.slang-note-list li {
+  line-height: 1.65;
+}
+
+.slang-footnote {
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid rgba(114, 255, 159, 0.16);
+  border-radius: var(--radius-md);
+  background: rgba(114, 255, 159, 0.06);
+  line-height: 1.7;
+}
+
+@media (min-width: 760px) {
+  .slang-guidance,
+  .slang-expansion-grid {
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
   }
 }
 

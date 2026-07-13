@@ -122,6 +122,16 @@ test('tzeentch sub-tabs wrap instead of hiding overflow off-canvas', () => {
   assert.doesNotMatch(subtabRule, /flex:\s*0\s+0\s+auto\s*;/);
 });
 
+test('operator top-level tabs wrap so every peer tab is visible on mobile', () => {
+  const tabBarRule = stylesCss.match(/\.tab-bar\s*\{(?<body>[\s\S]*?)\}/)?.groups.body || '';
+  const tabButtonRule = stylesCss.match(/\.tab-btn\s*\{(?<body>[\s\S]*?)\}/)?.groups.body || '';
+
+  assert.match(tabBarRule, /flex-wrap:\s*wrap\s*;/);
+  assert.doesNotMatch(tabBarRule, /overflow-x:\s*auto\s*;/);
+  assert.doesNotMatch(tabBarRule, /scroll-snap-type\s*:/);
+  assert.doesNotMatch(tabButtonRule, /flex:\s*0\s+0\s+auto\s*;/);
+});
+
 test('AR tab is removed while Godeye remains the hosted viewer', () => {
   assert.ok(!operatorShell.includes('data-tab="ar"'));
   assert.ok(!operatorShell.includes('id="ar-tab"'));
@@ -129,6 +139,15 @@ test('AR tab is removed while Godeye remains the hosted viewer', () => {
   assert.ok(operatorShell.includes('data-tab="godeye"'));
   assert.ok(operatorShell.includes('Hosted viewer'));
   assert.ok(operatorShell.includes('Godeye'));
+});
+
+test('operator shell exposes the slang dictionary as a top-level tab', () => {
+  assert.ok(operatorShell.includes('data-tab="slang"'));
+  assert.ok(operatorShell.includes('id="slang-tab"'));
+  assert.ok(operatorShell.includes('Blue Swallow Society slang dictionary'));
+  assert.ok(operatorShell.includes('Choom / Choombah'));
+  assert.ok(operatorShell.includes('Wire-digest'));
+  assert.ok(!indexHtml.includes('Blue Swallow Society slang dictionary'));
 });
 
 test('Wardriver APK links are only operator-token API links', () => {
