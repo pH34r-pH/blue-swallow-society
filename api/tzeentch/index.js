@@ -6,6 +6,10 @@ const HN_API = 'https://hacker-news.firebaseio.com/v0';
 const REDDIT_API = 'https://www.reddit.com/r/all/hot.json?limit=25';
 const COINGECKO_API = 'https://api.coingecko.com/api/v3';
 const POLYMARKET_API = 'https://gamma-api.polymarket.com';
+const NWS_ALERTS_API = 'https://api.weather.gov/alerts/active?area=WA';
+const CISA_KEV_API = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
+const USGS_EARTHQUAKES_API = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson';
+const MOSAIC_LIMIT = 8;
 const FIELD_NAMING = {
   canonical_case: 'snake_case',
   scope: 'local append-only records and VM API payloads',
@@ -108,6 +112,7 @@ module.exports = async function (context, req) {
         publicOnly: payload.publicOnly,
         sourceFamilies: payload.sourceFamilies,
         warnings: payload.warnings,
+        mosaic: payload.mosaic,
         murmurs: payload.murmurs,
         crypto: payload.crypto,
         polymarket: payload.polymarket,
@@ -129,7 +134,8 @@ module.exports = async function (context, req) {
 
 async function buildDashboardPayload(operatorToken = {}) {
   const warnings = [];
-  const [murmurs, crypto, polymarket, paperState] = await Promise.all([
+  const [mosaic, murmurs, crypto, polymarket, paperState] = await Promise.all([
+    buildMosaic({ warnings }),
     buildMurmurs({ warnings }),
     buildCrypto({ warnings }),
     buildPolymarket({ warnings }),
@@ -141,13 +147,161 @@ async function buildDashboardPayload(operatorToken = {}) {
   return {
     updatedAt: new Date().toISOString(),
     publicOnly: true,
-    sourceFamilies: ['Hacker News', 'Reddit', 'CoinGecko', 'Polymarket Gamma'],
+    sourceFamilies: ['NWS Alerts', 'CISA KEV', 'USGS Earthquakes', 'Hacker News', 'Reddit', 'CoinGecko', 'Polymarket Gamma'],
     warnings,
+    mosaic,
     murmurs,
     crypto,
     polymarket,
     paperBooks,
   };
+}
+
+async function buildMosaic({ warnings }) {
+  const retrievedAt = new Date().toISOString();
+  const [nwsPayload, cisaPayload, usgsPayload] = await Promise.all([
+    fetchJson(NWS_ALERTS_API, { warnings }),
+    fetchJson(CISA_KEV_API, { warnings }),
+    fetchJson(USGS_EARTHQUAKES_API, { warnings }),
+  ]);
+
+  const items = [
+    ...rankMosaicItems(normalizeNwsFacts(nwsPayload, retrievedAt), 3),
+    ...rankMosaicItems(normalizeCisaFacts(cisaPayload, retrievedAt), 3, { freshnessFirst: true }),
+    ...rankMosaicItems(normalizeUsgsFacts(usgsPayload, retrievedAt), 2),
+  ]
+    .sort((left, right) => (right.score - left.score)
+      || (Date.parse(right.publishedAt || 0) - Date.parse(left.publishedAt || 0)))
+    .slice(0, MOSAIC_LIMIT);
+
+  if (!items.length) {
+    warnings.push('Mosaic official-source facts unavailable.');
+  }
+
+  return {
+    items,
+    updatedAt: retrievedAt,
+    methodology: 'Official public observations ranked by materiality and freshness; each card retains source provenance.',
+  };
+}
+
+function rankMosaicItems(items, limit, { freshnessFirst = false } = {}) {
+  return items
+    .sort((left, right) => {
+      const freshnessDelta = Date.parse(right.publishedAt || 0) - Date.parse(left.publishedAt || 0);
+      return freshnessFirst
+        ? freshnessDelta || (right.score - left.score)
+        : (right.score - left.score) || freshnessDelta;
+    })
+    .slice(0, limit);
+}
+
+function normalizeNwsFacts(payload, retrievedAt) {
+  return Array.isArray(payload?.features)
+    ? payload.features.map((feature) => {
+      const properties = feature?.properties || {};
+      const title = cleanString(properties.headline || properties.event);
+      const url = cleanHttpUrl(feature?.id || properties['@id']);
+      if (!title || !url) return null;
+      const severity = cleanString(properties.severity || 'Unknown');
+      const urgency = cleanString(properties.urgency || 'Unknown');
+      const score = ({ Extreme: 100, Severe: 94, Moderate: 86, Minor: 76 }[severity] || 70)
+        + (urgency === 'Immediate' ? 3 : 0);
+      return {
+        id: `nws:${stableFactId(properties.id || feature.id || title)}`,
+        title,
+        summary: compactSummary(properties.description || properties.instruction || `${properties.event || 'Weather alert'} affecting ${properties.areaDesc || 'Washington'}.`),
+        source: cleanString(properties.senderName || 'National Weather Service'),
+        sourceClass: 'official',
+        scope: cleanString(properties.areaDesc || 'Washington'),
+        statementType: 'official-alert',
+        url,
+        publishedAt: factIsoTimestamp(properties.sent || properties.effective || properties.onset),
+        retrievedAt,
+        confidence: 0.99,
+        score,
+        status: `${severity} · ${urgency}`,
+      };
+    }).filter(Boolean)
+    : [];
+}
+
+function normalizeCisaFacts(payload, retrievedAt) {
+  return Array.isArray(payload?.vulnerabilities)
+    ? payload.vulnerabilities.map((item) => {
+      const cve = cleanString(item?.cveID);
+      const vulnerabilityName = cleanString(item?.vulnerabilityName);
+      if (!cve || !vulnerabilityName) return null;
+      const ransomwareKnown = cleanString(item.knownRansomwareCampaignUse).toLowerCase() === 'known';
+      return {
+        id: `cisa:${stableFactId(cve)}`,
+        title: `${cve}: ${vulnerabilityName}`,
+        summary: compactSummary(`${item.shortDescription || ''}${item.requiredAction ? ` Required action: ${item.requiredAction}` : ''}`),
+        source: 'CISA KEV Catalog',
+        sourceClass: 'official',
+        scope: 'Cyber',
+        statementType: 'official-advisory',
+        url: `https://www.cisa.gov/known-exploited-vulnerabilities-catalog?search_api_fulltext=${encodeURIComponent(cve)}`,
+        publishedAt: factIsoTimestamp(item.dateAdded),
+        retrievedAt,
+        confidence: 0.99,
+        score: ransomwareKnown ? 98 : 92,
+        status: ransomwareKnown ? 'Known ransomware use' : `Remediate by ${cleanString(item.dueDate || 'catalog due date')}`,
+      };
+    }).filter(Boolean)
+    : [];
+}
+
+function normalizeUsgsFacts(payload, retrievedAt) {
+  return Array.isArray(payload?.features)
+    ? payload.features.map((feature) => {
+      const properties = feature?.properties || {};
+      const magnitude = Number(properties.mag);
+      const title = cleanString(properties.title || (Number.isFinite(magnitude) ? `M ${magnitude} earthquake near ${properties.place || 'unknown location'}` : ''));
+      const url = cleanHttpUrl(properties.url || properties.detail);
+      if (!title || !url || !Number.isFinite(magnitude)) return null;
+      return {
+        id: `usgs:${stableFactId(feature.id || title)}`,
+        title,
+        summary: `USGS recorded a magnitude ${magnitude.toFixed(1)} earthquake near ${cleanString(properties.place || 'an unspecified location')}.`,
+        source: 'USGS Earthquakes',
+        sourceClass: 'official',
+        scope: 'Regional / global',
+        statementType: 'official-observation',
+        url,
+        publishedAt: factIsoTimestamp(properties.time),
+        retrievedAt,
+        confidence: properties.status === 'reviewed' ? 0.99 : 0.96,
+        score: Math.min(99, Math.round(70 + (magnitude * 4))),
+        status: cleanString(properties.status || 'automatic'),
+      };
+    }).filter(Boolean)
+    : [];
+}
+
+function compactSummary(value, maxLength = 360) {
+  const text = cleanString(value).replace(/\s+/g, ' ');
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1).trimEnd()}…` : text;
+}
+
+function cleanHttpUrl(value) {
+  try {
+    const url = new URL(cleanString(value));
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : '';
+  } catch {
+    return '';
+  }
+}
+
+function stableFactId(value) {
+  return cleanString(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(-96) || 'fact';
+}
+
+function factIsoTimestamp(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return new Date(value).toISOString();
+  }
+  return isoOrNull(value);
 }
 
 async function buildMurmurs({ warnings }) {

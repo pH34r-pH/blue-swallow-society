@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { buildSparklinePath, buildTzeentchDashboardModel } from '../app/operator/tzeentch-dashboard.mjs';
 import { createDemoDashboardDataset } from './fixtures/tzeentch-demo-data.mjs';
 
-test('buildTzeentchDashboardModel shapes the Murmurs, Crypto, Polymarket, and Actionable Intel tabs', () => {
+test('buildTzeentchDashboardModel shapes Mosaic, Murmurs, Actionable Intel, and Positions data', () => {
   const now = Date.parse('2026-07-09T12:00:00Z');
   const raw = createDemoDashboardDataset(now);
   const model = buildTzeentchDashboardModel(raw, { now });
@@ -12,6 +12,10 @@ test('buildTzeentchDashboardModel shapes the Murmurs, Crypto, Polymarket, and Ac
   assert.equal(model.publicOnly, true);
   assert.ok(model.accessNotes.some((note) => /public feeds/i.test(note)));
   assert.ok(model.accessNotes.some((note) => /on-behalf-of/i.test(note)));
+  assert.equal(model.mosaic.items.length, 3);
+  assert.equal(model.mosaic.items[0].statementType, 'official-alert');
+  assert.equal(model.mosaic.metrics.officialFacts, 3);
+  assert.match(model.mosaic.methodology, /materiality/i);
   assert.equal(model.murmurs.items.length, 6);
   assert.equal(model.crypto.assets.length, 10);
   assert.equal(model.crypto.views['24h'].assets.length, 10);
@@ -112,6 +116,51 @@ test('buildTzeentchDashboardModel threads paper books into Actionable Intel', ()
   assert.equal(model.paperBooks.books[0].returnLabel, '+3.25%');
   assert.ok(model.actionable.paperBooks.books.length > 0);
   assert.ok(model.actionable.proposals.some((proposal) => proposal.instrumentType === 'paper-book'));
+});
+
+test('buildTzeentchDashboardModel preserves the live paper matrix dimensions and position marks', () => {
+  const now = Date.parse('2026-07-09T12:00:00Z');
+  const raw = createDemoDashboardDataset(now);
+  raw.paperBooks = {
+    updatedAt: '2026-07-09T12:00:00Z',
+    paperOnly: true,
+    dimensions: {
+      lines: [{ id: 'standard', label: 'Standard', order: 0 }],
+      strategies: [{ id: 'crypto', label: 'Crypto', order: 0 }],
+    },
+    books: [{
+      id: 'standard__crypto',
+      lineId: 'standard',
+      lineName: 'Standard',
+      strategyId: 'crypto',
+      strategyName: 'Crypto',
+      name: 'Standard / Crypto',
+      equity: 2075,
+      totalPnl: 75,
+      totalReturnPct: 3.75,
+      cash: 1000,
+      grossExposure: 1075,
+      positions: Array.from({ length: 9 }, (_, index) => ({
+        symbol: index === 0 ? 'BTC' : `ASSET-${index + 1}`,
+        quantity: index === 0 ? 0.01 : 1,
+        entryPrice: index === 0 ? 62000 : 10 + index,
+        markPrice: index === 0 ? 65000 : 11 + index,
+        marketValue: index === 0 ? 650 : 11 + index,
+        gainPct: index === 0 ? 4.84 : 1,
+        markStatus: index === 0 ? 'fresh' : 'reviewed',
+        markedAt: '2026-07-13T01:00:00.000Z',
+      })),
+    }],
+  };
+
+  const model = buildTzeentchDashboardModel(raw, { now });
+
+  assert.equal(model.paperBooks.dimensions.lines[0].id, 'standard');
+  assert.equal(model.paperBooks.dimensions.strategies[0].id, 'crypto');
+  assert.equal(model.paperBooks.books[0].positions.length, 9);
+  assert.equal(model.paperBooks.books[0].positions[0].markStatus, 'fresh');
+  assert.equal(model.paperBooks.books[0].positions[0].markPrice, 65000);
+  assert.equal(model.paperBooks.books[0].positions[8].symbol, 'ASSET-9');
 });
 
 test('buildSparklinePath returns svg path data for a simple series', () => {

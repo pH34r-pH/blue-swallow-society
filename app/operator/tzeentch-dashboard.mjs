@@ -45,6 +45,7 @@ const STOP_WORDS = new Set([
 ]);
 
 export function buildTzeentchDashboardModel(raw = {}, { now = Date.now(), cryptoView = DEFAULT_CRYPTO_VIEW } = {}) {
+  const mosaic = buildMosaicModel(raw.mosaic || {}, now);
   const murmurs = buildMurmursModel(raw.murmurs || {}, now);
   const crypto = buildCryptoModel(raw.crypto || {}, { now, cryptoView, murmurs });
   const polymarket = buildPolymarketModel(raw.polymarket || {}, now);
@@ -60,16 +61,63 @@ export function buildTzeentchDashboardModel(raw = {}, { now = Date.now(), crypto
       ? raw.sourceFamilies.slice()
       : ['Hacker News', 'Reddit', 'CoinGecko', 'Polymarket Gamma'],
     accessNotes: [
-      'CoinGecko and Polymarket Gamma read as public feeds; no account is needed for dashboard browsing.',
+      'Mosaic, CoinGecko, and Polymarket Gamma read as public feeds; no account is needed for dashboard browsing.',
       'Any live execution path must use user-mediated sign-in/on-behalf-of flow and must never persist credentials.',
       'The current dashboard is paper-only and keeps live trading out of scope.',
     ],
+    mosaic,
     murmurs,
     crypto,
     polymarket,
     paperBooks,
     actionable,
     chainedDaemon,
+  };
+}
+
+function buildMosaicModel(raw = {}, now = Date.now()) {
+  const items = (Array.isArray(raw.items) ? raw.items : [])
+    .map((item, index) => {
+      const confidence = clamp(toNumber(item?.confidence) || 0, 0, 1);
+      return {
+        id: item?.id || `mosaic-${index}`,
+        title: cleanString(item?.title) || 'Untitled source-grounded fact',
+        summary: cleanString(item?.summary),
+        source: cleanString(item?.source) || 'Official public source',
+        sourceClass: cleanString(item?.sourceClass) || 'official',
+        scope: cleanString(item?.scope) || 'Current',
+        statementType: cleanString(item?.statementType) || 'official-observation',
+        url: cleanString(item?.url),
+        publishedAt: item?.publishedAt || null,
+        retrievedAt: item?.retrievedAt || raw.updatedAt || null,
+        ageLabel: formatRelativeTime(item?.publishedAt, now),
+        retrievedLabel: formatRelativeTime(item?.retrievedAt || raw.updatedAt, now),
+        confidence,
+        confidenceLabel: `${Math.round(confidence * 100)}% confidence`,
+        score: toNumber(item?.score) || 0,
+        status: cleanString(item?.status) || 'source current',
+      };
+    })
+    .sort((left, right) => (right.score - left.score)
+      || (Date.parse(right.publishedAt || 0) - Date.parse(left.publishedAt || 0)))
+    .slice(0, 8);
+
+  const metrics = {
+    facts: items.length,
+    officialFacts: items.filter((item) => item.sourceClass === 'official').length,
+    sources: new Set(items.map((item) => item.source).filter(Boolean)).size,
+    scopes: new Set(items.map((item) => item.scope).filter(Boolean)).size,
+  };
+
+  return {
+    items,
+    updatedAt: raw.updatedAt || null,
+    updatedLabel: formatRelativeTime(raw.updatedAt, now),
+    methodology: cleanString(raw.methodology) || 'Source-grounded observations ranked by materiality and freshness.',
+    summary: items.length
+      ? `${items.length} current source-grounded facts across ${metrics.sources} official sources.`
+      : 'No current Mosaic facts are available.',
+    metrics,
   };
 }
 
@@ -158,6 +206,7 @@ export function buildActionableIntelModel({ murmurs, crypto, polymarket, paperBo
 
 function buildPaperBooksModel(raw = {}, now = Date.now()) {
   const books = Array.isArray(raw.books) ? raw.books.map((book) => normalizePaperBook(book)).filter(Boolean) : [];
+  const dimensions = normalizePaperDimensions(raw.dimensions);
   const totalEquity = books.reduce((total, book) => total + (book.equity || 0), 0);
   const totalPnl = books.reduce((total, book) => total + (book.totalPnl || 0), 0);
   const totalCash = books.reduce((total, book) => total + (book.cash || 0), 0);
@@ -168,6 +217,9 @@ function buildPaperBooksModel(raw = {}, now = Date.now()) {
     updatedAt: raw.updatedAt || new Date(now).toISOString(),
     paperOnly: raw.paperOnly !== false,
     summary: cleanString(raw.summary) || (books.length ? `${books.length} paper books running in parallel.` : 'No paper books have reported yet.'),
+    source: cleanString(raw.source),
+    autonomousExecution: raw.autonomousExecution === true,
+    dimensions,
     loop: raw.loop || null,
     benchmark: normalizePaperBenchmark(raw.benchmark),
     metrics: [
@@ -179,6 +231,18 @@ function buildPaperBooksModel(raw = {}, now = Date.now()) {
       { label: 'Best book', value: bestBook?.name || '—', detail: bestBook ? bestBook.returnLabel : 'Waiting for marks' },
     ],
     books,
+  };
+}
+
+function normalizePaperDimensions(raw = {}) {
+  const normalizeDimension = (item, key) => ({
+    id: cleanString(item?.id || item?.[`${key}Id`]),
+    label: cleanString(item?.label || item?.name || item?.displayName || item?.id || item?.[`${key}Id`]),
+    order: toNumber(item?.order) || 0,
+  });
+  return {
+    lines: (Array.isArray(raw?.lines) ? raw.lines : []).map((item) => normalizeDimension(item, 'line')).filter((item) => item.id),
+    strategies: (Array.isArray(raw?.strategies) ? raw.strategies : []).map((item) => normalizeDimension(item, 'strategy')).filter((item) => item.id),
   };
 }
 
@@ -196,7 +260,7 @@ function normalizePaperBook(book) {
   const cash = toNumber(book.cash) || 0;
   const investedCapital = toNumber(book.investedCapital) ?? Math.max(0, startingBalance - cash);
   const pendingOrders = Array.isArray(book.pendingOrders) ? book.pendingOrders.slice(0, 5).map(normalizePaperOrder).filter(Boolean) : [];
-  const positions = Array.isArray(book.positions) ? book.positions.slice(0, 8).map(normalizePaperPosition).filter(Boolean) : [];
+  const positions = Array.isArray(book.positions) ? book.positions.slice(0, 16).map(normalizePaperPosition).filter(Boolean) : [];
   const tradeLog = Array.isArray(book.tradeLog) ? book.tradeLog.slice(0, 8).map(normalizePaperOrder).filter(Boolean) : [];
 
   return {
@@ -247,13 +311,21 @@ function normalizePaperPosition(position) {
   }
   const gainPct = toNumber(position.gainPct) || 0;
   const marketValue = toNumber(position.marketValue) || 0;
+  const entryPrice = toNumber(position.entryPrice ?? position.basis);
+  const markPrice = toNumber(position.markPrice ?? position.mark);
   return {
     ...position,
     title: cleanString(position.title || position.name || position.symbol) || 'Position',
     symbol: cleanString(position.symbol || position.outcome),
     quantity: toNumber(position.quantity) || 0,
+    entryPrice,
+    markPrice,
     marketValue,
     gainPct,
+    markStatus: cleanString(position.markStatus) || 'unknown',
+    markedAt: position.markedAt || null,
+    entryPriceLabel: Number.isFinite(entryPrice) ? formatTokenPrice(entryPrice) : '—',
+    markPriceLabel: Number.isFinite(markPrice) ? formatTokenPrice(markPrice) : '—',
     marketValueLabel: formatCompactUsd(marketValue),
     gainLabel: formatSignedPercent(gainPct),
   };

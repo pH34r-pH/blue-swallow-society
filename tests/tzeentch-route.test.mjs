@@ -209,6 +209,67 @@ async function mockTzeentchFeedFetch(url, options = {}) {
       },
     });
   }
+  if (href.includes('api.weather.gov/alerts/active?area=WA')) {
+    return jsonResponse({
+      features: [{
+        id: 'https://api.weather.gov/alerts/nws-1',
+        properties: {
+          event: 'Flood Warning',
+          headline: 'Flood Warning issued for King County',
+          description: 'Flooding is occurring along the river.',
+          severity: 'Severe',
+          urgency: 'Immediate',
+          areaDesc: 'King County, WA',
+          senderName: 'NWS Seattle WA',
+          sent: '2026-07-13T00:30:00Z',
+        },
+      }],
+    });
+  }
+  if (href.includes('known_exploited_vulnerabilities.json')) {
+    return jsonResponse({
+      vulnerabilities: [
+        ...Array.from({ length: 12 }, (_, index) => ({
+          cveID: `CVE-2008-${String(index + 1).padStart(4, '0')}`,
+          vendorProject: 'Legacy Vendor',
+          product: 'Legacy Product',
+          vulnerabilityName: `Legacy catalog vulnerability ${index + 1}`,
+          dateAdded: `2008-01-${String(index + 1).padStart(2, '0')}`,
+          shortDescription: 'A historical catalog item.',
+          requiredAction: 'Apply mitigations per vendor instructions.',
+          dueDate: '2008-02-01',
+          knownRansomwareCampaignUse: 'Known',
+        })),
+        {
+          cveID: 'CVE-2026-1001',
+          vendorProject: 'Example Vendor',
+          product: 'Example Product',
+          vulnerabilityName: 'Example Product Code Execution Vulnerability',
+          dateAdded: '2026-07-12',
+          shortDescription: 'The product contains a code execution vulnerability with evidence of active exploitation.',
+          requiredAction: 'Apply mitigations per vendor instructions.',
+          dueDate: '2026-07-20',
+          knownRansomwareCampaignUse: 'Unknown',
+        },
+      ],
+    });
+  }
+  if (href.includes('earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson')) {
+    return jsonResponse({
+      features: [{
+        id: 'usgs-1',
+        properties: {
+          title: 'M 5.2 - 40 km west of the Olympic Peninsula',
+          place: '40 km west of the Olympic Peninsula',
+          mag: 5.2,
+          time: Date.parse('2026-07-13T00:15:00Z'),
+          updated: Date.parse('2026-07-13T00:45:00Z'),
+          url: 'https://earthquake.usgs.gov/earthquakes/eventpage/usgs-1',
+          status: 'reviewed',
+        },
+      }],
+    });
+  }
   if (href.includes('api.coingecko.com/api/v3/coins/markets')) {
     return jsonResponse([
       {
@@ -336,6 +397,12 @@ test('api/tzeentch returns a bearer-token protected read-only payload', async ()
   assert.equal(context.res.body.publicOnly, true);
   assert.match(context.res.headers['Cache-Control'], /no-store/i);
   assert.doesNotMatch(context.res.headers['Cache-Control'], /public/i);
+  assert.equal(context.res.body.mosaic.items.length, 5);
+  assert.equal(new Set(context.res.body.mosaic.items.map((item) => item.source)).size, 3);
+  assert.ok(context.res.body.mosaic.items.some((item) => item.id === 'cisa:cve-2026-1001'));
+  assert.ok(context.res.body.mosaic.items.every((item) => item.sourceClass === 'official'));
+  assert.ok(context.res.body.mosaic.items.every((item) => item.url.startsWith('https://')));
+  assert.match(context.res.body.mosaic.methodology, /materiality/i);
   assert.equal(context.res.body.murmurs.hackerNews.length, 1);
   assert.equal(context.res.body.murmurs.reddit.length, 1);
   assert.equal(context.res.body.crypto.markets.length, 1);

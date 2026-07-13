@@ -54,8 +54,26 @@ const tzeentchPayload = {
   ok: true,
   updatedAt: '2026-07-09T12:00:00Z',
   publicOnly: true,
-  sourceFamilies: ['Hacker News', 'Reddit', 'CoinGecko', 'Polymarket Gamma'],
+  sourceFamilies: ['NWS Alerts', 'Hacker News', 'Reddit', 'CoinGecko', 'Polymarket Gamma'],
   warnings: [],
+  mosaic: {
+    items: [{
+      id: 'mosaic-nws',
+      title: 'Flood warning remains active for King County',
+      summary: 'The National Weather Service reports a flood warning affecting King County.',
+      source: 'National Weather Service',
+      sourceClass: 'official',
+      scope: 'Washington',
+      statementType: 'official-alert',
+      url: 'https://example.com/nws',
+      publishedAt: '2026-07-09T11:40:00Z',
+      retrievedAt: '2026-07-09T11:45:00Z',
+      confidence: 0.99,
+      score: 99,
+    }],
+    updatedAt: '2026-07-09T12:00:00Z',
+    methodology: 'Official public observations ranked by materiality and freshness.',
+  },
   murmurs: {
     hackerNews: [
       {
@@ -140,7 +158,17 @@ const tzeentchPayload = {
         totalPnl: 250,
         totalReturnPct: 2.5,
         alphaPct: 0,
-        positions: [],
+        positions: [{
+          instrumentRef: 'crypto:bitcoin',
+          symbol: 'BTC',
+          quantity: 0.02,
+          entryPrice: 60000,
+          markPrice: 65000,
+          marketValue: 1300,
+          gainPct: 8.33,
+          markStatus: 'fresh',
+          markedAt: '2026-07-09T12:00:00Z',
+        }],
         pendingOrders: [],
         tradeLog: [],
       },
@@ -148,7 +176,7 @@ const tzeentchPayload = {
   },
 };
 
-test('Obscura renders Tzeentch sub-tabs and switches to the Crypto panel', async () => {
+test('Obscura renders Tzeentch peer tabs, nested intel views, Mosaic facts, and paper positions', async () => {
   const server = createServer((req, res) => {
     const url = new URL(req.url || '/', 'http://127.0.0.1');
     if (url.pathname === '/api/validate-passcode') {
@@ -217,13 +245,18 @@ test('Obscura renders Tzeentch sub-tabs and switches to the Crypto panel', async
     const rendered = parseObscuraJson(stdout);
     assert.equal(rendered.evalError, undefined, JSON.stringify(rendered));
     assert.deepEqual(rendered.errors, [], JSON.stringify(rendered));
-    assert.equal(rendered.activeSurface, 'crypto');
+    assert.equal(rendered.activeSurface, 'positions');
     assert.equal(rendered.seekHidden, true);
     assert.equal(rendered.marketHidden, false);
     assert.equal(rendered.cryptoCards, 1, JSON.stringify(rendered));
     assert.match(rendered.cryptoText, /Bitcoin/);
     assert.match(rendered.cryptoText, /murmur match/i);
-    assert.deepEqual(rendered.tabLabels, ['Seek', 'Murmurs', 'Crypto', 'Polymarket', 'Actionable Intel']);
+    assert.equal(rendered.mosaicCards, 1, JSON.stringify(rendered));
+    assert.match(rendered.mosaicText, /Flood warning/);
+    assert.equal(rendered.positionBooks, 1, JSON.stringify(rendered));
+    assert.match(rendered.positionsText, /BTC/);
+    assert.deepEqual(rendered.intelViewLabels, ['Crypto', 'Polymarket', 'Proposals']);
+    assert.deepEqual(rendered.tabLabels, ['Seek', 'Mosaic', 'Murmurs', 'Actionable Intel', 'Positions']);
     assert.ok(rendered.visibleTabs.every((tab) => tab.visible), JSON.stringify(rendered.visibleTabs));
   } finally {
     await new Promise((resolve) => server.close(resolve));
@@ -291,8 +324,13 @@ function browserBootScript() {
           visibleTabs,
           seekHidden: document.querySelector('#tzeentchSeekPanel')?.classList.contains('hidden') || false,
           marketHidden: document.querySelector('#tzeentchMarketPanel')?.classList.contains('hidden') || false,
-          cryptoCards: document.querySelectorAll('.tzeentch-panel-crypto .crypto-asset-card').length,
-          cryptoText: document.querySelector('.tzeentch-panel-crypto')?.textContent.replace(/\s+/g, ' ').trim() || '',
+          cryptoCards: window.__cryptoSnapshot?.cards || 0,
+          cryptoText: window.__cryptoSnapshot?.text || '',
+          mosaicCards: window.__mosaicSnapshot?.cards || 0,
+          mosaicText: window.__mosaicSnapshot?.text || '',
+          positionBooks: document.querySelectorAll('.tzeentch-position-book').length,
+          positionsText: document.querySelector('.tzeentch-panel-positions')?.textContent.replace(/\s+/g, ' ').trim() || '',
+          intelViewLabels: window.__intelViewLabels || [],
           errors: window.__bssErrors || [],
         };
       };
@@ -314,8 +352,23 @@ function browserBootScript() {
           document.querySelector('#tab-tzeentch')?.click();
           await waitFor(() => document.querySelector('#tzeentch-tab')?.classList.contains('active'), 'Tzeentch tab');
           await waitFor(() => (document.querySelector('#tzeentchStatus')?.textContent || '').includes('Public OSINT overview'), 'OSINT overview');
-          document.querySelector('#tzeentchSurfaceCrypto')?.click();
+          document.querySelector('#tzeentchSurfaceMosaic')?.click();
+          await waitFor(() => document.querySelector('.tzeentch-panel-mosaic .tzeentch-mosaic-card'), 'Mosaic fact card');
+          window.__mosaicSnapshot = {
+            cards: document.querySelectorAll('.tzeentch-panel-mosaic .tzeentch-mosaic-card').length,
+            text: document.querySelector('.tzeentch-panel-mosaic')?.textContent.replace(/\s+/g, ' ').trim() || '',
+          };
+          document.querySelector('#tzeentchSurfaceIntel')?.click();
+          await waitFor(() => document.querySelector('.tzeentch-intel-view[data-intel-view="crypto"]'), 'Actionable Intel views');
+          window.__intelViewLabels = Array.from(document.querySelectorAll('.tzeentch-intel-view')).map((button) => button.textContent.trim());
+          document.querySelector('.tzeentch-intel-view[data-intel-view="crypto"]')?.click();
           await waitFor(() => document.querySelector('.tzeentch-panel-crypto .crypto-asset-card'), 'Crypto asset card');
+          window.__cryptoSnapshot = {
+            cards: document.querySelectorAll('.tzeentch-panel-crypto .crypto-asset-card').length,
+            text: document.querySelector('.tzeentch-panel-crypto')?.textContent.replace(/\s+/g, ' ').trim() || '',
+          };
+          document.querySelector('#tzeentchSurfacePositions')?.click();
+          await waitFor(() => document.querySelector('.tzeentch-panel-positions .tzeentch-position-book'), 'paper position book');
           document.body.textContent = JSON.stringify(capturePayload());
         } catch (error) {
           document.body.textContent = JSON.stringify({

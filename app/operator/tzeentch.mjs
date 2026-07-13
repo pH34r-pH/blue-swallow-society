@@ -3,14 +3,20 @@ import { buildTzeentchDashboardModel, formatRelativeTime, formatTokenPrice } fro
 const STORAGE_KEY = 'blue-swallow-society:tzeentch:recent-queries';
 const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
 const MAX_RECENT = 6;
-const TZEENTCH_SOURCE_FAMILIES = ['Hacker News', 'Reddit', 'CoinGecko', 'Polymarket Gamma'];
+const TZEENTCH_SOURCE_FAMILIES = ['NWS Alerts', 'CISA KEV', 'USGS Earthquakes', 'Hacker News', 'Reddit', 'CoinGecko', 'Polymarket Gamma'];
 
 export const TZEENTCH_SURFACES = [
   { key: 'seek', label: 'Seek', subtitle: 'Targeted public-source lookup' },
+  { key: 'mosaic', label: 'Mosaic', subtitle: 'Top source-grounded facts' },
   { key: 'murmurs', label: 'Murmurs', subtitle: 'Virality and current events' },
-  { key: 'crypto', label: 'Crypto', subtitle: 'Top 10 by trading volume' },
-  { key: 'polymarket', label: 'Polymarket', subtitle: 'New bets and recent resolutions' },
-  { key: 'intel', label: 'Actionable Intel', subtitle: 'Paper-only signals and thesis notes' },
+  { key: 'intel', label: 'Actionable Intel', subtitle: 'Market inputs and paper-only proposals' },
+  { key: 'positions', label: 'Positions', subtitle: 'Live paper matrix' },
+];
+
+const TZEENTCH_INTEL_VIEWS = [
+  { key: 'crypto', label: 'Crypto' },
+  { key: 'polymarket', label: 'Polymarket' },
+  { key: 'proposals', label: 'Proposals' },
 ];
 
 const state = {
@@ -22,6 +28,7 @@ const state = {
   marketModel: null,
   marketFetchPromise: null,
   surfaceTab: 'seek',
+  intelView: 'crypto',
   surfaceBound: false,
 };
 
@@ -300,16 +307,16 @@ function renderSourceCards(cards) {
 
 function renderTzeentchPanel(surfaceKey, model) {
   switch (surfaceKey) {
+    case 'mosaic':
+      return renderMosaicPanel(model);
     case 'murmurs':
       return renderMurmursPanel(model);
-    case 'crypto':
-      return renderCryptoPanel(model);
-    case 'polymarket':
-      return renderPolymarketPanel(model);
     case 'intel':
       return renderActionablePanel(model);
+    case 'positions':
+      return renderPositionsPanel(model);
     default:
-      return renderMurmursPanel(model);
+      return renderMosaicPanel(model);
   }
 }
 
@@ -658,6 +665,11 @@ function createEmptyTzeentchPayload(warning = 'Live Tzeentch feed has not loaded
     publicOnly: true,
     sourceFamilies: TZEENTCH_SOURCE_FAMILIES.slice(),
     warnings: warning ? [warning] : [],
+    mosaic: {
+      items: [],
+      updatedAt,
+      methodology: 'Official public observations ranked by materiality and freshness.',
+    },
     murmurs: {
       hackerNews: [],
       reddit: [],
@@ -674,6 +686,12 @@ function createEmptyTzeentchPayload(warning = 'Live Tzeentch feed has not loaded
     },
     chainedDaemon: {
       observations: [],
+    },
+    paperBooks: {
+      updatedAt,
+      paperOnly: true,
+      dimensions: { lines: [], strategies: [] },
+      books: [],
     },
   };
 }
@@ -817,6 +835,92 @@ function renderChipStrip(items = [], emptyLabel = 'No data yet') {
   });
 
   return strip;
+}
+
+function renderMosaicPanel(model) {
+  const panel = document.createElement('div');
+  panel.className = 'tzeentch-panel tzeentch-panel-mosaic';
+  panel.appendChild(renderPanelHeader('Mosaic', 'Top current facts', model.mosaic.summary));
+
+  const metrics = model.mosaic.metrics || {};
+  panel.appendChild(renderMetricGrid([
+    { label: 'Facts', value: String(metrics.facts || 0), detail: 'Ranked current items' },
+    { label: 'Official', value: String(metrics.officialFacts || 0), detail: 'First-party public sources' },
+    { label: 'Sources', value: String(metrics.sources || 0), detail: 'Provenance retained' },
+    { label: 'Scopes', value: String(metrics.scopes || 0), detail: 'Operational domains' },
+  ]));
+
+  const methodology = document.createElement('p');
+  methodology.className = 'panel-meta tzeentch-mosaic-methodology';
+  methodology.textContent = `${model.mosaic.methodology} Source-grounded does not mean independently adjudicated.`;
+  panel.appendChild(methodology);
+
+  const grid = document.createElement('div');
+  grid.className = 'tzeentch-mosaic-grid';
+  const facts = model.mosaic.items || [];
+  if (!facts.length) {
+    grid.appendChild(createEmptyState('No current Mosaic facts are available from the official feeds.'));
+  } else {
+    facts.forEach((fact) => grid.appendChild(renderMosaicCard(fact)));
+  }
+  panel.appendChild(grid);
+  return panel;
+}
+
+function renderMosaicCard(fact) {
+  const card = document.createElement('article');
+  card.className = 'signal-item tzeentch-mosaic-card';
+
+  const topRow = document.createElement('div');
+  topRow.className = 'signal-feed-header';
+  const source = document.createElement('span');
+  source.className = 'source-chip source-chip-live';
+  source.textContent = fact.source || 'Official source';
+  topRow.appendChild(source);
+  const confidence = document.createElement('span');
+  confidence.className = 'source-chip';
+  confidence.textContent = fact.confidenceLabel || 'source confidence unavailable';
+  topRow.appendChild(confidence);
+  card.appendChild(topRow);
+
+  if (fact.url) {
+    const title = document.createElement('a');
+    title.className = 'signal-item-title';
+    title.href = fact.url;
+    title.target = '_blank';
+    title.rel = 'noreferrer';
+    title.textContent = fact.title || 'Untitled fact';
+    card.appendChild(title);
+  } else {
+    const title = document.createElement('div');
+    title.className = 'signal-item-title';
+    title.textContent = fact.title || 'Untitled fact';
+    card.appendChild(title);
+  }
+
+  if (fact.summary) {
+    const summary = document.createElement('p');
+    summary.className = 'signal-item-detail';
+    summary.textContent = fact.summary;
+    card.appendChild(summary);
+  }
+
+  const meta = document.createElement('div');
+  meta.className = 'tzeentch-mini-meta';
+  [
+    fact.scope,
+    (fact.statementType || 'official observation').replaceAll('-', ' '),
+    fact.status,
+    `Published ${fact.ageLabel || 'recently'}`,
+    `Fetched ${fact.retrievedLabel || 'recently'}`,
+  ].filter(Boolean).forEach((text) => {
+    const chip = document.createElement('span');
+    chip.className = 'source-chip';
+    chip.textContent = text;
+    meta.appendChild(chip);
+  });
+  card.appendChild(meta);
+  return card;
 }
 
 function renderMurmursPanel(model) {
@@ -1299,10 +1403,218 @@ function renderPolymarketCard(market) {
   return card;
 }
 
+function renderPositionsPanel(model) {
+  const panel = document.createElement('div');
+  panel.className = 'tzeentch-panel tzeentch-panel-positions';
+  const matrix = model.paperBooks || { books: [], dimensions: { lines: [], strategies: [] }, metrics: [] };
+  panel.appendChild(renderPanelHeader('Positions', 'Live paper matrix', matrix.summary));
+  panel.appendChild(renderMetricGrid(matrix.metrics || []));
+
+  const snapshotMeta = document.createElement('div');
+  snapshotMeta.className = 'tzeentch-position-snapshot';
+  [
+    matrix.paperOnly ? 'Paper only' : 'Execution mode unknown',
+    matrix.autonomousExecution ? 'Autonomous loop' : 'Read-only snapshot',
+    matrix.source || 'Canonical paper state',
+    `Updated ${formatTimestamp(matrix.updatedAt)}`,
+  ].forEach((text) => {
+    const chip = document.createElement('span');
+    chip.className = matrix.paperOnly && text === 'Paper only' ? 'source-chip source-chip-live' : 'source-chip';
+    chip.textContent = text;
+    snapshotMeta.appendChild(chip);
+  });
+  panel.appendChild(snapshotMeta);
+
+  const books = matrix.books || [];
+  if (!books.length) {
+    panel.appendChild(createEmptyState('Canonical paper positions are unavailable; no demo matrix was substituted.'));
+    return panel;
+  }
+
+  const configuredLines = matrix.dimensions?.lines || [];
+  const configuredStrategies = matrix.dimensions?.strategies || [];
+  const derivedLines = configuredLines.length
+    ? configuredLines.slice().sort((left, right) => left.order - right.order)
+    : uniquePaperDimensions(books, 'line');
+  const lines = derivedLines.length ? derivedLines : [{ id: 'all', label: 'All', order: 0 }];
+  const strategies = configuredStrategies.length
+    ? configuredStrategies.slice().sort((left, right) => left.order - right.order)
+    : uniquePaperDimensions(books, 'strategy');
+
+  const matrixRoot = document.createElement('div');
+  matrixRoot.className = 'tzeentch-position-matrix';
+  lines.forEach((line) => {
+    const section = document.createElement('section');
+    section.className = 'tzeentch-position-line';
+    const heading = document.createElement('div');
+    heading.className = 'tzeentch-position-line-header';
+    const title = document.createElement('h5');
+    title.textContent = `${line.label || line.id} line`;
+    heading.appendChild(title);
+    const count = document.createElement('span');
+    count.className = 'source-chip';
+    const booksForLine = line.id === 'all' ? books : books.filter((book) => book.lineId === line.id);
+    count.textContent = `${booksForLine.length} books`;
+    heading.appendChild(count);
+    section.appendChild(heading);
+
+    const grid = document.createElement('div');
+    grid.className = 'tzeentch-position-grid';
+    if (strategies.length) {
+      const lineBooks = new Map(booksForLine.map((book) => [book.strategyId, book]));
+      strategies.forEach((strategy) => {
+        const book = lineBooks.get(strategy.id);
+        if (book) {
+          grid.appendChild(renderPositionBook(book));
+          lineBooks.delete(strategy.id);
+        }
+      });
+      lineBooks.forEach((book) => grid.appendChild(renderPositionBook(book)));
+    } else {
+      booksForLine.forEach((book) => grid.appendChild(renderPositionBook(book)));
+    }
+    section.appendChild(grid);
+    matrixRoot.appendChild(section);
+  });
+  panel.appendChild(matrixRoot);
+  return panel;
+}
+
+function uniquePaperDimensions(books, kind) {
+  const idKey = `${kind}Id`;
+  const labelKey = `${kind}Name`;
+  return Array.from(new Map(books
+    .filter((book) => book?.[idKey])
+    .map((book, order) => [book[idKey], { id: book[idKey], label: book[labelKey] || book[idKey], order }])).values());
+}
+
+function renderPositionBook(book) {
+  const card = document.createElement('article');
+  const positions = book.positions || [];
+  card.className = `tzeentch-position-book${positions.length ? ' has-open-positions' : ''}`;
+
+  const header = document.createElement('div');
+  header.className = 'tzeentch-position-book-header';
+  const titleWrap = document.createElement('div');
+  const title = document.createElement('h6');
+  title.textContent = book.strategyName || book.name || 'Paper book';
+  titleWrap.appendChild(title);
+  const line = document.createElement('p');
+  line.className = 'panel-meta';
+  line.textContent = `${book.lineName || book.lineId || 'Matrix'} · ${book.status || 'state unknown'}`;
+  titleWrap.appendChild(line);
+  header.appendChild(titleWrap);
+  const returnChip = document.createElement('span');
+  returnChip.className = `source-chip ${(book.totalReturnPct || 0) >= 0 ? 'source-chip-live' : 'source-chip-danger'}`;
+  returnChip.textContent = book.returnLabel || '0.00%';
+  header.appendChild(returnChip);
+  card.appendChild(header);
+
+  const metrics = document.createElement('dl');
+  metrics.className = 'tzeentch-position-book-metrics';
+  [
+    ['Equity', book.equityLabel || formatPaperUsd(book.equity)],
+    ['P/L', book.pnlLabel || formatPaperUsd(book.totalPnl)],
+    ['Cash', book.cashLabel || formatPaperUsd(book.cash)],
+    ['Open', String(positions.length)],
+  ].forEach(([label, value]) => {
+    const item = document.createElement('div');
+    const term = document.createElement('dt');
+    term.textContent = label;
+    const detail = document.createElement('dd');
+    detail.textContent = value;
+    item.append(term, detail);
+    metrics.appendChild(item);
+  });
+  card.appendChild(metrics);
+
+  if (!positions.length) {
+    card.appendChild(createEmptyState('No open positions.'));
+    return card;
+  }
+
+  const list = document.createElement('div');
+  list.className = 'tzeentch-position-list';
+  positions.forEach((position) => {
+    const row = document.createElement('article');
+    row.className = 'tzeentch-position-row';
+    const positionHeader = document.createElement('div');
+    positionHeader.className = 'signal-feed-header';
+    const symbol = document.createElement('strong');
+    symbol.textContent = position.symbol || position.title || 'Position';
+    positionHeader.appendChild(symbol);
+    const gain = document.createElement('span');
+    gain.className = `source-chip ${(position.gainPct || 0) >= 0 ? 'source-chip-live' : 'source-chip-danger'}`;
+    gain.textContent = position.gainLabel || '0.00%';
+    positionHeader.appendChild(gain);
+    row.appendChild(positionHeader);
+
+    const detail = document.createElement('p');
+    detail.className = 'signal-item-detail';
+    detail.textContent = `${formatPaperQuantity(position.quantity)} units · entry ${position.entryPriceLabel || '—'} · mark ${position.markPriceLabel || '—'} · value ${position.marketValueLabel || '—'}`;
+    row.appendChild(detail);
+    const mark = document.createElement('p');
+    mark.className = 'panel-meta';
+    mark.textContent = `${position.markStatus || 'unknown'} mark${position.markedAt ? ` · ${formatTimestamp(position.markedAt)}` : ''}`;
+    row.appendChild(mark);
+    list.appendChild(row);
+  });
+  card.appendChild(list);
+  return card;
+}
+
+function formatPaperQuantity(value) {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 8 }).format(Number(value) || 0);
+}
+
+function formatPaperUsd(value) {
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(Number(value) || 0);
+}
+
 function renderActionablePanel(model) {
   const panel = document.createElement('div');
   panel.className = 'tzeentch-panel tzeentch-panel-intel';
-  panel.appendChild(renderPanelHeader('Actionable Intel', 'Paper-only signals', model.actionable.loopNote));
+  panel.appendChild(renderPanelHeader('Actionable Intel', 'Market inputs and paper-only decisions', model.actionable.summary));
+
+  const nav = document.createElement('div');
+  nav.className = 'tzeentch-intel-views';
+  nav.setAttribute('role', 'tablist');
+  nav.setAttribute('aria-label', 'Actionable Intel views');
+  TZEENTCH_INTEL_VIEWS.forEach((view) => {
+    const button = document.createElement('button');
+    const active = state.intelView === view.key;
+    button.className = `tzeentch-intel-view${active ? ' is-active' : ''}`;
+    button.type = 'button';
+    button.dataset.intelView = view.key;
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-selected', String(active));
+    button.textContent = view.label;
+    button.addEventListener('click', () => {
+      if (state.intelView === view.key) return;
+      state.intelView = view.key;
+      renderApplications();
+    });
+    nav.appendChild(button);
+  });
+  panel.appendChild(nav);
+
+  const viewHost = document.createElement('div');
+  viewHost.className = 'tzeentch-intel-view-host';
+  if (state.intelView === 'polymarket') {
+    viewHost.appendChild(renderPolymarketPanel(model));
+  } else if (state.intelView === 'proposals') {
+    viewHost.appendChild(renderProposalsPanel(model));
+  } else {
+    viewHost.appendChild(renderCryptoPanel(model));
+  }
+  panel.appendChild(viewHost);
+  return panel;
+}
+
+function renderProposalsPanel(model) {
+  const panel = document.createElement('div');
+  panel.className = 'tzeentch-intel-proposals';
+  panel.appendChild(renderPanelHeader('Proposals', 'Paper-only signals', model.actionable.loopNote));
 
   const summary = document.createElement('p');
   summary.className = 'panel-meta';

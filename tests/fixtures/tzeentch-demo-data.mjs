@@ -103,8 +103,17 @@ export function createDemoDashboardDataset(now = Date.now()) {
   return {
     updatedAt: new Date(now).toISOString(),
     publicOnly: true,
-    sourceFamilies: ['Hacker News', 'Reddit', 'CoinGecko', 'Polymarket Gamma'],
+    sourceFamilies: ['NWS Alerts', 'CISA KEV', 'USGS Earthquakes', 'Hacker News', 'Reddit', 'CoinGecko', 'Polymarket Gamma'],
     warnings: [],
+    mosaic: {
+      items: [
+        demoMosaicFact('mosaic-nws', 'Flood warning remains active for King County', 'The National Weather Service reports a flood warning affecting King County.', 'National Weather Service', 'Washington', 'official-alert', 'https://example.com/nws', now - 20 * 60 * 1000, 99),
+        demoMosaicFact('mosaic-cisa', 'CISA adds CVE-2026-1001 to the KEV catalog', 'CISA reports evidence of active exploitation and directs federal agencies to remediate.', 'CISA KEV Catalog', 'Cyber', 'official-advisory', 'https://example.com/cisa', now - HOUR_MS, 97),
+        demoMosaicFact('mosaic-usgs', 'USGS records a magnitude 5.2 earthquake', 'USGS recorded the earthquake 40 km west of the Olympic Peninsula.', 'USGS Earthquakes', 'Regional', 'official-observation', 'https://example.com/usgs', now - 2 * HOUR_MS, 94),
+      ],
+      updatedAt: new Date(now).toISOString(),
+      methodology: 'Official public observations ranked by materiality and freshness.',
+    },
     murmurs: {
       hackerNews: [
         demoStory('hn-1', 'Open-source agents keep getting faster, and the tooling stack is spreading with them', 'https://news.ycombinator.com/', 'ph3', 482, 116, now - 90 * 60 * 1000, 'news.ycombinator.com', 'open source agents keep getting faster tooling stack'),
@@ -134,6 +143,23 @@ export function createDemoDashboardDataset(now = Date.now()) {
     chainedDaemon: {
       observations: createDemoChainedDaemonObservations(),
     },
+  };
+}
+
+function demoMosaicFact(id, title, summary, source, scope, statementType, url, publishedAt, score) {
+  return {
+    id,
+    title,
+    summary,
+    source,
+    sourceClass: 'official',
+    scope,
+    statementType,
+    url,
+    publishedAt: new Date(publishedAt).toISOString(),
+    retrievedAt: new Date(publishedAt + 5 * 60 * 1000).toISOString(),
+    confidence: 0.99,
+    score,
   };
 }
 

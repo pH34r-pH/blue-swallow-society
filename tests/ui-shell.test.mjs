@@ -89,22 +89,30 @@ test('operator entrypoint requires an existing passcode-issued session before sh
   assert.ok(mainJs.includes('unlockConsole()'));
 });
 
-test('tzeentch shell exposes the restored sub-tabs', () => {
+test('tzeentch shell exposes Mosaic before Murmurs and Positions after Actionable Intel', () => {
   [
     'data-surface="seek"',
+    'data-surface="mosaic"',
     'data-surface="murmurs"',
-    'data-surface="crypto"',
-    'data-surface="polymarket"',
     'data-surface="intel"',
+    'data-surface="positions"',
   ].forEach((needle) => assert.ok(operatorShell.includes(needle), needle));
 
   assert.ok(operatorShell.includes('Actionable Intel'));
+  assert.ok(operatorShell.indexOf('data-surface="mosaic"') < operatorShell.indexOf('data-surface="murmurs"'));
+  assert.ok(operatorShell.indexOf('data-surface="intel"') < operatorShell.indexOf('data-surface="positions"'));
+  assert.ok(!operatorShell.includes('data-surface="crypto"'));
+  assert.ok(!operatorShell.includes('data-surface="polymarket"'));
   assert.ok(!operatorShell.includes('data-surface="markets"'));
   assert.ok(!operatorShell.includes('tzeentchSurfaceMarkets'));
 });
 
 test('tzeentch client uses one surface manifest and no legacy market carousel state', () => {
   assert.match(tzeentchJs, /export const TZEENTCH_SURFACES\s*=\s*\[/);
+  assert.match(tzeentchJs, /const TZEENTCH_INTEL_VIEWS\s*=\s*\[/);
+  assert.match(tzeentchJs, /label:\s*'Crypto'/);
+  assert.match(tzeentchJs, /label:\s*'Polymarket'/);
+  assert.match(tzeentchJs, /label:\s*'Proposals'/);
   assert.doesNotMatch(tzeentchJs, /TZEENTCH_MARKET_TABS/);
   assert.doesNotMatch(tzeentchJs, /\bmarketTab\b/);
   assert.doesNotMatch(tzeentchJs, /\bmarketTouch\b/);
@@ -120,6 +128,17 @@ test('tzeentch sub-tabs wrap instead of hiding overflow off-canvas', () => {
   assert.doesNotMatch(subtabsRule, /overflow-x:\s*auto\s*;/);
   assert.doesNotMatch(subtabsRule, /scroll-snap-type\s*:/);
   assert.doesNotMatch(subtabRule, /flex:\s*0\s+0\s+auto\s*;/);
+});
+
+test('Actionable Intel child tabs and the paper matrix stay responsive', () => {
+  const intelViewsRule = stylesCss.match(/\.tzeentch-intel-views\s*\{(?<body>[\s\S]*?)\}/)?.groups.body || '';
+  const intelViewRule = stylesCss.match(/\.tzeentch-intel-view\s*\{(?<body>[\s\S]*?)\}/)?.groups.body || '';
+  const positionsGridRule = stylesCss.match(/\.tzeentch-position-grid\s*\{(?<body>[\s\S]*?)\}/)?.groups.body || '';
+
+  assert.match(intelViewsRule, /flex-wrap:\s*wrap\s*;/);
+  assert.match(intelViewsRule, /overflow-x:\s*visible\s*;/);
+  assert.match(intelViewRule, /min-height:\s*44px\s*;/);
+  assert.match(positionsGridRule, /repeat\(auto-fit,\s*minmax\(/);
 });
 
 test('operator top-level tabs wrap so every peer tab is visible on mobile', () => {
