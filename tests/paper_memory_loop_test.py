@@ -42,6 +42,8 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
                     "integration-tick-1",
                     "--window-hours",
                     "1",
+                    "--paper-sync-url",
+                    "",
                 ],
                 cwd=REPO_ROOT,
                 text=True,
@@ -79,6 +81,25 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
             self.assertTrue(any(event["event_type"] == "paper_fill" for event in latest_state["last_paper_ledger_events"]))
             self.assertTrue(all("run_id" in run and "started_at" in run for run in latest_state["last_runs"]))
             self.assertTrue(all("runId" not in run and "startedAt" not in run for run in latest_state["last_runs"]))
+
+            candidate_log = state_dir / "paper_action_candidates.jsonl"
+            event_log = state_dir / "paper_ledger_events.jsonl"
+            candidate_lines_before = candidate_log.read_text(encoding="utf-8").splitlines()
+            event_lines_before = event_log.read_text(encoding="utf-8").splitlines()
+            replay = subprocess.run(
+                result.args,
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(replay.returncode, 0, replay.stderr)
+            replay_state = json.loads((state_dir / "latest_state.json").read_text(encoding="utf-8"))
+            self.assertTrue(replay_state["engine_replayed"])
+            self.assertEqual(replay_state["last_paper_action_candidates"], latest_state["last_paper_action_candidates"])
+            self.assertEqual(replay_state["last_paper_ledger_events"], latest_state["last_paper_ledger_events"])
+            self.assertEqual(candidate_log.read_text(encoding="utf-8").splitlines(), candidate_lines_before)
+            self.assertEqual(event_log.read_text(encoding="utf-8").splitlines(), event_lines_before)
 
 
 if __name__ == "__main__":

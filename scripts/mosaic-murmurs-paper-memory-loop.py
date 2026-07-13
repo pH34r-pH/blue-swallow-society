@@ -432,6 +432,7 @@ def run_tick(args: argparse.Namespace) -> dict[str, Any]:
     window = {"start": iso_z(window_start), "end": iso_z(now)}
     ledger_path = Path(args.ledger).expanduser()
     state_dir = Path(args.state_dir).expanduser()
+    previous_latest_state = load_json(state_dir / "latest_state.json", {})
     ledger, ledger_loaded = load_ledger(ledger_path)
     snapshot = collect_source_snapshot(Path(args.morning_state).expanduser())
     if args.market_snapshot:
@@ -479,6 +480,11 @@ def run_tick(args: argparse.Namespace) -> dict[str, Any]:
         candidate.setdefault("run_id", candidate_run["run_id"])
     for event in ledger_events:
         event.setdefault("run_id", paper_run["run_id"])
+    canonical_action_candidates = action_candidates
+    canonical_ledger_events = ledger_events
+    if engine_result["replayed"]:
+        canonical_action_candidates = previous_latest_state.get("last_paper_action_candidates") or previous_latest_state.get("canonical_paper_state", {}).get("latest_actions") or []
+        canonical_ledger_events = previous_latest_state.get("last_paper_ledger_events") or previous_latest_state.get("canonical_paper_state", {}).get("latest_ledger_events") or []
     memory_patches = make_memory_patches(runs, now)
     source_events = make_source_events(source_run, snapshot, now)
 
@@ -498,7 +504,7 @@ def run_tick(args: argparse.Namespace) -> dict[str, Any]:
         run["output_refs"] = output_refs_by_run.get(run["run_id"], [])
         run["status"] = "review_required" if run["loop_id"] in {"bridge", "memory_sync"} or run["review_required"] else "completed"
 
-    paper_state = build_paper_state(ledger, books, action_candidates, ledger_events, now)
+    paper_state = build_paper_state(ledger, books, canonical_action_candidates, canonical_ledger_events, now)
     paper_state_sync: dict[str, Any] = {"configured": bool(args.paper_sync_url), "attempted": False}
     if args.paper_sync_url and not args.dry_run:
         paper_state_sync["attempted"] = True
@@ -541,8 +547,8 @@ def run_tick(args: argparse.Namespace) -> dict[str, Any]:
         "paper_books": books,
         "last_runs": runs,
         "last_narrative_fragments": fragments,
-        "last_paper_action_candidates": action_candidates,
-        "last_paper_ledger_events": ledger_events,
+        "last_paper_action_candidates": canonical_action_candidates,
+        "last_paper_ledger_events": canonical_ledger_events,
         "last_memory_patches": memory_patches,
         "last_source_reliability_events": source_events,
         "record_files": {name: str(state_dir / filename) for name, filename in RECORD_FILES.items()},
