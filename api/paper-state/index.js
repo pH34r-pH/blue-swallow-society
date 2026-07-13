@@ -49,7 +49,13 @@ function backendUrl() {
     error.status = 503;
     throw error;
   }
-  return new URL('api/v1/paper/state', base.endsWith('/') ? base : `${base}/`);
+  const url = new URL('api/v1/paper/state', base.endsWith('/') ? base : `${base}/`);
+  if (url.protocol !== 'https:') {
+    const error = new Error('BACKEND_PAPER_STATE_BASE_URL must use HTTPS.');
+    error.status = 503;
+    throw error;
+  }
+  return url;
 }
 
 function requestBody(req) {

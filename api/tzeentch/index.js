@@ -237,9 +237,19 @@ async function fetchCanonicalPaperState({ warnings } = {}) {
     warnings?.push('Canonical paper-state backend is not configured.');
     return null;
   }
+  let url;
+  try {
+    url = new URL('api/v1/paper/state', baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
+  } catch {
+    warnings?.push('Canonical paper-state backend URL is invalid.');
+    return null;
+  }
+  if (url.protocol !== 'https:') {
+    warnings?.push('Canonical paper-state backend must use HTTPS.');
+    return null;
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new Error('timeout')), DEFAULT_TIMEOUT_MS);
-  const url = `${baseUrl}/api/v1/paper/state`;
   try {
     const response = await fetch(url, {
       headers: {

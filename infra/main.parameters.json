@@ -7,9 +7,9 @@
     "staticWebAppName": { "value": "blue-swallow-swa" },
     "prefix": { "value": "blue-swallow" },
     "allowedSourceIp": {
-      "value": "*",
+      "value": "127.0.0.1/32",
       "metadata": {
-        "description": "WARNING: '*' exposes ports 22 and 8080 to the entire internet. Set to your IP before production."
+        "description": "Deny-by-default public SSH. Override with an operator /32 only when an SSH maintenance window is needed."
       }
     },
     "vmSize": { "value": "Standard_B1ms" },

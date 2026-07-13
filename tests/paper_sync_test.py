@@ -86,6 +86,22 @@ class PaperSyncTests(unittest.TestCase):
         self.assertEqual(result["status"], 201)
         self.assertFalse(result["replayed"])
 
+        envelope_mutations = [
+            (lambda state: state.update({"schema_version": "bss.paper_state.v2"}), "envelope"),
+            (lambda state: state.update({"paper_only": False}), "envelope"),
+            (lambda state: state.update({"autonomous_execution": False}), "envelope"),
+            (lambda state: state.update({"generated_at": "2026-07-13 01:00:00"}), "envelope"),
+            (lambda state: state["paper_ledger_events"][0].update({"action": "WATCH"}), "fill action"),
+            (lambda state: state["paper_ledger_events"][0].update({"autonomous_execution": False}), "autonomous"),
+            (lambda state: next(event for event in state["paper_ledger_events"] if event.get("event_type") == "mark").update({"daily_pnl": "0"}), "paper_ledger_events|accounting"),
+            (lambda state: state["paper_action_candidates"][0].update({"autonomous_execution": False}), "autonomous"),
+        ]
+        for mutate, pattern in envelope_mutations:
+            bad_envelope = json.loads(json.dumps(envelope))
+            mutate(bad_envelope)
+            with self.subTest(pattern=pattern), self.assertRaisesRegex(ValueError, pattern):
+                module.validate_paper_state(bad_envelope)
+
         with self.assertRaisesRegex(module.PaperSyncError, "HTTPS"):
             module.sync_paper_state(
                 "http://backend.test:8080/api/v1/paper/state",

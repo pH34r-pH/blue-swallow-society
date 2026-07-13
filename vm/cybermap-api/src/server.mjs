@@ -316,11 +316,7 @@ export function validatePaperState(value, nowMs, { allowLegacyV2 = true } = {}) 
       || !hasExactIds(summaries.map((book) => book?.book_id), PAPER_BOOK_IDS)
       || !summaries.every((summary) => isPlainObject(summary)
         && hasOnlyKeys(summary, hasExecutionCosts ? PAPER_SUMMARY_KEYS : PAPER_SUMMARY_V2_KEYS)
-        && summary.book_id === `${summary.line_id}__${summary.strategy_id}`
-        && validAggressionProfile(summary.aggression_profile)
-        && nullableTimestamp(summary.crashed_at, nowMs)
-        && ['starting_balance', 'cash_balance', 'realized_pnl', 'unrealized_pnl', 'gross_paper_exposure', 'equity', 'daily_pnl', 'daily_pnl_pct', 'cumulative_pnl', 'cumulative_pnl_pct', 'drawdown_pct', 'max_drawdown_pct', 'open_position_count', 'stale_open_marks'].every((field) => finiteNumber(summary[field]))
-        && (!hasExecutionCosts || validAggregateCosts(summary)))
+        && validatePaperSummary(summary, hasExecutionCosts, nowMs))
       || !Array.isArray(actions)
       || actions.length > MAX_PAPER_ACTIONS
       || !actions.every((action) => isPlainObject(action)
@@ -445,11 +441,36 @@ function validAggressionProfile(profile) {
     && finiteNumber(profile.minimum_order_notional) && profile.minimum_order_notional >= 0;
 }
 
+function validatePaperSummary(summary, hasExecutionCosts, nowMs, { checkKeys = true } = {}) {
+  if (!isPlainObject(summary)
+      || (checkKeys && !hasOnlyKeys(summary, hasExecutionCosts ? PAPER_SUMMARY_KEYS : PAPER_SUMMARY_V2_KEYS))
+      || summary.book_id !== `${summary.line_id}__${summary.strategy_id}`
+      || !PAPER_BOOK_IDS.includes(summary.book_id)
+      || !PAPER_LINE_IDS.includes(summary.line_id)
+      || !PAPER_STRATEGY_IDS.includes(summary.strategy_id)
+      || !['book_id', 'display_name', 'line_id', 'line_display_name', 'strategy_id', 'strategy_display_name', 'status'].every((field) => typeof summary[field] === 'string' && summary[field].length > 0)
+      || !validAggressionProfile(summary.aggression_profile)
+      || !nullableTimestamp(summary.crashed_at, nowMs)
+      || typeof summary.postmortem_required !== 'boolean') return false;
+  const baseNumericFields = [
+    'starting_balance', 'cash_balance', 'realized_pnl', 'unrealized_pnl', 'gross_paper_exposure', 'equity', 'daily_pnl',
+    'daily_pnl_pct', 'cumulative_pnl', 'cumulative_pnl_pct', 'drawdown_pct', 'max_drawdown_pct', 'open_position_count', 'stale_open_marks',
+  ];
+  const numericFields = hasExecutionCosts
+    ? [...baseNumericFields, 'fees_paid', 'spread_costs', 'slippage_costs', 'market_impact_costs', 'latency_costs', 'transaction_costs', 'turnover_notional']
+    : baseNumericFields;
+  if (!numericFields.every((field) => finiteNumber(summary[field]))) return false;
+  if (!['starting_balance', 'cash_balance', 'gross_paper_exposure', 'equity', 'open_position_count', 'stale_open_marks'].every((field) => summary[field] >= 0)) return false;
+  return !hasExecutionCosts || validAggregateCosts(summary);
+}
+
 function validatePaperPosition(position, nowMs) {
   if (!isPlainObject(position)
       || !hasOnlyKeys(position, PAPER_POSITION_KEYS)
       || typeof position.position_id !== 'string' || position.position_id.length === 0
       || typeof position.instrument_ref !== 'string' || position.instrument_ref.length === 0
+      || typeof position.symbol !== 'string' || position.symbol.length === 0
+      || typeof position.title !== 'string' || position.title.length === 0
       || !['crypto', 'equity', 'prediction_market'].includes(position.instrument_type)
       || typeof position.source_id !== 'string' || position.source_id.length === 0
       || !nullableHttpsUrl(position.source_url)
@@ -479,11 +500,7 @@ function validatePaperEvent(event, nowMs, hasExecutionCosts) {
   }
   if (event.event_type === 'mark') {
     return hasOnlyKeys(event, hasExecutionCosts ? PAPER_MARK_KEYS : PAPER_MARK_V2_KEYS)
-      && event.book_id === `${event.line_id}__${event.strategy_id}`
-      && finiteNumber(event.equity)
-      && finiteNumber(event.cash_balance)
-      && finiteNumber(event.gross_paper_exposure)
-      && (!hasExecutionCosts || validAggregateCosts(event));
+      && validatePaperSummary(event, hasExecutionCosts, nowMs, { checkKeys: false });
   }
   if (event.event_type === 'book_crashed') {
     return hasOnlyKeys(event, PAPER_CRASH_KEYS)

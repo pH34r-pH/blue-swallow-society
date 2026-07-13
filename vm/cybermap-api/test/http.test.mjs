@@ -591,9 +591,13 @@ test('paper-state validator recursively rejects unknown nested fields and string
     (state) => { state.ledger.books[0].aggression_profile.target_gross_fraction = '0.8'; },
     (state) => { state.ledger.books[0].starting_balance = '2000'; },
     (state) => { state.ledger.books[0].positions[0].quantity = '1'; },
+    (state) => { state.ledger.books[0].positions[0].symbol = null; },
+    (state) => { state.ledger.books[0].positions[0].title = ''; },
     (state) => { state.paper_books[0].equity = '2000'; },
     (state) => { state.paper_action_candidates[0].paper_size = '100'; },
     (state) => { state.paper_ledger_events[0].cash_after = '1000'; },
+    (state) => { state.paper_ledger_events[1].daily_pnl = '0'; },
+    (state) => { state.paper_ledger_events[1].display_name = ''; },
     (state) => { state.recent_paper_trades[0].mark_price = '100'; },
   ];
   for (const mutate of numericMutations) {

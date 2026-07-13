@@ -19,11 +19,18 @@ if [ -z "$PAPER_STATE_TOKEN" ]; then
 fi
 
 apt-get update
-apt-get install -y ca-certificates curl gnupg postgresql-client tar
+apt-get install -y ca-certificates curl gnupg debian-keyring debian-archive-keyring apt-transport-https postgresql-client tar
 
 if ! command -v node >/dev/null 2>&1 || ! node --version | grep -Eq '^v24\.'; then
   curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
   apt-get install -y nodejs
+fi
+
+if ! command -v caddy >/dev/null 2>&1; then
+  curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt > /etc/apt/sources.list.d/caddy-stable.list
+  apt-get update
+  apt-get install -y caddy
 fi
 
 rm -rf /tmp/bss-source /tmp/bss.tar.gz
@@ -44,7 +51,7 @@ PGUSER=__POSTGRES_ADMINISTRATOR_LOGIN__
 PGPASSWORD=$POSTGRES_PASSWORD
 PGSSLMODE=require
 DATABASE_URL=postgresql://__POSTGRES_ADMINISTRATOR_LOGIN__:$POSTGRES_PASSWORD@__POSTGRES_SERVER_FQDN__:5432/__POSTGRES_DATABASE_NAME__?sslmode=require
-BSS_CYBERMAP_BIND_HOST=0.0.0.0
+BSS_CYBERMAP_BIND_HOST=127.0.0.1
 BSS_CYBERMAP_PORT=__CYBERMAP_API_PORT__
 BSS_CYBERMAP_DB_POOL_MAX=4
 BSS_CYBERMAP_READ_TOKEN=$CYBERMAP_READ_TOKEN
@@ -102,8 +109,18 @@ ProtectHome=true
 WantedBy=multi-user.target
 UNIT
 
+cat > /etc/caddy/Caddyfile <<'CADDY'
+__BACKEND_FQDN__ {
+  encode zstd gzip
+  reverse_proxy 127.0.0.1:__CYBERMAP_API_PORT__
+}
+CADDY
+
 systemctl daemon-reload
 systemctl disable --now echo-server.service || true
 systemctl enable bss-cybermap-api.service
 systemctl restart bss-cybermap-api.service
+systemctl enable caddy.service
+systemctl reload-or-restart caddy.service
 systemctl is-active --quiet bss-cybermap-api.service
+systemctl is-active --quiet caddy.service

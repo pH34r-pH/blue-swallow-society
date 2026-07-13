@@ -21,8 +21,8 @@ async function invoke(req, fetchImpl) {
     BACKEND_CYBERMAP_BASE_URL: process.env.BACKEND_CYBERMAP_BASE_URL,
     BSS_PAPER_STATE_TOKEN: process.env.BSS_PAPER_STATE_TOKEN,
   };
-  process.env.BACKEND_PAPER_STATE_BASE_URL = 'http://backend.internal:8080';
-  process.env.BACKEND_CYBERMAP_BASE_URL = 'http://backend.internal:8080';
+  process.env.BACKEND_PAPER_STATE_BASE_URL = 'https://backend.internal';
+  process.env.BACKEND_CYBERMAP_BASE_URL = 'https://backend.internal';
   process.env.BSS_PAPER_STATE_TOKEN = TOKEN;
   const originalFetch = global.fetch;
   global.fetch = fetchImpl;
@@ -67,7 +67,7 @@ test('paper-state edge proxy forwards canonical PUT with an explicit application
   assert.equal(response.status, 201);
   assert.equal(response.headers['idempotent-replayed'], 'false');
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, 'http://backend.internal:8080/api/v1/paper/state');
+  assert.equal(calls[0].url, 'https://backend.internal/api/v1/paper/state');
   assert.equal(calls[0].options.method, 'PUT');
   assert.equal(calls[0].options.headers['x-blue-swallow-paper-state-token'], TOKEN);
   assert.equal('x-blue-swallow-cybermap-read-token' in calls[0].options.headers, false);

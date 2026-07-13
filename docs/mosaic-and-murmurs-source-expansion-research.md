@@ -1,9 +1,9 @@
 # Mosaic & Murmurs Source Expansion Research
 
-**Status:** Initial research note with P1 collector expansion
-**Date:** 2026-07-11
+**Status:** P1 collector plus Obscura-backed Hermes web research
+**Date:** 2026-07-11; research transport revised 2026-07-13
 **Scope:** Public-source news, social, trend, security, crypto, and local WA/Seattle/Bellevue/Redmond coverage
-**Implementation:** [`scripts/mosaic-murmurs-morning-brief-collect.py`](../scripts/mosaic-murmurs-morning-brief-collect.py)
+**Implementation:** [`scripts/mosaic-murmurs-morning-brief-collect.py`](../scripts/mosaic-murmurs-morning-brief-collect.py) plus Hermes cron job `d2f6bc9e8c5f`
 
 ## Current implemented coverage
 
@@ -198,3 +198,78 @@ Brief rule: paper actions need at least one score-3+ source, unless the action i
 3. Add dedupe by canonical URL and title similarity.
 4. Add a small source-health report to each morning brief.
 5. Add optional credentialed adapters for Reddit, Bluesky, YouTube, and X only if API credentials and terms are acceptable.
+
+## Obscura-backed autonomous web research — active decision
+
+Decision date: `2026-07-13`
+
+### Decision
+
+Wigolo is rejected as a Blue Swallow dependency and has been decommissioned from this host. No Wigolo package, executable, service, container, or Hermes MCP server was installed; the audit clone, runtime/model cache, smoke-test state, and targeted npm metadata were removed. The rejected audit remains source-pinned to `KnockOutEZ/wigolo` commit `752bddbe55067941d42baa562ed43472eea36c0f` so the decision is reproducible without carrying the runtime.
+
+For the capability Blue Swallow actually needs, use the existing Hermes research stack:
+
+```text
+fixed public-source collector
+        +
+Hermes web search/extraction for discovery
+        +
+Hermes browser tool -> Obscura for rendered public pages
+        +
+BSS evidence/provenance and Mosaic/Murmurs projections
+```
+
+Obscura is the browser/acquisition layer, not a search engine, truth engine, citation database, or evidence store. Hermes skills provide research procedure; Blue Swallow owns source policy, provenance, confidence, and durable evidence.
+
+### Runtime wiring
+
+The scheduled Hermes job `mosaic-murmurs-morning-brief` (`d2f6bc9e8c5f`) now has:
+
+- toolsets: `web`, `browser`, `file`, `terminal`, `skills`;
+- skills: `bss-mosaic-murmurs-research-radar`, `intelligence-briefing`, `privacy-preserving-osint`;
+- workdir: `/home/ph3/repos/blue-swallow-society`;
+- browser provider: Hermes plugin `browser-obscura` using Obscura `0.1.9` on Linux ARM64.
+
+The collector packet remains the deterministic baseline. The agent may independently investigate high-salience gaps, contradictory claims, and candidate sources with web search and Obscura-backed browsing before writing the brief.
+
+The Obscura MCP server is deliberately **not** registered with Hermes. Its raw tool surface includes page evaluation, form filling, cookie access, and storage-state import/export. Registering it would inject that broader surface globally. The existing Hermes browser provider gives the required rendered-page access while retaining Hermes URL policy and per-job toolset control.
+
+### Inquiry and transport policy
+
+- Public HTTP(S), read-only research only.
+- Keep Obscura's private-network block enabled. Never use `--allow-private-network` or `OBSCURA_ALLOW_PRIVATE_NETWORK=1` for agent research.
+- No localhost, RFC1918, link-local, metadata endpoints, internal DNS, local files, authenticated profiles, cookie extraction, storage-state reuse, form submission, uploads, downloads, arbitrary page evaluation, purchases, posts, comments, or messages.
+- Do not bypass robots, source terms, paywalls, CAPTCHAs, or access controls.
+- Record a URL and retrieval timestamp for every material web claim. Label inaccessible, stale, contradictory, or unresolved evidence explicitly.
+- Treat snippets as discovery pointers. Mosaic claims require fetched primary/official or reputable reported evidence; Murmurs may retain public narrative signals without converting repetition into truth.
+- Newly discovered recurring sources remain candidates. Use the lifecycle `discovered -> quarantined -> policy checked -> sampled -> scored -> active|blocked`; the agent does not auto-enroll them.
+- Keep generated prose separate from canonical paper fills and deterministic ledger state.
+
+### Projection contract
+
+**Mosaic**
+
+- asks what observation would reduce uncertainty most;
+- searches for primary/official evidence and counter-evidence;
+- retains contradictions and provenance;
+- never converts search rank, citation presence, or repetition into truth confidence.
+
+**Murmurs**
+
+- searches adjacent public communities, formats, and narratives;
+- records stance, repetition, novelty, velocity, audience, and manipulation risk;
+- may preserve low-authority signals as perception evidence;
+- cannot promote popularity into Mosaic without independent evidence.
+
+Shared retrieved bytes are acceptable. Shared conclusions and shared confidence are not.
+
+### Verification
+
+Verified on `2026-07-13`:
+
+- `obscura --version` returned `0.1.9`;
+- a loopback-only Obscura CDP smoke endpoint returned Chrome protocol `1.3` and a `127.0.0.1` WebSocket URL;
+- a fresh Hermes process resolved `ObscuraBrowserProvider` with `configured: true`;
+- fresh-process `browser_navigate` and `browser_snapshot` loaded `https://example.com/` and returned `Example Domain`;
+- the morning-brief cron job lists the three research skills and five constrained toolsets above;
+- Hermes has no MCP servers configured, so no Wigolo or raw Obscura MCP surface is globally injected.

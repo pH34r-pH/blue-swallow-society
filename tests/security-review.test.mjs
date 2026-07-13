@@ -21,6 +21,12 @@ const wigleApi = read('api/wigle/index.js');
 const localServer = read('local-server.js');
 const styles = read('app/operator/styles.css');
 const deployWorkflow = read('.github/workflows/deploy-static-web-app.yml');
+const infraParams = JSON.parse(read('infra/main.parameters.json'));
+const vmBicep = read('infra/vm-echo-lab.bicep');
+const cybermapInstallScript = read('infra/scripts/install-cybermap-api.sh');
+const paperStateApi = read('api/paper-state/index.js');
+const cybermapViewportApi = read('api/cybermap-viewport/index.js');
+const cybermapBatchApi = read('api/cybermap-observations-batch/index.js');
 const operatorAuth = read('api/_lib/operator-auth.js');
 const operatorDownloadsApi = read('api/operator-downloads/index.js');
 const removedCanonicalPasscodeHash = [
@@ -53,7 +59,6 @@ test('operator APIs are reachable from the passcode login but fail closed on pas
   assert.deepEqual(routeConfig('/api/operator-shell')?.allowedRoles, ['anonymous', 'authenticated']);
   assert.deepEqual(routeConfig('/api/operator-downloads/wardriver/*')?.allowedRoles, ['anonymous', 'authenticated']);
 
-  const cybermapViewportApi = read('api/cybermap-viewport/index.js');
   assert.ok(read('api/osint/index.js').includes('requireOperatorToken'));
   assert.ok(read('api/tzeentch/index.js').includes('requireOperatorToken'));
   assert.ok(agentApi.includes('requireOperatorToken'));
@@ -138,6 +143,20 @@ test('deployment config wires auth material from GitHub secrets only', () => {
   assert.ok(deployWorkflow.includes('BLUE_SWALLOW_PASSCODE_SHA256 must be a 64-character SHA-256 hex digest'));
   assert.ok(deployWorkflow.includes('BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY must be at least 32 bytes'));
   assert.ok(!deployWorkflow.includes(removedCanonicalPasscodeHash));
+});
+
+test('backend tokens only traverse HTTPS and the raw VM API port is not public', () => {
+  assert.notEqual(infraParams.parameters.allowedSourceIp.value, '*');
+  assert.ok(vmBicep.includes("domainNameLabel: backendDnsLabel"));
+  assert.ok(vmBicep.includes("output backendCybermapBaseUrl string = 'https://${backendFqdn}'"));
+  assert.ok(!vmBicep.includes("destinationPortRange: '8080'"));
+  assert.ok(vmBicep.includes("destinationPortRange: '443'"));
+  assert.ok(cybermapInstallScript.includes('BSS_CYBERMAP_BIND_HOST=127.0.0.1'));
+  assert.ok(cybermapInstallScript.includes('reverse_proxy 127.0.0.1:__CYBERMAP_API_PORT__'));
+  assert.ok(paperStateApi.includes("url.protocol !== 'https:'"));
+  assert.ok(cybermapViewportApi.includes("url.protocol !== 'https:'"));
+  assert.ok(cybermapBatchApi.includes("url.protocol !== 'https:'"));
+  assert.match(deployWorkflow, /BACKEND_PAPER_STATE_BASE_URL="\$\{\{ steps\.deploy\.outputs\.backendCybermapBaseUrl \}\}"/);
 });
 
 test('operator bearer tokens are signed with an independent server-side secret', () => {

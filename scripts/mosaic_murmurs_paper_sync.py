@@ -177,6 +177,60 @@ def _validate_fill_costs(event: dict[str, Any]) -> None:
         raise ValueError("paper fill total_transaction_cost must equal its components")
 
 
+def _validate_summary_record(value: dict[str, Any], label: str) -> None:
+    if value.get("book_id") not in PAPER_BOOK_IDS or value.get("book_id") != f"{value.get('line_id')}__{value.get('strategy_id')}":
+        raise ValueError(f"{label} matrix identity is invalid")
+    string_fields = ("book_id", "display_name", "line_id", "line_display_name", "strategy_id", "strategy_display_name", "status")
+    if any(not isinstance(value.get(field), str) or not value[field] for field in string_fields):
+        raise ValueError(f"{label} string fields are invalid")
+    if value.get("line_id") not in PAPER_LINE_IDS or value.get("strategy_id") not in PAPER_STRATEGY_IDS:
+        raise ValueError(f"{label} dimension identity is invalid")
+    _validate_aggression_profile(value.get("aggression_profile"), label)
+    numeric_fields = (
+        "starting_balance", "cash_balance", "realized_pnl", "fees_paid", "spread_costs", "slippage_costs", "market_impact_costs",
+        "latency_costs", "transaction_costs", "turnover_notional", "unrealized_pnl", "gross_paper_exposure", "equity", "daily_pnl",
+        "daily_pnl_pct", "cumulative_pnl", "cumulative_pnl_pct", "drawdown_pct", "max_drawdown_pct", "open_position_count", "stale_open_marks",
+    )
+    if any(not _finite_number(value.get(field)) for field in numeric_fields):
+        raise ValueError(f"{label} accounting fields must be finite numbers")
+    if any(value[field] < 0 for field in ("starting_balance", "cash_balance", "gross_paper_exposure", "equity", "open_position_count", "stale_open_marks")):
+        raise ValueError(f"{label} nonnegative accounting fields are invalid")
+    if not isinstance(value.get("postmortem_required"), bool):
+        raise ValueError(f"{label} postmortem_required is invalid")
+    if value.get("crashed_at") is not None and not _valid_timestamp(value.get("crashed_at")):
+        raise ValueError(f"{label} crashed_at is invalid")
+    _validate_cost_totals(value, label)
+
+
+def _validate_fill_event(event: dict[str, Any]) -> None:
+    if event.get("action") not in {"PAPER_BUY", "PAPER_SELL"}:
+        raise ValueError("paper fill action is invalid")
+    if event.get("autonomous_execution") is not True:
+        raise ValueError("paper fill autonomous_execution must be true")
+    numeric_fields = (
+        "quantity", "mark_price", "paper_size", "realized_pnl", "cash_before", "cash_after",
+        "position_quantity_before", "position_quantity_after",
+    )
+    if any(not _finite_number(event.get(field)) for field in numeric_fields):
+        raise ValueError("paper fill numeric fields must be finite numbers")
+    if any(event[field] < 0 for field in numeric_fields if field != "realized_pnl"):
+        raise ValueError("paper fill nonnegative fields are invalid")
+    _validate_fill_costs(event)
+
+
+def _validate_event_record(event: dict[str, Any]) -> None:
+    event_type = event.get("event_type")
+    if event_type == "paper_fill":
+        _validate_fill_event(event)
+    elif event_type == "mark":
+        _validate_summary_record(event, "paper mark event")
+    elif event_type == "book_crashed":
+        if event.get("postmortem_required") is not True or not _finite_number(event.get("equity")):
+            raise ValueError("paper crash event is invalid")
+    else:
+        raise ValueError("paper event_type is invalid")
+
+
 def has_valid_execution_cost_attribution(event: dict[str, Any]) -> bool:
     try:
         _validate_fill_costs(event)
@@ -243,13 +297,7 @@ def _validate_canonical_state_parts(
             raise ValueError("every paper summary must reference a canonical book")
         if summary.get("line_id") is not None and summary.get("book_id") != f"{summary.get('line_id')}__{summary.get('strategy_id')}":
             raise ValueError("paper summary matrix identity is invalid")
-        if not all(_finite_number(summary.get(field)) for field in (
-            "starting_balance", "cash_balance", "gross_paper_exposure", "equity", "fees_paid", "spread_costs",
-            "slippage_costs", "market_impact_costs", "latency_costs", "transaction_costs", "turnover_notional",
-        )):
-            raise ValueError("paper summary accounting fields must be finite numbers")
-        _validate_cost_totals(summary, "paper summary")
-        _validate_aggression_profile(summary.get("aggression_profile"), "paper summary")
+        _validate_summary_record(summary, "paper summary")
         summary_ids.append(summary["book_id"])
     if not _has_exact_ids(summary_ids, PAPER_BOOK_IDS):
         raise ValueError("paper summaries must contain all 24 canonical books exactly once")
@@ -266,14 +314,16 @@ def _validate_canonical_state_parts(
             raise ValueError("all paper actions and events must be paper-only and reference canonical books")
         if not _valid_timestamp(item.get("generated_at")):
             raise ValueError("all paper actions and events require timezone-qualified generated_at")
-        if item.get("event_type") == "paper_fill":
-            _validate_fill_costs(item)
+    for event in [*events, *recent_trades]:
+        _validate_event_record(event)
     allowed_actions = {"PAPER_BUY", "PAPER_SELL", "WATCH", "AVOID", "POSTMORTEM_REQUIRED"}
     for action in actions:
         if set(action) - {"run_id"} != ACTION_KEYS:
             raise ValueError("paper action does not match the closed canonical schema")
         if action.get("action") not in allowed_actions:
             raise ValueError("paper action is not allowlisted")
+        if action.get("action") in {"PAPER_BUY", "PAPER_SELL"} and action.get("autonomous_execution") is not True:
+            raise ValueError("paper trade actions must be autonomous_execution=true")
         checks = action.get("risk_policy_checks")
         if not isinstance(checks, list) or len(checks) > 32 or any(not isinstance(check, str) or len(check) > 200 for check in checks):
             raise ValueError("paper action risk_policy_checks are invalid")
@@ -337,6 +387,13 @@ def _validate_closed_state(value: dict[str, Any]) -> None:
 def validate_paper_state(value: Any) -> None:
     if not isinstance(value, dict):
         raise ValueError("paper state must be an object")
+    if (
+        value.get("schema_version") != SCHEMA_VERSION
+        or value.get("paper_only") is not True
+        or value.get("autonomous_execution") is not True
+        or not _valid_timestamp(value.get("generated_at"))
+    ):
+        raise ValueError("paper state envelope invariants are invalid")
     _validate_closed_state(value)
     _validate_canonical_state_parts(
         value.get("ledger"),

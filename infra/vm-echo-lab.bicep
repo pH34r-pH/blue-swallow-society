@@ -19,8 +19,8 @@ param vmSize string = 'Standard_B1ms'
 @description('Resource ID of the shared app subnet used by the VM/API gateway.')
 param appSubnetId string
 
-@description('CIDR allowed to reach SSH (22) and echo (8080). Use your dev IP (e.g. 203.0.113.5/32). Default "*" is wide open.')
-param allowedSourceIp string = '*'
+@description('CIDR allowed to reach SSH (22). Use your dev IP (e.g. 203.0.113.5/32); the checked-in default is deny-by-default.')
+param allowedSourceIp string = '127.0.0.1/32'
 
 @description('Daily auto-shutdown time for the VM (HHmm, 24h).')
 param autoShutdownTime string = '0200'
@@ -55,8 +55,11 @@ param paperStateToken string
 @description('Public repository tarball used by the VM extension to install vm/cybermap-api.')
 param cybermapSourceTarballUrl string = 'https://github.com/pH34r-pH/blue-swallow-society/archive/refs/heads/main.tar.gz'
 
-@description('Port exposed by the Cybermap API on the VM. SWA Functions proxy to this port.')
+@description('Loopback-only Cybermap API port behind the HTTPS gateway.')
 param cybermapApiPort int = 8080
+
+@description('Globally unique Azure public DNS label used for the HTTPS backend gateway certificate.')
+param backendDnsLabel string = toLower('${vmName}-${uniqueString(resourceGroup().id, location)}')
 
 @description('Opaque value used to force the VM Custom Script extension to re-run on each deployment.')
 param cybermapDeploymentVersion string = utcNow()
@@ -123,7 +126,12 @@ resource pip 'Microsoft.Network/publicIPAddresses@2024-01-01' = {
   name: '${vmName}-pip'
   location: location
   sku: { name: 'Standard' }
-  properties: { publicIPAllocationMethod: 'Static' }
+  properties: {
+    publicIPAllocationMethod: 'Static'
+    dnsSettings: {
+      domainNameLabel: backendDnsLabel
+    }
+  }
 }
 
 resource nsg 'Microsoft.Network/networkSecurityGroups@2024-01-01' = {
@@ -145,15 +153,28 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2024-01-01' = {
         }
       }
       {
-        name: 'allow-echo'
+        name: 'allow-http-acme'
         properties: {
           protocol: 'Tcp'
           sourcePortRange: '*'
-          destinationPortRange: '8080'
-          sourceAddressPrefix: allowedSourceIp
+          destinationPortRange: '80'
+          sourceAddressPrefix: 'Internet'
           destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 1010
+          direction: 'Inbound'
+        }
+      }
+      {
+        name: 'allow-https-backend'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '443'
+          sourceAddressPrefix: 'Internet'
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1020
           direction: 'Inbound'
         }
       }
@@ -219,6 +240,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-03-01' = {
 }
 
 var cybermapInstallScriptTemplate = loadTextContent('scripts/install-cybermap-api.sh')
+var backendFqdn = pip.properties.dnsSettings.fqdn
 var cybermapInstallScriptWithoutPaperToken = replace(
   replace(
     replace(
@@ -226,27 +248,31 @@ var cybermapInstallScriptWithoutPaperToken = replace(
         replace(
           replace(
             replace(
-              cybermapInstallScriptTemplate,
-              '__POSTGRES_PASSWORD_B64__',
-              base64(postgresAdministratorLoginPassword)
+              replace(
+                cybermapInstallScriptTemplate,
+                '__POSTGRES_PASSWORD_B64__',
+                base64(postgresAdministratorLoginPassword)
+              ),
+              '__CYBERMAP_READ_TOKEN_B64__',
+              base64(cybermapReadToken)
             ),
-            '__CYBERMAP_READ_TOKEN_B64__',
-            base64(cybermapReadToken)
+            '__CYBERMAP_SOURCE_TARBALL_URL__',
+            cybermapSourceTarballUrl
           ),
-          '__CYBERMAP_SOURCE_TARBALL_URL__',
-          cybermapSourceTarballUrl
+          '__POSTGRES_SERVER_FQDN__',
+          postgresServerFqdn
         ),
-        '__POSTGRES_SERVER_FQDN__',
-        postgresServerFqdn
+        '__POSTGRES_DATABASE_NAME__',
+        postgresDatabaseName
       ),
-      '__POSTGRES_DATABASE_NAME__',
-      postgresDatabaseName
+      '__POSTGRES_ADMINISTRATOR_LOGIN__',
+      postgresAdministratorLogin
     ),
-    '__POSTGRES_ADMINISTRATOR_LOGIN__',
-    postgresAdministratorLogin
+    '__CYBERMAP_API_PORT__',
+    string(cybermapApiPort)
   ),
-  '__CYBERMAP_API_PORT__',
-  string(cybermapApiPort)
+  '__BACKEND_FQDN__',
+  backendFqdn
 )
 var cybermapInstallScript = replace(
   cybermapInstallScriptWithoutPaperToken,
@@ -291,5 +317,5 @@ resource autoShutdown 'Microsoft.DevTestLab/schedules@2018-09-15' = {
 }
 
 output publicIpAddress string = pip.properties.ipAddress
-output backendEchoBaseUrl string = 'http://${pip.properties.ipAddress}:8080'
-output backendCybermapBaseUrl string = 'http://${pip.properties.ipAddress}:${cybermapApiPort}'
+output backendEchoBaseUrl string = 'https://${backendFqdn}'
+output backendCybermapBaseUrl string = 'https://${backendFqdn}'

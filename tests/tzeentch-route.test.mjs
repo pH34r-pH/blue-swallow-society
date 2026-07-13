@@ -50,7 +50,7 @@ function withOperatorEnv(fn) {
   process.env.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY = 'tzeentch-route-token-signing-key-32-bytes-minimum';
   process.env.BLUE_SWALLOW_OPERATOR_ID = 'operator-test';
   process.env.BLUE_SWALLOW_PAPER_LEDGER_PATH = join(ledgerDir, 'ledger.json');
-  process.env.BACKEND_PAPER_STATE_BASE_URL = 'http://paper-backend.test:8080';
+  process.env.BACKEND_PAPER_STATE_BASE_URL = 'https://paper-backend.test';
   process.env.BSS_PAPER_STATE_TOKEN = 'test-paper-state-token-32-byte-minimum';
   handler._resetPaperBooksForTests?.();
 
@@ -169,7 +169,7 @@ function canonicalPaperBackendResponse() {
 
 async function mockTzeentchFeedFetch(url, options = {}) {
   const href = String(url);
-  if (href === 'http://paper-backend.test:8080/api/v1/paper/state') {
+  if (href === 'https://paper-backend.test/api/v1/paper/state') {
     assert.equal(options.headers['X-Blue-Swallow-Paper-State-Token'], process.env.BSS_PAPER_STATE_TOKEN);
     return jsonResponse(canonicalPaperBackendResponse());
   }

@@ -16,8 +16,8 @@ param prefix string = 'blue-swallow'
 @secure()
 param sshPublicKey string
 
-@description('CIDR allowed to reach SSH (22) and the echo port (8080). Use your developer IP (e.g. 203.0.113.5/32). Default "*" is wide open — only acceptable for short-lived experiments.')
-param allowedSourceIp string = '*'
+@description('CIDR allowed to reach SSH (22). Use your developer IP (e.g. 203.0.113.5/32); checked-in deployments deny public SSH by default.')
+param allowedSourceIp string = '127.0.0.1/32'
 
 @description('VM size. Cybermap defaults to Standard_B1ms; API-only/lab deployments may explicitly override to Standard_B1s.')
 param vmSize string = 'Standard_B1ms'
