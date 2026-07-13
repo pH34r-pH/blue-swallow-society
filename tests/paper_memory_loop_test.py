@@ -96,6 +96,7 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
             self.assertEqual(replay.returncode, 0, replay.stderr)
             replay_state = json.loads((state_dir / "latest_state.json").read_text(encoding="utf-8"))
             self.assertTrue(replay_state["engine_replayed"])
+            self.assertEqual(replay_state["canonical_paper_state"], latest_state["canonical_paper_state"])
             self.assertEqual(replay_state["last_paper_action_candidates"], latest_state["last_paper_action_candidates"])
             self.assertEqual(replay_state["last_paper_ledger_events"], latest_state["last_paper_ledger_events"])
             self.assertEqual(candidate_log.read_text(encoding="utf-8").splitlines(), candidate_lines_before)

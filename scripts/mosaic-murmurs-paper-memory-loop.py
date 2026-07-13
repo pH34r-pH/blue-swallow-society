@@ -504,7 +504,11 @@ def run_tick(args: argparse.Namespace) -> dict[str, Any]:
         run["output_refs"] = output_refs_by_run.get(run["run_id"], [])
         run["status"] = "review_required" if run["loop_id"] in {"bridge", "memory_sync"} or run["review_required"] else "completed"
 
-    paper_state = build_paper_state(ledger, books, canonical_action_candidates, canonical_ledger_events, now)
+    previous_paper_state = previous_latest_state.get("canonical_paper_state")
+    if engine_result["replayed"] and isinstance(previous_paper_state, dict):
+        paper_state = previous_paper_state
+    else:
+        paper_state = build_paper_state(ledger, books, canonical_action_candidates, canonical_ledger_events, now)
     paper_state_sync: dict[str, Any] = {"configured": bool(args.paper_sync_url), "attempted": False}
     if args.paper_sync_url and not args.dry_run:
         paper_state_sync["attempted"] = True
