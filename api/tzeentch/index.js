@@ -338,7 +338,7 @@ function finiteNumber(value) {
 function validCanonicalAggregateCosts(value) {
   const components = ['fees_paid', 'spread_costs', 'slippage_costs', 'market_impact_costs', 'latency_costs'];
   return [...components, 'transaction_costs', 'turnover_notional'].every((field) => finiteNumber(value?.[field]) && value[field] >= 0)
-    && Math.abs(value.transaction_costs - components.reduce((total, field) => total + value[field], 0)) <= 0.02;
+    && Math.abs(value.transaction_costs - components.reduce((total, field) => total + value[field], 0)) <= 0.001;
 }
 
 function validCanonicalFillCosts(value) {
@@ -346,7 +346,7 @@ function validCanonicalFillCosts(value) {
   return value?.cost_model_version === 'bss.execution_costs.v1'
     && value?.cost_assumption_source === 'bss_tradesight_research_v1'
     && [...components, 'total_transaction_cost', 'reference_price', 'execution_price', 'gross_notional'].every((field) => finiteNumber(value?.[field]) && value[field] >= 0)
-    && Math.abs(value.total_transaction_cost - components.reduce((total, field) => total + value[field], 0)) <= 0.02;
+    && Math.abs(value.total_transaction_cost - components.reduce((total, field) => total + value[field], 0)) <= 0.001;
 }
 
 function validIsoTimestamp(value) {

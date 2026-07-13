@@ -44,6 +44,10 @@ def iso_z(value: datetime) -> str:
     return value.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+def iso_z_precise(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
+
+
 def parse_iso(value: Any) -> datetime | None:
     if not isinstance(value, str) or not value:
         return None
@@ -155,7 +159,7 @@ def synthesize_shadow_policies(experiences: list[dict[str, Any]], now: datetime)
             "mean_net_excess_return_bps": round(mean, 6),
             "pessimistic_net_excess_return_bps": round(pessimistic, 6),
             "evidence_ready": evidence_ready,
-            "generated_at": iso_z(now),
+            "generated_at": iso_z_precise(now),
         }
         policies.append({
             "schema_version": POLICY_SCHEMA,
@@ -264,8 +268,19 @@ def mature_experiences(
         if candidate.get("schema_version") != CANDIDATE_SCHEMA or candidate.get("candidate_id") in existing_candidate_ids:
             continue
         available_at = parse_iso(candidate.get("label_available_at"))
+        decision_as_of = parse_iso(candidate.get("decision_as_of"))
+        horizon_hours = candidate.get("label_horizon_hours")
         instrument = marks.get(candidate.get("instrument_ref"))
-        if available_at is None or available_at > now or instrument is None:
+        if (
+            available_at is None
+            or decision_as_of is None
+            or isinstance(horizon_hours, bool)
+            or not isinstance(horizon_hours, int)
+            or not 1 <= horizon_hours <= 24 * 30
+            or available_at != decision_as_of + timedelta(hours=horizon_hours)
+            or available_at > now
+            or instrument is None
+        ):
             continue
         label_mark_as_of = parse_iso(instrument.get("as_of"))
         if label_mark_as_of is None or label_mark_as_of < available_at or label_mark_as_of > now:

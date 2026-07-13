@@ -14,6 +14,37 @@ SCRIPT_PATH = REPO_ROOT / "scripts" / "mosaic-murmurs-paper-memory-loop.py"
 
 
 class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
+    def test_existing_corrupt_ledger_fails_closed_without_overwrite(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            ledger_path = Path(temporary_directory) / "paper-ledger.json"
+            corrupt = '{"schema_version":4,"books":['
+            ledger_path.write_text(corrupt, encoding="utf-8")
+            probe = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    (
+                        "import runpy,sys; from pathlib import Path; "
+                        f"sys.path.insert(0,{str(SCRIPT_PATH.parent)!r}); "
+                        f"m=runpy.run_path({str(SCRIPT_PATH)!r}); "
+                        f"m['load_ledger'](Path({str(ledger_path)!r}))"
+                    ),
+                ],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertNotEqual(probe.returncode, 0)
+            self.assertIn("corrupt existing paper ledger", probe.stderr)
+            self.assertEqual(ledger_path.read_text(encoding="utf-8"), corrupt)
+
+            ledger_path.write_text("{}", encoding="utf-8")
+            empty_object_probe = subprocess.run(probe.args, cwd=REPO_ROOT, text=True, capture_output=True, check=False)
+            self.assertNotEqual(empty_object_probe.returncode, 0)
+            self.assertIn("corrupt existing paper ledger", empty_object_probe.stderr)
+            self.assertEqual(ledger_path.read_text(encoding="utf-8"), "{}")
+
     def test_tick_writes_snake_case_records_for_two_primary_loops_and_twenty_four_books(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

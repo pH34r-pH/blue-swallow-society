@@ -94,7 +94,7 @@ def _validate_cost_totals(value: dict[str, Any], label: str) -> None:
     components = ("fees_paid", "spread_costs", "slippage_costs", "market_impact_costs", "latency_costs")
     if any(not _finite_number(value.get(field)) or value[field] < 0 for field in (*components, "transaction_costs", "turnover_notional")):
         raise ValueError(f"{label} execution-cost counters must be finite and nonnegative")
-    if abs(value["transaction_costs"] - sum(value[field] for field in components)) > 0.02:
+    if abs(value["transaction_costs"] - sum(value[field] for field in components)) > 0.001:
         raise ValueError(f"{label} transaction_costs must equal its cumulative components")
 
 
@@ -108,6 +108,64 @@ def _valid_timestamp(value: Any) -> bool:
     return parsed.tzinfo is not None
 
 
+def _valid_nullable_https_url(value: Any) -> bool:
+    if value is None:
+        return True
+    if not isinstance(value, str) or not value or len(value) > 2048:
+        return False
+    parsed = urlparse(value)
+    return parsed.scheme == "https" and bool(parsed.hostname) and parsed.username is None and parsed.password is None
+
+
+def _validate_aggression_profile(value: Any, label: str) -> None:
+    if not isinstance(value, dict) or set(value) != PROFILE_KEYS:
+        raise ValueError(f"{label} aggression profile is invalid")
+    if (
+        not _finite_number(value.get("target_gross_fraction"))
+        or not 0 < value["target_gross_fraction"] <= 1
+        or not _finite_number(value.get("max_position_fraction"))
+        or not 0 < value["max_position_fraction"] <= 1
+        or isinstance(value.get("target_position_count"), bool)
+        or not isinstance(value.get("target_position_count"), int)
+        or not 1 <= value["target_position_count"] <= 32
+        or not _finite_number(value.get("minimum_order_notional"))
+        or value["minimum_order_notional"] < 0
+    ):
+        raise ValueError(f"{label} aggression profile is invalid")
+
+
+def _validate_position(position: Any) -> None:
+    if not isinstance(position, dict) or set(position) != POSITION_KEYS:
+        raise ValueError("paper position does not match the closed canonical schema")
+    for field in ("position_id", "instrument_ref", "symbol", "title", "source_id"):
+        if not isinstance(position.get(field), str) or not position[field]:
+            raise ValueError(f"paper position {field} is invalid")
+    if position.get("instrument_type") not in {"crypto", "equity", "prediction_market"}:
+        raise ValueError("paper position instrument_type is invalid")
+    if not _valid_nullable_https_url(position.get("source_url")):
+        raise ValueError("paper position source_url is invalid")
+    if not _valid_timestamp(position.get("opened_at")) or not _valid_timestamp(position.get("updated_at")):
+        raise ValueError("paper position timestamps are invalid")
+    if position.get("mark_status") not in {"fresh", "stale"}:
+        raise ValueError("paper position mark_status is invalid")
+    numeric_fields = ("quantity", "entry_price", "mark_price", "previous_mark_price", "cost_basis", "market_value")
+    if any(not _finite_number(position.get(field)) or position[field] < 0 for field in numeric_fields):
+        raise ValueError("paper position accounting fields must be finite and nonnegative")
+    prices = (position["entry_price"], position["mark_price"], position["previous_mark_price"])
+    if position["instrument_type"] == "prediction_market":
+        if any(price > 1 for price in prices):
+            raise ValueError("paper position prediction-market prices must be in [0, 1]")
+    elif any(price <= 0 for price in prices):
+        raise ValueError("paper position non-prediction prices must be positive")
+
+
+def _validate_unique_fields(records: list[dict[str, Any]], fields: tuple[str, ...], label: str) -> None:
+    for field in fields:
+        values = [record.get(field) for record in records]
+        if any(not isinstance(value, str) or not value or len(value) > 200 for value in values) or len(set(values)) != len(values):
+            raise ValueError(f"paper {label} {field} identities must be unique nonempty strings")
+
+
 def _validate_fill_costs(event: dict[str, Any]) -> None:
     components = ("fee_amount", "spread_cost", "slippage_cost", "market_impact_cost", "latency_cost")
     numeric = (*components, "total_transaction_cost", "reference_price", "execution_price", "gross_notional")
@@ -115,7 +173,7 @@ def _validate_fill_costs(event: dict[str, Any]) -> None:
         raise ValueError("paper fill execution-cost provenance is invalid")
     if any(not _finite_number(event.get(field)) or event[field] < 0 for field in numeric):
         raise ValueError("paper fill execution-cost fields must be finite and nonnegative")
-    if abs(event["total_transaction_cost"] - sum(event[field] for field in components)) > 0.02:
+    if abs(event["total_transaction_cost"] - sum(event[field] for field in components)) > 0.001:
         raise ValueError("paper fill total_transaction_cost must equal its components")
 
 
@@ -168,6 +226,11 @@ def _validate_canonical_state_parts(
             raise ValueError("paper book capital contract is invalid")
         if not isinstance(book.get("positions"), list):
             raise ValueError("paper book positions must be an array")
+        if len(book["positions"]) > 32:
+            raise ValueError("paper book positions are capped at 32")
+        _validate_aggression_profile(book.get("aggression_profile"), "paper book")
+        for position in book["positions"]:
+            _validate_position(position)
         book_ids.append(book_id)
     if not _has_exact_ids(book_ids, PAPER_BOOK_IDS):
         raise ValueError("paper ledger must contain all 24 canonical books exactly once")
@@ -186,6 +249,7 @@ def _validate_canonical_state_parts(
         )):
             raise ValueError("paper summary accounting fields must be finite numbers")
         _validate_cost_totals(summary, "paper summary")
+        _validate_aggression_profile(summary.get("aggression_profile"), "paper summary")
         summary_ids.append(summary["book_id"])
     if not _has_exact_ids(summary_ids, PAPER_BOOK_IDS):
         raise ValueError("paper summaries must contain all 24 canonical books exactly once")
@@ -204,9 +268,35 @@ def _validate_canonical_state_parts(
             raise ValueError("all paper actions and events require timezone-qualified generated_at")
         if item.get("event_type") == "paper_fill":
             _validate_fill_costs(item)
+    allowed_actions = {"PAPER_BUY", "PAPER_SELL", "WATCH", "AVOID", "POSTMORTEM_REQUIRED"}
+    for action in actions:
+        if set(action) - {"run_id"} != ACTION_KEYS:
+            raise ValueError("paper action does not match the closed canonical schema")
+        if action.get("action") not in allowed_actions:
+            raise ValueError("paper action is not allowlisted")
+        checks = action.get("risk_policy_checks")
+        if not isinstance(checks, list) or len(checks) > 32 or any(not isinstance(check, str) or len(check) > 200 for check in checks):
+            raise ValueError("paper action risk_policy_checks are invalid")
+        if any(not isinstance(action.get(field), bool) for field in ("risk_policy_passed", "autonomous_execution", "human_review_required", "review_required")):
+            raise ValueError("paper action boolean controls are invalid")
+        if not _valid_nullable_https_url(action.get("source_url")):
+            raise ValueError("paper action source_url is invalid")
+        if action.get("mark_price") is not None and not _finite_number(action.get("mark_price")):
+            raise ValueError("paper action mark_price is invalid")
+        if not _finite_number(action.get("paper_size")) or action["paper_size"] < 0:
+            raise ValueError("paper action paper_size is invalid")
+    _validate_unique_fields(actions, ("candidate_id", "decision_id", "idempotency_key"), "action")
+    _validate_unique_fields(events, ("event_id", "idempotency_key"), "event")
     event_ids = [item.get("event_id") for item in recent_trades]
-    if any(item.get("event_type") != "paper_fill" for item in recent_trades) or any(not isinstance(event_id, str) or not event_id for event_id in event_ids) or len(set(event_ids)) != len(event_ids):
-        raise ValueError("recent paper trades must be unique canonical paper_fill events")
+    idempotency_keys = [item.get("idempotency_key") for item in recent_trades]
+    if (
+        any(item.get("event_type") != "paper_fill" for item in recent_trades)
+        or any(not isinstance(event_id, str) or not event_id or len(event_id) > 200 for event_id in event_ids)
+        or len(set(event_ids)) != len(event_ids)
+        or any(not isinstance(key, str) or not key or len(key) > 200 for key in idempotency_keys)
+        or len(set(idempotency_keys)) != len(idempotency_keys)
+    ):
+        raise ValueError("recent paper trades must have unique event_id and idempotency_key values")
 
 
 def _require_exact_keys(value: Any, allowed: set[str], label: str) -> None:

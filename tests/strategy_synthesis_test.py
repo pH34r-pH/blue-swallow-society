@@ -97,8 +97,10 @@ class StrategySynthesisTests(unittest.TestCase):
         first = synthesize_shadow_policies([], self.now)
         replay = synthesize_shadow_policies([], self.now)
         later = synthesize_shadow_policies([], self.now + timedelta(minutes=5))
+        same_second = synthesize_shadow_policies([], self.now + timedelta(microseconds=1))
         self.assertEqual(first, replay)
         self.assertTrue(set(policy["policy_id"] for policy in first).isdisjoint(policy["policy_id"] for policy in later))
+        self.assertTrue(set(policy["policy_id"] for policy in first).isdisjoint(policy["policy_id"] for policy in same_second))
 
     def test_label_mark_must_be_at_or_after_the_candidate_horizon(self):
         decision_time = self.now - timedelta(hours=25)
@@ -110,6 +112,12 @@ class StrategySynthesisTests(unittest.TestCase):
         for instrument in stale_label_snapshot["instruments"]:
             instrument["as_of"] = stale_mark_time
         self.assertEqual(mature_experiences(candidates, [], stale_label_snapshot, self.now), [])
+
+        tampered = [dict(candidate) for candidate in candidates]
+        for candidate in tampered:
+            candidate["label_available_at"] = (decision_time + timedelta(minutes=1)).isoformat().replace("+00:00", "Z")
+        early_snapshot = fresh_snapshot(decision_time + timedelta(minutes=2))
+        self.assertEqual(mature_experiences(tampered, [], early_snapshot, decision_time + timedelta(minutes=2)), [])
 
 
 if __name__ == "__main__":

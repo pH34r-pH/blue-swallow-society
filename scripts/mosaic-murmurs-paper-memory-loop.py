@@ -314,7 +314,14 @@ def normalize_ledger(raw: dict[str, Any] | None) -> dict[str, Any]:
 def load_ledger(path: Path) -> tuple[dict[str, Any], bool]:
     loaded = path.exists()
     if loaded:
-        raw = load_json(path, default_ledger())
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"corrupt existing paper ledger: {path}") from exc
+        if not isinstance(raw, dict):
+            raise RuntimeError(f"corrupt existing paper ledger: {path}")
+        if raw.get("schema_version") not in {3, 4}:
+            raise RuntimeError(f"corrupt existing paper ledger: {path}")
     else:
         raw = load_json(DEFAULT_LEDGER_SEED, default_ledger())
     return normalize_ledger(raw), loaded

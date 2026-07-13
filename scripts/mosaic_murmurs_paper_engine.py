@@ -429,10 +429,14 @@ def migrate_ledger(raw: dict[str, Any] | None, now: datetime | None = None) -> d
             field: _migrated_nonnegative_amount(old, field)
             for field in ("fees_paid", "spread_costs", "slippage_costs", "market_impact_costs", "latency_costs")
         }
-        transaction_costs = _migrated_nonnegative_amount(old, "transaction_costs")
         turnover_notional = _migrated_nonnegative_amount(old, "turnover_notional")
         component_total = money(sum(cost_counters.values()))
-        if "transaction_costs" in old and abs(transaction_costs - component_total) > 0.02:
+        transaction_costs = (
+            _migrated_nonnegative_amount(old, "transaction_costs")
+            if "transaction_costs" in old
+            else component_total
+        )
+        if abs(transaction_costs - component_total) > 0.001:
             raise ValueError("transaction_costs must equal cumulative execution-cost components")
         book = {
             **old,

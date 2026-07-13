@@ -98,6 +98,25 @@ class ExecutionCostAccountingTests(unittest.TestCase):
             with self.subTest(mutation=mutation), self.assertRaises(ValueError):
                 self.engine.migrate_ledger(ledger, self.now)
 
+    def test_migration_derives_missing_total_but_rejects_even_one_cent_conflict(self):
+        ledger = self.engine.default_ledger(self.now)
+        book = ledger["books"][0]
+        book.update({
+            "fees_paid": 1.01,
+            "spread_costs": 2.02,
+            "slippage_costs": 3.03,
+            "market_impact_costs": 4.04,
+            "latency_costs": 5.05,
+        })
+        book.pop("transaction_costs", None)
+        migrated = self.engine.migrate_ledger(ledger, self.now)
+        self.assertEqual(migrated["books"][0]["transaction_costs"], 15.15)
+
+        conflicted = self.engine.default_ledger(self.now)
+        conflicted["books"][0].update({"fees_paid": 1.0, "transaction_costs": 1.01})
+        with self.assertRaisesRegex(ValueError, "transaction_costs"):
+            self.engine.migrate_ledger(conflicted, self.now)
+
     def test_explicit_prediction_settlement_uses_contractual_payoff_without_execution_friction(self):
         ledger = self.engine.default_ledger(self.now)
         book = next(book for book in ledger["books"] if book["book_id"] == "standard__prediction_markets")

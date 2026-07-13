@@ -125,6 +125,50 @@ class PaperSyncTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "nonnegative"):
             module.build_paper_state(ledger, bad_summaries, actions, events, now, recent_trades=recent_trades)
 
+        bad_ledger = json.loads(json.dumps(ledger))
+        bad_ledger["books"][0]["positions"][0]["quantity"] = "1"
+        with self.assertRaisesRegex(ValueError, "position"):
+            module.build_paper_state(bad_ledger, summaries, actions, events, now, recent_trades=recent_trades)
+
+        bad_actions = json.loads(json.dumps(actions))
+        bad_actions[0]["action"] = "ARBITRARY_ACTION"
+        with self.assertRaisesRegex(ValueError, "action"):
+            module.build_paper_state(ledger, summaries, bad_actions, events, now, recent_trades=recent_trades)
+
+        duplicate_actions = json.loads(json.dumps(actions))
+        duplicate_actions.append(json.loads(json.dumps(duplicate_actions[0])))
+        with self.assertRaisesRegex(ValueError, "unique"):
+            module.build_paper_state(ledger, summaries, duplicate_actions, events, now, recent_trades=recent_trades)
+
+        duplicate_events = json.loads(json.dumps(events))
+        duplicate_events.append(json.loads(json.dumps(duplicate_events[0])))
+        with self.assertRaisesRegex(ValueError, "unique"):
+            module.build_paper_state(ledger, summaries, actions, duplicate_events, now, recent_trades=recent_trades)
+
+        too_many_positions = json.loads(json.dumps(ledger))
+        template_position = too_many_positions["books"][0]["positions"][0]
+        too_many_positions["books"][0]["positions"] = [
+            {**template_position, "position_id": f"position-{index}", "instrument_ref": f"crypto:test-{index}"}
+            for index in range(33)
+        ]
+        with self.assertRaisesRegex(ValueError, "capped at 32"):
+            module.build_paper_state(too_many_positions, summaries, actions, events, now, recent_trades=recent_trades)
+
+        duplicate_recent_key = json.loads(json.dumps(recent_trades[0]))
+        duplicate_recent_key["event_id"] = "distinct-event-same-idempotency-key"
+        with self.assertRaisesRegex(ValueError, "idempotency"):
+            module.build_paper_state(ledger, summaries, actions, events, now, recent_trades=[recent_trades[0], duplicate_recent_key])
+
+        oversized_url = json.loads(json.dumps(ledger))
+        oversized_url["books"][0]["positions"][0]["source_url"] = "https://example.test/" + ("x" * 2048)
+        with self.assertRaisesRegex(ValueError, "source_url"):
+            module.build_paper_state(oversized_url, summaries, actions, events, now, recent_trades=recent_trades)
+
+        oversized_recent_identity = json.loads(json.dumps(recent_trades[0]))
+        oversized_recent_identity["event_id"] = "x" * 201
+        with self.assertRaisesRegex(ValueError, "event_id"):
+            module.build_paper_state(ledger, summaries, actions, events, now, recent_trades=[oversized_recent_identity])
+
         with self.assertRaisesRegex(module.PaperSyncError, "URL/systemd-safe"):
             module.sync_paper_state(
                 "https://backend.test:8080/api/v1/paper/state",

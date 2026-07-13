@@ -501,6 +501,14 @@ test('stores and serves one token-gated canonical autonomous paper state idempot
         'x-blue-swallow-paper-state-token': process.env.BSS_PAPER_STATE_TOKEN,
         'idempotency-key': 'paper-tick-2026-07-11T18:43:00Z',
       };
+      const legacyWrite = await fetch(`${baseUrl}/api/v1/paper/state`, {
+        method: 'PUT',
+        headers: { ...headers, 'idempotency-key': 'legacy-v2-downgrade' },
+        body: JSON.stringify(legacyPaperStateV2()),
+      });
+      assert.equal(legacyWrite.status, 400);
+      assert.equal((await legacyWrite.json()).error, 'invalid_paper_state');
+
       const malformed = structuredClone(state);
       malformed.ledger.books[1] = structuredClone(malformed.ledger.books[0]);
       const rejected = await fetch(`${baseUrl}/api/v1/paper/state`, {
@@ -592,6 +600,42 @@ test('paper-state validator recursively rejects unknown nested fields and string
     const state = canonicalPaperState();
     mutate(state);
     assert.throws(() => validatePaperState(state, PAPER_NOW_MS), { code: 'invalid_paper_state' });
+  }
+
+  for (const mutate of [
+    (state) => { delete state.ledger.currency; },
+    (state) => { delete state.ledger.books[0].positions[0].symbol; },
+    (state) => { state.paper_action_candidates[0].action = 'ARBITRARY_ACTION'; },
+    (state) => { state.paper_action_candidates[0].review_required = 'false'; },
+    (state) => { state.paper_action_candidates.push(structuredClone(state.paper_action_candidates[0])); },
+    (state) => { state.paper_ledger_events.push(structuredClone(state.paper_ledger_events[0])); },
+    (state) => {
+      const duplicate = structuredClone(state.recent_paper_trades[0]);
+      duplicate.event_id = 'distinct-event-same-idempotency-key';
+      state.recent_paper_trades.push(duplicate);
+    },
+  ]) {
+    const state = canonicalPaperState();
+    mutate(state);
+    assert.throws(() => validatePaperState(state, PAPER_NOW_MS), { code: 'invalid_paper_state' });
+  }
+});
+
+test('paper-state endpoint rejects a configured token outside the shared safe format', async () => {
+  const previousToken = process.env.BSS_PAPER_STATE_TOKEN;
+  process.env.BSS_PAPER_STATE_TOKEN = 'short';
+  try {
+    const { server } = makeServer();
+    await withServer(server, async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/v1/paper/state`, {
+        headers: { 'x-blue-swallow-paper-state-token': 'short' },
+      });
+      assert.equal(response.status, 503);
+      assert.equal((await response.json()).error, 'paper_state_token_unconfigured');
+    });
+  } finally {
+    if (previousToken === undefined) delete process.env.BSS_PAPER_STATE_TOKEN;
+    else process.env.BSS_PAPER_STATE_TOKEN = previousToken;
   }
 });
 

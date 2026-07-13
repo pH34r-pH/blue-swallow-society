@@ -78,6 +78,8 @@ const MAX_PAPER_ARCHIVES = 64;
 const MAX_PAPER_PROCESSED_KEYS = 512;
 const MAX_PAPER_ACTIONS = 256;
 const MAX_PAPER_EVENTS = 256;
+const PAPER_ACTION_VALUES = new Set(['PAPER_BUY', 'PAPER_SELL', 'WATCH', 'AVOID', 'POSTMORTEM_REQUIRED']);
+const PAPER_TOKEN_RE = /^[A-Za-z0-9._~-]{32,256}$/;
 const RFC3339_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 export function createCybermapApiServer({ store, now = Date.now, logger = null, ingestDeadlineMs = 5_000 } = {}) {
@@ -188,7 +190,7 @@ async function handlePaperStateWrite(request, response, { store, now }) {
   } catch {
     throw new IngestError('invalid_json', 'Malformed JSON.', { statusCode: 400 });
   }
-  const state = validatePaperState(parsed, now());
+  const state = validatePaperState(parsed, now(), { allowLegacyV2: false });
   const result = await store.putPaperState({ idempotencyKey, state });
   return sendJson(response, result.statusCode, {
     ok: true,
@@ -221,14 +223,14 @@ async function handlePaperStateRead(response, { store, now }) {
   });
 }
 
-export function validatePaperState(value, nowMs) {
+export function validatePaperState(value, nowMs, { allowLegacyV2 = true } = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new IngestError('invalid_paper_state', 'Paper state must be an object.', { statusCode: 400 });
   }
   const generatedAt = timestampMs(value.generated_at);
   const hasExecutionCosts = value.schema_version === 'bss.paper_state.v3';
   if (!hasOnlyKeys(value, PAPER_STATE_KEYS)
-      || !['bss.paper_state.v2', 'bss.paper_state.v3'].includes(value.schema_version)
+      || !(hasExecutionCosts || (allowLegacyV2 && value.schema_version === 'bss.paper_state.v2'))
       || value.paper_only !== true
       || value.autonomous_execution !== true
       || !Number.isFinite(generatedAt)
@@ -323,12 +325,15 @@ export function validatePaperState(value, nowMs) {
       || actions.length > MAX_PAPER_ACTIONS
       || !actions.every((action) => isPlainObject(action)
         && hasOnlyKeys(action, PAPER_ACTION_KEYS)
+        && PAPER_ACTION_VALUES.has(action.action)
+        && ['candidate_id', 'decision_id', 'idempotency_key'].every((field) => typeof action[field] === 'string' && action[field].length > 0 && action[field].length <= 200)
         && action.paper_only === true
         && PAPER_BOOK_IDS.includes(action.book_id)
         && validTimestampAt(action.generated_at, nowMs)
         && typeof action.autonomous_execution === 'boolean'
         && typeof action.risk_policy_passed === 'boolean'
         && typeof action.human_review_required === 'boolean'
+        && typeof action.review_required === 'boolean'
         && Array.isArray(action.risk_policy_checks)
         && action.risk_policy_checks.length <= 32
         && action.risk_policy_checks.every((check) => typeof check === 'string' && check.length <= 200)
@@ -336,13 +341,15 @@ export function validatePaperState(value, nowMs) {
         && (action.mark_price === null || finiteNumber(action.mark_price))
         && finiteNumber(action.paper_size) && action.paper_size >= 0
         && (!['PAPER_BUY', 'PAPER_SELL'].includes(action.action) || action.autonomous_execution === true))
+      || !['candidate_id', 'decision_id', 'idempotency_key'].every((field) => hasUniqueStringField(actions, field))
       || !Array.isArray(events)
       || events.length > MAX_PAPER_EVENTS
       || !events.every((event) => validatePaperEvent(event, nowMs, hasExecutionCosts))
+      || !['event_id', 'idempotency_key'].every((field) => hasUniqueStringField(events, field))
       || !Array.isArray(recent)
       || recent.length > 64
       || !recent.every((event) => validatePaperEvent(event, nowMs, hasExecutionCosts) && event.event_type === 'paper_fill')
-      || new Set(recent.map((event) => event.event_id)).size !== recent.length
+      || !['event_id', 'idempotency_key'].every((field) => hasUniqueStringField(recent, field))
       || !isPlainObject(value.governance)
       || !hasOnlyKeys(value.governance, PAPER_GOVERNANCE_KEYS)
       || value.governance.paper_only !== true
@@ -362,7 +369,13 @@ function isPlainObject(value) {
 }
 
 function hasOnlyKeys(value, allowed) {
-  return isPlainObject(value) && Object.keys(value).every((key) => allowed.has(key));
+  return isPlainObject(value) && Object.keys(value).length === allowed.size && Object.keys(value).every((key) => allowed.has(key));
+}
+
+function hasUniqueStringField(records, field) {
+  const values = records.map((record) => record[field]);
+  return values.every((value) => typeof value === 'string' && value.length > 0 && value.length <= 200)
+    && new Set(values).size === values.length;
 }
 
 function finiteNumber(value) {
@@ -372,7 +385,7 @@ function finiteNumber(value) {
 function validAggregateCosts(value) {
   const components = ['fees_paid', 'spread_costs', 'slippage_costs', 'market_impact_costs', 'latency_costs'];
   return [...components, 'transaction_costs', 'turnover_notional'].every((field) => finiteNumber(value[field]) && value[field] >= 0)
-    && Math.abs(value.transaction_costs - components.reduce((total, field) => total + value[field], 0)) <= 0.02;
+    && Math.abs(value.transaction_costs - components.reduce((total, field) => total + value[field], 0)) <= 0.001;
 }
 
 function validFillCosts(event) {
@@ -380,7 +393,7 @@ function validFillCosts(event) {
   return event.cost_model_version === 'bss.execution_costs.v1'
     && event.cost_assumption_source === 'bss_tradesight_research_v1'
     && [...components, 'total_transaction_cost', 'reference_price', 'execution_price', 'gross_notional'].every((field) => finiteNumber(event[field]) && event[field] >= 0)
-    && Math.abs(event.total_transaction_cost - components.reduce((total, field) => total + event[field], 0)) <= 0.02;
+    && Math.abs(event.total_transaction_cost - components.reduce((total, field) => total + event[field], 0)) <= 0.001;
 }
 
 function timestampMs(value) {
@@ -523,7 +536,7 @@ async function handleCybermapViewport(url, { store, now }) {
 
 function requirePaperStateToken(request) {
   const expected = String(process.env.BSS_PAPER_STATE_TOKEN || '').trim();
-  if (!expected) {
+  if (!PAPER_TOKEN_RE.test(expected)) {
     throw new IngestError('paper_state_token_unconfigured', 'Paper state token is not configured.', { statusCode: 503 });
   }
   const actual = singleHeader(request, 'x-blue-swallow-paper-state-token');
