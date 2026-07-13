@@ -36,12 +36,13 @@ feature branches.
 
 ## 3. GitHub secrets to set
 
-| Secret                  | Value                                                |
-| ----------------------- | ---------------------------------------------------- |
-| `AZURE_CLIENT_ID`       | `appId` from step 1                                  |
-| `AZURE_TENANT_ID`       | `tenant` from step 1                                 |
-| `AZURE_SUBSCRIPTION_ID` | Your subscription GUID                               |
-| `VM_SSH_PUBLIC_KEY`     | Single-line OpenSSH public key for the VM admin user |
+| Secret                    | Value                                                                                         |
+| ------------------------- | --------------------------------------------------------------------------------------------- |
+| `AZURE_CLIENT_ID`         | `appId` from step 1                                                                           |
+| `AZURE_TENANT_ID`         | `tenant` from step 1                                                                          |
+| `AZURE_SUBSCRIPTION_ID`   | Your subscription GUID                                                                        |
+| `VM_SSH_PUBLIC_KEY`       | Single-line OpenSSH public key for the VM admin user                                          |
+| `POSTGRES_ADMIN_PASSWORD` | PostgreSQL Flexible Server admin password; do not commit it to `infra/main.parameters.json`   |
 
 The deploy workflow fetches the Static Web Apps deployment token at runtime via
 the OIDC-authenticated Azure CLI session (`az staticwebapp secrets list`), so
@@ -75,3 +76,16 @@ The deploy workflow runs a `Validate SSH public key format` step before calling
 clear error instead of producing the
 `InvalidParameter: linuxConfiguration.ssh.publicKeys.keyData` failure deep in
 the Bicep deployment.
+
+### Generating `POSTGRES_ADMIN_PASSWORD`
+
+Use a long random value that satisfies Azure PostgreSQL Flexible Server password
+rules (8-128 characters). Store it only as a GitHub secret or local secret; do
+not add it to `infra/main.parameters.json`.
+
+```bash
+openssl rand -base64 32
+```
+
+The deploy and what-if workflows pass this value as the secure Bicep parameter
+`postgresAdministratorPassword` and mask it before invoking `az deployment`.

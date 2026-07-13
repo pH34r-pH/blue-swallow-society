@@ -385,6 +385,23 @@ Operators inject the real private PostgreSQL host and PgBouncer `userlist.txt` t
 
 The app also clamps its own `pg` pool to max 5 connections. That keeps the service safe for Azure PostgreSQL Flexible Server B1MS even if PgBouncer is temporarily bypassed for diagnostics.
 
+For P0 operations, keep this as the B1MS ceiling until load tests prove otherwise:
+
+| Control | Value | Reason |
+|---|---:|---|
+| PgBouncer `max_client_conn` | `50` | Allows queued local API/worker clients without opening 50 server sessions. |
+| PgBouncer `default_pool_size` | `5` | Caps normal PostgreSQL server connections per database/user pool. |
+| PgBouncer `reserve_pool_size` | `2` | Small burst reserve without turning B1MS into a connection fan-out target. |
+| App `CYBERMAP_DB_POOL_MAX` | `5` | Node pool hard cap; values above 5 are clamped. |
+| B1MS active server connection tripwire | `15` warning / `20` review gate | Leaves headroom for admin sessions, migrations, and Azure internals. |
+
+Inspect live settings without printing credentials:
+
+```bash
+sudo grep -E '^(pool_mode|max_client_conn|default_pool_size|reserve_pool_size)' /etc/pgbouncer/pgbouncer.ini
+systemctl show cybermap-api cybermap-worker pgbouncer -p ActiveState -p SubState -p NRestarts --no-pager
+```
+
 ## Migration runner
 
 `vm/cybermap-api/package.json` exposes:
@@ -417,8 +434,40 @@ ExecStartPre=/usr/bin/node /opt/cybermap-api/migrate.mjs --if-configured
 - `cybermap-api` emits structured JSON logs with method, path, status, duration, and request ID.
 - `auth_decision` log events record allow/deny, client type, token ID, scope/source counts, and reason codes without bearer values or token hashes.
 - Incoming `X-Request-Id` is preserved; otherwise the API generates one and returns it in the response header.
-- `cybermap-worker` emits structured JSON logs for startup, ticks, and shutdown.
+- `cybermap-worker` emits structured JSON logs for startup, ticks, errors, and shutdown.
 - `/readyz` returns migration state with `current`, `expected`, and `status`; it never returns connection strings or raw driver errors.
+- Future ingest routes must log `event=ingest_rejected` with a bounded `reason` such as `schema`, `auth`, `rate_limit`, `source_gate`, or `idempotency` so rejection counts can be monitored without leaking payloads.
+- Public Godeye must show an offline/degraded state when `/readyz` or the SWA proxy cannot reach the VM gateway; stale Cybermap cells must not be presented as live.
+
+Concrete checks:
+
+```bash
+curl -fsS https://<vm-public-ip>/healthz --insecure
+curl -fsS https://<vm-public-ip>/readyz --insecure || true
+sudo journalctl -u cybermap-api -u cybermap-worker -o json --since '15 minutes ago' --no-pager
+systemctl show cybermap-worker -p NRestarts -p ActiveState -p SubState --no-pager
+```
+
+Azure-side checks:
+
+```bash
+az vm get-instance-view --resource-group rg-blue-swallow --name blue-swallow-vm -o table
+az monitor metrics list \
+  --resource "/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/rg-blue-swallow/providers/Microsoft.DBforPostgreSQL/flexibleServers/blue-swallow-pg" \
+  --metric active_connections,cpu_percent,memory_percent,storage_percent \
+  --interval PT5M \
+  --aggregation Average,Maximum \
+  -o table
+```
+
+## Backup, rollover, and shutdown posture
+
+- Managed PostgreSQL backups are the restore path of record: P0 uses 7-day point-in-time restore with geo-redundant backup disabled.
+- Optional nightly logical exports to Blob should run from a root-owned systemd timer using `/etc/cybermap-backup.env`; credentials must come from the VM secret store or managed identity and must not be printed.
+- Use `scripts/cybermap-logical-backup.sh` as the disabled-by-default command shape for `pg_dump` plus Blob upload.
+- Partition or roll monthly observation tables once volume exceeds toy scale; create next-month partitions before month-end and reject writes if the current partition is missing.
+- PostgreSQL storage auto-grow is disabled in the P0 Bicep. If enabled later, remember Azure PostgreSQL storage can grow but not shrink.
+- VM auto-shutdown is acceptable for dev/private experiments. Public Godeye must either disable auto-shutdown or show an explicit offline/degraded UI state.
 
 ## Deployment configuration
 

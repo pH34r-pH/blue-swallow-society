@@ -20,6 +20,18 @@
     "vmSize": {
       "value": "Standard_B1ms"
     },
+    "postgresServerName": {
+      "value": "blue-swallow-pg"
+    },
+    "postgresDatabaseName": {
+      "value": "cybermap"
+    },
+    "postgresAdministratorLogin": {
+      "value": "cybermapadmin"
+    },
+    "postgresVersion": {
+      "value": "16"
+    },
     "deployOpenAi": {
       "value": false
     },
