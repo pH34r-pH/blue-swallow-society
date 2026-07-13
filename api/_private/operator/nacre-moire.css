@@ -1,0 +1,279 @@
+/* Nacre-Moiré operator layer.
+   Street-built competence under executive restraint; glow is signal only. */
+
+body {
+  background:
+    radial-gradient(circle at 12% -8%, rgba(234, 223, 206, 0.09), transparent 30rem),
+    radial-gradient(circle at 92% 14%, rgba(121, 170, 166, 0.07), transparent 24rem),
+    linear-gradient(152deg, #080a0b 0%, #101517 52%, #090c0d 100%);
+}
+
+body::before {
+  background:
+    repeating-linear-gradient(27deg, rgba(238, 231, 220, 0.025) 0 1px, transparent 1px 11px),
+    repeating-linear-gradient(28.2deg, rgba(121, 170, 166, 0.018) 0 1px, transparent 1px 13px);
+  opacity: 0.72;
+}
+
+body::after {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 47px, rgba(201, 137, 98, 0.025) 47px 48px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.014), transparent 22rem);
+  opacity: 0.46;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--material-pearl);
+  font-family: var(--font-sans);
+  font-weight: 620;
+  text-shadow: none;
+  letter-spacing: 0.01em;
+}
+
+.panel {
+  border-color: var(--border-0);
+  background: linear-gradient(180deg, rgba(29, 34, 35, 0.97), rgba(13, 17, 18, 0.97));
+  box-shadow: var(--shadow-panel), inset 3px 0 0 rgba(201, 137, 98, 0.32), inset 0 1px 0 rgba(238, 231, 220, 0.05);
+}
+
+.panel::before {
+  background:
+    linear-gradient(108deg, rgba(234, 223, 206, 0.045), transparent 22%, transparent 76%, rgba(121, 170, 166, 0.05)),
+    repeating-linear-gradient(28deg, rgba(238, 231, 220, 0.018) 0 1px, transparent 1px 14px);
+  opacity: 0.64;
+}
+
+.btn {
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 760;
+  letter-spacing: 0.13em;
+}
+
+.btn-primary {
+  color: #101313;
+  border-color: rgba(234, 223, 206, 0.72);
+  background: linear-gradient(180deg, #eee7dc, #cfc4b4);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
+
+.btn-primary:hover {
+  border-color: var(--oxidized-patina);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), inset 0 -2px 0 rgba(121, 170, 166, 0.42);
+}
+
+.btn-secondary {
+  color: var(--corpo-paper);
+  border-color: rgba(121, 170, 166, 0.42);
+  background: rgba(121, 170, 166, 0.07);
+  box-shadow: inset 3px 0 0 rgba(121, 170, 166, 0.34);
+}
+
+.btn-secondary:hover {
+  border-color: rgba(234, 223, 220, 0.48);
+  background: rgba(238, 231, 220, 0.08);
+}
+
+.input {
+  border-color: rgba(238, 231, 220, 0.16);
+  border-radius: var(--radius-sm);
+  background: rgba(7, 10, 11, 0.82);
+  box-shadow: inset 3px 0 0 rgba(121, 170, 166, 0.2);
+}
+
+.input:focus {
+  border-color: rgba(121, 170, 166, 0.76);
+  background: rgba(12, 16, 17, 0.98);
+  box-shadow: 0 0 0 2px rgba(121, 170, 166, 0.16), inset 3px 0 0 var(--oxidized-patina);
+}
+
+.eyebrow,
+.brand-kicker {
+  margin: 0 0 0.35rem;
+  color: var(--register-copper);
+  font-size: 0.69rem;
+  font-weight: 760;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.moire-field {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.moire-field::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    repeating-radial-gradient(ellipse at 18% 18%, rgba(234, 223, 206, 0.055) 0 1px, transparent 1px 9px),
+    repeating-radial-gradient(ellipse at 21% 21%, rgba(121, 170, 166, 0.035) 0 1px, transparent 1px 11px);
+  transform: rotate(-7deg);
+  opacity: 0.48;
+}
+
+.persona-lockup,
+.persona-loader-brand {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.8rem, 2vw, 1.25rem);
+  min-width: 0;
+}
+
+.persona-mark {
+  width: clamp(3.8rem, 8vw, 5.7rem);
+  aspect-ratio: 1;
+  display: block;
+  flex: none;
+  overflow: hidden;
+  border: 1px solid rgba(238, 231, 220, 0.15);
+  box-shadow: 7px 7px 0 rgba(0, 0, 0, 0.2);
+}
+
+.persona-mark svg {
+  width: 100%;
+  height: 100%;
+}
+
+.persona-mark-loader {
+  width: clamp(4.5rem, 14vw, 7rem);
+}
+
+.persona-name-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.9rem;
+}
+
+.persona-name-row .console-heading {
+  margin-bottom: 0.3rem;
+}
+
+.persona-pronouns {
+  width: fit-content;
+  margin: 0;
+  padding: 0.2rem 0.42rem;
+  border: 1px solid rgba(121, 170, 166, 0.4);
+  color: var(--oxidized-patina);
+  background: rgba(121, 170, 166, 0.08);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.site-header {
+  border-bottom: 1px solid rgba(238, 231, 220, 0.12);
+  background: linear-gradient(96deg, rgba(8, 11, 12, 0.98), rgba(25, 30, 31, 0.95));
+  box-shadow: inset 0 -3px 0 rgba(201, 137, 98, 0.22);
+}
+
+.site-header-inner {
+  align-items: center;
+}
+
+.site-header-actions {
+  display: grid;
+  justify-items: end;
+  gap: 0.65rem;
+}
+
+.operator-register {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.persona-loader {
+  border-left: 3px solid var(--register-copper);
+}
+
+.persona-loader .terminal-note {
+  margin: 1.3rem 0 0;
+  color: var(--corpo-muted);
+}
+
+.loader-register {
+  display: grid;
+  grid-template-columns: 1fr 0.42fr 0.16fr;
+  gap: 0.35rem;
+  margin-top: 1.3rem;
+}
+
+.loader-register span {
+  height: 0.22rem;
+  background: var(--oxidized-patina);
+}
+
+.loader-register span:nth-child(2) {
+  background: var(--bruised-violet);
+}
+
+.loader-register span:nth-child(3) {
+  background: var(--register-copper);
+}
+
+.persona-lockup-compact {
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.agent-hero {
+  padding: clamp(1.1rem, 3vw, 1.75rem);
+}
+
+.tab-btn:not(.active) {
+  color: #b4bab6;
+  border-color: rgba(238, 231, 220, 0.18);
+}
+
+@media (max-width: 700px) {
+  .brand-kicker {
+    font-size: 0.72rem;
+  }
+
+  .operator-register,
+  .persona-pronouns {
+    font-size: 0.72rem;
+  }
+  .site-header-actions {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    justify-items: start;
+    width: 100%;
+  }
+
+  .site-header-actions .logout-btn {
+    justify-self: end;
+  }
+
+  .operator-register {
+    text-align: left;
+  }
+
+  .persona-lockup,
+  .persona-loader-brand {
+    align-items: flex-start;
+  }
+
+  .persona-mark {
+    width: 3.4rem;
+  }
+
+  .persona-mark-loader {
+    width: 4.5rem;
+  }
+}

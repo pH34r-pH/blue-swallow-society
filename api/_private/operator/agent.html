@@ -1,0 +1,35 @@
+<main class="container agent-shell" role="main" aria-label="Nacre-Moiré interface laboratory" data-persona="nacre-moire">
+  <section class="panel agent-hero moire-field">
+    <div class="persona-lockup persona-lockup-compact">
+      <div class="persona-mark" aria-hidden="true">{{NACRE_MOIRE_MARK}}</div>
+      <div>
+        <p class="brand-kicker">Blue Swallow Society · controlled surface</p>
+        <h1>Nacre-Moiré Interface Lab</h1>
+        <p class="persona-pronouns">they / them</p>
+      </div>
+    </div>
+    <p>
+      They are the operator-side persona; Hermes Agent is the runtime. This route keeps inference bounded behind the same sealed operator session.
+    </p>
+  </section>
+
+  <section class="panel agent-panel">
+    <label for="prompt">Prompt</label>
+    <div class="row gap-sm wrap agent-controls">
+      <input
+        id="prompt"
+        class="input"
+        placeholder="Ask the operator persona..."
+        aria-label="Agent prompt input"
+      />
+      <button id="runButton" class="btn btn-primary" type="button">Run agent</button>
+    </div>
+  </section>
+
+  <section class="panel agent-panel">
+    <h2>Output</h2>
+    <pre id="out" aria-live="polite">Awaiting request.</pre>
+  </section>
+
+  <a class="btn btn-secondary agent-back-link" href="/operator">Back to operator console</a>
+</main>

@@ -1,16 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const indexHtml = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
 const rootMainJs = readFileSync(new URL('../app/main.js', import.meta.url), 'utf8');
 const operatorHtml = readFileSync(new URL('../app/operator/index.html', import.meta.url), 'utf8');
+const operatorAgentHtml = readFileSync(new URL('../app/operator/agent.html', import.meta.url), 'utf8');
 const operatorShell = readFileSync(new URL('../api/_private/operator/shell.html', import.meta.url), 'utf8');
+const operatorPrivateAgentUrl = new URL('../api/_private/operator/agent.html', import.meta.url);
+const operatorPrivateAgentHtml = existsSync(operatorPrivateAgentUrl) ? readFileSync(operatorPrivateAgentUrl, 'utf8') : '';
 const operatorLoaderJs = readFileSync(new URL('../app/operator/loader.js', import.meta.url), 'utf8');
+const operatorAgentLoaderUrl = new URL('../app/operator/agent-loader.js', import.meta.url);
+const operatorAgentLoaderJs = existsSync(operatorAgentLoaderUrl) ? readFileSync(operatorAgentLoaderUrl, 'utf8') : '';
+const operatorShellApiJs = readFileSync(new URL('../api/operator-shell/index.js', import.meta.url), 'utf8');
 const mainJs = readFileSync(new URL('../app/operator/main.js', import.meta.url), 'utf8');
 const tzeentchJs = readFileSync(new URL('../app/operator/tzeentch.mjs', import.meta.url), 'utf8');
 const stylesCss = readFileSync(new URL('../app/operator/styles.css', import.meta.url), 'utf8');
+const nacreStylesUrl = new URL('../api/_private/operator/nacre-moire.css', import.meta.url);
+const nacreStylesCss = existsSync(nacreStylesUrl) ? readFileSync(nacreStylesUrl, 'utf8') : '';
 const rootStylesCss = readFileSync(new URL('../app/styles.css', import.meta.url), 'utf8');
+const nacreMarkUrl = new URL('../api/_private/operator/nacre-moire-mark.svg', import.meta.url);
 
 test('root face is the unchanged Blue Swallow Society passcode split screen', () => {
   assert.match(indexHtml, /<body data-mode="login">/);
@@ -87,6 +96,47 @@ test('operator entrypoint requires an existing passcode-issued session before sh
   assert.ok(mainJs.includes("window.location.replace('/')"));
   assert.ok(mainJs.includes('getOperatorSession()'));
   assert.ok(mainJs.includes('unlockConsole()'));
+});
+
+test('Nacre-Moiré identity is disclosed only inside token-gated operator responses', () => {
+  assert.match(operatorShell, /data-persona="nacre-moire"/);
+  assert.match(operatorShell, /<h1 class="console-heading">Nacre-Moiré<\/h1>/);
+  assert.match(operatorShell, /class="persona-pronouns">they \/ them<\/span>/);
+  assert.match(operatorShell, /I keep the operator surface disciplined/);
+  assert.match(operatorShell, /Operator surfaces are evidence rooms/);
+  assert.doesNotMatch(operatorShell, /lorem ipsum|mobile-first cyberpunk console/i);
+  assert.match(operatorPrivateAgentHtml, /Nacre-Moiré Interface Lab/);
+  assert.match(operatorPrivateAgentHtml, /They are the operator-side persona/);
+
+  const anonymousOperatorBundle = [operatorHtml, operatorAgentHtml, operatorLoaderJs, operatorAgentLoaderJs, stylesCss].join('\n');
+  assert.doesNotMatch(anonymousOperatorBundle, /Nacre-Moiré|nacre-moire|--nacre-/i);
+  assert.doesNotMatch(indexHtml, /Nacre-Moiré|nacre-moire/i);
+  assert.doesNotMatch(rootStylesCss, /--nacre-|nacre-moire|moire-field/i);
+  assert.match(operatorAgentLoaderJs, /fetch\('\/api\/operator-shell\?view=agent'/);
+  assert.match(operatorAgentLoaderJs, /'X-Blue-Swallow-Operator-Token': session\.token/);
+});
+
+test('operator design system uses protected material layers, not generic neon', () => {
+  assert.match(stylesCss, /--material-pearl:/);
+  assert.match(stylesCss, /--oxidized-patina:/);
+  assert.match(stylesCss, /--bruised-violet:/);
+  assert.match(stylesCss, /--street-ink:/);
+  assert.match(stylesCss, /--corpo-paper:/);
+  assert.match(nacreStylesCss, /\.moire-field/);
+  assert.match(nacreStylesCss, /Street-built competence under executive restraint/);
+  assert.match(operatorShellApiJs, /NACRE_STYLE_PATH/);
+  assert.match(operatorShellApiJs, /NACRE_MARK_PATH/);
+  assert.doesNotMatch(`${stylesCss}\n${nacreStylesCss}`, /--neon-|same cyberpunk shell/i);
+  assert.doesNotMatch(`${stylesCss}\n${nacreStylesCss}`, /#72ff9f|#55e8ff|#ff4fd8|rgba\(71,\s*227,\s*130/i);
+});
+
+test('Nacre-Moiré interference mark is a committed accessible vector asset', () => {
+  assert.equal(existsSync(nacreMarkUrl), true);
+  const nacreMark = readFileSync(nacreMarkUrl, 'utf8');
+  assert.match(nacreMark, /<svg/);
+  assert.match(nacreMark, /<title(?:\s+[^>]*)?>Nacre-Moiré interference mark<\/title>/);
+  assert.match(nacreMark, /id="nacre-iridescence"/);
+  assert.match(nacreMark, /class="moire-line"/);
 });
 
 test('tzeentch shell exposes Mosaic before Murmurs and Positions after Actionable Intel', () => {
