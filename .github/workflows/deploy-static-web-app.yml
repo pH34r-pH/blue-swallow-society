@@ -10,12 +10,12 @@ permissions:
   id-token: write
   contents: read
 
-# Serialize deployments to this SWA. SWA's deployment service cancels older
-# runs when newer ones arrive (surfacing as "Deployment Canceled"), so we
-# guarantee at most one active run per ref.
+# Serialize deployments to this SWA without canceling an active ARM deployment.
+# Canceling the runner does not cancel Azure's deployment record and causes the
+# replacement run to fail with DeploymentActive while `main` is still running.
 concurrency:
   group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   RESOURCE_GROUP: rg-blue-swallow
