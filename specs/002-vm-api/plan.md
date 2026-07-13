@@ -12,7 +12,7 @@ Deploy a simple Python echo service on an Ubuntu 22.04 LTS VM and expose it thro
 
 ## Technical Context
 
-**Language/Version**: Python 3.10 (VM service), Node.js 18 (Azure Function proxy)
+**Language/Version**: Python 3.10 (VM service), Node.js 22 (Azure Static Web Apps managed Functions proxy)
 
 **Primary Dependencies**: Python `http.server` (stdlib), Azure Functions v4 (Node.js), systemd
 

@@ -42,7 +42,7 @@ npm test
 npm audit --omit=dev
 ```
 
-The service requires Node.js 22 or newer. The repository-level schema tests also cover both ordered migrations:
+The service requires Node.js 24.x. The repository-level schema tests also cover both ordered migrations:
 
 ```bash
 node --test tests/cybermap-schema.test.mjs

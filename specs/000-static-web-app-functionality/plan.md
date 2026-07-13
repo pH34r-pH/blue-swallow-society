@@ -12,7 +12,7 @@ Implement a cyberpunk-themed terminal interface web application for the Blue Swa
 
 ## Technical Context
 
-**Language/Version**: HTML5, CSS3, ES6 (vanilla JavaScript), Node.js 18 (Azure Functions runtime)
+**Language/Version**: HTML5, CSS3, ES6 (vanilla JavaScript), Node.js 22 (Azure Static Web Apps managed Functions runtime)
 
 **Primary Dependencies**: Azure Static Web Apps, Azure Functions v4, vanilla JS (no frontend framework)
 

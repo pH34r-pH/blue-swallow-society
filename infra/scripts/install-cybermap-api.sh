@@ -21,8 +21,8 @@ fi
 apt-get update
 apt-get install -y ca-certificates curl gnupg postgresql-client tar
 
-if ! command -v node >/dev/null 2>&1 || ! node --version | grep -Eq '^v22\.'; then
-  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+if ! command -v node >/dev/null 2>&1 || ! node --version | grep -Eq '^v24\.'; then
+  curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
   apt-get install -y nodejs
 fi
 
