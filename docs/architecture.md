@@ -12,7 +12,7 @@ Primary surfaces:
 - **Blue Swallow Wardriver / RaID** posts owned/local observations and reads nearby Cybermap context.
 - **Jetson / Mosaic / Murmurs** pulls observation/memory summaries and writes distilled memory events.
 
-The old echo service remains only as a connectivity scaffold. The target backend is documented in [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md).
+The old echo service remains only as a connectivity scaffold. The target backend is documented in [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md). The hosted map split, safe URL/state model, conflict-source gates, and strategic/tactical boundary are normative in [`docs/godeye-web-architecture.md`](./godeye-web-architecture.md).
 
 ## Target data flow
 
@@ -49,7 +49,7 @@ Cybermap is not a UI overlay and not a demo map. It is the materialized fusion l
 
 Godeye and RaID are two views into the same Cybermap spine:
 
-- **Godeye**: public website map view, backed by viewport/cell APIs.
+- **Godeye**: authenticated hosted map view, backed by bounded viewport/cell APIs; the public root remains silent about it.
 - **RaID**: native field AR view, backed by foreground device observation plus nearby Cybermap context.
 
 ## Non-goals
