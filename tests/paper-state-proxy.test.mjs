@@ -17,11 +17,13 @@ function restoreEnv(key, value) {
 async function invoke(req, fetchImpl) {
   const route = require('../api/paper-state/index.js');
   const previous = {
+    BACKEND_PAPER_STATE_BASE_URL: process.env.BACKEND_PAPER_STATE_BASE_URL,
     BACKEND_CYBERMAP_BASE_URL: process.env.BACKEND_CYBERMAP_BASE_URL,
-    BSS_CYBERMAP_READ_TOKEN: process.env.BSS_CYBERMAP_READ_TOKEN,
+    BSS_PAPER_STATE_TOKEN: process.env.BSS_PAPER_STATE_TOKEN,
   };
+  process.env.BACKEND_PAPER_STATE_BASE_URL = 'http://backend.internal:8080';
   process.env.BACKEND_CYBERMAP_BASE_URL = 'http://backend.internal:8080';
-  process.env.BSS_CYBERMAP_READ_TOKEN = TOKEN;
+  process.env.BSS_PAPER_STATE_TOKEN = TOKEN;
   const originalFetch = global.fetch;
   global.fetch = fetchImpl;
   try {
@@ -45,12 +47,12 @@ test('paper-state edge proxy rejects unauthenticated callers before backend I/O'
   assert.equal(response.headers['cache-control'], 'no-store');
 });
 
-test('paper-state edge proxy forwards canonical POST over the SWA HTTPS edge only', async () => {
-  const state = { schema_version: 'bss.paper_state.v2', paper_only: true };
+test('paper-state edge proxy forwards canonical PUT with an explicit application token', async () => {
+  const state = { schema_version: 'bss.paper_state.v3', paper_only: true };
   const calls = [];
   const response = await invoke({
-    method: 'POST',
-    headers: { authorization: `Bearer ${TOKEN}`, 'idempotency-key': 'paper:test:1' },
+    method: 'PUT',
+    headers: { 'x-blue-swallow-paper-state-token': TOKEN, 'idempotency-key': 'paper:test:1' },
     body: state,
   }, async (url, options) => {
     calls.push({ url: String(url), options });
@@ -66,29 +68,30 @@ test('paper-state edge proxy forwards canonical POST over the SWA HTTPS edge onl
   assert.equal(response.headers['idempotent-replayed'], 'false');
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, 'http://backend.internal:8080/api/v1/paper/state');
-  assert.equal(calls[0].options.method, 'POST');
-  assert.equal(calls[0].options.headers['x-blue-swallow-cybermap-read-token'], TOKEN);
+  assert.equal(calls[0].options.method, 'PUT');
+  assert.equal(calls[0].options.headers['x-blue-swallow-paper-state-token'], TOKEN);
+  assert.equal('x-blue-swallow-cybermap-read-token' in calls[0].options.headers, false);
   assert.equal(calls[0].options.headers['idempotency-key'], 'paper:test:1');
   assert.equal('authorization' in calls[0].options.headers, false);
   assert.equal(calls[0].options.body, JSON.stringify(state));
 });
 
 test('paper-state edge proxy supports token-gated canonical GET', async () => {
-  const response = await invoke({ method: 'GET', headers: { authorization: `Bearer ${TOKEN}` } }, async (_url, options) => ({
+  const response = await invoke({ method: 'GET', headers: { 'x-blue-swallow-paper-state-token': TOKEN } }, async (_url, options) => ({
     ok: true,
     status: 200,
     headers: { get: () => null },
-    text: async () => JSON.stringify({ ok: true, state: { schema_version: 'bss.paper_state.v2' } }),
+    text: async () => JSON.stringify({ ok: true, state: { schema_version: 'bss.paper_state.v3' } }),
     options,
   }));
   assert.equal(response.status, 200);
-  assert.equal(response.body.state.schema_version, 'bss.paper_state.v2');
+  assert.equal(response.body.state.schema_version, 'bss.paper_state.v3');
 });
 
 test('paper-state edge proxy fails closed on malformed replay acknowledgement', async () => {
   const response = await invoke({
-    method: 'POST',
-    headers: { authorization: `Bearer ${TOKEN}`, 'idempotency-key': 'paper:test:2' },
+    method: 'PUT',
+    headers: { 'x-blue-swallow-paper-state-token': TOKEN, 'idempotency-key': 'paper:test:2' },
     body: { schema_version: 'bss.paper_state.v2' },
   }, async () => ({
     ok: true,
@@ -98,4 +101,12 @@ test('paper-state edge proxy fails closed on malformed replay acknowledgement', 
   }));
   assert.equal(response.status, 502);
   assert.match(response.body.message, /malformed replay/i);
+});
+
+test('paper-state edge proxy rejects POST instead of translating write semantics', async () => {
+  const response = await invoke({ method: 'POST', headers: { 'x-blue-swallow-paper-state-token': TOKEN } }, async () => {
+    throw new Error('must not fetch');
+  });
+  assert.equal(response.status, 405);
+  assert.equal(response.headers.allow, 'GET, PUT');
 });

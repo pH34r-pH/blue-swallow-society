@@ -28,9 +28,12 @@ const PAPER_BOOK_KEYS = new Set([
   'book_id', 'display_name', 'line_id', 'line_display_name', 'strategy_id', 'strategy_display_name', 'aggression_profile',
   'loop_affinity', 'instrument_type', 'strategy', 'starting_balance', 'cash_balance', 'initial_bank_capital',
   'initial_investment_capital', 'additional_capital_contribution', 'funding_migration_applied', 'initial_allocation_complete',
-  'initial_allocation_at', 'positions', 'realized_pnl', 'equity', 'previous_equity', 'high_water_mark', 'max_drawdown_pct',
+  'initial_allocation_at', 'positions', 'realized_pnl', 'fees_paid', 'spread_costs', 'slippage_costs', 'market_impact_costs',
+  'latency_costs', 'transaction_costs', 'turnover_notional', 'equity', 'previous_equity', 'high_water_mark', 'max_drawdown_pct',
   'last_trade_at', 'last_decision_at', 'status', 'postmortem_required', 'crashed_at', 'crash_reason', 'created_at', 'updated_at',
 ]);
+const PAPER_BOOK_COST_KEYS = new Set(['fees_paid', 'spread_costs', 'slippage_costs', 'market_impact_costs', 'latency_costs', 'transaction_costs', 'turnover_notional']);
+const PAPER_BOOK_V2_KEYS = new Set([...PAPER_BOOK_KEYS].filter((key) => !PAPER_BOOK_COST_KEYS.has(key)));
 const PAPER_PROFILE_KEYS = new Set(['target_gross_fraction', 'max_position_fraction', 'target_position_count', 'minimum_order_notional']);
 const PAPER_POSITION_KEYS = new Set([
   'position_id', 'instrument_ref', 'instrument_type', 'symbol', 'title', 'quantity', 'entry_price', 'mark_price',
@@ -38,10 +41,12 @@ const PAPER_POSITION_KEYS = new Set([
 ]);
 const PAPER_SUMMARY_KEYS = new Set([
   'book_id', 'display_name', 'line_id', 'line_display_name', 'strategy_id', 'strategy_display_name', 'aggression_profile',
-  'starting_balance', 'cash_balance', 'realized_pnl', 'unrealized_pnl', 'gross_paper_exposure', 'equity', 'daily_pnl',
+  'starting_balance', 'cash_balance', 'realized_pnl', 'fees_paid', 'spread_costs', 'slippage_costs', 'market_impact_costs',
+  'latency_costs', 'transaction_costs', 'turnover_notional', 'unrealized_pnl', 'gross_paper_exposure', 'equity', 'daily_pnl',
   'daily_pnl_pct', 'cumulative_pnl', 'cumulative_pnl_pct', 'drawdown_pct', 'max_drawdown_pct', 'open_position_count',
   'stale_open_marks', 'postmortem_required', 'crashed_at', 'status',
 ]);
+const PAPER_SUMMARY_V2_KEYS = new Set([...PAPER_SUMMARY_KEYS].filter((key) => !PAPER_BOOK_COST_KEYS.has(key)));
 const PAPER_ACTION_KEYS = new Set([
   'candidate_id', 'decision_id', 'idempotency_key', 'book_id', 'action', 'status', 'instrument_ref', 'instrument_type',
   'symbol', 'paper_size', 'mark_price', 'thesis', 'risk_policy_checks', 'risk_policy_passed', 'paper_only',
@@ -50,10 +55,18 @@ const PAPER_ACTION_KEYS = new Set([
 const PAPER_FILL_KEYS = new Set([
   'event_id', 'decision_id', 'idempotency_key', 'book_id', 'event_type', 'action', 'instrument_ref', 'quantity',
   'mark_price', 'paper_size', 'realized_pnl', 'cash_before', 'cash_after', 'position_quantity_before',
-  'position_quantity_after', 'generated_at', 'paper_only', 'autonomous_execution',
+  'position_quantity_after', 'generated_at', 'paper_only', 'autonomous_execution', 'cost_model_version',
+  'cost_assumption_source', 'reference_price', 'execution_price', 'gross_notional', 'fee_amount', 'spread_cost',
+  'slippage_cost', 'market_impact_cost', 'latency_cost', 'total_transaction_cost',
 ]);
+const PAPER_FILL_COST_KEYS = new Set([
+  'cost_model_version', 'cost_assumption_source', 'reference_price', 'execution_price', 'gross_notional', 'fee_amount',
+  'spread_cost', 'slippage_cost', 'market_impact_cost', 'latency_cost', 'total_transaction_cost',
+]);
+const PAPER_FILL_V2_KEYS = new Set([...PAPER_FILL_KEYS].filter((key) => !PAPER_FILL_COST_KEYS.has(key)));
 const PAPER_CRASH_KEYS = new Set(['event_id', 'idempotency_key', 'book_id', 'event_type', 'equity', 'generated_at', 'paper_only', 'postmortem_required']);
 const PAPER_MARK_KEYS = new Set(['event_id', 'idempotency_key', 'event_type', 'generated_at', 'paper_only', ...PAPER_SUMMARY_KEYS]);
+const PAPER_MARK_V2_KEYS = new Set(['event_id', 'idempotency_key', 'event_type', 'generated_at', 'paper_only', ...PAPER_SUMMARY_V2_KEYS]);
 const PAPER_GOVERNANCE_KEYS = new Set(['paper_only', 'autonomous_paper_execution', 'human_review_required_for_actions', 'no_real_money_execution', 'stale_marks_block_new_buys', 'crash_requires_postmortem', 'loss_budget']);
 const PAPER_LINE_KEYS = new Set(['line_id', 'display_name', 'order']);
 const PAPER_STRATEGY_KEYS = new Set(['strategy_id', 'display_name', 'order']);
@@ -213,8 +226,9 @@ export function validatePaperState(value, nowMs) {
     throw new IngestError('invalid_paper_state', 'Paper state must be an object.', { statusCode: 400 });
   }
   const generatedAt = timestampMs(value.generated_at);
+  const hasExecutionCosts = value.schema_version === 'bss.paper_state.v3';
   if (!hasOnlyKeys(value, PAPER_STATE_KEYS)
-      || value.schema_version !== 'bss.paper_state.v2'
+      || !['bss.paper_state.v2', 'bss.paper_state.v3'].includes(value.schema_version)
       || value.paper_only !== true
       || value.autonomous_execution !== true
       || !Number.isFinite(generatedAt)
@@ -265,7 +279,7 @@ export function validatePaperState(value, nowMs) {
   for (const book of ledger.books) {
     const expectedBookId = `${book?.line_id}__${book?.strategy_id}`;
     if (!isPlainObject(book)
-        || !hasOnlyKeys(book, PAPER_BOOK_KEYS)
+        || !hasOnlyKeys(book, hasExecutionCosts ? PAPER_BOOK_KEYS : PAPER_BOOK_V2_KEYS)
         || book.book_id !== expectedBookId
         || !PAPER_LINE_IDS.includes(book.line_id)
         || !PAPER_STRATEGY_IDS.includes(book.strategy_id)
@@ -278,6 +292,7 @@ export function validatePaperState(value, nowMs) {
         || book.positions.length > MAX_PAPER_POSITIONS_PER_BOOK
         || !book.positions.every((position) => validatePaperPosition(position, nowMs))
         || !['additional_capital_contribution', 'realized_pnl', 'equity', 'previous_equity', 'high_water_mark', 'max_drawdown_pct'].every((field) => finiteNumber(book[field]))
+        || (hasExecutionCosts && !validAggregateCosts(book))
         || typeof book.funding_migration_applied !== 'boolean'
         || typeof book.initial_allocation_complete !== 'boolean'
         || typeof book.postmortem_required !== 'boolean'
@@ -298,11 +313,12 @@ export function validatePaperState(value, nowMs) {
   if (!Array.isArray(summaries)
       || !hasExactIds(summaries.map((book) => book?.book_id), PAPER_BOOK_IDS)
       || !summaries.every((summary) => isPlainObject(summary)
-        && hasOnlyKeys(summary, PAPER_SUMMARY_KEYS)
+        && hasOnlyKeys(summary, hasExecutionCosts ? PAPER_SUMMARY_KEYS : PAPER_SUMMARY_V2_KEYS)
         && summary.book_id === `${summary.line_id}__${summary.strategy_id}`
         && validAggressionProfile(summary.aggression_profile)
         && nullableTimestamp(summary.crashed_at, nowMs)
-        && ['starting_balance', 'cash_balance', 'realized_pnl', 'unrealized_pnl', 'gross_paper_exposure', 'equity', 'daily_pnl', 'daily_pnl_pct', 'cumulative_pnl', 'cumulative_pnl_pct', 'drawdown_pct', 'max_drawdown_pct', 'open_position_count', 'stale_open_marks'].every((field) => finiteNumber(summary[field])))
+        && ['starting_balance', 'cash_balance', 'realized_pnl', 'unrealized_pnl', 'gross_paper_exposure', 'equity', 'daily_pnl', 'daily_pnl_pct', 'cumulative_pnl', 'cumulative_pnl_pct', 'drawdown_pct', 'max_drawdown_pct', 'open_position_count', 'stale_open_marks'].every((field) => finiteNumber(summary[field]))
+        && (!hasExecutionCosts || validAggregateCosts(summary)))
       || !Array.isArray(actions)
       || actions.length > MAX_PAPER_ACTIONS
       || !actions.every((action) => isPlainObject(action)
@@ -322,10 +338,10 @@ export function validatePaperState(value, nowMs) {
         && (!['PAPER_BUY', 'PAPER_SELL'].includes(action.action) || action.autonomous_execution === true))
       || !Array.isArray(events)
       || events.length > MAX_PAPER_EVENTS
-      || !events.every((event) => validatePaperEvent(event, nowMs))
+      || !events.every((event) => validatePaperEvent(event, nowMs, hasExecutionCosts))
       || !Array.isArray(recent)
       || recent.length > 64
-      || !recent.every((event) => validatePaperEvent(event, nowMs) && event.event_type === 'paper_fill')
+      || !recent.every((event) => validatePaperEvent(event, nowMs, hasExecutionCosts) && event.event_type === 'paper_fill')
       || new Set(recent.map((event) => event.event_id)).size !== recent.length
       || !isPlainObject(value.governance)
       || !hasOnlyKeys(value.governance, PAPER_GOVERNANCE_KEYS)
@@ -351,6 +367,20 @@ function hasOnlyKeys(value, allowed) {
 
 function finiteNumber(value) {
   return typeof value === 'number' && Number.isFinite(value);
+}
+
+function validAggregateCosts(value) {
+  const components = ['fees_paid', 'spread_costs', 'slippage_costs', 'market_impact_costs', 'latency_costs'];
+  return [...components, 'transaction_costs', 'turnover_notional'].every((field) => finiteNumber(value[field]) && value[field] >= 0)
+    && Math.abs(value.transaction_costs - components.reduce((total, field) => total + value[field], 0)) <= 0.02;
+}
+
+function validFillCosts(event) {
+  const components = ['fee_amount', 'spread_cost', 'slippage_cost', 'market_impact_cost', 'latency_cost'];
+  return event.cost_model_version === 'bss.execution_costs.v1'
+    && event.cost_assumption_source === 'bss_tradesight_research_v1'
+    && [...components, 'total_transaction_cost', 'reference_price', 'execution_price', 'gross_notional'].every((field) => finiteNumber(event[field]) && event[field] >= 0)
+    && Math.abs(event.total_transaction_cost - components.reduce((total, field) => total + event[field], 0)) <= 0.02;
 }
 
 function timestampMs(value) {
@@ -420,7 +450,7 @@ function validatePaperPosition(position, nowMs) {
   return position.entry_price > 0 && position.mark_price > 0 && position.previous_mark_price > 0;
 }
 
-function validatePaperEvent(event, nowMs) {
+function validatePaperEvent(event, nowMs, hasExecutionCosts) {
   if (!isPlainObject(event)
       || event.paper_only !== true
       || !PAPER_BOOK_IDS.includes(event.book_id)
@@ -428,17 +458,19 @@ function validatePaperEvent(event, nowMs) {
       || event.event_id.length === 0
       || !validTimestampAt(event.generated_at, nowMs)) return false;
   if (event.event_type === 'paper_fill') {
-    return hasOnlyKeys(event, PAPER_FILL_KEYS)
+    const baseValid = hasOnlyKeys(event, hasExecutionCosts ? PAPER_FILL_KEYS : PAPER_FILL_V2_KEYS)
       && ['PAPER_BUY', 'PAPER_SELL'].includes(event.action)
       && event.autonomous_execution === true
       && ['quantity', 'paper_size', 'realized_pnl', 'mark_price', 'cash_before', 'cash_after', 'position_quantity_before', 'position_quantity_after'].every((field) => finiteNumber(event[field]) && (field === 'realized_pnl' || event[field] >= 0));
+    return baseValid && (!hasExecutionCosts || validFillCosts(event));
   }
   if (event.event_type === 'mark') {
-    return hasOnlyKeys(event, PAPER_MARK_KEYS)
+    return hasOnlyKeys(event, hasExecutionCosts ? PAPER_MARK_KEYS : PAPER_MARK_V2_KEYS)
       && event.book_id === `${event.line_id}__${event.strategy_id}`
       && finiteNumber(event.equity)
       && finiteNumber(event.cash_balance)
-      && finiteNumber(event.gross_paper_exposure);
+      && finiteNumber(event.gross_paper_exposure)
+      && (!hasExecutionCosts || validAggregateCosts(event));
   }
   if (event.event_type === 'book_crashed') {
     return hasOnlyKeys(event, PAPER_CRASH_KEYS)

@@ -13,6 +13,8 @@ The morning brief now runs as a Hermes cron job named `mosaic-murmurs-morning-br
   -> run scripts/mosaic-murmurs-morning-brief-collect.py
   -> inject the collector JSON into the cron agent prompt
   -> optionally include the latest daily dream-cycle output as context
+  -> research material gaps with Hermes web search and the Obscura-backed browser
+  -> keep Mosaic evidence and Murmurs perception as separate projections
   -> deliver the operator-facing brief to the origin Discord chat
 ```
 
@@ -31,6 +33,20 @@ python3 scripts/mosaic-murmurs-morning-brief-collect.py --full
 - Runtime state: `~/.hermes/mosaic-murmurs/morning-brief/state.json`
 
 The repo tracks the empty paper-ledger seed only. Daily manifests are runtime artifacts outside the repo.
+
+## Agent research tools
+
+The morning-brief job (`d2f6bc9e8c5f`) is configured with:
+
+- toolsets: `web`, `browser`, `file`, `terminal`, `skills`;
+- skills: `bss-mosaic-murmurs-research-radar`, `intelligence-briefing`, `privacy-preserving-osint`;
+- browser provider: Hermes `browser-obscura` plugin backed by Obscura `0.1.9` on Linux ARM64.
+
+The fixed collector remains the reproducible baseline. The cron agent may independently search for counter-evidence, investigate high-salience gaps, and propose new public sources. Rendered pages go through the Hermes browser abstraction and therefore the configured Obscura provider.
+
+The raw Obscura MCP server is not registered. Its full surface includes page evaluation, form, cookie, and storage-state tools that are unnecessary for the read-only research lane and would be injected more broadly than this one job.
+
+Research policy is public HTTP(S) and read-only: no private-network override, localhost/private/metadata targets, authentication, profile or cookie reuse, forms, uploads, downloads, arbitrary page evaluation, access-control bypass, or account-bound actions. Every material web claim requires a URL and retrieval timestamp. Newly discovered recurring sources remain quarantined candidates until policy and source-health checks promote them.
 
 ## Source lanes
 
@@ -104,11 +120,13 @@ Minimal position shape:
 The cron agent must:
 
 1. Use only the collector packet and injected dream-cycle context as evidence unless it explicitly performs additional source retrieval.
-2. Emit sections: Mosaic breaking reality, Murmurs hype weather, Bridge perceptual deltas, New paper actions, Paper book footer, Source manifest.
-3. Label facts, official statements, viral narratives, market-implied belief, and unknown/stale data separately.
-4. Keep all actions paper-only and autonomously executable only after machine-enforced freshness, profile sizing, no-leverage, no-negative-cash, and idempotency checks pass.
-5. Suppress buy/sell actions when the affected book or market data is stale.
-6. Include the manifest path and generated-at timestamp.
+2. Use independent web research to test high-salience claims, contradictions, and source gaps; do not merely restate the packet.
+3. Emit sections: Mosaic breaking reality, Murmurs hype weather, Bridge perceptual deltas, New source candidates, New paper actions, Paper book footer, Source manifest.
+4. Label facts, official statements, viral narratives, market-implied belief, and unknown/stale data separately.
+5. Treat generated prose as analysis, not a persisted paper fill; the deterministic ledger remains canonical.
+6. Keep all actions paper-only and autonomously executable only after machine-enforced freshness, profile sizing, no-leverage, no-negative-cash, and idempotency checks pass.
+7. Suppress buy/sell actions when the affected book or market data is stale.
+8. Include the manifest path, generated-at timestamp, and URLs/timestamps for additional web research.
 
 ## Verification
 

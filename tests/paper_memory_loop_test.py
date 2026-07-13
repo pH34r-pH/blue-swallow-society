@@ -58,8 +58,12 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
             self.assertIn("bridge", packet["loop_topology"]["supporting_loops"])
             self.assertEqual(packet["paper_book_count"], 24)
             self.assertEqual({book["starting_balance"] for book in packet["paper_books"]}, {2000.0})
-            self.assertEqual({book["cash_balance"] for book in packet["paper_books"]}, {1000.0})
+            self.assertTrue(all(990.0 < book["cash_balance"] < 1000.0 for book in packet["paper_books"]))
             self.assertEqual({book["gross_paper_exposure"] for book in packet["paper_books"]}, {1000.0})
+            self.assertTrue(all(book["transaction_costs"] > 0 for book in packet["paper_books"]))
+            self.assertEqual(packet["shadow_strategy_candidate_count"], 8)
+            self.assertEqual(packet["shadow_strategy_policy_count"], 8)
+            self.assertEqual(packet["matured_strategy_experience_count"], 0)
 
             latest_state = json.loads((state_dir / "latest_state.json").read_text(encoding="utf-8"))
             self.assertEqual({run["loop_role"] for run in latest_state["last_runs"]}, {"primary", "supporting"})
@@ -68,9 +72,12 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
                 ["mosaic", "murmurs"],
             )
             self.assertEqual(len(latest_state["paper_books"]), 24)
-            self.assertEqual(latest_state["canonical_paper_state"]["schema_version"], "bss.paper_state.v2")
+            self.assertEqual(latest_state["canonical_paper_state"]["schema_version"], "bss.paper_state.v3")
             self.assertEqual(len(latest_state["canonical_paper_state"]["ledger"]["books"]), 24)
             self.assertTrue(latest_state["canonical_paper_state"]["recent_paper_trades"])
+            self.assertEqual(len(latest_state["shadow_strategy_candidates"]), 8)
+            self.assertEqual(len(latest_state["shadow_strategy_policies"]), 8)
+            self.assertTrue(all(candidate["promotion_state"] == "shadow" for candidate in latest_state["shadow_strategy_candidates"]))
             filled = [
                 candidate
                 for candidate in latest_state["last_paper_action_candidates"]

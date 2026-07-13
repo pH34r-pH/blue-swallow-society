@@ -264,12 +264,13 @@ async function fetchCanonicalPaperState({ warnings } = {}) {
 }
 
 function isCanonicalPaperState(state) {
+  const hasExecutionCosts = state?.schema_version === 'bss.paper_state.v3';
   const lineIds = PAPER_LINES.map((line) => line.id);
   const strategyIds = PAPER_STRATEGIES.map((strategy) => strategy.id);
   const bookIds = lineIds.flatMap((lineId) => strategyIds.map((strategyId) => `${lineId}__${strategyId}`));
   const bookIdSet = new Set(bookIds);
   const ledgerBooks = state?.ledger?.books;
-  if (state?.schema_version !== 'bss.paper_state.v2'
+  if (!['bss.paper_state.v2', 'bss.paper_state.v3'].includes(state?.schema_version)
       || state.paper_only !== true
       || state.autonomous_execution !== true
       || !validIsoTimestamp(state.generated_at)
@@ -287,6 +288,7 @@ function isCanonicalPaperState(state) {
       && finiteNumber(book?.initial_bank_capital) && book.initial_bank_capital === 1000
       && finiteNumber(book?.initial_investment_capital) && book.initial_investment_capital === 1000
       && finiteNumber(book?.cash_balance) && book.cash_balance >= 0
+      && (!hasExecutionCosts || validCanonicalAggregateCosts(book))
       && Array.isArray(book?.positions)
       && book.positions.every((position) => position && typeof position === 'object' && !Array.isArray(position)
         && finiteNumber(position.quantity) && position.quantity >= 0
@@ -298,7 +300,8 @@ function isCanonicalPaperState(state) {
         && finiteNumber(summary.starting_balance)
         && finiteNumber(summary.cash_balance)
         && finiteNumber(summary.gross_paper_exposure)
-        && finiteNumber(summary.equity))) return false;
+        && finiteNumber(summary.equity)
+        && (!hasExecutionCosts || validCanonicalAggregateCosts(summary)))) return false;
 
   const actions = state.paper_action_candidates;
   const events = state.paper_ledger_events;
@@ -314,7 +317,8 @@ function isCanonicalPaperState(state) {
       && event.paper_only === true
       && bookIdSet.has(event.book_id)
       && validIsoTimestamp(event.generated_at)
-      && ['mark', 'paper_fill', 'book_crashed'].includes(event.event_type))) return false;
+      && ['mark', 'paper_fill', 'book_crashed'].includes(event.event_type)
+      && (!hasExecutionCosts || event.event_type !== 'paper_fill' || validCanonicalFillCosts(event)))) return false;
   const recentIds = recent.map((event) => event?.event_id);
   return recent.every((event) => event && typeof event === 'object'
       && event.paper_only === true
@@ -322,12 +326,27 @@ function isCanonicalPaperState(state) {
       && bookIdSet.has(event.book_id)
       && validIsoTimestamp(event.generated_at)
       && typeof event.event_id === 'string'
-      && event.event_id.length > 0)
+      && event.event_id.length > 0
+      && (!hasExecutionCosts || validCanonicalFillCosts(event)))
     && new Set(recentIds).size === recentIds.length;
 }
 
 function finiteNumber(value) {
   return typeof value === 'number' && Number.isFinite(value);
+}
+
+function validCanonicalAggregateCosts(value) {
+  const components = ['fees_paid', 'spread_costs', 'slippage_costs', 'market_impact_costs', 'latency_costs'];
+  return [...components, 'transaction_costs', 'turnover_notional'].every((field) => finiteNumber(value?.[field]) && value[field] >= 0)
+    && Math.abs(value.transaction_costs - components.reduce((total, field) => total + value[field], 0)) <= 0.02;
+}
+
+function validCanonicalFillCosts(value) {
+  const components = ['fee_amount', 'spread_cost', 'slippage_cost', 'market_impact_cost', 'latency_cost'];
+  return value?.cost_model_version === 'bss.execution_costs.v1'
+    && value?.cost_assumption_source === 'bss_tradesight_research_v1'
+    && [...components, 'total_transaction_cost', 'reference_price', 'execution_price', 'gross_notional'].every((field) => finiteNumber(value?.[field]) && value[field] >= 0)
+    && Math.abs(value.total_transaction_cost - components.reduce((total, field) => total + value[field], 0)) <= 0.02;
 }
 
 function validIsoTimestamp(value) {
@@ -347,6 +366,7 @@ function buildCanonicalPaperBooks(backend) {
     source: 'mosaic-murmurs-paper-engine',
     paperOnly: true,
     autonomousExecution: true,
+    executionCostModel: null,
     summary: 'Canonical paper state is unavailable; no demo ledger was substituted.',
     dimensions: null,
     loop: canonicalLoopMetadata(0, 0),
@@ -356,6 +376,7 @@ function buildCanonicalPaperBooks(backend) {
     recentTrades: [],
   };
   if (!isCanonicalPaperState(state)) return empty;
+  const hasExecutionCosts = state.schema_version === 'bss.paper_state.v3';
 
   const summaries = new Map((state.paper_books || []).map((book) => [book.book_id, book]));
   const actions = (state.paper_action_candidates || []).slice(0, 256);
@@ -407,6 +428,13 @@ function buildCanonicalPaperBooks(backend) {
       equity: roundNumber(equity, 2),
       realizedPnl: roundNumber(summary.realized_pnl ?? book.realized_pnl, 2),
       unrealizedPnl: roundNumber(summary.unrealized_pnl, 2),
+      feesPaid: hasExecutionCosts ? roundNumber(summary.fees_paid ?? book.fees_paid, 2) : null,
+      spreadCosts: hasExecutionCosts ? roundNumber(summary.spread_costs ?? book.spread_costs, 2) : null,
+      slippageCosts: hasExecutionCosts ? roundNumber(summary.slippage_costs ?? book.slippage_costs, 2) : null,
+      marketImpactCosts: hasExecutionCosts ? roundNumber(summary.market_impact_costs ?? book.market_impact_costs, 2) : null,
+      latencyCosts: hasExecutionCosts ? roundNumber(summary.latency_costs ?? book.latency_costs, 2) : null,
+      transactionCosts: hasExecutionCosts ? roundNumber(summary.transaction_costs ?? book.transaction_costs, 2) : null,
+      turnoverNotional: hasExecutionCosts ? roundNumber(summary.turnover_notional ?? book.turnover_notional, 2) : null,
       totalPnl,
       totalReturnPct: roundNumber((totalPnl / startingBalance) * 100, 4),
       benchmarkReturnPct: null,
@@ -427,6 +455,9 @@ function buildCanonicalPaperBooks(backend) {
     source: backend.source,
     paperOnly: true,
     autonomousExecution: true,
+    executionCostModel: hasExecutionCosts
+      ? { version: 'bss.execution_costs.v1', assumptionSource: 'bss_tradesight_research_v1' }
+      : null,
     summary: `${books.length} canonical autonomous paper books; each began with $1,000 invested and $1,000 banked.`,
     dimensions: {
       lines: PAPER_LINES.map((line, order) => ({ lineId: line.id, name: line.name, order })),
@@ -512,6 +543,17 @@ function publicCanonicalEvent(event) {
     notional: toNumber(event.paper_size) || 0,
     mark: toNumber(event.mark_price),
     realizedPnl: toNumber(event.realized_pnl) || 0,
+    referencePrice: toNumber(event.reference_price),
+    executionPrice: toNumber(event.execution_price),
+    grossNotional: toNumber(event.gross_notional),
+    feeAmount: toNumber(event.fee_amount),
+    spreadCost: toNumber(event.spread_cost),
+    slippageCost: toNumber(event.slippage_cost),
+    marketImpactCost: toNumber(event.market_impact_cost),
+    latencyCost: toNumber(event.latency_cost),
+    totalTransactionCost: toNumber(event.total_transaction_cost),
+    costModelVersion: event.cost_model_version || null,
+    costAssumptionSource: event.cost_assumption_source || null,
     cashBefore: toNumber(event.cash_before),
     cashAfter: toNumber(event.cash_after),
     equity: toNumber(event.equity),

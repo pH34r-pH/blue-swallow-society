@@ -71,6 +71,13 @@ function canonicalPaperState({ generatedAt = '2026-07-11T18:43:00.000Z' } = {}) 
         updated_at: generatedAt,
       }],
       realized_pnl: 0,
+      fees_paid: 0,
+      spread_costs: 0,
+      slippage_costs: 0,
+      market_impact_costs: 0,
+      latency_costs: 0,
+      transaction_costs: 0,
+      turnover_notional: 0,
       equity: 2000,
       previous_equity: 2000,
       high_water_mark: 2000,
@@ -101,6 +108,13 @@ function canonicalPaperState({ generatedAt = '2026-07-11T18:43:00.000Z' } = {}) 
     daily_pnl: 0,
     daily_pnl_pct: 0,
     realized_pnl: 0,
+    fees_paid: 0,
+    spread_costs: 0,
+    slippage_costs: 0,
+    market_impact_costs: 0,
+    latency_costs: 0,
+    transaction_costs: 0,
+    turnover_notional: 0,
     unrealized_pnl: 0,
     cumulative_pnl: 0,
     cumulative_pnl_pct: 0,
@@ -153,6 +167,17 @@ function canonicalPaperState({ generatedAt = '2026-07-11T18:43:00.000Z' } = {}) 
     generated_at: generatedAt,
     paper_only: true,
     autonomous_execution: true,
+    cost_model_version: 'bss.execution_costs.v1',
+    cost_assumption_source: 'bss_tradesight_research_v1',
+    reference_price: 100,
+    execution_price: 100.1,
+    gross_notional: 100.1,
+    fee_amount: 0.2,
+    spread_cost: 0.02,
+    slippage_cost: 0.05,
+    market_impact_cost: 0.02,
+    latency_cost: 0.01,
+    total_transaction_cost: 0.3,
   };
   const mark = {
     event_id: 'mark-1',
@@ -163,7 +188,7 @@ function canonicalPaperState({ generatedAt = '2026-07-11T18:43:00.000Z' } = {}) 
     ...structuredClone(summaries[0]),
   };
   return {
-    schema_version: 'bss.paper_state.v2',
+    schema_version: 'bss.paper_state.v3',
     generated_at: generatedAt,
     paper_only: true,
     autonomous_execution: true,
@@ -199,6 +224,20 @@ function canonicalPaperState({ generatedAt = '2026-07-11T18:43:00.000Z' } = {}) 
       loss_budget: 'entire_book_balance',
     },
   };
+}
+
+function legacyPaperStateV2() {
+  const state = canonicalPaperState();
+  state.schema_version = 'bss.paper_state.v2';
+  const aggregateCosts = ['fees_paid', 'spread_costs', 'slippage_costs', 'market_impact_costs', 'latency_costs', 'transaction_costs', 'turnover_notional'];
+  const fillCosts = ['cost_model_version', 'cost_assumption_source', 'reference_price', 'execution_price', 'gross_notional', 'fee_amount', 'spread_cost', 'slippage_cost', 'market_impact_cost', 'latency_cost', 'total_transaction_cost'];
+  for (const book of state.ledger.books) for (const field of aggregateCosts) delete book[field];
+  for (const summary of state.paper_books) for (const field of aggregateCosts) delete summary[field];
+  for (const event of state.paper_ledger_events) {
+    for (const field of event.event_type === 'paper_fill' ? fillCosts : aggregateCosts) delete event[field];
+  }
+  for (const event of state.recent_paper_trades) for (const field of fillCosts) delete event[field];
+  return state;
 }
 
 function makeServer() {
@@ -426,6 +465,25 @@ test('serves token-gated Cybermap viewport reads from ingested real observations
     if (previousReadToken === undefined) delete process.env.BSS_CYBERMAP_READ_TOKEN;
     else process.env.BSS_CYBERMAP_READ_TOKEN = previousReadToken;
   }
+});
+
+test('accepts legacy v2 snapshots during the v3 execution-cost rolling upgrade', () => {
+  assert.equal(validatePaperState(legacyPaperStateV2(), PAPER_NOW_MS).schema_version, 'bss.paper_state.v2');
+  assert.equal(validatePaperState(canonicalPaperState(), PAPER_NOW_MS).schema_version, 'bss.paper_state.v3');
+});
+
+test('v3 rejects negative or unreconciled aggregate and fill costs', () => {
+  const negative = canonicalPaperState();
+  negative.ledger.books[0].fees_paid = -1;
+  assert.throws(() => validatePaperState(negative, PAPER_NOW_MS), /accounting|invalid/i);
+
+  const unreconciled = canonicalPaperState();
+  unreconciled.paper_books[0].transaction_costs = 10;
+  assert.throws(() => validatePaperState(unreconciled, PAPER_NOW_MS), /summaries|invalid/i);
+
+  const badFill = canonicalPaperState();
+  badFill.paper_ledger_events[0].total_transaction_cost = 99;
+  assert.throws(() => validatePaperState(badFill, PAPER_NOW_MS), /events|invalid/i);
 });
 
 test('stores and serves one token-gated canonical autonomous paper state idempotently', async () => {

@@ -357,6 +357,9 @@ test('api/tzeentch returns a bearer-token protected read-only payload', async ()
   assert.ok(context.res.body.paperBooks.books.some((book) => book.pendingOrders.length > 0));
   assert.equal(context.res.body.paperBooks.recentTrades.length, 1);
   assert.equal(context.res.body.paperBooks.recentTrades[0].notional, 333.34);
+  assert.equal(context.res.body.paperBooks.executionCostModel, null);
+  assert.ok(context.res.body.paperBooks.books.every((book) => book.transactionCosts === null));
+  assert.equal(context.res.body.paperBooks.recentTrades[0].totalTransactionCost, null);
   assert.equal(JSON.stringify(context.res.body).includes('leak-me'), false);
   assert.match(context.res.body.crypto.markets[0].symbol, /BTC/);
   });

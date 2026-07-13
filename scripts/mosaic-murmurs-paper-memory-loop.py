@@ -31,6 +31,11 @@ from mosaic_murmurs_paper_engine import (
     process_tick as process_paper_tick,
     summarize_book as engine_summarize_book,
 )
+from mosaic_murmurs_strategy_synthesis import (
+    generate_shadow_candidates,
+    mature_experiences,
+    synthesize_shadow_policies,
+)
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
@@ -101,6 +106,9 @@ RECORD_FILES = {
     "narrative_fragments": "narrative_fragments.jsonl",
     "paper_action_candidates": "paper_action_candidates.jsonl",
     "paper_ledger_events": "paper_ledger_events.jsonl",
+    "strategy_candidates": "strategy_candidates.jsonl",
+    "strategy_experiences": "strategy_experiences.jsonl",
+    "strategy_policies": "strategy_policies.jsonl",
     "memory_patches": "memory_patches.jsonl",
     "source_reliability_events": "source_reliability_events.jsonl",
 }
@@ -184,7 +192,7 @@ def write_json(path: Path, payload: Any) -> None:
 
 
 def record_identity(record: dict[str, Any]) -> str:
-    for key in ("event_id", "decision_id", "patch_id", "fragment_id", "run_id", "reliability_event_id"):
+    for key in ("event_id", "decision_id", "candidate_id", "experience_id", "policy_id", "patch_id", "fragment_id", "run_id", "reliability_event_id"):
         value = record.get(key)
         if isinstance(value, str) and value:
             return f"{key}:{value}"
@@ -192,9 +200,10 @@ def record_identity(record: dict[str, Any]) -> str:
 
 
 def append_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
-    if not records:
-        return
     path.parent.mkdir(parents=True, exist_ok=True)
+    if not records:
+        path.touch(exist_ok=True)
+        return
     existing: dict[str, str] = {}
     if path.exists():
         with path.open("r", encoding="utf-8") as handle:
@@ -229,6 +238,26 @@ def append_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
             handle.write(json.dumps(record, separators=(",", ":"), sort_keys=True) + "\n")
         handle.flush()
         os.fsync(handle.fileno())
+
+
+def load_jsonl(path: Path, *, limit: int = 10_000) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    records: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise RuntimeError(f"corrupt JSONL record at {path}:{line_number}") from exc
+            if not isinstance(record, dict):
+                raise RuntimeError(f"non-object JSONL record at {path}:{line_number}")
+            records.append(record)
+            if len(records) > limit:
+                records.pop(0)
+    return records
 
 
 def recent_paper_fills(
@@ -565,6 +594,22 @@ def _run_tick_locked(args: argparse.Namespace) -> dict[str, Any]:
         )
     loop_ids = resolve_loop_ids(args.loop)
 
+    prior_strategy_candidates = load_jsonl(state_dir / RECORD_FILES["strategy_candidates"])
+    prior_strategy_experiences = load_jsonl(state_dir / RECORD_FILES["strategy_experiences"])
+    strategy_experiences = mature_experiences(
+        prior_strategy_candidates,
+        prior_strategy_experiences,
+        market_snapshot,
+        now,
+    )
+    strategy_policies = synthesize_shadow_policies([*prior_strategy_experiences, *strategy_experiences], now)
+    strategy_candidates = generate_shadow_candidates(
+        market_snapshot,
+        strategy_policies,
+        [*prior_strategy_experiences, *strategy_experiences],
+        now,
+    )
+
     runs: list[dict[str, Any]] = []
     fragments: list[dict[str, Any]] = []
     output_refs_by_run: dict[str, list[str]] = {}
@@ -626,6 +671,9 @@ def _run_tick_locked(args: argparse.Namespace) -> dict[str, Any]:
         "narrative_fragments": fragments,
         "paper_action_candidates": action_candidates,
         "paper_ledger_events": ledger_events,
+        "strategy_candidates": strategy_candidates,
+        "strategy_experiences": strategy_experiences,
+        "strategy_policies": strategy_policies,
         "memory_patches": memory_patches,
         "source_reliability_events": source_events,
     }
@@ -657,6 +705,9 @@ def _run_tick_locked(args: argparse.Namespace) -> dict[str, Any]:
         fragments = wrapper_records["narrative_fragments"]
         action_candidates = wrapper_records["paper_action_candidates"]
         ledger_events = wrapper_records["paper_ledger_events"]
+        strategy_candidates = wrapper_records["strategy_candidates"]
+        strategy_experiences = wrapper_records["strategy_experiences"]
+        strategy_policies = wrapper_records["strategy_policies"]
         memory_patches = wrapper_records["memory_patches"]
         source_events = wrapper_records["source_reliability_events"]
         canonical_action_candidates = paper_state["paper_action_candidates"]
@@ -705,6 +756,9 @@ def _run_tick_locked(args: argparse.Namespace) -> dict[str, Any]:
         "last_paper_action_candidates": paper_state["paper_action_candidates"],
         "last_paper_ledger_events": paper_state["paper_ledger_events"],
         "recent_paper_trades": paper_state["recent_paper_trades"],
+        "shadow_strategy_candidates": strategy_candidates,
+        "matured_strategy_experiences": strategy_experiences,
+        "shadow_strategy_policies": strategy_policies,
         "last_memory_patches": memory_patches,
         "last_source_reliability_events": source_events,
         "record_files": {name: str(state_dir / filename) for name, filename in RECORD_FILES.items()},
@@ -779,11 +833,16 @@ def cron_packet(state: dict[str, Any]) -> dict[str, Any]:
                 "cash_balance": book["cash_balance"],
                 "gross_paper_exposure": book["gross_paper_exposure"],
                 "equity": book["equity"],
+                "transaction_costs": book["transaction_costs"],
+                "turnover_notional": book["turnover_notional"],
                 "status": book["status"],
             }
             for book in state["paper_books"]
         ],
         "paper_action_candidate_count": len(state["last_paper_action_candidates"]),
+        "shadow_strategy_candidate_count": len(state["shadow_strategy_candidates"]),
+        "matured_strategy_experience_count": len(state["matured_strategy_experiences"]),
+        "shadow_strategy_policy_count": len(state["shadow_strategy_policies"]),
         "paper_state_sync": state["paper_state_sync"],
         "source_warning_count": state["source_warning_count"],
         "latest_state_path": str(Path(state["state_dir"]) / "latest_state.json"),

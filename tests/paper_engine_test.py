@@ -118,7 +118,7 @@ class AutonomousPaperEngineTests(unittest.TestCase):
             run_idempotency_key=key,
         )
 
-    def test_first_fresh_tick_creates_three_by_eight_matrix_with_one_thousand_invested_and_banked(self):
+    def test_first_fresh_tick_creates_three_by_eight_matrix_and_debits_realistic_execution_costs(self):
         result = self.seed("tick-1")
 
         self.assertEqual(result["ledger"]["schema_version"], 4)
@@ -132,9 +132,10 @@ class AutonomousPaperEngineTests(unittest.TestCase):
         for book in result["ledger"]["books"]:
             summary = self.engine.summarize_book(book)
             self.assertEqual(summary["starting_balance"], 2000.0)
-            self.assertEqual(summary["cash_balance"], 1000.0)
             self.assertEqual(summary["gross_paper_exposure"], 1000.0)
-            self.assertEqual(summary["equity"], 2000.0)
+            self.assertGreater(summary["transaction_costs"], 0.0)
+            self.assertAlmostEqual(summary["cash_balance"], 1000.0 - summary["transaction_costs"], delta=0.03)
+            self.assertAlmostEqual(summary["equity"], 2000.0 - summary["transaction_costs"], delta=0.03)
             self.assertTrue(book["initial_allocation_complete"])
             accepted = [
                 decision
@@ -225,7 +226,10 @@ class AutonomousPaperEngineTests(unittest.TestCase):
         for line_id, fraction in expected.items():
             book = next(book for book in result["ledger"]["books"] if book["book_id"] == f"{line_id}__crypto")
             summary = self.engine.summarize_book(book)
-            self.assertAlmostEqual(summary["gross_paper_exposure"], summary["equity"] * fraction, delta=0.1)
+            self.assertLessEqual(
+                abs(summary["gross_paper_exposure"] - summary["equity"] * fraction),
+                summary["transaction_costs"] + 0.1,
+            )
             self.assertTrue(book["positions"])
             self.assertLess(summary["cash_balance"], summary["equity"])
 
@@ -247,7 +251,10 @@ class AutonomousPaperEngineTests(unittest.TestCase):
         for line_id, (fraction, max_positions) in expectations.items():
             book = next(book for book in result["ledger"]["books"] if book["book_id"] == f"{line_id}__crypto")
             summary = self.engine.summarize_book(book)
-            self.assertAlmostEqual(summary["gross_paper_exposure"], summary["equity"] * fraction, delta=0.1)
+            self.assertLessEqual(
+                abs(summary["gross_paper_exposure"] - summary["equity"] * fraction),
+                summary["transaction_costs"] + 0.1,
+            )
             self.assertLessEqual(summary["open_position_count"], max_positions)
 
     def test_explicit_prediction_settlement_can_crash_a_book_and_requires_postmortem(self):
@@ -414,7 +421,8 @@ class AutonomousPaperEngineTests(unittest.TestCase):
         target = next(item for item in result["ledger"]["books"] if item["book_id"] == "standard__crypto")
         summary = self.engine.summarize_book(target)
         self.assertEqual(summary["gross_paper_exposure"], 1000.0)
-        self.assertEqual(summary["cash_balance"], 1000.0)
+        self.assertGreater(summary["transaction_costs"], 0.0)
+        self.assertAlmostEqual(summary["cash_balance"], 1000.0 - summary["transaction_costs"], delta=0.03)
 
     def test_zero_equity_book_crashes_even_before_initial_allocation_completed(self):
         ledger = self.engine.default_ledger(self.now)
@@ -631,17 +639,21 @@ class AutonomousPaperEngineTests(unittest.TestCase):
             run_idempotency_key="prediction-rebalance",
         )
         expected = {
-            "standard__prediction_markets": (1600.0, 400.0),
-            "aggressive__prediction_markets": (1900.0, 100.0),
-            "hyper_aggressive__prediction_markets": (2000.0, 0.0),
+            "standard__prediction_markets": 0.80,
+            "aggressive__prediction_markets": 0.95,
+            "hyper_aggressive__prediction_markets": 1.0,
         }
         summaries = {
             item["book_id"]: self.engine.summarize_book(item)
             for item in result["ledger"]["books"]
         }
-        for book_id, (gross, cash) in expected.items():
-            self.assertAlmostEqual(summaries[book_id]["gross_paper_exposure"], gross, delta=0.05)
-            self.assertAlmostEqual(summaries[book_id]["cash_balance"], cash, delta=0.05)
+        for book_id, fraction in expected.items():
+            summary = summaries[book_id]
+            self.assertLessEqual(
+                abs(summary["gross_paper_exposure"] - summary["equity"] * fraction),
+                summary["transaction_costs"] + 0.1,
+            )
+            self.assertAlmostEqual(summary["cash_balance"], summary["equity"] - summary["gross_paper_exposure"], delta=0.05)
 
 
     def test_rejects_malformed_idempotency_state_and_run_keys(self):

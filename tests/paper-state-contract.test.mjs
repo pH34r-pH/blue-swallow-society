@@ -45,7 +45,7 @@ test('Python canonical producer and VM persistence validator share one executabl
   });
   assert.equal(produced.status, 0, produced.stderr);
   const state = JSON.parse(produced.stdout);
-  assert.equal(state.schema_version, 'bss.paper_state.v2');
+  assert.equal(state.schema_version, 'bss.paper_state.v3');
   assert.equal(state.ledger.schema_version, 4);
   assert.equal(state.ledger.books.length, 24);
   assert.doesNotThrow(() => validatePaperState(state, Date.parse(state.generated_at)));

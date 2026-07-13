@@ -70,7 +70,7 @@ class PaperSyncTests(unittest.TestCase):
             opener=opener,
         )
 
-        self.assertEqual(envelope["schema_version"], "bss.paper_state.v2")
+        self.assertEqual(envelope["schema_version"], "bss.paper_state.v3")
         self.assertTrue(envelope["autonomous_execution"])
         self.assertNotIn("private_note", envelope["ledger"]["archived_books"][0])
         self.assertEqual(envelope["ledger"]["books"], ledger["books"])
@@ -114,6 +114,25 @@ class PaperSyncTests(unittest.TestCase):
         ]
         with self.assertRaisesRegex(ValueError, "capped at 64"):
             module.build_paper_state(ledger, summaries, actions, [], now, recent_trades=too_many)
+
+        bad_fill = json.loads(json.dumps(recent_trades[0]))
+        bad_fill["total_transaction_cost"] = 999
+        with self.assertRaisesRegex(ValueError, "must equal"):
+            module.build_paper_state(ledger, summaries, actions, [], now, recent_trades=[bad_fill])
+
+        bad_summaries = json.loads(json.dumps(summaries))
+        bad_summaries[0]["fees_paid"] = -1
+        with self.assertRaisesRegex(ValueError, "nonnegative"):
+            module.build_paper_state(ledger, bad_summaries, actions, events, now, recent_trades=recent_trades)
+
+        with self.assertRaisesRegex(module.PaperSyncError, "URL/systemd-safe"):
+            module.sync_paper_state(
+                "https://backend.test:8080/api/v1/paper/state",
+                "padded-paper-state-token-value===",
+                "tick-4",
+                envelope,
+                opener=opener,
+            )
 
     def test_token_file_must_be_owner_only_regular_file(self):
         module = load_module()

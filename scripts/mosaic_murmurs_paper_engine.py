@@ -22,6 +22,16 @@ EQUITY_MARK_MAX_AGE_HOURS = 96.0
 LEGACY_BOOK_IDS = ["prediction_markets", "crypto", "equity_watch", "local_event_watch", "ai_cyber_watch"]
 INSTRUMENT_TYPES = {"crypto", "equity", "prediction_market"}
 IDEMPOTENCY_KEY_RE = re.compile(r"^[A-Za-z0-9._:~-]{1,200}$")
+COST_MODEL_VERSION = "bss.execution_costs.v1"
+COST_ASSUMPTION_SOURCE = "bss_tradesight_research_v1"
+COST_BPS_FIELDS = ("fee_bps", "half_spread_bps", "slippage_bps", "market_impact_bps", "latency_bps")
+DEFAULT_EXECUTION_COSTS: dict[str, dict[str, float]] = {
+    # Conservative paper assumptions. Explicit adapter/broker schedules may override
+    # each field, but malformed overrides fail closed rather than becoming free fills.
+    "crypto": {"fee_bps": 20.0, "half_spread_bps": 10.0, "slippage_bps": 10.0, "market_impact_bps": 5.0, "latency_bps": 5.0},
+    "equity": {"fee_bps": 0.0, "half_spread_bps": 2.0, "slippage_bps": 5.0, "market_impact_bps": 2.0, "latency_bps": 1.0},
+    "prediction_market": {"fee_bps": 0.0, "half_spread_bps": 25.0, "slippage_bps": 10.0, "market_impact_bps": 5.0, "latency_bps": 10.0},
+}
 
 AGGRESSION_PROFILES: list[dict[str, Any]] = [
     {
@@ -222,6 +232,13 @@ def _new_book(spec: dict[str, Any], now: datetime) -> dict[str, Any]:
         "initial_allocation_at": None,
         "positions": [],
         "realized_pnl": 0.0,
+        "fees_paid": 0.0,
+        "spread_costs": 0.0,
+        "slippage_costs": 0.0,
+        "market_impact_costs": 0.0,
+        "latency_costs": 0.0,
+        "transaction_costs": 0.0,
+        "turnover_notional": 0.0,
         "equity": TOTAL_STARTING_BALANCE,
         "previous_equity": TOTAL_STARTING_BALANCE,
         "high_water_mark": TOTAL_STARTING_BALANCE,
@@ -261,6 +278,12 @@ def _strict_number(value: Any, label: str, *, minimum: float | None = None, maxi
     if maximum is not None and number > maximum:
         raise ValueError(f"{label} must be at most {maximum}")
     return number
+
+
+def _migrated_nonnegative_amount(book: dict[str, Any], field: str) -> float:
+    if field not in book:
+        return 0.0
+    return money(_strict_number(book[field], field, minimum=0.0))
 
 
 def _valid_idempotency_key(value: Any) -> bool:
@@ -399,9 +422,18 @@ def migrate_ledger(raw: dict[str, Any] | None, now: datetime | None = None) -> d
         cash_balance = money(raw_cash_balance)
         equity = money(cash_balance + gross)
         high_water = max(to_float(old.get("high_water_mark"), TOTAL_STARTING_BALANCE), TOTAL_STARTING_BALANCE, equity)
-        initial_complete = bool(old.get("initial_allocation_complete")) or gross >= INITIAL_INVESTMENT_CAPITAL - 0.01
+        initial_complete = bool(old.get("initial_allocation_complete")) or money(sum(position["cost_basis"] for position in positions)) >= INITIAL_INVESTMENT_CAPITAL - 0.01
         profile = PROFILE_BY_ID[spec["line_id"]]
         postmortem_required = bool(old.get("postmortem_required")) or str(old.get("status")) == "crashed"
+        cost_counters = {
+            field: _migrated_nonnegative_amount(old, field)
+            for field in ("fees_paid", "spread_costs", "slippage_costs", "market_impact_costs", "latency_costs")
+        }
+        transaction_costs = _migrated_nonnegative_amount(old, "transaction_costs")
+        turnover_notional = _migrated_nonnegative_amount(old, "turnover_notional")
+        component_total = money(sum(cost_counters.values()))
+        if "transaction_costs" in old and abs(transaction_costs - component_total) > 0.02:
+            raise ValueError("transaction_costs must equal cumulative execution-cost components")
         book = {
             **old,
             "book_id": spec["book_id"],
@@ -429,6 +461,9 @@ def migrate_ledger(raw: dict[str, Any] | None, now: datetime | None = None) -> d
             "initial_allocation_at": old.get("initial_allocation_at"),
             "positions": positions,
             "realized_pnl": money(old.get("realized_pnl", old.get("closed_pnl", 0.0))),
+            **cost_counters,
+            "transaction_costs": transaction_costs,
+            "turnover_notional": turnover_notional,
             "equity": equity,
             "previous_equity": money(old.get("previous_equity", old.get("equity", equity))),
             "high_water_mark": money(high_water),
@@ -511,6 +546,13 @@ def summarize_book(book: dict[str, Any]) -> dict[str, Any]:
         "daily_pnl": daily,
         "daily_pnl_pct": round((daily / previous_equity * 100.0) if previous_equity else 0.0, 4),
         "realized_pnl": realized,
+        "fees_paid": money(book.get("fees_paid")),
+        "spread_costs": money(book.get("spread_costs")),
+        "slippage_costs": money(book.get("slippage_costs")),
+        "market_impact_costs": money(book.get("market_impact_costs")),
+        "latency_costs": money(book.get("latency_costs")),
+        "transaction_costs": money(book.get("transaction_costs")),
+        "turnover_notional": money(book.get("turnover_notional")),
         "unrealized_pnl": unrealized,
         "cumulative_pnl": cumulative,
         "cumulative_pnl_pct": round((cumulative / starting * 100.0) if starting else 0.0, 4),
@@ -571,6 +613,10 @@ def instrument_fresh(instrument: dict[str, Any], now: datetime) -> tuple[bool, s
     max_market_age = EQUITY_MARK_MAX_AGE_HOURS if instrument_type == "equity" else FAST_MARK_MAX_AGE_HOURS
     if market_age is None or market_age < 0.0 or (not settled and market_age > max_market_age):
         return False, "stale or future market mark"
+    try:
+        execution_cost_model(instrument)
+    except ValueError as exc:
+        return False, f"invalid execution-cost model: {exc}"
     return True, "fresh mark"
 
 
@@ -709,18 +755,88 @@ def _position_for(book: dict[str, Any], instrument_ref: str) -> dict[str, Any] |
     return next((position for position in book.get("positions", []) if position.get("instrument_ref") == instrument_ref), None)
 
 
+def execution_cost_model(instrument: dict[str, Any]) -> dict[str, Any]:
+    instrument_type = instrument.get("instrument_type")
+    defaults = DEFAULT_EXECUTION_COSTS.get(str(instrument_type))
+    if defaults is None:
+        raise ValueError(f"unsupported execution-cost instrument type: {instrument_type}")
+    model: dict[str, Any] = {"model_version": COST_MODEL_VERSION, "assumption_source": COST_ASSUMPTION_SOURCE}
+    for field in COST_BPS_FIELDS:
+        if field in instrument:
+            value = instrument[field]
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0 or value > 1_000:
+                raise ValueError(f"{field} must be a finite numeric bps value in [0, 1000]")
+            model[field] = float(value)
+        else:
+            model[field] = defaults[field]
+    return model
+
+
+def estimate_round_trip_cost_bps(instrument: dict[str, Any]) -> float:
+    model = execution_cost_model(instrument)
+    return round(2.0 * sum(model[field] for field in COST_BPS_FIELDS), 6)
+
+
+def _execution_breakdown(instrument: dict[str, Any], reference_price: float, gross_notional: float, side: str) -> dict[str, Any]:
+    model = execution_cost_model(instrument)
+    adverse_fields = ("half_spread_bps", "slippage_bps", "market_impact_bps", "latency_bps")
+    adverse_bps = sum(model[field] for field in adverse_fields)
+    multiplier = 1.0 + adverse_bps / 10_000.0 if side == "buy" else max(0.0, 1.0 - adverse_bps / 10_000.0)
+    execution_price = reference_price * multiplier
+    fee_amount = gross_notional * model["fee_bps"] / 10_000.0
+    reference_notional = gross_notional / multiplier if multiplier > 0 else 0.0
+    price_impact_total = abs(gross_notional - reference_notional)
+    component_total_bps = sum(model[field] for field in adverse_fields)
+
+    def component_cost(field: str) -> float:
+        return 0.0 if component_total_bps <= 0 else price_impact_total * model[field] / component_total_bps
+
+    costs = {
+        "cost_model_version": model["model_version"],
+        "cost_assumption_source": model["assumption_source"],
+        "reference_price": round(reference_price, 10),
+        "execution_price": round(execution_price, 10),
+        "gross_notional": money(gross_notional),
+        "fee_amount": money(fee_amount),
+        "spread_cost": money(component_cost("half_spread_bps")),
+        "slippage_cost": money(component_cost("slippage_bps")),
+        "market_impact_cost": money(component_cost("market_impact_bps")),
+        "latency_cost": money(component_cost("latency_bps")),
+    }
+    costs["total_transaction_cost"] = money(
+        costs["fee_amount"] + costs["spread_cost"] + costs["slippage_cost"] + costs["market_impact_cost"] + costs["latency_cost"]
+    )
+    return costs
+
+
+def _record_execution_costs(book: dict[str, Any], costs: dict[str, Any]) -> None:
+    book["fees_paid"] = money(to_float(book.get("fees_paid")) + costs["fee_amount"])
+    book["spread_costs"] = money(to_float(book.get("spread_costs")) + costs["spread_cost"])
+    book["slippage_costs"] = money(to_float(book.get("slippage_costs")) + costs["slippage_cost"])
+    book["market_impact_costs"] = money(to_float(book.get("market_impact_costs")) + costs["market_impact_cost"])
+    book["latency_costs"] = money(to_float(book.get("latency_costs")) + costs["latency_cost"])
+    book["transaction_costs"] = money(to_float(book.get("transaction_costs")) + costs["total_transaction_cost"])
+    book["turnover_notional"] = money(to_float(book.get("turnover_notional")) + costs["gross_notional"])
+
+
 def _execute_buy(book: dict[str, Any], instrument: dict[str, Any], notional: float, decision: dict[str, Any], now: datetime) -> dict[str, Any]:
     before_cash = money(book["cash_balance"])
     mark = to_float(instrument["mark_price"])
-    quantity = notional / mark
+    model = execution_cost_model(instrument)
+    adverse_bps = sum(model[field] for field in COST_BPS_FIELDS if field != "fee_bps")
+    gross_notional = notional * (1.0 + adverse_bps / 10_000.0)
+    costs = _execution_breakdown(instrument, mark, gross_notional, "buy")
+    execution_price = costs["execution_price"]
+    quantity = gross_notional / execution_price
+    total_outlay = money(gross_notional + costs["fee_amount"])
     existing = _position_for(book, instrument["instrument_ref"])
     before_quantity = to_float((existing or {}).get("quantity"))
     if existing:
         old_cost = to_float(existing.get("cost_basis"), before_quantity * to_float(existing.get("entry_price")))
         new_quantity = before_quantity + quantity
         existing["quantity"] = round(new_quantity, 10)
-        existing["cost_basis"] = money(old_cost + notional)
-        existing["entry_price"] = round((old_cost + notional) / new_quantity, 10)
+        existing["cost_basis"] = money(old_cost + total_outlay)
+        existing["entry_price"] = round((old_cost + total_outlay) / new_quantity, 10)
         existing["previous_mark_price"] = to_float(existing.get("mark_price"), mark)
         existing["mark_price"] = round(mark, 10)
         existing["market_value"] = money(new_quantity * mark)
@@ -735,11 +851,11 @@ def _execute_buy(book: dict[str, Any], instrument: dict[str, Any], notional: flo
             "symbol": instrument.get("symbol"),
             "title": instrument.get("title") or instrument.get("symbol") or instrument["instrument_ref"],
             "quantity": round(quantity, 10),
-            "entry_price": round(mark, 10),
+            "entry_price": round(total_outlay / quantity, 10),
             "mark_price": round(mark, 10),
             "previous_mark_price": round(mark, 10),
-            "cost_basis": money(notional),
-            "market_value": money(notional),
+            "cost_basis": total_outlay,
+            "market_value": money(quantity * mark),
             "mark_status": "fresh",
             "source_id": instrument.get("source_id"),
             "source_url": instrument.get("source_url"),
@@ -747,7 +863,8 @@ def _execute_buy(book: dict[str, Any], instrument: dict[str, Any], notional: flo
             "updated_at": iso_z(now),
         }
         book.setdefault("positions", []).append(position)
-    book["cash_balance"] = money(before_cash - notional)
+    book["cash_balance"] = money(before_cash - total_outlay)
+    _record_execution_costs(book, costs)
     book["last_trade_at"] = iso_z(now)
     return {
         "event_id": stable_id("event", decision["decision_id"], "fill"),
@@ -768,25 +885,59 @@ def _execute_buy(book: dict[str, Any], instrument: dict[str, Any], notional: flo
         "generated_at": iso_z(now),
         "paper_only": True,
         "autonomous_execution": True,
+        **costs,
     }
 
 
-def _execute_sell(book: dict[str, Any], instrument: dict[str, Any], notional: float, decision: dict[str, Any], now: datetime) -> dict[str, Any] | None:
+def _execute_sell(
+    book: dict[str, Any],
+    instrument: dict[str, Any],
+    notional: float,
+    decision: dict[str, Any],
+    now: datetime,
+    *,
+    terminal_settlement: bool = False,
+) -> dict[str, Any] | None:
     position = _position_for(book, instrument["instrument_ref"])
     if position is None:
         return None
     mark = to_float(instrument["mark_price"])
     held_quantity = to_float(position.get("quantity"))
     held_market_value = held_quantity * mark
-    sell_quantity = held_quantity if notional >= held_market_value - 0.01 else min(held_quantity, notional / mark)
+    sell_quantity = held_quantity if terminal_settlement or notional >= held_market_value - 0.01 else min(held_quantity, notional / mark)
     if sell_quantity <= 0:
         return None
     before_cash = money(book["cash_balance"])
-    proceeds = sell_quantity * mark
+    if terminal_settlement:
+        execution_price = mark
+        proceeds = sell_quantity * execution_price
+        costs = {
+            "cost_model_version": COST_MODEL_VERSION,
+            "cost_assumption_source": COST_ASSUMPTION_SOURCE,
+            "reference_price": round(mark, 10),
+            "execution_price": round(mark, 10),
+            "gross_notional": money(proceeds),
+            "fee_amount": 0.0,
+            "spread_cost": 0.0,
+            "slippage_cost": 0.0,
+            "market_impact_cost": 0.0,
+            "latency_cost": 0.0,
+            "total_transaction_cost": 0.0,
+        }
+    else:
+        model = execution_cost_model(instrument)
+        adverse_bps = sum(model[field] for field in COST_BPS_FIELDS if field != "fee_bps")
+        execution_price = mark * max(0.0, 1.0 - adverse_bps / 10_000.0)
+        proceeds = sell_quantity * execution_price
+        costs = _execution_breakdown(instrument, mark, proceeds, "sell")
+    net_proceeds = money(proceeds - costs["fee_amount"])
     basis_cost = sell_quantity * to_float(position.get("entry_price"))
     remaining = max(0.0, held_quantity - sell_quantity)
-    book["cash_balance"] = money(before_cash + proceeds)
-    book["realized_pnl"] = money(to_float(book.get("realized_pnl")) + proceeds - basis_cost)
+    book["cash_balance"] = money(before_cash + net_proceeds)
+    realized_pnl = money(net_proceeds - basis_cost)
+    book["realized_pnl"] = money(to_float(book.get("realized_pnl")) + realized_pnl)
+    if not terminal_settlement:
+        _record_execution_costs(book, costs)
     if remaining <= 0.00000001:
         book["positions"] = [entry for entry in book.get("positions", []) if entry is not position]
     else:
@@ -806,8 +957,8 @@ def _execute_sell(book: dict[str, Any], instrument: dict[str, Any], notional: fl
         "instrument_ref": instrument["instrument_ref"],
         "quantity": round(sell_quantity, 10),
         "mark_price": round(mark, 10),
-        "paper_size": money(proceeds),
-        "realized_pnl": money(proceeds - basis_cost),
+        "paper_size": money(sell_quantity * mark),
+        "realized_pnl": realized_pnl,
         "cash_before": before_cash,
         "cash_after": book["cash_balance"],
         "position_quantity_before": round(held_quantity, 10),
@@ -815,6 +966,7 @@ def _execute_sell(book: dict[str, Any], instrument: dict[str, Any], notional: fl
         "generated_at": iso_z(now),
         "paper_only": True,
         "autonomous_execution": True,
+        **costs,
     }
 
 
@@ -852,7 +1004,7 @@ def _settle_terminal_positions(
             risk_passed=True,
             reason="Close the held prediction-market outcome at its explicit terminal settlement mark.",
         )
-        fill = _execute_sell(book, quote, notional, decision, now)
+        fill = _execute_sell(book, quote, notional, decision, now, terminal_settlement=True)
         if fill is not None:
             decisions.append(decision)
             events.append(fill)
@@ -882,13 +1034,21 @@ def _risk_checks(
     if not fresh:
         checks.append(f"stale mark blocked: {freshness_reason}")
         return False, checks
+    try:
+        cost_model = execution_cost_model(instrument)
+    except ValueError as exc:
+        checks.append(f"invalid execution-cost model blocked: {exc}")
+        return False, checks
+    checks.append(f"execution costs: {COST_MODEL_VERSION}")
     if action == "PAPER_BUY" and to_float(instrument.get("mark_price"), 0.0) <= 0:
         checks.append("non-positive marks cannot be bought")
         return False, checks
     if notional > profile["maximum_order_notional"] + 0.01:
         checks.append("order notional exceeds profile maximum")
         return False, checks
-    if action == "PAPER_BUY" and to_float(book.get("cash_balance")) + 0.001 < notional:
+    adverse_bps = sum(cost_model[field] for field in COST_BPS_FIELDS if field != "fee_bps")
+    required_cash = notional * (1.0 + adverse_bps / 10_000.0) * (1.0 + cost_model["fee_bps"] / 10_000.0)
+    if action == "PAPER_BUY" and to_float(book.get("cash_balance")) + 0.001 < required_cash:
         checks.append("insufficient cash")
         return False, checks
     if book.get("postmortem_required") or book.get("status") == "crashed":
@@ -899,8 +1059,8 @@ def _risk_checks(
 
 
 def _seed_book(book: dict[str, Any], instruments: dict[str, dict[str, Any]], now: datetime, run_key: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    current_gross = money(sum(_market_value(position) for position in book.get("positions", [])))
-    remaining_seed_notional = money(max(0.0, INITIAL_INVESTMENT_CAPITAL - current_gross))
+    deployed_cost_basis = money(sum(to_float(position.get("cost_basis")) for position in book.get("positions", [])))
+    remaining_seed_notional = money(max(0.0, INITIAL_INVESTMENT_CAPITAL - deployed_cost_basis))
     if remaining_seed_notional <= 0.01:
         book["initial_allocation_complete"] = True
         book["initial_allocation_at"] = book.get("initial_allocation_at") or iso_z(now)
@@ -943,7 +1103,7 @@ def _seed_book(book: dict[str, Any], instruments: dict[str, dict[str, Any]], now
         decisions.append(decision)
         if passed:
             events.append(_execute_buy(book, instrument, notional, decision, now))
-    book["initial_allocation_complete"] = money(sum(_market_value(position) for position in book.get("positions", []))) >= INITIAL_INVESTMENT_CAPITAL - 0.01
+    book["initial_allocation_complete"] = money(sum(to_float(position.get("cost_basis")) for position in book.get("positions", []))) >= INITIAL_INVESTMENT_CAPITAL - 0.01
     if book["initial_allocation_complete"] and not book.get("initial_allocation_at"):
         book["initial_allocation_at"] = iso_z(now)
     book["status"] = "active" if book["initial_allocation_complete"] else "allocation_blocked"
@@ -1073,6 +1233,12 @@ def _rebalance_book(book: dict[str, Any], instruments: dict[str, dict[str, Any]]
     decisions: list[dict[str, Any]] = []
     events: list[dict[str, Any]] = []
     for action, instrument, notional in orders:
+        if action == "PAPER_BUY":
+            model = execution_cost_model(instrument)
+            adverse_bps = sum(model[field] for field in COST_BPS_FIELDS if field != "fee_bps")
+            cash_multiplier = (1.0 + adverse_bps / 10_000.0) * (1.0 + model["fee_bps"] / 10_000.0)
+            affordable = math.floor((to_float(book.get("cash_balance")) / cash_multiplier) * 100.0) / 100.0
+            notional = min(notional, affordable)
         passed, checks = _risk_checks(book, action, notional, instrument, now)
         decision = _decision(
             run_key=run_key,

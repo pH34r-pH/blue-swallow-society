@@ -25,8 +25,8 @@ function getHeader(req, name) {
 }
 
 function configuredToken() {
-  const token = String(process.env.BSS_CYBERMAP_READ_TOKEN || '').trim();
-  if (!/^[A-Za-z0-9._~+-]{32,256}$/.test(token)) {
+  const token = String(process.env.BSS_PAPER_STATE_TOKEN || '').trim();
+  if (!/^[A-Za-z0-9._~-]{32,256}$/.test(token)) {
     const error = new Error('Paper-state edge authentication is unavailable.');
     error.status = 503;
     throw error;
@@ -34,20 +34,18 @@ function configuredToken() {
   return token;
 }
 
-function requireBearer(req) {
-  const authorization = String(getHeader(req, 'authorization') || '');
-  const match = /^Bearer ([A-Za-z0-9._~+-]{32,256})$/.exec(authorization);
+function requireClientToken(req) {
+  const actual = String(getHeader(req, 'x-blue-swallow-paper-state-token') || '').trim();
   const expected = configuredToken();
-  if (!match) return false;
-  const actualBuffer = Buffer.from(match[1], 'utf8');
+  const actualBuffer = Buffer.from(actual, 'utf8');
   const expectedBuffer = Buffer.from(expected, 'utf8');
   return actualBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
 }
 
 function backendUrl() {
-  const base = String(process.env.BACKEND_CYBERMAP_BASE_URL || '').trim();
+  const base = String(process.env.BACKEND_PAPER_STATE_BASE_URL || process.env.BACKEND_CYBERMAP_BASE_URL || '').trim();
   if (!base) {
-    const error = new Error('BACKEND_CYBERMAP_BASE_URL is not configured.');
+    const error = new Error('BACKEND_PAPER_STATE_BASE_URL is not configured.');
     error.status = 503;
     throw error;
   }
@@ -89,10 +87,10 @@ async function fetchBackend(req, method) {
     method,
     headers: {
       accept: 'application/json',
-      'x-blue-swallow-cybermap-read-token': token,
+      'x-blue-swallow-paper-state-token': token,
     },
   };
-  if (method === 'POST') {
+  if (method === 'PUT') {
     options.headers['content-type'] = 'application/json; charset=utf-8';
     options.headers['idempotency-key'] = idempotencyKey(req);
     options.body = requestBody(req);
@@ -109,13 +107,13 @@ async function fetchBackend(req, method) {
 
 module.exports = async function paperStateProxy(context, req) {
   const method = String(req?.method || 'GET').toUpperCase();
-  if (!['GET', 'POST'].includes(method)) {
-    return sendJson(context, 405, { ok: false, message: 'GET or POST required.' }, { allow: 'GET, POST' });
+  if (!['GET', 'PUT'].includes(method)) {
+    return sendJson(context, 405, { ok: false, message: 'GET or PUT required.' }, { allow: 'GET, PUT' });
   }
 
   try {
-    if (!requireBearer(req)) {
-      return sendJson(context, 401, { ok: false, message: 'Valid paper-state bearer token required.' });
+    if (!requireClientToken(req)) {
+      return sendJson(context, 401, { ok: false, message: 'Valid paper-state client token required.' });
     }
     const response = await fetchBackend(req, method);
     const text = await response.text();

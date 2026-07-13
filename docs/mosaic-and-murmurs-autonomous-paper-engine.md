@@ -78,7 +78,7 @@ The full `$2,000` balance is the book's loss budget. When marked equity reaches 
 
 ## Accounting, sync, and status
 
-Canonical persisted data is snake_case. Ledger schema is `4`; synchronized paper-state schema is `bss.paper_state.v2`.
+Canonical persisted data is snake_case. Ledger schema is `4`; synchronized cost-aware paper-state schema is `bss.paper_state.v3`. The VM accepts legacy `bss.paper_state.v2` snapshots during the rolling upgrade, but new producers emit only v3.
 
 Each book persists line and strategy identity, aggression profile, cash, positions, realized/unrealized P/L, equity, high-water mark, drawdown, prior-close snapshot, crash state, last trade time, and processed idempotency keys. Legacy five-book state is retained under `archived_books`.
 

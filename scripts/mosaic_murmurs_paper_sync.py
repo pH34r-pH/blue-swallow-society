@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 
-SCHEMA_VERSION = "bss.paper_state.v2"
+SCHEMA_VERSION = "bss.paper_state.v3"
 PAPER_LINE_IDS = ["standard", "aggressive", "hyper_aggressive"]
 PAPER_STRATEGY_IDS = [
     "prediction_markets",
@@ -39,7 +39,8 @@ BOOK_KEYS = {
     "book_id", "display_name", "line_id", "line_display_name", "strategy_id", "strategy_display_name", "aggression_profile",
     "loop_affinity", "instrument_type", "strategy", "starting_balance", "cash_balance", "initial_bank_capital",
     "initial_investment_capital", "additional_capital_contribution", "funding_migration_applied", "initial_allocation_complete",
-    "initial_allocation_at", "positions", "realized_pnl", "equity", "previous_equity", "high_water_mark", "max_drawdown_pct",
+    "initial_allocation_at", "positions", "realized_pnl", "fees_paid", "spread_costs", "slippage_costs", "market_impact_costs",
+    "latency_costs", "transaction_costs", "turnover_notional", "equity", "previous_equity", "high_water_mark", "max_drawdown_pct",
     "last_trade_at", "last_decision_at", "status", "postmortem_required", "crashed_at", "crash_reason", "created_at", "updated_at",
 }
 PROFILE_KEYS = {"target_gross_fraction", "max_position_fraction", "target_position_count", "minimum_order_notional"}
@@ -49,7 +50,8 @@ POSITION_KEYS = {
 }
 SUMMARY_KEYS = {
     "book_id", "display_name", "line_id", "line_display_name", "strategy_id", "strategy_display_name", "aggression_profile",
-    "starting_balance", "cash_balance", "realized_pnl", "unrealized_pnl", "gross_paper_exposure", "equity", "daily_pnl",
+    "starting_balance", "cash_balance", "realized_pnl", "fees_paid", "spread_costs", "slippage_costs", "market_impact_costs",
+    "latency_costs", "transaction_costs", "turnover_notional", "unrealized_pnl", "gross_paper_exposure", "equity", "daily_pnl",
     "daily_pnl_pct", "cumulative_pnl", "cumulative_pnl_pct", "drawdown_pct", "max_drawdown_pct", "open_position_count",
     "stale_open_marks", "postmortem_required", "crashed_at", "status",
 }
@@ -61,7 +63,9 @@ ACTION_KEYS = {
 FILL_KEYS = {
     "event_id", "decision_id", "idempotency_key", "book_id", "event_type", "action", "instrument_ref", "quantity",
     "mark_price", "paper_size", "realized_pnl", "cash_before", "cash_after", "position_quantity_before",
-    "position_quantity_after", "generated_at", "paper_only", "autonomous_execution",
+    "position_quantity_after", "generated_at", "paper_only", "autonomous_execution", "cost_model_version",
+    "cost_assumption_source", "reference_price", "execution_price", "gross_notional", "fee_amount", "spread_cost",
+    "slippage_cost", "market_impact_cost", "latency_cost", "total_transaction_cost",
 }
 CRASH_KEYS = {"event_id", "idempotency_key", "book_id", "event_type", "equity", "generated_at", "paper_only", "postmortem_required"}
 MARK_KEYS = {"event_id", "idempotency_key", "event_type", "generated_at", "paper_only", *SUMMARY_KEYS}
@@ -86,6 +90,14 @@ def _finite_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
+def _validate_cost_totals(value: dict[str, Any], label: str) -> None:
+    components = ("fees_paid", "spread_costs", "slippage_costs", "market_impact_costs", "latency_costs")
+    if any(not _finite_number(value.get(field)) or value[field] < 0 for field in (*components, "transaction_costs", "turnover_notional")):
+        raise ValueError(f"{label} execution-cost counters must be finite and nonnegative")
+    if abs(value["transaction_costs"] - sum(value[field] for field in components)) > 0.02:
+        raise ValueError(f"{label} transaction_costs must equal its cumulative components")
+
+
 def _valid_timestamp(value: Any) -> bool:
     if not isinstance(value, str) or not value:
         return False
@@ -94,6 +106,17 @@ def _valid_timestamp(value: Any) -> bool:
     except ValueError:
         return False
     return parsed.tzinfo is not None
+
+
+def _validate_fill_costs(event: dict[str, Any]) -> None:
+    components = ("fee_amount", "spread_cost", "slippage_cost", "market_impact_cost", "latency_cost")
+    numeric = (*components, "total_transaction_cost", "reference_price", "execution_price", "gross_notional")
+    if event.get("cost_model_version") != "bss.execution_costs.v1" or event.get("cost_assumption_source") != "bss_tradesight_research_v1":
+        raise ValueError("paper fill execution-cost provenance is invalid")
+    if any(not _finite_number(event.get(field)) or event[field] < 0 for field in numeric):
+        raise ValueError("paper fill execution-cost fields must be finite and nonnegative")
+    if abs(event["total_transaction_cost"] - sum(event[field] for field in components)) > 0.02:
+        raise ValueError("paper fill total_transaction_cost must equal its components")
 
 
 def _validate_canonical_state_parts(
@@ -127,8 +150,12 @@ def _validate_canonical_state_parts(
         strategy_id = book.get("strategy_id")
         if book_id != f"{line_id}__{strategy_id}" or book_id not in PAPER_BOOK_IDS:
             raise ValueError("paper book matrix identity is invalid")
-        if not all(_finite_number(book.get(field)) for field in ("starting_balance", "initial_bank_capital", "initial_investment_capital", "cash_balance")):
+        if not all(_finite_number(book.get(field)) for field in (
+            "starting_balance", "initial_bank_capital", "initial_investment_capital", "cash_balance", "fees_paid", "spread_costs",
+            "slippage_costs", "market_impact_costs", "latency_costs", "transaction_costs", "turnover_notional",
+        )):
             raise ValueError("paper book accounting fields must be finite numbers")
+        _validate_cost_totals(book, "paper book")
         if book["starting_balance"] != 2000 or book["initial_bank_capital"] != 1000 or book["initial_investment_capital"] != 1000 or book["cash_balance"] < 0:
             raise ValueError("paper book capital contract is invalid")
         if not isinstance(book.get("positions"), list):
@@ -145,8 +172,12 @@ def _validate_canonical_state_parts(
             raise ValueError("every paper summary must reference a canonical book")
         if summary.get("line_id") is not None and summary.get("book_id") != f"{summary.get('line_id')}__{summary.get('strategy_id')}":
             raise ValueError("paper summary matrix identity is invalid")
-        if not all(_finite_number(summary.get(field)) for field in ("starting_balance", "cash_balance", "gross_paper_exposure", "equity")):
+        if not all(_finite_number(summary.get(field)) for field in (
+            "starting_balance", "cash_balance", "gross_paper_exposure", "equity", "fees_paid", "spread_costs",
+            "slippage_costs", "market_impact_costs", "latency_costs", "transaction_costs", "turnover_notional",
+        )):
             raise ValueError("paper summary accounting fields must be finite numbers")
+        _validate_cost_totals(summary, "paper summary")
         summary_ids.append(summary["book_id"])
     if not _has_exact_ids(summary_ids, PAPER_BOOK_IDS):
         raise ValueError("paper summaries must contain all 24 canonical books exactly once")
@@ -163,6 +194,8 @@ def _validate_canonical_state_parts(
             raise ValueError("all paper actions and events must be paper-only and reference canonical books")
         if not _valid_timestamp(item.get("generated_at")):
             raise ValueError("all paper actions and events require timezone-qualified generated_at")
+        if item.get("event_type") == "paper_fill":
+            _validate_fill_costs(item)
     event_ids = [item.get("event_id") for item in recent_trades]
     if any(item.get("event_type") != "paper_fill" for item in recent_trades) or any(not isinstance(event_id, str) or not event_id for event_id in event_ids) or len(set(event_ids)) != len(event_ids):
         raise ValueError("recent paper trades must be unique canonical paper_fill events")
@@ -323,8 +356,8 @@ def sync_paper_state(
         raise PaperSyncError("paper state URL must be an HTTP(S) endpoint without embedded credentials or fragments")
     if parsed.scheme != "https" and not loopback:
         raise PaperSyncError("paper state URL must use HTTPS unless it targets loopback")
-    if not re.fullmatch(r"[A-Za-z0-9._~+:/=-]{32,256}", token or ""):
-        raise PaperSyncError("paper state token must contain 32-256 header-safe characters")
+    if not re.fullmatch(r"[A-Za-z0-9._~-]{32,256}", token or ""):
+        raise PaperSyncError("paper state token must contain 32-256 URL/systemd-safe characters")
     if not re.fullmatch(r"[A-Za-z0-9._:~-]{1,200}", idempotency_key or ""):
         raise PaperSyncError("paper state idempotency key must contain 1-200 URL/header-safe characters")
     try:
@@ -337,11 +370,10 @@ def sync_paper_state(
         data=payload,
         method="PUT",
         headers={
-            "Content-Type": "application/json",
+            "Content-Type": "application/json; charset=utf-8",
             "Accept": "application/json",
-            "Idempotency-Key": idempotency_key,
             "X-Blue-Swallow-Paper-State-Token": token,
-            "User-Agent": "BlueSwallowPaperEngine/1.0 (+https://blueswallow.net)",
+            "Idempotency-Key": idempotency_key,
         },
     )
     try:
