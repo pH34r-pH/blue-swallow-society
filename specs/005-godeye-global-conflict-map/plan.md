@@ -4,7 +4,7 @@
 
 **Goal:** Replace the fixed-zoom hosted Godeye prototype with a safe MapLibre foundation that exposes explicit `cybermap` and `conflicts` views while keeping P0 free of conflict adapter implementations and conflict-data routes.
 
-**Architecture:** Keep the authenticated `/operator` shell and current Cybermap POST read proxy. Add a pure view-state/URL module, one shared MapLibre host, and a namespaced source/layer registry. `cybermap` ports current backend observation behavior first; `conflicts` ships as a strategic world shell with descriptive source-candidate metadata but no adapter callable, endpoint descriptor, or conflict-data fetch path. A follow-on adapter remains prohibited until normalized-contract, license, health, delay, coarsening, and safety gates pass.
+**Architecture:** Keep the authenticated `/operator` shell and browser-facing Cybermap POST read proxy, but replace the coordinate-bearing SWA-to-VM GET translation and caller-controlled clock with a fixed-endpoint POST and server-owned time. Add a pure view-state/URL module, one shared MapLibre host, and a namespaced source/layer registry. `cybermap` ports current backend observation behavior first; `conflicts` ships as a strategic world shell with descriptive source-candidate metadata but no adapter callable, endpoint descriptor, or conflict-data fetch path. A follow-on adapter remains prohibited until normalized-contract, operation-specific license/health, trusted-clock delay, server coarsening, and contextual safety gates pass.
 
 **Tech Stack:** Static HTML/CSS/ES modules, MapLibre GL JS 5.24.0 (exact pin, self-hosted runtime assets), Node 22 built-in test runner, Azure Static Web Apps/Functions, existing VM Node API and PostgreSQL/PostGIS Cybermap spine.
 
@@ -39,7 +39,7 @@ The implementation sequence is test-first:
 
 **Target Platform**: Authenticated Azure Static Web Apps operator shell on modern evergreen desktop/mobile browsers; same-origin Azure Functions proxy to the VM Cybermap API.
 
-**Project Type**: Static web frontend + serverless proxy + VM API; P0 changes are frontend/tests/docs except reproducible MapLibre asset pinning.
+**Project Type**: Static web frontend + serverless proxy + VM API; P0 changes include frontend/tests/docs, reproducible MapLibre asset pinning, Cybermap private-hop hardening, and rollout-gate verification.
 
 **Performance Goals**:
 
@@ -53,13 +53,13 @@ The implementation sequence is test-first:
 
 - public root and decoy behavior remain unchanged and silent;
 - operator auth/token checks remain server-side and fail closed;
-- precise local coordinates remain POST-body data and are not serialized into URL/history;
+- precise local coordinates remain POST-body data on both Cybermap hops and are not serialized into browser/backend URLs or logs; caller clocks are rejected and VM time is server-owned;
 - no browser camera/RF/loopback capture path;
 - no runtime demo/fake map data;
 - no conflict adapter implementation, endpoint descriptor, or conflict-data fetch in P0;
 - no active-force/tactical tracking regardless of zoom;
-- no browser mutation or map-telemetry request; the Cybermap POST remains a semantically read-only bounded query;
-- CSP remains self-hosted for scripts/styles and same-origin for API connections.
+- no browser mutation, analytics, telemetry, endpoint override, or direct third-party map request; Cybermap POSTs remain semantically read-only bounded queries;
+- CSP remains self-hosted for scripts/styles and same-origin for API/basemap connections; basemap provider privacy/license/cache/log-retention gates block rollout.
 
 **Scale/Scope**: Two hosted views; one map host; current Cybermap point/radius parity; one descriptive conflict-candidate registry without adapter callables/endpoints; desktop/tablet/mobile layouts; no conflict ingest or global API in P0.
 
@@ -72,11 +72,11 @@ The implementation sequence is test-first:
 | Current Godeye renderer | `app/operator/main.js:1482-1900` | Extract lifecycle/data concerns, port map rendering to MapLibre, retain temporary rollback flag. |
 | Current map math | `app/operator/map-math.mjs` | Keep only helpers still needed by tests/fallback; MapLibre owns projection/navigation. |
 | Cybermap model | `app/operator/wigle.mjs` | Reuse normalization/filter/provenance behavior until a versioned Cybermap cell/entity contract replaces `accessPoints`. |
-| Cybermap browser proxy | `api/cybermap-viewport/index.js` | Keep token gate, POST-body coordinate rule, 25-5000 m radius clamp, 1-500 row limit, HTTPS VM proxy, and no-store response; add/verify rate-abuse controls and location-free event-class logging before rollout. |
-| VM viewport | `vm/cybermap-api/src/server.mjs`, stores | No P0 route change required; local point/radius path is not used for conflict data. |
+| Cybermap browser proxy | `api/cybermap-viewport/index.js` | Keep token gate, browser POST-body coordinate rule, 25-5000 m radius clamp, 1-500 row limit, HTTPS VM proxy, and no-store response; remove caller `now`/endpoint variability, forward a fixed VM POST body, map failures to bounded local classes, and add effective rate-abuse controls plus location-free event-class logging. |
+| VM viewport | `vm/cybermap-api/src/server.mjs`, `vm/cybermap-api/test/http.test.mjs`, stores | Add the token-gated POST-body read contract, reject unknown fields/caller `now`, use an injected server clock for tests, and disable the coordinate-bearing GET compatibility path before rollout. The local point/radius semantics remain separate from conflict data. |
 | Responsive styles | `app/operator/styles.css` | Add view switch, desktop drawers, tablet collapse, and mobile bottom sheets without changing public CSS. |
 | Security gates | `tests/security-review.test.mjs` | Extend no-public-leak, self-hosted dependency, no-capture, token, and URL privacy assertions. |
-| SWA routing/CSP | `app/staticwebapp.config.json` | Preserve `/operator` behavior and self/same-origin CSP. Add no CDN allowance. |
+| SWA routing/CSP | `app/staticwebapp.config.json` | Preserve `/operator` behavior, remove direct public tile origins, and keep script/style/map traffic self/same-origin. Add no CDN allowance. |
 
 ## Architecture Design
 
@@ -106,25 +106,26 @@ URL rules are exactly those in `docs/godeye-web-architecture.md`:
 
 ### 2. Layer/source registry and fail-closed gate
 
-Create `app/operator/godeye-sources.mjs` with namespaced definitions and one evaluator used before both fetch and render:
+Create `app/operator/godeye-sources.mjs` with namespaced definitions and one descriptive evaluator used before both fetch and render decisions:
 
 ```js
-export function evaluateConflictSourceGate(source, policy, now) {
+export function evaluateConflictSourceGate({ source, operation, trustedNow, context }) {
+  const gates = evaluateAllSixGates({
+    source,
+    operation,       // fetch | materialize | cache | display | export
+    trustedNow,      // server-owned for any enforcing follow-on API
+    context,         // region, audience, record/asset class, requested detail
+  });
   return {
-    enabled: Boolean(
-      source.normalizedContract?.approved
-      && source.license?.approved
-      && source.health?.configured
-      && source.delayPolicy?.approved
-      && source.coarseningPolicy?.approved
-      && source.safetyPolicy?.approved
-    ),
-    reasons: [],
+    eligible: Object.values(gates).every(Boolean),
+    enabled: false, // invariant in P0: no approved integration/adapter/endpoint
+    gates,
+    reasons: failingGateReasons(gates).concat('p0_no_adapter'),
   };
 }
 ```
 
-The real implementation returns all failing reasons. Unknown is failing. P0 conflict definitions contain descriptive metadata only and expose no adapter callable, endpoint descriptor, or enabled toggle. The controller has no conflict fetch operation to invoke.
+The real implementation returns all failing reasons. License is evaluated per operation; `healthy` is required for a new fetch, while `degraded` can only permit already-cached display; `offline`/`unknown` block fetch. Delay compares `not_before` with trusted time. Coarsening proves server-applied minimum radius/grid and zoom generalization. Safety evaluates operation, region, audience, record/asset class, and detail. Unknown is failing. P0 conflict definitions contain descriptive metadata only and expose no adapter callable, endpoint descriptor, or enabled toggle. The controller has no conflict fetch operation to invoke. Any follow-on server must enforce the same decisions independently; client evaluation is not authorization.
 
 Cybermap definitions retain access-risk classes and existing source gates. Conflict definitions use separate record/source-role classes and separate style channels. The registry rejects layer ids whose namespace does not match the active view.
 
@@ -145,7 +146,7 @@ The current renderer remains behind an equivalent checked-in `legacy|maplibre` c
 
 ### 4. Cybermap adapter
 
-`cybermap` uses the current same-origin `POST /api/cybermap/viewport` body contract. Geolocation starts only after the operator activates “Enable location.” Follow updates remain in memory and do not write exact coordinates to URL/history.
+`cybermap` uses the same-origin `POST /api/cybermap/viewport` body contract. The SWA proxy forwards a fixed-endpoint token-gated VM POST with the same bounded fields; both hops reject unknown fields and caller `now`, the VM owns the freshness clock, and bounded local error classes replace reflected upstream text. Geolocation starts only after the operator activates “Enable location.” Follow updates remain in memory and do not write exact coordinates to URL/history.
 
 The adapter maps current `accessPoints` into a namespaced GeoJSON source while preserving:
 
@@ -202,15 +203,15 @@ P0 authorizes no `/api/godeye/*` route signature. A separate feature must define
 
 | Principle / requirement | Status | Evidence / rollout gate |
 |---|---|---|
-| I. Security-First Development | PASS | Allowlist URL/state parsing, server token checks, no conflict adapter path, stale-response invalidation, sanitized failures, and the threat model in `docs/godeye-web-architecture.md`. Tests: T006-T010, T024-T025, T057. |
-| II. Privacy and Anonymity by Design | PASS | Explicit location consent; no browser RF/camera capture or telemetry; exact position stays in memory/POST body and out of URL/history/logs; no persistent client map store. Tests: T006, T009, T024-T025, T032, T057. |
+| I. Security-First Development | PARTIAL | The design requires allowlist state, server tokens, server-owned freshness time, fixed endpoints, bounded failures, and no conflict adapter path. Current proxy clock/error behavior remains a rollout blocker closed by T024/T031/T057/T063. |
+| II. Privacy and Anonymity by Design | PARTIAL | Explicit location consent; no browser capture/analytics; both Cybermap hops become POST-body-only; direct third-party map requests are prohibited. Current VM query strings and OSM browser tiles remain rollout blockers closed by T009/T015-T016/T024-T031/T039/T057/T063. |
 | III. Defense in Depth | PASS | Authenticated proxy, shared fetch/render policy evaluator, server-side follow-on gate requirement, URL allowlist, CSP, and unconditional active-force exclusion. Tests: T007-T009, T016, T024, T046-T049, T057. |
 | IV. Secure Defaults | PASS | `cybermap` default, no automatic geolocation, no P0 conflict adapter/endpoint, unknown gate failure, no demo fallback, no tactical detail. Tests: T006-T010, T040-T044. |
 | V. Continuous Security Monitoring | PARTIAL | P0 adds no browser telemetry backend. T024/T031 must prove sanitized server event-class logging and rate/abuse controls without request bodies, exact locations, backend URLs, ids, or credentials; T063 exercises alert/error paths. |
-| Authentication and Authorization | PARTIAL (inherited) | Current custom short-lived operator token is preserved by scope, while the constitution requires OAuth/OIDC. AAD is reserved in spec 000 but unused by this flow. T060 must verify an approved platform remediation/governance decision before rollout; this feature does not silently waive the mismatch. |
-| Data Protection | PASS | HTTPS backend retained, no new persistent client/conflict storage, self-hosted assets, location/credentials excluded from URL/logs. Tests: T006, T016, T024, T057. |
+| Authentication and Authorization | PARTIAL (inherited) | Current custom token does not satisfy the constitution's OAuth/OIDC requirement and logout does not revoke already issued credentials. T060/T063 must verify an approved platform remediation and server-enforced invalidation before rollout; this feature grants no waiver. |
+| Data Protection | PARTIAL | HTTPS and no new persistent client/conflict storage are retained, but private-hop coordinate URLs and third-party browser tiles must be removed. Tests: T006, T009, T016, T024-T025, T039, T057, T063. |
 | Input Validation and Output Encoding | PASS | Pure allowlist parser, clamped state, text-only copy selectors, stable ids, no endpoint override. Tests: T006, T010, T017, T020, T032-T034. |
-| API Security | PARTIAL | Token, bounds, no-store, POST-body coordinates, HTTPS, timeout, and sanitized response behavior exist. T024/T031 must add or verify effective rate/abuse controls and location-free logging before rollout. No conflict API is authorized. |
+| API Security | PARTIAL | Token, bounds, no-store, HTTPS, and timeout exist. T024/T031 must replace the VM GET/caller clock, reject unknown fields, bound reflected upstream failures, and add effective rate/abuse controls plus location-free logging before rollout. No conflict API is authorized. |
 | Threat Modeling | PASS | `docs/godeye-web-architecture.md` records assets, threats, privacy impact, controls, and required verification. T056 re-checks it against implementation. |
 | Code Review Security Focus | PASS | T060 performs spec/security review before fallback removal; T068 requests human review before merge. |
 | Dependency Management | PARTIAL | T011-T016 pin, lock, self-host, license, and identity-check MapLibre; T059 adds CodeQL and runs dependency/license verification. Rollout is blocked until they pass or a non-runtime advisory is explicitly reviewed. |
@@ -256,7 +257,10 @@ app/operator/
 ├── main.js                                   # modify: nested controller, effects, teardown
 └── styles.css                                # modify: map shell/drawers/sheets/states
 api/_private/operator/shell.html              # modify: accessible two-view shell
-app/staticwebapp.config.json                  # verify/modify only if self asset CSP paths require it
+app/staticwebapp.config.json                  # modify: same-origin map CSP; remove public tile origins
+api/cybermap-viewport/index.js                # modify: fixed VM POST, bounded errors/rate/logs
+vm/cybermap-api/src/server.mjs                # modify: POST read, server-owned clock, reject caller now
+vm/cybermap-api/test/http.test.mjs            # modify: private-hop method/clock/privacy contract
 
 tests/
 ├── godeye-view-state.test.mjs                # create
@@ -282,7 +286,7 @@ Write and run failing tests for URL/default/history safety, source gate complete
 
 ### Phase 2: Reproducible map dependency
 
-Add exact `maplibre-gl@5.24.0` pin, lockfile, self-host script, committed runtime dist/license, and a test/check that regenerated assets are byte-identical. Do not add CDN origins to CSP.
+Add exact `maplibre-gl@5.24.0` pin, lockfile, self-host script, committed runtime dist/license, and a test/check that regenerated assets are byte-identical. Record the approved self-hosted or same-origin-proxied basemap decision; if none is approved, the view remains unavailable and fallback removal is blocked. Do not add CDN or direct tile origins to CSP.
 
 ### Phase 3: Shared foundation
 
@@ -290,7 +294,7 @@ Implement pure state reducer, URL parser/serializer, layer/source registry, six-
 
 ### Phase 4: Cybermap parity
 
-Port operator location/accuracy and current backend observations to MapLibre. Keep explicit location consent, POST-body coordinates, token headers, bounded refresh, stale/no-data/error states, and no demo fallback. Compare against the current renderer before switching the default.
+Port operator location/accuracy and current backend observations to MapLibre. Keep explicit location consent, fixed-endpoint POST-body coordinates on both hops, token headers, server-owned freshness time, bounded errors/refresh, stale/no-data/error states, and no demo fallback. Compare against the current renderer before switching the default.
 
 ### Phase 5: Conflict shell and responsive UI
 
@@ -306,7 +310,7 @@ Do not implement source adapters, endpoint descriptors, or `/api/godeye/*` route
 
 ## Complexity Tracking
 
-No constitution violation is accepted. The additional pure modules and shared map host are the minimum separation needed to prevent URL/history logic, source safety gates, and MapLibre side effects from being tangled in the existing 1,900-line `main.js`. The conflict registry is descriptive metadata only and intentionally data-free; building adapters now would violate secure defaults and YAGNI. The inherited OAuth/OIDC mismatch remains a documented rollout gate rather than an implicit exception.
+No constitution violation is accepted. The additional pure modules and shared map host are the minimum separation needed to prevent URL/history logic, source safety gates, and MapLibre side effects from being tangled in the existing 1,900-line `main.js`. The conflict registry is descriptive metadata only and intentionally data-free; building adapters now would violate secure defaults and YAGNI. The inherited OAuth/OIDC and session-invalidation mismatch remains a documented rollout gate rather than an implicit exception.
 
 ## Verification
 
@@ -319,4 +323,4 @@ git diff --check
 graphify update .
 ```
 
-Browser verification must cover 320, 768, 1024, and 1440 px widths; keyboard-only view/layer/inspector navigation; reduced motion; location denial; source outage; slow stale response after view switch; Back/Forward; logout/session expiry; and the P0 conflict shell with zero conflict callables, endpoint descriptors, requests, or event/force geometry. Security verification also requires dependency/SAST scanning plus authenticated DAST/manual abuse cases for auth, bounds, URL privacy, logging, and error handling.
+Browser verification must cover 320, 768, 1024, and 1440 px widths; keyboard-only view/layer/inspector navigation; reduced motion; location denial; source outage; slow stale response after view switch; Back/Forward; logout/session expiry and credential invalidation; same-origin-only basemap traffic; and the P0 conflict shell with zero conflict callables, endpoint descriptors, requests, or event/force geometry. Security verification also requires dependency/SAST scanning plus authenticated DAST/manual abuse cases for auth, bounds, server-owned freshness time, URL/private-hop privacy, logging, and bounded error handling.

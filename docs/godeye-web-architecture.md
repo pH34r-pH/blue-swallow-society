@@ -11,9 +11,9 @@ Godeye is a web-only, semantically read-only map surface inside the authenticate
 - `cybermap`: managed RF/cyber observations and derived Cybermap context;
 - `conflicts`: a strategic global conflict picture. P0 contains descriptive source-candidate metadata but no conflict adapter implementation, callable, endpoint descriptor, or conflict-data fetch path. A follow-on adapter remains prohibited until its source passes the contract, license, health, delay/coarsening, and safety gates in this document.
 
-The Blue Swallow Wardriver Android app remains the RF capture, local sensor, camera, and RaID work surface. Godeye does not scan Wi-Fi/BLE/cell, ingest browser camera frames, recreate RaID, contact a phone loopback bridge, mutate Cybermap/conflict records, or emit browser map telemetry. The authenticated `POST /api/cybermap/viewport` call is a bounded read query whose body protects precise coordinates from URL/history leakage; it is not a write operation.
+The Blue Swallow Wardriver Android app remains the RF capture, local sensor, camera, and RaID work surface. Godeye does not scan Wi-Fi/BLE/cell, ingest browser camera frames, recreate RaID, contact a phone loopback bridge, mutate Cybermap/conflict records, emit analytics, or contact third-party map hosts from the browser. Browser map traffic is limited to same-origin authenticated/bounded data reads and a same-origin basemap service or self-hosted tiles. The authenticated `POST /api/cybermap/viewport` call is a bounded read query whose body protects precise coordinates from browser URL/history leakage; it is not a write operation.
 
-The two views share a MapLibre map host and navigation shell, but not a merged ontology. Cybermap access-risk colors describe source legality and action risk. Conflict type, severity, verification, and freshness are separate fields and visual channels.
+The two views share a MapLibre map host and navigation shell, but not a merged ontology. Cybermap signal strength and access/collection risk are separate fields and visual channels; access risk describes source legality and action risk. Conflict type, severity, verification, and freshness are separate again and never reuse either Cybermap channel as semantic shorthand.
 
 ## Sources of truth
 
@@ -29,7 +29,7 @@ The paper-engine doctrine contributes one operational rule: missing, stale, or p
 
 ## Current-state baseline
 
-The current operator shell has one top-level Godeye tab. `app/operator/main.js` renders fixed-zoom OpenStreetMap raster tiles at zoom 15, centers on the browser geolocation fix, reads `/api/cybermap/viewport`, and renders Wi-Fi-shaped `accessPoints` within 100 metres. The current API is a token-gated same-origin `POST`; precise coordinates are accepted only in the request body and are rejected in URL query parameters.
+The current operator shell has one top-level Godeye tab. `app/operator/main.js` renders fixed-zoom OpenStreetMap raster tiles at zoom 15, centers on the browser geolocation fix, reads `/api/cybermap/viewport`, and renders Wi-Fi-shaped `accessPoints` within 100 metres. The browser-facing API is a token-gated same-origin `POST`; precise coordinates are accepted only in that request body and are rejected in browser URL query parameters. The current SWA proxy still translates them into VM `GET` query parameters and accepts an optional caller-supplied `now`; P0 must replace that private hop with a POST-body read and a server-owned clock before rollout.
 
 This is the Cybermap prototype to preserve during migration, not the architecture for conflict data. The current point/radius response has a 5 km maximum and 500-row limit. World and country conflict reads require separate bbox/vector-tile contracts and never reuse `accessPoints`.
 
@@ -39,16 +39,16 @@ P0 handles an operator's optional precise location, authenticated map state, man
 
 | Threat / privacy risk | P0 control | Required verification |
 |---|---|---|
-| Exact operator location leaks through URL, history, logs, analytics, or error text | Cybermap coordinates exist only in memory and the authenticated POST body; URL parsing rejects them; browser telemetry is prohibited; server logs use bounded event classes without request bodies or backend URLs | URL/privacy tests, log-spy tests, manual history/network/error inspection |
+| Exact operator location leaks through URL, history, browser-to-VM query strings, third-party tiles, logs, analytics, or error text | Cybermap coordinates exist only in memory and authenticated POST bodies on both browser-to-SWA and SWA-to-VM hops; URL parsing rejects them; the browser contacts no third-party map host; server logs use bounded event classes without request bodies or backend URLs | URL/privacy tests, private-hop method tests, log-spy tests, manual history/network/error inspection |
 | Stale async response crosses views or operator sessions | Per-view request generations, abort on switch/logout, and atomic replacement of the last policy-permitted result | Reducer/controller stale-response tests and logout smoke |
 | Disabled source is fetched and hidden only in the client | P0 has no conflict adapter callable or endpoint descriptor; future fetch and render decisions share a fail-closed gate enforced server-side as well as in the read model | Registry shape tests, zero conflict-network-request smoke, follow-on server-policy tests |
 | Public availability is mistaken for reuse permission | Unknown license/export/cache posture fails closed; source candidates remain metadata only | Gate-matrix and license decision review |
-| Zoom or recombination reveals tactical/active-force detail | Strategic zoom ceiling, server coarsening, unconditional active-force exclusion, and no signal-to-event promotion | Table-driven policy tests at every zoom and manual render inspection |
+| Zoom or recombination reveals tactical/active-force detail | `conflicts` camera/detail zoom ceiling of 10, server coarsening, unconditional active-force exclusion, and no signal-to-event promotion | Table-driven policy tests at every zoom boundary and manual render inspection |
 | Retraction, outage, or stale cache appears current | Separate clocks, source-health state, generation replacement, `last verified`, and visible revision status | Lifecycle/inspector tests |
-| Dependency or basemap compromise bypasses CSP/supply-chain controls | Exact MapLibre pin, committed lock, self-hosted assets/license, self-only CSP, asset identity check, dependency/SAST scan | Reproducible vendor check, CSP/security test, dependency audit |
-| Operator gate is bypassed or abused | Existing server token validation remains mandatory; Godeye-reachable APIs require bounded input, sanitized failures, and documented rate/abuse controls | Auth/bounds/rate-limit tests and authenticated DAST/manual abuse smoke |
+| Dependency or basemap compromise bypasses CSP/supply-chain/privacy controls | Exact MapLibre pin, committed lock, self-hosted assets/license, self-only browser CSP, same-origin basemap delivery, provider license/privacy/log-retention review, asset identity check, dependency/SAST scan | Reproducible vendor check, CSP/network security test, provider decision, dependency audit |
+| Operator gate is bypassed, abused, or remains usable after logout | Server token validation remains mandatory; Godeye-reachable APIs require bounded input, bounded local error classes, documented rate/abuse controls, and session invalidation | Auth/bounds/rate-limit/revocation tests and authenticated DAST/manual abuse smoke |
 
-Privacy impact is minimized by explicit location consent, no automatic geolocation prompt, no raw browser capture, no localStorage map state, no exact location in URL/history/logs, no new analytics identity, and teardown on logout/session expiry. The existing custom operator-token flow is inherited rather than expanded; its alignment with the constitution's OAuth/OIDC requirement remains a platform governance gate and is not silently waived by this feature.
+Privacy impact is minimized by explicit location consent, no automatic geolocation prompt, no raw browser capture, no localStorage map state, no exact location in URL/history/logs, no direct browser request to a third-party tile host, no new analytics identity, and teardown on logout/session expiry. The existing custom operator-token flow is inherited rather than expanded; its alignment with the constitution's OAuth/OIDC and session-invalidation requirements remains a platform governance/remediation gate and is not silently waived by this feature.
 
 ## Hosted surface and URL contract
 
@@ -59,7 +59,7 @@ Canonical deep links:
 ```text
 /operator?tab=godeye&view=cybermap
 /operator?tab=godeye&view=cybermap&region=pnw&z=8&layers=cybermap.cells
-/operator?tab=godeye&view=conflicts&region=global&z=2&layers=conflicts.registry
+/operator?tab=godeye&view=conflicts&region=global&z=2
 /operator?tab=godeye&view=conflicts&region=ukraine&from=2026-06-01T00:00:00Z&to=2026-07-01T00:00:00Z
 ```
 
@@ -70,7 +70,7 @@ Allowed query keys:
 | `tab` | Must be `godeye` for this surface. Other values use the existing top-level tab contract. |
 | `view` | `cybermap` or `conflicts`; missing or invalid values normalize to `cybermap`. |
 | `region` | Stable, allowlisted preset id such as `global`, `ukraine`, `iran-middle-east`, or a policy-approved Cybermap region. |
-| `z` | Finite map zoom clamped to the active view's allowed range. |
+| `z` | Finite map zoom clamped to `0-20` for `cybermap` and `0-10` for `conflicts`; zoom above 10 never requests or reveals additional conflict detail. |
 | `layers` | Comma-separated stable layer ids from the active view registry. Unknown, disabled, or cross-view ids are discarded. |
 | `from`, `to`, `at` | RFC 3339 conflict time range or assessment effective time. Ignored by layers that do not support time. |
 | `feature` | Stable, URL-safe strategic/conflict id only. Local RF identifiers, SSIDs, BSSIDs, device ids, private source ids, and active-force ids are never serialized. |
@@ -94,8 +94,8 @@ History behavior:
 | P0 availability | Enabled | Shell enabled; source candidates are descriptive metadata only, with no conflict adapter/fetch path |
 | Default view | Yes | No |
 | Default viewport | Valid deep link, then current in-memory state, else a neutral map with “Choose a place or enable location” | `region=global`, 2D north-up world view |
-| Default layers | Basemap, operator location only after consent, permitted Cybermap cells/observations | Basemap and disabled-source status; strategic registry only after its gate passes |
-| Existing read path | `POST /api/cybermap/viewport` -> `GET /api/v1/cybermap/viewport` | None in P0; no `/api/godeye/*` contract or route is authorized |
+| Default layers | Basemap, operator location only after consent, permitted Cybermap cells/observations | Basemap and disabled-source status only; P0 has no enabled strategic registry layer |
+| Read path | Current: `POST /api/cybermap/viewport` -> VM `GET`; required before rollout: fixed-endpoint `POST` -> VM `POST`, both body-only, with server-owned time | None in P0; no `/api/godeye/*` contract or route is authorized |
 | Detail model | Source class, observed/last seen, freshness, confidence radius, retention, provenance, caveats | Record class, provider-native type, verification dimensions, four clocks, geometry precision, safety policy, license, revisions |
 | Capture | None | None |
 
@@ -184,7 +184,7 @@ app/operator/styles.css
 
 One MapLibre instance survives view switches. Switching views removes the previous registry's sources/layers and reconciles the next registry atomically. Layer ids are namespaced (`cybermap.*`, `conflicts.*`) so data and style channels cannot collide.
 
-The current manual tile renderer remains available behind a temporary rollback flag until Cybermap parity tests pass, then is removed. Runtime assets are self-hosted under the existing CSP; no third-party script/style CDN is introduced. Basemap provider/attribution is separately licensed and the public `tile.openstreetmap.org` service is not treated as an unlimited production backend.
+The current manual tile renderer remains available behind a temporary rollback flag until Cybermap parity tests pass, then is removed. Runtime assets are self-hosted under the existing CSP; no third-party script/style CDN is introduced. P0 browser CSP permits only same-origin map traffic. Basemap tiles are either self-hosted or served through a bounded same-origin service after provider license, attribution, privacy, cache, rate-limit, and log-retention review; the browser never contacts `tile.openstreetmap.org` or another third-party tile host directly.
 
 ## Cybermap source classes
 
@@ -225,27 +225,27 @@ Source-role classes are taxonomy-only in P0; none names or configures an adapter
 | `media_signal` | Murmurs | GDELT | Metadata only; no adapter |
 | `strategic_reference` | External context/link | CFR, CrisisWatch, War WATCH, Liveuamap references | Link-only after review; no scraped geometry |
 
-No source adapter may be implemented or registered until all six gates pass and the evidence is committed with the follow-on feature:
+No source adapter may be implemented or registered until all six gates pass for the requested operation and context and the evidence is committed with the follow-on feature:
 
-1. **Normalized contract:** versioned schema covers record class, geometry basis/precision, four clocks, provider-native taxonomy, verification dimensions, provenance, revision, license, health, and safety fields.
-2. **License:** display, caching, attribution, export, and redistribution posture are explicit; unknown is a failing state.
-3. **Source health:** latency SLA/cadence, last success, last failure, coverage gaps, and stale threshold exist.
-4. **Delay:** region/source-specific `not_before` policy is enforced before materialization and response.
-5. **Coarsening:** minimum spatial precision and zoom generalization are enforced server-side; the client is not trusted to hide exact data.
-6. **Safety:** policy allows the record class, region, actor/asset type, audience, and requested detail level.
+1. **Normalized contract:** versioned schema covers record class, geometry basis/uncertainty, four clocks, provider-native taxonomy, verification dimensions, provenance, revision, license, health, and safety fields.
+2. **License:** the requested operation (`fetch`, `materialize`, `cache`, `display`, or `export`) and its attribution/redistribution posture are explicitly allowed; unknown is a failing state.
+3. **Source health:** latency SLA/cadence, last success, last failure, coverage gaps, and stale threshold exist. `healthy` is required for a new fetch; `degraded` may permit already-cached display only; `offline` and `unknown` block new fetches.
+4. **Delay:** region/source-specific `not_before` is compared with a trusted server clock before materialization and response. Caller-supplied clocks never satisfy this gate.
+5. **Coarsening:** server-applied minimum coarsening radius/grid and zoom generalization satisfy the requested detail ceiling; the client is not trusted to hide exact data.
+6. **Safety:** policy allows the operation, record class, region, actor/asset type, audience, and requested detail level.
 
-A degraded source may show previously cached records only when license, delay, coarsening, and safety still permit them; the UI marks the layer stale and does not call it live.
+Gate evaluation returns every failing reason. P0 may report whether descriptive metadata is policy-eligible, but runtime `enabled` remains false because there is no approved integration, adapter callable, or endpoint. A degraded source may show previously cached records only when operation-specific license, delay, coarsening, and safety still permit them; the UI marks the layer stale and does not call it live.
 
 ## Strategic zoom and tactical boundary
 
-Zoom is an upper bound on detail, not permission by itself:
+Zoom is an upper bound on detail, not permission by itself. The `conflicts` camera clamps to zoom 10; higher input normalizes to 10 and cannot increase data detail:
 
 | Zoom | Allowed conflict representation |
 |---|---|
 | 0-4 | Strategic conflict objects, generalized extents, trend, classification, narrative summary, and latest assessment time. No individual event or force points. |
 | 5-7 | Generalized assessment geometry and server-generated event clusters when license, delay, coarsening, and safety pass. |
-| 8-10 | Individual reported/corroborated/curated events may appear only when every gate passes and geometry precision supports the display. |
-| 11+ | No automatic increase beyond source/policy precision. Exact detail remains coarsened or hidden when required. |
+| 8-10 | Individual reported/corroborated/curated events may appear only when every gate passes and geometry uncertainty/coarsening supports the display. |
+| >10 input | Normalize to 10; do not request or reveal additional conflict detail. |
 
 The following are excluded from hosted Godeye conflict layers regardless of zoom or public availability elsewhere:
 
@@ -265,7 +265,7 @@ Every conflict feature exposes four separate clocks when applicable:
 - `retrieved_at`;
 - `effective_at` / `superseded_at` for assessments.
 
-Verification is multidimensional: occurrence, geolocation, time, actor, classification, magnitude, and basis. Low-precision geometry renders as a radius, area, administrative region, or generalized geometry, not a false exact point. Safety coarsening is stored separately from epistemic uncertainty.
+Verification is multidimensional: occurrence, geolocation, time, actor, classification, magnitude, and basis. Low-precision geometry renders as a radius, area, administrative region, or generalized geometry, not a false exact point. Epistemic uncertainty, safety minimum coarsening, and zoom minimum coarsening remain separately inspectable. The server generates display geometry at the least-detailed applicable bound (for metre-based records, `max(epistemic_uncertainty_meters, safety_minimum_coarsening_meters, zoom_minimum_coarsening_meters)`); equivalent polygon/grid policies must preserve the same monotonic ordering without pretending the causes are interchangeable.
 
 Claims are not overwritten into a single row. Revisions can supersede, dispute, or retract prior claims. Retractions propagate to cached read models and exports. Static assessment geometry always displays `AS OF <effective time>`.
 
@@ -273,7 +273,8 @@ Claims are not overwritten into a single row. Revisions can supersede, dispute, 
 
 The layer registry assigns independent visual channels:
 
-- Cybermap `access_risk`: existing color family plus text/icon label;
+- Cybermap `signal_strength`: existing RF color family plus dBm/band text;
+- Cybermap `access_risk` / `source_class`: separate text/icon/border or explicitly reviewed palette describing legality/action risk, never inferred from signal strength;
 - conflict `event_type`: icon/shape;
 - `verification_status`: border/dash/pattern and text;
 - `severity`: bounded size/weight scale only when methodology exists;
@@ -285,16 +286,22 @@ No state relies on color alone. Legends name the field they encode. Two conflict
 
 ## API boundary
 
-P0 keeps the existing local Cybermap read:
+P0 keeps the existing local Cybermap read semantics while hardening both network hops:
 
 ```text
 POST /api/cybermap/viewport
   body: { lat, lon, radiusMeters, maxAgeMs, limit }
   auth: operator bearer/header token
   cache: no-store
+
+POST /api/v1/cybermap/viewport
+  body: { lat, lon, radiusMeters, maxAgeMs, limit }
+  auth: VM ingest/read token
+  clock: server-owned
+  cache: no-store
 ```
 
-The SWA Function may translate this to the VM's token-gated `GET /api/v1/cybermap/viewport`. Precise local coordinates remain in the POST body and must not be logged or placed in browser URLs.
+The SWA Function forwards to the VM with a fixed configured endpoint; no operator-controlled endpoint is accepted. Precise local coordinates remain in POST bodies on both hops and must not be logged or placed in browser/backend URLs. Both contracts reject unknown fields, including caller-supplied `now`; deterministic tests inject a clock inside the VM process rather than through request input. The legacy coordinate-bearing VM `GET` compatibility path must be disabled before rollout. Upstream status/text is mapped to bounded local error classes and never reflected verbatim.
 
 No `/api/godeye/*` route or conflict-read contract is authorized in P0. A follow-on source feature must define a versioned contract only after the six gates pass. Any eventual country/world read must use bounded bbox/vector-tile responses, server-side clustering/generalization, bounded pagination, explicit source-health metadata, authenticated abuse controls, and sanitized errors. It must never send a full global corpus to the browser or adapt conflict records into the Cybermap `accessPoints` response.
 
@@ -311,12 +318,13 @@ No `/api/godeye/*` route or conflict-read contract is authorized in P0. A follow
 
 The architecture is implemented only when all of these are true:
 
-- `cybermap` and `conflicts` are explicit, accessible, deep-linkable views; `cybermap` is the safe default.
+- `cybermap` and `conflicts` are explicit, accessible, deep-linkable views; `cybermap` is the safe default and `conflicts` clamps to zoom 10.
 - Wardriver/RaID remains the only RF/camera field capture surface; hosted Godeye contains no browser capture path.
 - MapLibre reproduces current Cybermap location, accuracy, observation, provenance, and no-data behavior before the manual renderer is removed.
 - The P0 conflict registry contains no adapter callable or endpoint descriptor and performs zero conflict-data requests; a follow-on adapter cannot render without all six gate decisions.
 - World zoom is strategic-first, and active-force/tactical tracking is excluded regardless of zoom.
 - Loading, refreshing, empty, filtered, unavailable, stale, partial-error, auth-error, and view-error states are distinguishable.
-- URL/history state restores views without serializing precise local field positions, credentials, or local RF identifiers.
-- Access risk, conflict category, verification, severity, precision, and freshness remain separate data and visual dimensions.
+- URL/history and both Cybermap network hops avoid coordinate-bearing URLs; request clocks are server-owned; fixed endpoints, bounded errors, and session invalidation are verified before rollout.
+- Cybermap signal strength, Cybermap access risk, conflict category, verification, severity, precision, and freshness remain separate data and visual dimensions.
+- Browser map traffic stays same-origin; basemap license, privacy, cache, abuse-control, and log-retention gates are closed before production use.
 - Empty or stale data never implies safety, absence of conflict, or current omniscience.

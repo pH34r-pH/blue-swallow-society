@@ -79,7 +79,7 @@ An operator can move from a world overview toward country/regional context while
 
 1. **Given** zoom 0-4, **When** conflict data is available, **Then** only strategic conflict objects, generalized extents, trends, classification, summaries, and assessment times render.
 2. **Given** zoom 5-7, **When** an event set passes every gate, **Then** only server-generated clusters and generalized assessment geometry render.
-3. **Given** zoom 8 or higher, **When** an individual event lacks license, precision, delay/coarsening, or safety approval, **Then** it remains generalized or hidden regardless of zoom.
+3. **Given** zoom 8-10, **When** an individual event lacks license, health, geometry uncertainty/coarsening, delay, or safety approval, **Then** it remains generalized or hidden regardless of zoom; values above 10 normalize to 10 and reveal no additional detail.
 4. **Given** exact current troop, convoy, artillery, air-defence, military-flight, military-ship, or individual combatant data, **When** any conflict view is requested, **Then** the policy excludes it regardless of zoom or public availability elsewhere.
 5. **Given** conflicting assessment geometries, **When** both are permitted, **Then** they remain separate attributed layers and are never silently averaged.
 
@@ -116,6 +116,8 @@ An operator can select a permitted feature and distinguish what was reported, as
 - A feature's precision is worse than the current zoom suggests, or safety coarsening is stricter than epistemic uncertainty.
 - Mobile swipe starts on the map, drawer, inspector, or timeline rather than on the view-switch strip.
 - Browser Back/Forward restores a view after logout or token expiry.
+- A caller supplies `now`, an endpoint override, unknown body fields, or coordinates in either browser/backend URL.
+- A basemap style attempts a direct browser request to a third-party tile, glyph, sprite, or telemetry host.
 - Two providers use the same color or provider-native type but different semantics.
 
 ## Requirements *(mandatory)*
@@ -131,16 +133,16 @@ An operator can select a permitted feature and distinguish what was reported, as
 - **FR-007**: Logout or auth failure MUST abort requests, stop polling/geolocation, clear sensitive view state, and return through the existing operator-gate behavior.
 - **FR-008**: Hosted Godeye MUST NOT scan RF, use the camera, start RaID, capture raw frames, probe private cameras, or contact a device loopback bridge.
 - **FR-009**: The Wardriver Android app MUST remain the RF/cell/BLE capture, camera, local sensor, and RaID field work surface.
-- **FR-010**: Cybermap reads MUST remain token-gated, same-origin browser requests; precise local coordinates MUST be sent in POST bodies and not URL query parameters.
+- **FR-010**: Cybermap reads MUST remain token-gated, same-origin browser requests; browser-to-SWA and SWA-to-VM reads MUST use fixed-endpoint POST bodies, precise local coordinates MUST not enter browser/backend URLs or logs, unknown fields/caller clocks MUST be rejected, and freshness MUST use a server-owned clock.
 - **FR-011**: `cybermap` MUST preserve the current location, accuracy, managed observation, freshness, provenance, caveat, and empty/error behavior before the manual renderer is removed.
 - **FR-012**: Runtime Godeye MUST NOT seed or fall back to demo, synthetic, or fabricated map/feed data; fixtures MAY exist under tests only.
 - **FR-013**: Cybermap source classes MUST retain the existing `green_public`, `green_owned`, `green_authorized`, `owned_device`, `local_observation`, `grey_enrichment`, `orange_exposure`, and `red_restricted` meanings and unlock rules.
-- **FR-014**: Access risk MUST remain separate from conflict event type, strategic severity, verification status, geometry precision, and freshness in data and presentation.
+- **FR-014**: Cybermap signal strength and access risk/source class MUST remain separate from each other and from conflict event type, strategic severity, verification status, geometry precision, and freshness in data and presentation.
 - **FR-015**: Conflict records MUST use separate `strategic_conflict`, `assessment`, `event`, `sensor_signal`, `media_signal`, and `humanitarian_impact` classes and MUST NOT be adapted into the Cybermap `accessPoints` response.
-- **FR-016**: Conflict sources MUST default to disabled and MUST NOT be fetched or rendered until normalized-contract, license, source-health, delay, coarsening, and safety gates all pass.
+- **FR-016**: Conflict sources MUST default to disabled and MUST NOT be fetched, materialized, cached, displayed, or exported until normalized-contract, operation-specific license, operation-specific source-health, trusted-clock delay, server-applied coarsening, and contextual safety gates all pass; P0 runtime enablement MUST remain false even if descriptive metadata appears eligible.
 - **FR-017**: Unknown license posture or unknown safety policy MUST fail closed; public website availability MUST NOT be treated as reuse permission.
 - **FR-018**: World zoom MUST show strategic conflict objects rather than individual events; country/regional zoom MAY show generalized assessments and event clusters only after all gates pass.
-- **FR-019**: Individual event detail MUST be gated by zoom, license, source health, precision, delay/coarsening, safety, and record class; zoom alone MUST NOT authorize detail.
+- **FR-019**: Individual event detail MUST be gated by zoom, operation-specific license, source health, geometry uncertainty, minimum server coarsening, trusted-clock delay, safety context, and record class; `conflicts` MUST clamp to zoom 10 and zoom alone MUST NOT authorize detail.
 - **FR-020**: Exact current active-force positions, inferred routes/targets, and tactical interception/targeting products MUST be excluded regardless of zoom or public availability.
 - **FR-021**: Murmurs media/sensor signals MUST use distinct visual semantics and MUST NOT assert attacks, actors, casualty counts, or targets by themselves.
 - **FR-022**: Conflict features MUST preserve occurred, published, retrieved, effective, and superseded clocks without conflation.
@@ -156,7 +158,8 @@ An operator can select a permitted feature and distinguish what was reported, as
 - **FR-032**: Every semantic state MUST have non-color text/icon/pattern support, keyboard reachability, reduced-motion behavior, and a screen-reader map summary.
 - **FR-033**: P0 MUST NOT add an export control; any follow-on screenshot/export MUST include visible layers, time range, source attribution, `AS OF`, uncertainty, and coarsening context and MUST exclude records whose license/safety policy forbids redistribution.
 - **FR-034**: Any follow-on country/world data path MUST use bounded bbox/vector-tile reads with server-side clustering/generalization and MUST NOT ship the full global corpus to the browser.
-- **FR-035**: Hosted Godeye MUST remain semantically read-only: it MUST NOT mutate Cybermap/conflict records or emit browser map telemetry. The authenticated Cybermap viewport POST MAY carry a bounded read query body only.
+- **FR-035**: Hosted Godeye MUST remain semantically read-only: it MUST NOT mutate Cybermap/conflict records or emit browser analytics/telemetry. The authenticated Cybermap viewport POST MAY carry a bounded read query body only.
+- **FR-036**: Browser map traffic MUST remain same-origin. Basemap tiles/styles/glyphs/sprites MUST be self-hosted or delivered through a bounded same-origin service after license, attribution, privacy, cache, abuse-control, and log-retention review; direct third-party browser tile requests are prohibited.
 
 ### Non-Functional Requirements
 
@@ -167,6 +170,7 @@ An operator can select a permitted feature and distinguish what was reported, as
 - **NFR-005**: Runtime map scripts/styles MUST be self-hosted under the existing CSP; dependency version and license MUST be pinned and auditable.
 - **NFR-006**: The feature MUST pass the repository Python and Node test suites and add focused tests for view state, policy gates, responsive semantics, auth, and no-capture/no-demo invariants.
 - **NFR-007**: Every Godeye-reachable API MUST retain documented authentication, bounds, sanitized logging/errors, and rate/abuse controls; exact map request bodies, backend URLs, and credentials MUST NOT be logged.
+- **NFR-008**: Production rollout MUST remain blocked until the operator auth path has an approved OAuth/OIDC resolution and server-enforced session invalidation that rejects previously issued credentials after logout/expiry.
 
 ### Key Entities
 
@@ -175,7 +179,7 @@ An operator can select a permitted feature and distinguish what was reported, as
 - **LayerDefinition**: stable namespaced id, view, record/source class, source, attribution, min/max zoom, default visibility, legend, freshness policy, health, license, delay, coarsening, safety, and export policy.
 - **SourceHealth**: source id, cadence/SLA, last success/failure, coverage gaps, stale threshold, and healthy/degraded/offline/unknown state.
 - **ConflictClaim**: versioned strategic/event/assessment/signal/impact record with geometry precision, four clocks, taxonomy, actors, verification dimensions, source links, safety, license, and revision.
-- **SafetyPolicy**: audience, region, record/asset class, `not_before`, minimum precision, zoom/detail ceiling, coarsening reason, and visibility result.
+- **SafetyPolicy**: operation, audience, region, record/asset class, `not_before`, trusted-clock basis, safety minimum coarsening radius/grid, zoom/detail ceiling, coarsening reason, and visibility result.
 - **FeatureSelection**: current feature id, inspector state, source/provenance bundle, and whether the id is safe to serialize/export.
 
 ## Success Criteria *(mandatory)*
@@ -184,22 +188,23 @@ An operator can select a permitted feature and distinguish what was reported, as
 
 - **SC-001**: All supported direct-link/default/history test cases select exactly one of `cybermap` or `conflicts`; invalid input resolves to `cybermap` with no unhandled exception.
 - **SC-002**: Automated tests prove zero browser camera/RF/loopback capture paths and zero runtime demo conflict/Cybermap seed paths are introduced.
-- **SC-003**: All six source gates are required by one gate evaluator; a fixture missing any one gate fails closed, and the P0 runtime registry contains zero conflict adapter callables/endpoints and performs zero conflict fetches.
+- **SC-003**: All six source gates are required by one operation/context-aware evaluator; a fixture missing any one gate fails closed with every reason reported, and the P0 runtime registry remains disabled with zero conflict adapter callables/endpoints/fetches even when descriptive metadata is otherwise eligible.
 - **SC-004**: Zoom-policy tests prove 100% of active-force fixtures are excluded at every tested zoom and individual events are hidden whenever any required detail gate fails.
 - **SC-005**: Keyboard tests cover Left/Right/Home/End/Enter/Space and mobile interaction tests prove map-canvas swipes do not switch views.
 - **SC-006**: State tests cover loading, refreshing, no-query empty, zero-result empty, filtered empty, unavailable, stale/degraded, partial error, view error, and auth error with distinct labels/actions.
-- **SC-007**: URL tests prove credentials, source URLs, operator GPS/heading, SSIDs/BSSIDs, local device/source ids, and cross-view layer ids cannot be serialized.
+- **SC-007**: URL/API tests prove credentials, source URLs, operator GPS/heading, SSIDs/BSSIDs, local device/source ids, cross-view layer ids, caller-supplied clocks, endpoint overrides, and exact coordinates in either network URL cannot be accepted or serialized.
 - **SC-008**: MapLibre Cybermap parity tests pass before the manual raster renderer is removed.
 - **SC-009**: At 320 px, 768 px, 1024 px, and 1440 px widths, view controls remain reachable, map is not obscured by default, and auxiliary panels follow the documented responsive contract.
 - **SC-010**: Existing operator, Cybermap, and security behavior has zero detected regressions after implementation, measured by all repository Python and Node tests passing.
-- **SC-011**: Browser/network inspection and automated spies observe zero Godeye mutation or telemetry requests; only the authenticated Cybermap viewport read-query POST is permitted.
+- **SC-011**: Browser/network inspection and automated spies observe zero Godeye mutation, analytics, telemetry, or direct third-party map requests; only authenticated/bounded same-origin data reads and the approved same-origin basemap path are permitted.
+- **SC-012**: Logout/session-expiry tests prove a previously issued operator credential is rejected after invalidation; rollout remains blocked if the inherited auth path cannot provide that guarantee.
 
 ## Assumptions
 
-- The authenticated operator shell, passcode split, server-issued operator token, same-origin API pattern, and public-root silence remain unchanged.
+- The authenticated operator shell, passcode split, same-origin API pattern, and public-root silence remain. The current custom operator-token mechanism may not roll out unchanged unless its OAuth/OIDC and revocation/session-invalidation gates are resolved.
 - `/api/cybermap/viewport` and the VM `/api/v1/cybermap/viewport` remain the bounded local RF read path during P0 migration.
 - MapLibre GL JS 5.24.0 is the initial pinned implementation target; runtime assets are self-hosted and its license is retained.
-- A compliant production basemap provider or self-hosted tile service is selected before global production traffic; public OpenStreetMap tiles are prototype-only.
+- A compliant self-hosted or same-origin-proxied basemap service is selected before P0 production use; public OpenStreetMap tiles are prototype-only and are never requested directly by the production browser.
 - Conflict adapters, endpoint descriptors, databases, and `/api/godeye/*` routes are deferred until the six source gates and a versioned normalized contract exist in a separately approved feature.
 - UCDP, ACLED, GDELT, NASA FIRMS, Liveuamap, Eyes on Russia, DeepStateMap, ISW/CTP, CFR, CrisisWatch, and War WATCH are research candidates/references, not approved runtime integrations.
 
