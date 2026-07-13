@@ -4,37 +4,21 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#050810" />
-    <title>Agent Lab | Blue Swallow Society</title>
+    <meta name="theme-color" content="#111619" />
+    <meta name="description" content="Sealed Blue Swallow Society operator interface handoff." />
+    <title>Blue Swallow Society | Interface Handoff</title>
     <link rel="stylesheet" href="/operator/styles.css" />
   </head>
-  <body>
-    <main class="container agent-shell" role="main" aria-label="Agent laboratory">
-      <section class="panel agent-hero">
-        <p class="eyebrow">// AGENT LAB //</p>
-        <h1>Agent Lab</h1>
-        <p class="lede">Mobile-friendly prompt sandbox for the <code>/api/agent</code> route.</p>
-        <p class="panel-meta">Built to read cleanly on a phone first, with the same cyberpunk shell as the main console.</p>
-      </section>
-
-      <section class="panel tab-panel">
-        <div class="chat-input-area agent-input-area">
-          <label class="visually-hidden" for="prompt">Agent prompt</label>
-          <input
-            id="prompt"
-            class="input"
-            placeholder="Ask the agent..."
-            aria-label="Agent prompt input"
-            autocomplete="off"
-            autocapitalize="none"
-            spellcheck="false"
-            enterkeyhint="send"
-          />
-          <button id="runButton" class="btn btn-primary" type="button" aria-label="Run agent query">RUN</button>
-        </div>
-        <pre id="out" class="agent-output top-space" aria-live="polite" aria-label="Agent response output">Press “Run agent”.</pre>
-      </section>
+  <body data-mode="operator-loader">
+    <main id="agentLoader" class="terminal-screen active" aria-label="Sealed interface handoff">
+      <div class="terminal-container">
+        <section class="terminal-panel panel login-panel" aria-live="polite">
+          <p class="eyebrow">// SEALED INTERFACE //</p>
+          <h1 class="terminal-title">Blue Swallow Society</h1>
+          <p class="terminal-subtitle">Validating operator session.</p>
+        </section>
+      </div>
     </main>
-    <script src="/operator/agent.js" type="module"></script>
+    <script src="/operator/agent-loader.js" type="module"></script>
   </body>
 </html>

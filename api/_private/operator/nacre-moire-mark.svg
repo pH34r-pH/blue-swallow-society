@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="nacre-title nacre-description">
+  <title id="nacre-title">Nacre-Moiré interference mark</title>
+  <desc id="nacre-description">A pearl-toned split shell crossed by disciplined interference lines and a copper register bar.</desc>
+  <defs>
+    <linearGradient id="nacre-iridescence" x1="12" y1="12" x2="84" y2="84" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f1e8d9" />
+      <stop offset="0.34" stop-color="#91b4ad" />
+      <stop offset="0.67" stop-color="#9986a1" />
+      <stop offset="1" stop-color="#c98962" />
+    </linearGradient>
+    <clipPath id="shell-cut">
+      <path d="M17 14h62v55L58 84H17z" />
+    </clipPath>
+  </defs>
+  <path fill="#090c0e" d="M8 8h80v80H8z" />
+  <path fill="#141a1d" stroke="#554f48" stroke-width="2" d="M14 14h65v54L58 82H14z" />
+  <path fill="url(#nacre-iridescence)" d="M23 23h46v38L53 74H23z" opacity="0.94" />
+  <g clip-path="url(#shell-cut)" fill="none" stroke="#0b1012" stroke-width="2.2" opacity="0.78">
+    <path class="moire-line" d="M-4 85C8 38 33 11 79 1" />
+    <path class="moire-line" d="M2 91C14 44 39 17 85 7" />
+    <path class="moire-line" d="M8 97C20 50 45 23 91 13" />
+    <path class="moire-line" d="M14 103C26 56 51 29 97 19" />
+    <path class="moire-line" d="M20 109C32 62 57 35 103 25" />
+    <path class="moire-line" d="M26 115C38 68 63 41 109 31" />
+  </g>
+  <path fill="#090c0e" d="M19 61h42v7H19z" />
+  <path fill="#c98962" d="M61 61h18v7H61z" />
+  <path fill="#f1e8d9" d="M73 18h6v35h-6z" />
+</svg>

@@ -32,9 +32,9 @@ async function withAuthEnv(fn) {
   }
 }
 
-async function invoke(headers = {}) {
+async function invoke(headers = {}, query = {}) {
   const context = { res: null };
-  await handler(context, { headers });
+  await handler(context, { headers, query });
   return context.res;
 }
 
@@ -45,13 +45,41 @@ test('operator shell rejects anonymous requests', async () => {
   });
 });
 
-test('operator shell serves private operator markup only with custom operator token header', async () => {
+test('operator shell serves composed private identity only with custom operator token header', async () => {
   await withAuthEnv(async () => {
     const session = createOperatorToken({ ttlMs: 60_000 });
-    const response = await invoke({ 'x-blue-swallow-operator-token': session.token });
+    const headers = { 'x-blue-swallow-operator-token': session.token };
+    const response = await invoke(headers);
     assert.equal(response.status, 200);
     assert.equal(response.headers['Content-Type'], 'text/html; charset=utf-8');
+    assert.match(response.body, /id="nacre-moire-operator-style"/);
+    assert.match(response.body, /<title[^>]*>Nacre-Moiré interference mark<\/title>/);
     assert.match(response.body, /id="mainInterface"/);
+    assert.match(response.body, /<h1 class="console-heading">Nacre-Moiré<\/h1>/);
     assert.match(response.body, /data-operator-download="apk"/);
+    assert.doesNotMatch(response.body, /\{\{NACRE_MOIRE_MARK\}\}/);
+  });
+});
+
+test('operator shell serves the protected Interface Lab view without exposing the main console', async () => {
+  await withAuthEnv(async () => {
+    const session = createOperatorToken({ ttlMs: 60_000 });
+    const headers = { 'x-blue-swallow-operator-token': session.token };
+    const response = await invoke(headers, { view: 'agent' });
+    assert.equal(response.status, 200);
+    assert.match(response.body, /Nacre-Moiré Interface Lab/);
+    assert.match(response.body, /They are the operator-side persona/);
+    assert.match(response.body, /id="nacre-moire-operator-style"/);
+    assert.match(response.body, /<svg/);
+    assert.doesNotMatch(response.body, /id="mainInterface"/);
+  });
+});
+
+test('operator shell rejects unknown private view selectors after authentication', async () => {
+  await withAuthEnv(async () => {
+    const session = createOperatorToken({ ttlMs: 60_000 });
+    const response = await invoke({ 'x-blue-swallow-operator-token': session.token }, { view: 'unknown' });
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error, 'Unsupported private operator view.');
   });
 });
