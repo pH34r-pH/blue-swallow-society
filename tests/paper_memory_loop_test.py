@@ -25,6 +25,19 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
                 json.dumps(fresh_snapshot(datetime.now(timezone.utc))),
                 encoding="utf-8",
             )
+            state_dir.mkdir(parents=True)
+            (state_dir / "paper-ledger-events.jsonl").write_text(
+                json.dumps(
+                    {
+                        "event_id": "legacy-pre-cost-fill",
+                        "event_type": "paper_fill",
+                        "book_id": "standard__crypto",
+                        "generated_at": "2026-07-12T00:00:00Z",
+                        "paper_only": True,
+                    }
+                ) + "\n",
+                encoding="utf-8",
+            )
 
             result = subprocess.run(
                 [
@@ -75,6 +88,13 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
             self.assertEqual(latest_state["canonical_paper_state"]["schema_version"], "bss.paper_state.v3")
             self.assertEqual(len(latest_state["canonical_paper_state"]["ledger"]["books"]), 24)
             self.assertTrue(latest_state["canonical_paper_state"]["recent_paper_trades"])
+            self.assertNotIn(
+                "legacy-pre-cost-fill",
+                {trade["event_id"] for trade in latest_state["canonical_paper_state"]["recent_paper_trades"]},
+            )
+            self.assertTrue(
+                all(trade["cost_model_version"] == "bss.execution_costs.v1" for trade in latest_state["canonical_paper_state"]["recent_paper_trades"])
+            )
             self.assertEqual(len(latest_state["shadow_strategy_candidates"]), 8)
             self.assertEqual(len(latest_state["shadow_strategy_policies"]), 8)
             self.assertTrue(all(candidate["promotion_state"] == "shadow" for candidate in latest_state["shadow_strategy_candidates"]))

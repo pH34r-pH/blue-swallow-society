@@ -119,6 +119,14 @@ def _validate_fill_costs(event: dict[str, Any]) -> None:
         raise ValueError("paper fill total_transaction_cost must equal its components")
 
 
+def has_valid_execution_cost_attribution(event: dict[str, Any]) -> bool:
+    try:
+        _validate_fill_costs(event)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
 def _validate_canonical_state_parts(
     ledger: Any,
     paper_books: Any,

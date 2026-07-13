@@ -22,7 +22,14 @@ from mosaic_murmurs_market_data import (
     collect_market_snapshot as collect_live_market_snapshot,
     held_prediction_market_ids,
 )
-from mosaic_murmurs_paper_sync import PaperSyncError, build_paper_state, read_token_file, sync_paper_state, validate_paper_state
+from mosaic_murmurs_paper_sync import (
+    PaperSyncError,
+    build_paper_state,
+    has_valid_execution_cost_attribution,
+    read_token_file,
+    sync_paper_state,
+    validate_paper_state,
+)
 from mosaic_murmurs_paper_engine import (
     BOOK_IDS as ENGINE_BOOK_IDS,
     BOOK_SPECS as ENGINE_BOOK_SPECS,
@@ -275,7 +282,11 @@ def recent_paper_fills(
                     event = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if isinstance(event, dict) and event.get("event_type") == "paper_fill":
+                if (
+                    isinstance(event, dict)
+                    and event.get("event_type") == "paper_fill"
+                    and has_valid_execution_cost_attribution(event)
+                ):
                     by_id[str(event.get("event_id") or stable_id("legacy_fill", line))] = event
         except OSError:
             pass
