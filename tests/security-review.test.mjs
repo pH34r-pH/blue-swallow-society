@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
@@ -215,11 +215,22 @@ test('APK downloads are removed from the public static surface and served only b
   assert.ok(operatorShell.includes('/api/operator-downloads/wardriver/apk'));
   assert.ok(operatorShell.includes('/api/operator-downloads/wardriver/metadata'));
   assert.ok(operatorShell.includes('data-operator-download="apk"'));
-  assert.match(operatorShell, /download="blue-swallow-wardriver-2\.109-bss\.1-debug\.apk"/);
+  assert.doesNotMatch(operatorShell, /2\.109-bss\.1|download="[^\"]+\.apk"/);
+  assert.ok(operatorShell.includes('data-operator-release-metadata'));
   assert.ok(operatorMainJs.includes('handleOperatorDownload'));
   assert.ok(operatorMainJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
+  assert.ok(operatorMainJs.includes('hydrateWardriverRelease'));
+  assert.ok(!operatorMainJs.includes('fetch(link.href'));
   assert.ok(operatorDownloadsApi.includes('requireOperatorToken'));
-  assert.ok(operatorDownloadsApi.includes('Content-Disposition'));
+  assert.ok(operatorDownloadsApi.includes('createDownloadUrl'));
+  assert.ok(operatorDownloadsApi.includes('status: 302'));
+});
+
+test('legacy debug APK is absent from Functions content', () => {
+  assert.equal(
+    existsSync(new URL('../api/_private/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk', import.meta.url)),
+    false,
+  );
 });
 
 test('Tzeentch network feeds are lazy-loaded only when the Tzeentch tab is opened', () => {

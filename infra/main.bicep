@@ -160,6 +160,19 @@ module openAiModule 'modules/openai.bicep' = if (deployOpenAi) {
   }
 }
 
+/*
+ * Dedicated private storage for signed Wardriver releases. The public Blob
+ * endpoint serves only short-lived, per-object SAS redirects after the
+ * authenticated Functions gate; the container itself remains non-public.
+ */
+module wardriverReleaseStorage 'modules/wardriver-release-storage.bicep' = {
+  name: 'wardriver-release-storage'
+  params: {
+    prefix: prefix
+    location: location
+  }
+}
+
 output staticWebAppDefaultHostname string = swa.properties.defaultHostname
 output staticWebAppResourceId string = swa.id
 output backendEchoBaseUrl string = vmModule.outputs.backendEchoBaseUrl
@@ -178,6 +191,8 @@ output postgresDatabaseName string = postgresModule.outputs.databaseName
 output postgresSkuName string = postgresModule.outputs.skuName
 output postgresStorageSizeGiB int = postgresModule.outputs.storageSizeGiB
 output postgresGeoRedundantBackup string = postgresModule.outputs.geoRedundantBackup
+output wardriverReleaseStorageAccountName string = wardriverReleaseStorage.outputs.storageAccountName
+output wardriverReleaseContainerName string = wardriverReleaseStorage.outputs.releaseContainerName
 output postgresHighAvailabilityMode string = postgresModule.outputs.highAvailabilityMode
 output openAiDeployed bool = deployOpenAi
 output openAiEndpoint string = deployOpenAi ? openAiModule!.outputs.endpoint : ''
