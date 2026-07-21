@@ -22,6 +22,7 @@ Replace the Functions-bundled debug APK with a private Azure Blob release accoun
 | Dedicated private release account | Limits runtime storage credentials to APK/manifest material only. |
 | No Functions fallback | Prevents stale binary resurrection. Missing/malformed manifest is an explicit 503. |
 | Blob redirect after operator authentication | Keeps BSS gate while avoiding Functions APK memory/bundle limits. |
+| Credential candidate verification | Prefer the explicit BSS header, then signed `HttpOnly` session cookie, then conventional bearer; verify each candidate so a stale cookie or SWA-injected bearer cannot eclipse a valid operator credential. |
 | OIDC uploader, no storage key in CI | Upload authority is short-lived and role-scoped. |
 | New release certificate | Default Android debug key is publicly reproducible and cannot sign a trusted release. |
 | Metadata-only device route | App can report freshness without gaining an artifact URL or operator credential. |

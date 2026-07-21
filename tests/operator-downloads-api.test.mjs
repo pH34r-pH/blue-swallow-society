@@ -169,6 +169,21 @@ test('verified metadata refreshes the navigation cookie from a bearer session', 
   });
 });
 
+test('APK navigation honors a valid operator cookie over an injected platform bearer', async () => {
+  await withSigningKey(async () => {
+    const session = createOperatorToken();
+    const response = await invoke('apk', {
+      headers: {
+        authorization: 'Bearer static-web-apps-platform-token',
+        cookie: `bss_operator_session=${encodeURIComponent(session.token)}`,
+      },
+      dependencies: fakeReleaseStore(),
+    });
+
+    assert.equal(response.status, 302);
+  });
+});
+
 test('release storage failures produce an explicit unavailable response and no stale fallback', async () => {
   await withSigningKey(async () => {
     const session = createOperatorToken();
