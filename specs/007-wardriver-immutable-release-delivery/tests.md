@@ -4,7 +4,7 @@
 
 | Test | Level | Covers | Procedure | Expected result | Planned path |
 |---|---|---|---|---|---|
-| TST-001 | Node unit | FR-002–FR-005, NFR-001/004 | Invoke protected routes with injected store and valid/invalid credentials. | Anonymous requests reject; valid metadata is private/no-store; APK is a bounded HTTPS read redirect, not bytes. | `tests/operator-downloads-api.test.mjs` |
+| TST-001 | Node unit | FR-002–FR-005, NFR-001/004 | Invoke protected routes with injected store and anonymous, conventional bearer, explicit BSS header, signed cookie, and invalid proxy-injected bearer combinations. | Anonymous requests reject; a valid operator credential survives a stale or SWA-injected competing credential; valid metadata is private/no-store; APK is a bounded HTTPS read redirect, not bytes. | `tests/operator-downloads-api.test.mjs` |
 | TST-002 | Node unit | FR-002–FR-004 | Feed malformed manifest/config and invalid blob path cases to the release store. | Explicit unavailable/config error; no legacy file read or arbitrary SAS. | `tests/operator-downloads-api.test.mjs` |
 | TST-003 | Node unit | FR-006, FR-010 | Invoke metadata-only route with a release-store double. | Only version/name/published notes; no blob/source/checksum/signer/download path. | `tests/wardriver-release-current-api.test.mjs` |
 | TST-004 | static/API shell | FR-007, NFR-003 | Inspect operator shell/script. | No hard-coded release version/hash/debug build or static APK filename; authenticated metadata drives facts. | `tests/operator-shell-download.test.mjs` |

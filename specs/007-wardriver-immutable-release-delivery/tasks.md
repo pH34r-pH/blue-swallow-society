@@ -30,3 +30,4 @@
 - [ ] T017 Provision the dedicated release account and least-privilege Wardriver publisher OIDC identity; configure the corresponding GitHub secrets and SWA runtime settings; trace TST-008.
 - [ ] T018 Generate/secure a new release keystore, produce the first tag, retain manifest/blob/run evidence, and complete the first device uninstall/reinstall migration; trace TST-008.
 - [ ] T019 Run `graphify update .` in both repositories, inspect scoped diffs for secrets/unrelated changes, and append verified evidence to the daily log.
+- [x] T020 [US1] Add a proxy-auth collision regression in `tests/operator-downloads-api.test.mjs`, then verify `api/_lib/operator-auth.js` accepts a valid signed cookie when SWA injects an unrelated `Authorization` bearer; trace TST-001.

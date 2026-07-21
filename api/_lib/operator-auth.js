@@ -89,8 +89,8 @@ function requireOperatorToken(context, req) {
 }
 
 function verifyOperatorRequest(req, { now = Date.now() } = {}) {
-  const token = extractBearerToken(req);
-  if (!token) {
+  const tokens = extractOperatorTokens(req);
+  if (tokens.length === 0) {
     return { ok: false, status: 403, error: 'Operator session required.' };
   }
 
@@ -99,6 +99,19 @@ function verifyOperatorRequest(req, { now = Date.now() } = {}) {
     return { ok: false, status: 503, error: 'Operator token signing is not configured.' };
   }
 
+  let failure;
+  for (const token of tokens) {
+    const result = verifyOperatorToken(token, signingKey, now);
+    if (result.ok) {
+      return result;
+    }
+    failure ||= result;
+  }
+
+  return failure;
+}
+
+function verifyOperatorToken(token, signingKey, now) {
   const [encodedPayload, signature, extra] = String(token).split('.');
   if (!encodedPayload || !signature || extra !== undefined) {
     return { ok: false, status: 403, error: 'Invalid operator session token.' };
@@ -127,19 +140,12 @@ function verifyOperatorRequest(req, { now = Date.now() } = {}) {
   return { ok: true, token: payload, rawToken: token };
 }
 
-function extractBearerToken(req) {
+function extractOperatorTokens(req) {
   const explicitOperatorToken = toHeader(req, 'x-blue-swallow-operator-token').trim();
-  if (explicitOperatorToken) {
-    return explicitOperatorToken;
-  }
-
+  const cookieToken = extractCookieValue(toHeader(req, 'cookie'), OPERATOR_SESSION_COOKIE);
   const authorization = toHeader(req, 'authorization');
-  const match = authorization.match(/^Bearer\s+(.+)$/i);
-  if (match) {
-    return match[1].trim();
-  }
-
-  return extractCookieValue(toHeader(req, 'cookie'), OPERATOR_SESSION_COOKIE);
+  const authorizationToken = authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() || '';
+  return [...new Set([explicitOperatorToken, cookieToken, authorizationToken].filter(Boolean))];
 }
 
 function buildOperatorSessionCookie(session) {
