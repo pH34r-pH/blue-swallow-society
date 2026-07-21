@@ -5,9 +5,11 @@ import { IngestError } from './auth.mjs';
 import { ContractError, validateObservationBatch } from './contracts.mjs';
 
 const MAX_BODY_BYTES = 1_048_576;
+const MAX_MORNING_BRIEF_BODY_BYTES = 32 * 1_024 * 1_024;
 const INGEST_PATH = '/api/v1/observations/batch';
 const VIEWPORT_PATH = '/api/v1/cybermap/viewport';
 const PAPER_STATE_PATH = '/api/v1/paper/state';
+const MORNING_BRIEFS_PATH = '/api/v1/morning-briefs';
 const PAPER_LINE_IDS = Object.freeze(['standard', 'aggressive', 'hyper_aggressive']);
 const PAPER_STRATEGY_IDS = Object.freeze([
   'prediction_markets',
@@ -80,6 +82,10 @@ const MAX_PAPER_ACTIONS = 256;
 const MAX_PAPER_EVENTS = 256;
 const PAPER_ACTION_VALUES = new Set(['PAPER_BUY', 'PAPER_SELL', 'WATCH', 'AVOID', 'POSTMORTEM_REQUIRED']);
 const PAPER_TOKEN_RE = /^[A-Za-z0-9._~-]{32,256}$/;
+const MORNING_BRIEF_TOKEN_RE = /^[A-Za-z0-9._~-]{32,256}$/;
+const MORNING_BRIEF_RUN_ID_RE = /^[a-z0-9][a-z0-9-]{2,120}$/;
+const MORNING_BRIEF_ARTIFACT_ID_RE = /^[a-z0-9][a-z0-9-]{1,120}$/;
+const SHA256_RE = /^[a-f0-9]{64}$/;
 const RFC3339_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 export function createCybermapApiServer({ store, now = Date.now, logger = null, ingestDeadlineMs = 5_000 } = {}) {
@@ -115,6 +121,10 @@ export function createRequestHandler({ store, now = Date.now, logger = null, ing
         requirePaperStateToken(request);
         if (request.method === 'GET') return await handlePaperStateRead(response, { store, now });
         return await handlePaperStateWrite(request, response, { store, now });
+      }
+      if (url.pathname === MORNING_BRIEFS_PATH || url.pathname.startsWith(`${MORNING_BRIEFS_PATH}/`)) {
+        requireMorningBriefToken(request);
+        return await handleMorningBriefRequest(request, response, url, { store });
       }
       if (request.method !== 'POST' || url.pathname !== INGEST_PATH) {
         request.resume();
@@ -221,6 +231,147 @@ async function handlePaperStateRead(response, { store, now }) {
     updated_at: current.appliedAt,
     state: current.state,
   });
+}
+
+async function handleMorningBriefRequest(request, response, url, { store }) {
+  if (typeof store.putMorningBrief !== 'function' || typeof store.listMorningBriefs !== 'function'
+      || typeof store.getMorningBrief !== 'function' || typeof store.getMorningBriefArtifact !== 'function') {
+    throw new IngestError('morning_brief_unavailable', 'Morning brief archive is not available.', { statusCode: 503 });
+  }
+  if (request.method === 'POST' && url.pathname === MORNING_BRIEFS_PATH) {
+    return handleMorningBriefWrite(request, response, { store });
+  }
+  if (request.method === 'GET' && url.pathname === MORNING_BRIEFS_PATH) {
+    const requested = Number.parseInt(url.searchParams.get('limit') || '30', 10);
+    const limit = Number.isFinite(requested) ? Math.min(100, Math.max(1, requested)) : 30;
+    return sendJson(response, 200, { ok: true, runs: await store.listMorningBriefs({ limit }) });
+  }
+  const artifactMatch = url.pathname.match(/^\/api\/v1\/morning-briefs\/([a-z0-9][a-z0-9-]{2,120})\/artifacts\/([a-z0-9][a-z0-9-]{1,120})$/);
+  if ((request.method === 'GET' || request.method === 'HEAD') && artifactMatch) {
+    const artifact = await store.getMorningBriefArtifact(artifactMatch[1], artifactMatch[2]);
+    if (!artifact) throw new IngestError('morning_brief_artifact_not_found', 'Morning brief artifact not found.', { statusCode: 404 });
+    if (!SHA256_RE.test(artifact.sha256) || sha256Buffer(artifact.content) !== artifact.sha256) {
+      throw new IngestError('morning_brief_artifact_corrupt', 'Stored morning brief artifact failed integrity validation.', { statusCode: 503 });
+    }
+    const artifactHeaders = {
+      'Cache-Control': 'private, no-store',
+      'X-Blue-Swallow-Artifact-SHA256': artifact.sha256,
+    };
+    if (request.method === 'HEAD') {
+      response.writeHead(200, {
+        'Content-Type': artifact.media_type,
+        'Content-Length': artifact.content.length,
+        'X-Content-Type-Options': 'nosniff',
+        ...artifactHeaders,
+      });
+      return response.end();
+    }
+    return sendBinary(response, 200, artifact.content, artifact.media_type, artifactHeaders);
+  }
+  const runMatch = url.pathname.match(/^\/api\/v1\/morning-briefs\/([a-z0-9][a-z0-9-]{2,120})$/);
+  if (request.method === 'GET' && runMatch) {
+    const brief = await store.getMorningBrief(runMatch[1]);
+    if (!brief) throw new IngestError('morning_brief_not_found', 'Morning brief not found.', { statusCode: 404 });
+    return sendJson(response, 200, { ok: true, brief });
+  }
+  request.resume();
+  return sendJson(response, 404, { ok: false, error: 'not_found' });
+}
+
+async function handleMorningBriefWrite(request, response, { store }) {
+  const contentType = String(request.headers['content-type'] ?? '').toLowerCase();
+  if (!contentType.startsWith('application/json')) {
+    request.resume();
+    throw new IngestError('unsupported_media_type', 'Content-Type must be application/json.', { statusCode: 415 });
+  }
+  const idempotencyKey = singleHeader(request, 'idempotency-key');
+  if (!/^[A-Za-z0-9._:~-]{1,200}$/.test(idempotencyKey || '')) {
+    request.resume();
+    throw new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(await readBody(request, MAX_MORNING_BRIEF_BODY_BYTES));
+  } catch (error) {
+    if (error instanceof IngestError) throw error;
+    throw new IngestError('invalid_json', 'Malformed JSON.', { statusCode: 400 });
+  }
+  const packet = validateMorningBrief(parsed);
+  const result = await store.putMorningBrief({ idempotencyKey, package: packet });
+  return sendJson(response, result.statusCode, { ok: true, replayed: result.replayed, brief: result.brief }, {
+    'Idempotent-Replayed': String(result.replayed),
+  });
+}
+
+export function validateMorningBrief(value) {
+  if (!isPlainObject(value)
+      || value.schema_version !== 'bss.morning_brief.package.v1'
+      || !MORNING_BRIEF_RUN_ID_RE.test(value.run_id || '')
+      || !RFC3339_RE.test(value.generated_at || '')
+      || !SHA256_RE.test(value.canonical_state_hash || '')
+      || !SHA256_RE.test(value.package_sha256 || '')
+      || typeof value.summary !== 'string' || value.summary.length > 8_000
+      || !Array.isArray(value.artifacts) || value.artifacts.length < 1 || value.artifacts.length > 64) {
+    throw new IngestError('invalid_morning_brief', 'Morning brief envelope is invalid.', { statusCode: 422 });
+  }
+  const ids = new Set();
+  let totalBytes = 0;
+  const artifacts = value.artifacts.map((artifact) => {
+    if (!isPlainObject(artifact)
+        || !MORNING_BRIEF_ARTIFACT_ID_RE.test(artifact.artifact_id || '')
+        || !/^[-\w.+/;= ]{3,160}$/.test(artifact.media_type || '')
+        || !SHA256_RE.test(artifact.sha256 || '')
+        || typeof artifact.content_base64 !== 'string'
+        || !ids.add(artifact.artifact_id)) {
+      throw new IngestError('invalid_morning_brief', 'Morning brief artifact metadata is invalid.', { statusCode: 422 });
+    }
+    let content;
+    try {
+      content = Buffer.from(artifact.content_base64, 'base64');
+    } catch {
+      throw new IngestError('invalid_morning_brief', 'Morning brief artifact encoding is invalid.', { statusCode: 422 });
+    }
+    if (!content.length || content.length > 8 * 1_024 * 1_024 || sha256Buffer(content) !== artifact.sha256) {
+      throw new IngestError('invalid_morning_brief', 'Morning brief artifact content failed integrity validation.', { statusCode: 422 });
+    }
+    totalBytes += content.length;
+    return { artifact_id: artifact.artifact_id, media_type: artifact.media_type, sha256: artifact.sha256, content };
+  });
+  if (totalBytes > 24 * 1_024 * 1_024) {
+    throw new IngestError('invalid_morning_brief', 'Morning brief package exceeds the archive limit.', { statusCode: 422 });
+  }
+  const expectedPackageSha256 = sha256Buffer(canonicalJson({
+    schema_version: value.schema_version,
+    run_id: value.run_id,
+    generated_at: value.generated_at,
+    canonical_state_hash: value.canonical_state_hash,
+    summary: value.summary,
+    artifacts: artifacts.map(({ artifact_id, media_type, sha256 }) => ({ artifact_id, media_type, sha256 })),
+  }));
+  if (value.package_sha256 !== expectedPackageSha256) {
+    throw new IngestError('invalid_morning_brief', 'Morning brief package hash failed integrity validation.', { statusCode: 422 });
+  }
+  return {
+    schema_version: value.schema_version,
+    run_id: value.run_id,
+    generated_at: value.generated_at,
+    canonical_state_hash: value.canonical_state_hash,
+    package_sha256: value.package_sha256,
+    summary: value.summary,
+    artifacts,
+  };
+}
+
+function sha256Buffer(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
 }
 
 export function validatePaperState(value, nowMs, { allowLegacyV2 = true } = {}) {
@@ -562,6 +713,17 @@ function requirePaperStateToken(request) {
   }
 }
 
+function requireMorningBriefToken(request) {
+  const expected = String(process.env.BSS_MORNING_BRIEF_TOKEN || '').trim();
+  if (!MORNING_BRIEF_TOKEN_RE.test(expected)) {
+    throw new IngestError('morning_brief_token_unconfigured', 'Morning brief token is not configured.', { statusCode: 503 });
+  }
+  const actual = singleHeader(request, 'x-blue-swallow-morning-brief-token');
+  if (!safeEqualString(actual, expected)) {
+    throw new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
+  }
+}
+
 function requireBackendReadToken(request) {
   const expected = String(process.env.BSS_CYBERMAP_READ_TOKEN || '').trim();
   if (!expected) {
@@ -617,19 +779,19 @@ function withIngestDeadline(promise, deadlineMs) {
   return Promise.race([promise, deadline]).finally(() => clearTimeout(timeout));
 }
 
-async function readBody(request) {
+async function readBody(request, maximumBytes = MAX_BODY_BYTES) {
   const contentLength = Number(request.headers['content-length'] ?? 0);
-  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+  if (Number.isFinite(contentLength) && contentLength > maximumBytes) {
     request.resume();
-    throw new IngestError('body_too_large', 'Request body exceeds 1 MiB.', { statusCode: 413 });
+    throw new IngestError('body_too_large', 'Request body exceeds the configured limit.', { statusCode: 413 });
   }
   const chunks = [];
   let size = 0;
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > MAX_BODY_BYTES) {
+    if (size > maximumBytes) {
       request.resume();
-      throw new IngestError('body_too_large', 'Request body exceeds 1 MiB.', { statusCode: 413 });
+      throw new IngestError('body_too_large', 'Request body exceeds the configured limit.', { statusCode: 413 });
     }
     chunks.push(chunk);
   }
@@ -660,4 +822,17 @@ function sendJson(response, statusCode, body, extraHeaders = {}) {
     ...extraHeaders,
   });
   response.end(payload);
+}
+
+function sendBinary(response, statusCode, payload, contentType, extraHeaders = {}) {
+  if (response.writableEnded) return;
+  const body = Buffer.from(payload);
+  response.writeHead(statusCode, {
+    'Content-Type': contentType,
+    'Content-Length': body.length,
+    'Cache-Control': 'private, no-store',
+    'X-Content-Type-Options': 'nosniff',
+    ...extraHeaders,
+  });
+  response.end(body);
 }

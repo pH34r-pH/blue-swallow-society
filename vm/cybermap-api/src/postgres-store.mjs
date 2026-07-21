@@ -3,7 +3,7 @@ import { latLngToCell } from 'h3-js';
 import { forbidden, hashToken, IngestError } from './auth.mjs';
 import { hashCanonicalJson, hashPersistedObservation } from './contracts.mjs';
 
-const REQUIRED_MIGRATIONS = Object.freeze(['0001_cybermap_core', '0002_device_ingest_contract', '0003_paper_state']);
+const REQUIRED_MIGRATIONS = Object.freeze(['0001_cybermap_core', '0002_device_ingest_contract', '0003_paper_state', '0004_morning_brief_archive']);
 
 /** Durable PostgreSQL/PostGIS implementation of the authenticated observation store contract. */
 export class PostgresObservationStore {
@@ -331,6 +331,100 @@ export class PostgresObservationStore {
     };
   }
 
+  async putMorningBrief({ idempotencyKey, package: packet }) {
+    const client = await this.#pool.connect();
+    let transactionOpen = false;
+    try {
+      await client.query('BEGIN');
+      transactionOpen = true;
+      await client.query("SET LOCAL lock_timeout TO '2s'; SET LOCAL statement_timeout TO '8s'; SET LOCAL idle_in_transaction_session_timeout TO '15s'");
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('mosaic-murmurs-morning-brief:' || $1, 3))", [packet.run_id]);
+      const existing = await client.query(
+        `SELECT package_sha256, archived_at
+         FROM morning_brief_runs
+         WHERE run_id = $1
+         FOR UPDATE`,
+        [packet.run_id],
+      );
+      if (existing.rows.length > 0) {
+        if (existing.rows[0].package_sha256 !== packet.package_sha256) {
+          throw new IngestError('morning_brief_conflict', 'A different package already exists for this run.', { statusCode: 409 });
+        }
+        await client.query('COMMIT');
+        transactionOpen = false;
+        return { statusCode: 200, replayed: true, brief: morningBriefResponse(packet, existing.rows[0].archived_at) };
+      }
+      const inserted = await client.query(
+        `INSERT INTO morning_brief_runs (
+           run_id, idempotency_key, generated_at, canonical_state_hash, package_sha256, summary
+         ) VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING archived_at`,
+        [packet.run_id, idempotencyKey, packet.generated_at, packet.canonical_state_hash, packet.package_sha256, packet.summary],
+      );
+      for (const artifact of packet.artifacts) {
+        await client.query(
+          `INSERT INTO morning_brief_artifacts (run_id, artifact_id, media_type, sha256, content)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [packet.run_id, artifact.artifact_id, artifact.media_type, artifact.sha256, artifact.content],
+        );
+      }
+      await client.query('COMMIT');
+      transactionOpen = false;
+      return { statusCode: 201, replayed: false, brief: morningBriefResponse(packet, inserted.rows[0].archived_at) };
+    } catch (error) {
+      if (transactionOpen) {
+        try { await client.query('ROLLBACK'); } catch { /* Preserve original failure. */ }
+      }
+      throw normalizeDatabaseError(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async listMorningBriefs({ limit = 30 } = {}) {
+    const result = await this.#pool.query(
+      `SELECT run_id, generated_at, canonical_state_hash, package_sha256, summary, archived_at, artifact_count
+       FROM morning_brief_runs
+       ORDER BY generated_at DESC
+       LIMIT $1`,
+      [limit],
+    );
+    return result.rows.map(rowToMorningBriefSummary);
+  }
+
+  async getMorningBrief(runId) {
+    const result = await this.#pool.query(
+      `SELECT run_id, generated_at, canonical_state_hash, package_sha256, summary, archived_at, artifact_count
+       FROM morning_brief_runs
+       WHERE run_id = $1`,
+      [runId],
+    );
+    if (result.rows.length === 0) return null;
+    const artifacts = await this.#pool.query(
+      `SELECT artifact_id, media_type, sha256
+       FROM morning_brief_artifacts
+       WHERE run_id = $1
+       ORDER BY artifact_id`,
+      [runId],
+    );
+    return {
+      ...rowToMorningBriefSummary(result.rows[0]),
+      artifacts: artifacts.rows.map((row) => ({ artifact_id: row.artifact_id, media_type: row.media_type, sha256: row.sha256 })),
+    };
+  }
+
+  async getMorningBriefArtifact(runId, artifactId) {
+    const result = await this.#pool.query(
+      `SELECT artifact_id, media_type, sha256, content
+       FROM morning_brief_artifacts
+       WHERE run_id = $1 AND artifact_id = $2`,
+      [runId, artifactId],
+    );
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    return { artifact_id: row.artifact_id, media_type: row.media_type, sha256: row.sha256, content: Buffer.from(row.content) };
+  }
+
   async queryViewport({ lat, lon, radiusMeters = 100, limit = 100, maxAgeMs = null, now = new Date() } = {}) {
     const center = { lat, lon };
     const cutoff = Number.isFinite(maxAgeMs) ? new Date(new Date(now).getTime() - maxAgeMs).toISOString() : null;
@@ -392,6 +486,31 @@ export class PostgresObservationStore {
         : 'Cybermap PostGIS viewport returned no observations for this fix.',
     };
   }
+}
+
+function rowToMorningBriefSummary(row) {
+  return {
+    run_id: row.run_id,
+    generated_at: toIsoString(row.generated_at),
+    canonical_state_hash: row.canonical_state_hash,
+    package_sha256: row.package_sha256,
+    summary: row.summary,
+    artifact_count: Number(row.artifact_count),
+    archived_at: toIsoString(row.archived_at),
+  };
+}
+
+function morningBriefResponse(packet, archivedAt) {
+  return {
+    run_id: packet.run_id,
+    generated_at: packet.generated_at,
+    canonical_state_hash: packet.canonical_state_hash,
+    package_sha256: packet.package_sha256,
+    summary: packet.summary,
+    artifact_count: packet.artifacts.length,
+    archived_at: toIsoString(archivedAt),
+    artifacts: packet.artifacts.map((artifact) => ({ artifact_id: artifact.artifact_id, media_type: artifact.media_type, sha256: artifact.sha256 })),
+  };
 }
 
 function rowToAccessPoint(row) {

@@ -64,6 +64,10 @@ param cybermapReadToken string
 @description('Dedicated token used by the local autonomous paper engine and SWA to write/read the canonical VM paper-state snapshot.')
 param paperStateToken string
 
+@secure()
+@description('Dedicated token used by the private morning-brief archive path between the scheduler, SWA, and VM API.')
+param morningBriefToken string
+
 @description('Public repository tarball used by the VM extension to install vm/cybermap-api.')
 param cybermapSourceTarballUrl string = 'https://github.com/pH34r-pH/blue-swallow-society/archive/refs/heads/main.tar.gz'
 
@@ -144,6 +148,7 @@ module vmModule 'vm-echo-lab.bicep' = {
     postgresAdministratorLoginPassword: postgresAdministratorLoginPassword
     cybermapReadToken: cybermapReadToken
     paperStateToken: paperStateToken
+    morningBriefToken: morningBriefToken
     cybermapSourceTarballUrl: cybermapSourceTarballUrl
     cybermapDeploymentVersion: cybermapDeploymentVersion
   }

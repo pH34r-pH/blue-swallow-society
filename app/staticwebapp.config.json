@@ -98,6 +98,13 @@
       ]
     },
     {
+      "route": "/api/morning-brief/*",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
       "route": "/api/operator-logout",
       "allowedRoles": [
         "anonymous",

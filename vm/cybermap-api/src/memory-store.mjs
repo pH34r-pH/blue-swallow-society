@@ -9,6 +9,7 @@ export class MemoryObservationStore {
   #observations = new Map();
   #paperStateUpdates = new Map();
   #paperState = null;
+  #morningBriefs = new Map();
   #now;
   #randomUuid;
 
@@ -127,6 +128,48 @@ export class MemoryObservationStore {
     return this.#paperState ? structuredClone(this.#paperState) : null;
   }
 
+  async putMorningBrief({ idempotencyKey, package: packet }) {
+    const existing = this.#morningBriefs.get(packet.run_id);
+    if (existing) {
+      if (existing.package.package_sha256 !== packet.package_sha256) {
+        throw new IngestError('morning_brief_conflict', 'A different package already exists for this run.', { statusCode: 409 });
+      }
+      return { statusCode: 200, replayed: true, brief: cloneBrief(existing) };
+    }
+    const entry = {
+      idempotencyKey,
+      package: {
+        ...structuredClone(packet),
+        artifacts: packet.artifacts.map(({ content, ...artifact }) => ({ ...artifact })),
+      },
+      artifacts: new Map(packet.artifacts.map((artifact) => [artifact.artifact_id, {
+        ...artifact,
+        content: Buffer.from(artifact.content),
+      }])),
+      archivedAt: this.#now().toISOString(),
+    };
+    this.#morningBriefs.set(packet.run_id, entry);
+    return { statusCode: 201, replayed: false, brief: cloneBrief(entry) };
+  }
+
+  async listMorningBriefs({ limit = 30 } = {}) {
+    return [...this.#morningBriefs.values()]
+      .sort((left, right) => String(right.package.generated_at).localeCompare(String(left.package.generated_at)))
+      .slice(0, limit)
+      .map((entry) => briefSummary(entry));
+  }
+
+  async getMorningBrief(runId) {
+    const entry = this.#morningBriefs.get(runId);
+    return entry ? cloneBrief(entry) : null;
+  }
+
+  async getMorningBriefArtifact(runId, artifactId) {
+    const artifact = this.#morningBriefs.get(runId)?.artifacts.get(artifactId);
+    if (!artifact) return null;
+    return { ...artifact, content: Buffer.from(artifact.content) };
+  }
+
   observationCount() {
     return this.#observations.size;
   }
@@ -162,6 +205,26 @@ export class MemoryObservationStore {
   batchCount() {
     return this.#batches.size;
   }
+}
+
+function briefSummary(entry) {
+  const { package: packet, archivedAt } = entry;
+  return {
+    run_id: packet.run_id,
+    generated_at: packet.generated_at,
+    canonical_state_hash: packet.canonical_state_hash,
+    package_sha256: packet.package_sha256,
+    summary: packet.summary,
+    artifact_count: packet.artifacts.length,
+    archived_at: archivedAt,
+  };
+}
+
+function cloneBrief(entry) {
+  return {
+    ...briefSummary(entry),
+    artifacts: entry.package.artifacts.map((artifact) => ({ ...artifact })),
+  };
 }
 
 function toAccessPoint(entry, center) {

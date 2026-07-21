@@ -187,10 +187,17 @@ def parse_polymarket_markets(payload: Any, now: datetime) -> list[dict[str, Any]
         if as_of is None:
             continue
         settled = market.get("closed") is True
+        yes_no_marks = [mark for name, mark in normalized if name in {"YES", "NO"}]
+        # Gamma occasionally returns an incoherent sibling outcome alongside an
+        # otherwise plausible quote. Reject the *market*, not just the bad leg:
+        # emitting one half lets invalid probability state mutate the ledger.
+        if len(yes_no_marks) != 2 or any(not 0.0 <= mark <= 1.0 for mark in yes_no_marks):
+            continue
         if settled:
-            settled_marks = sorted(mark for name, mark in normalized if name in {"YES", "NO"})
-            if settled_marks != [0.0, 1.0]:
+            if sorted(yes_no_marks) != [0.0, 1.0]:
                 continue
+        elif any(not 0.0 < mark < 1.0 for mark in yes_no_marks):
+            continue
         title = str(market.get("question") or market.get("title") or market_id)
         slug = str(market.get("slug") or "")
         source_url = f"https://polymarket.com/event/{slug}" if slug else "https://polymarket.com/"

@@ -627,6 +627,14 @@ strong {
   scroll-snap-align: start;
 }
 
+.brief-archive-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+  text-decoration: none;
+}
+
 .tab-btn:hover:not(.active) {
   border-color: rgba(121, 170, 166, 0.55);
   color: var(--oxidized-patina);

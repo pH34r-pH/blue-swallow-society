@@ -468,7 +468,7 @@ function clearOperatorSession() {
 }
 
 function getTabButtons() {
-  return Array.from($$('.tab-btn'));
+  return Array.from($$('.tab-btn[data-tab]'));
 }
 
 function getTabPanels() {

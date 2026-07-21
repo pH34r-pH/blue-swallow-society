@@ -52,6 +52,10 @@ param cybermapReadToken string
 @description('Dedicated token for canonical autonomous paper-state writes and reads.')
 param paperStateToken string
 
+@secure()
+@description('Dedicated token for private morning-brief archive reads and writes.')
+param morningBriefToken string
+
 @description('Public repository tarball used by the VM extension to install vm/cybermap-api.')
 param cybermapSourceTarballUrl string = 'https://github.com/pH34r-pH/blue-swallow-society/archive/refs/heads/main.tar.gz'
 
@@ -274,11 +278,17 @@ var cybermapInstallScriptWithoutPaperToken = replace(
   '__BACKEND_FQDN__',
   backendFqdn
 )
-var cybermapInstallScript = replace(
+var cybermapInstallScriptWithPaperToken = replace(
   cybermapInstallScriptWithoutPaperToken,
   '__PAPER_STATE_TOKEN_B64__',
   base64(paperStateToken)
 )
+var cybermapInstallScriptWithMorningBriefToken = replace(
+  cybermapInstallScriptWithPaperToken,
+  '__MORNING_BRIEF_TOKEN_B64__',
+  base64(morningBriefToken)
+)
+var cybermapInstallScript = cybermapInstallScriptWithMorningBriefToken
 
 resource cybermapApiExtension 'Microsoft.Compute/virtualMachines/extensions@2024-03-01' = {
   parent: vm

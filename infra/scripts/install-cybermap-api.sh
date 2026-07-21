@@ -5,6 +5,7 @@ export DEBIAN_FRONTEND=noninteractive
 POSTGRES_PASSWORD="$(printf '%s' '__POSTGRES_PASSWORD_B64__' | base64 -d)"
 CYBERMAP_READ_TOKEN="$(printf '%s' '__CYBERMAP_READ_TOKEN_B64__' | base64 -d)"
 PAPER_STATE_TOKEN="$(printf '%s' '__PAPER_STATE_TOKEN_B64__' | base64 -d)"
+MORNING_BRIEF_TOKEN="$(printf '%s' '__MORNING_BRIEF_TOKEN_B64__' | base64 -d)"
 if [ -z "$POSTGRES_PASSWORD" ]; then
   echo "PostgreSQL password is empty" >&2
   exit 1
@@ -17,9 +18,14 @@ if [ -z "$PAPER_STATE_TOKEN" ]; then
   echo "Paper state token is empty" >&2
   exit 1
 fi
+if [ -z "$MORNING_BRIEF_TOKEN" ]; then
+  echo "Morning brief token is empty" >&2
+  exit 1
+fi
+
 
 apt-get update
-apt-get install -y ca-certificates curl gnupg debian-keyring debian-archive-keyring apt-transport-https postgresql-client tar
+apt-get install -y ca-certificates curl gnupg debian-keyring debian-archive-keyring apt-transport-https postgresql-client tar librsvg2-bin
 
 if ! command -v node >/dev/null 2>&1 || ! node --version | grep -Eq '^v24\.'; then
   curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
@@ -56,6 +62,8 @@ BSS_CYBERMAP_PORT=__CYBERMAP_API_PORT__
 BSS_CYBERMAP_DB_POOL_MAX=4
 BSS_CYBERMAP_READ_TOKEN=$CYBERMAP_READ_TOKEN
 BSS_PAPER_STATE_TOKEN=$PAPER_STATE_TOKEN
+BSS_MORNING_BRIEF_TOKEN=$MORNING_BRIEF_TOKEN
+
 ENV
 chmod 0600 /etc/bss/cybermap-api.env
 
@@ -86,6 +94,7 @@ run_migration() {
 run_migration 0001_cybermap_core db/migrations/0001_cybermap_core.sql
 run_migration 0002_device_ingest_contract db/migrations/0002_device_ingest_contract.sql
 run_migration 0003_paper_state db/migrations/0003_paper_state.sql
+run_migration 0004_morning_brief_archive db/migrations/0004_morning_brief_archive.sql
 
 cat > /etc/systemd/system/bss-cybermap-api.service <<'UNIT'
 [Unit]
@@ -108,6 +117,7 @@ ProtectHome=true
 [Install]
 WantedBy=multi-user.target
 UNIT
+
 
 cat > /etc/caddy/Caddyfile <<'CADDY'
 __BACKEND_FQDN__ {
