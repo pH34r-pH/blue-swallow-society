@@ -30,6 +30,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       backendEchoBaseUrl: ${{ steps.deploy.outputs.backendEchoBaseUrl }}
+      backendCybermapBaseUrl: ${{ steps.deploy.outputs.backendCybermapBaseUrl }}
+      wardriverReleaseStorageAccountName: ${{ steps.deploy.outputs.wardriverReleaseStorageAccountName }}
+      wardriverReleaseContainerName: ${{ steps.deploy.outputs.wardriverReleaseContainerName }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -47,7 +50,7 @@ jobs:
 
       - name: Ensure resource providers are registered
         run: |
-          for ns in Microsoft.Compute Microsoft.Network Microsoft.Web Microsoft.DevTestLab Microsoft.DBforPostgreSQL; do
+          for ns in Microsoft.Compute Microsoft.Network Microsoft.Web Microsoft.DevTestLab Microsoft.DBforPostgreSQL Microsoft.Storage; do
             state=$(az provider show --namespace "$ns" --query registrationState -o tsv)
             if [ "$state" != "Registered" ]; then
               echo "Registering $ns (current state: $state)..."
@@ -167,8 +170,16 @@ jobs:
           fi
           backend=$(echo "$out" | jq -r '.backendEchoBaseUrl.value')
           cybermap_backend=$(echo "$out" | jq -r '.backendCybermapBaseUrl.value')
+          release_storage_account=$(echo "$out" | jq -r '.wardriverReleaseStorageAccountName.value')
+          release_container=$(echo "$out" | jq -r '.wardriverReleaseContainerName.value')
+          if [ -z "$release_storage_account" ] || [ "$release_storage_account" = "null" ] || [ -z "$release_container" ] || [ "$release_container" = "null" ]; then
+            echo "::error::Wardriver release storage deployment outputs are missing."
+            exit 1
+          fi
           echo "backendEchoBaseUrl=$backend" >> "$GITHUB_OUTPUT"
           echo "backendCybermapBaseUrl=$cybermap_backend" >> "$GITHUB_OUTPUT"
+          echo "wardriverReleaseStorageAccountName=$release_storage_account" >> "$GITHUB_OUTPUT"
+          echo "wardriverReleaseContainerName=$release_container" >> "$GITHUB_OUTPUT"
 
       - name: Wire runtime app settings into SWA
         env:
@@ -195,6 +206,18 @@ jobs:
             exit 1
           fi
           swa_name=$(jq -r '.parameters.staticWebAppName.value' infra/main.parameters.json)
+          release_storage_account="${{ steps.deploy.outputs.wardriverReleaseStorageAccountName }}"
+          release_container="${{ steps.deploy.outputs.wardriverReleaseContainerName }}"
+          storage_connection_string=$(az storage account show-connection-string \
+            --name "$release_storage_account" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query connectionString \
+            -o tsv)
+          if [ -z "$storage_connection_string" ] || [ "$storage_connection_string" = "null" ]; then
+            echo "::error::Wardriver release storage connection string could not be resolved."
+            exit 1
+          fi
+          echo "::add-mask::$storage_connection_string"
           az staticwebapp appsettings set \
             --name "$swa_name" \
             --resource-group "$RESOURCE_GROUP" \
@@ -204,8 +227,13 @@ jobs:
               BACKEND_PAPER_STATE_BASE_URL="${{ steps.deploy.outputs.backendCybermapBaseUrl }}" \
               BSS_CYBERMAP_READ_TOKEN="$cybermap_read_token" \
               BSS_PAPER_STATE_TOKEN="$paper_state_token" \
+              BSS_WARDRIVER_RELEASE_STORAGE_CONNECTION_STRING="$storage_connection_string" \
+              BSS_WARDRIVER_RELEASE_CONTAINER="$release_container" \
+              BSS_WARDRIVER_RELEASE_MANIFEST_BLOB="wardriver/releases/latest.json" \
               BLUE_SWALLOW_PASSCODE_SHA256="$passcode_hash" \
-              BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY="$signing_key"
+              BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY="$signing_key" \
+            --only-show-errors \
+            -o none
 
   deploy-app:
     runs-on: ubuntu-latest

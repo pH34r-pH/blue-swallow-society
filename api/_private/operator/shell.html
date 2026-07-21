@@ -123,36 +123,43 @@
             </div>
           </article>
 
-          <article class="panel tab-panel landing-panel download-card" aria-labelledby="wardriverDownloadTitle">
+          <article
+            class="panel tab-panel landing-panel download-card"
+            aria-labelledby="wardriverDownloadTitle"
+            data-operator-release-card
+            data-operator-release-metadata="/api/operator-downloads/wardriver/metadata"
+          >
             <div class="panel-heading">
               <div>
-                <p class="eyebrow">// DOWNLOAD //</p>
+                <p class="eyebrow">// RELEASE //</p>
                 <h2 id="wardriverDownloadTitle">Blue Swallow Wardriver APK</h2>
               </div>
-              <p class="panel-meta">Branded WiGLE fork for local-only passive observation and Godeye handoff.</p>
+              <p class="panel-meta">Signed field release, staged through the operator gate with a sealed provenance record.</p>
             </div>
 
             <div class="download-grid">
               <div class="download-copy">
                 <p>
-                  Install the Android APK on the field device, keep WiGLE/Flipper captures local, then use Godeye here as the hosted viewer for map and overlay review.
+                  Install only after the release record settles. Field captures remain local; this lane moves an exact, signed APK—not a live sensor feed.
                 </p>
                 <ul class="download-facts" aria-label="APK build facts">
-                  <li><span>Package</span><strong>co.blueswallow.wardriver</strong></li>
-                  <li><span>Version</span><strong>2.109-bss.1 / 310</strong></li>
-                  <li><span>Size</span><strong>61.82 MiB</strong></li>
-                  <li><span>Build</span><strong>debug sideload</strong></li>
+                  <li><span>Package</span><strong data-operator-release="package">Awaiting sealed manifest.</strong></li>
+                  <li><span>Version</span><strong data-operator-release="version">Awaiting sealed manifest.</strong></li>
+                  <li><span>Size</span><strong data-operator-release="size">Awaiting sealed manifest.</strong></li>
+                  <li><span>Signer</span><strong data-operator-release="signer">Awaiting sealed manifest.</strong></li>
+                  <li><span>Source</span><strong data-operator-release="source">Awaiting sealed manifest.</strong></li>
                 </ul>
               </div>
 
               <div class="download-actions" aria-label="Wardriver download actions">
-                <a class="btn btn-primary download-link" href="/api/operator-downloads/wardriver/apk" download="blue-swallow-wardriver-2.109-bss.1-debug.apk" data-operator-download="apk">
-                  Download APK
+                <a class="btn btn-primary download-link" href="/api/operator-downloads/wardriver/apk" data-operator-download="apk" aria-disabled="true">
+                  Download signed APK
                 </a>
-                <a class="btn btn-secondary download-link" href="/api/operator-downloads/wardriver/metadata" download="blue-swallow-wardriver.json" data-operator-download="metadata">
-                  Build metadata
+                <a class="btn btn-secondary download-link" href="/api/operator-downloads/wardriver/metadata" download="blue-swallow-wardriver-release.json" data-operator-download="metadata" aria-disabled="true">
+                  Release metadata
                 </a>
-                <p class="apk-hash"><span>SHA-256</span><code>f50d2dcf726ef52297968e1a0af9119c7569b7692e1813d70a1ed0274ba95a0e</code></p>
+                <p class="apk-hash"><span>SHA-256</span><code data-operator-release="sha256">Awaiting sealed manifest.</code></p>
+                <p class="panel-meta" data-operator-release="notes">The console will load the current release record after authentication.</p>
               </div>
             </div>
           </article>

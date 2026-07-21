@@ -243,6 +243,7 @@ function unlockConsole() {
 
   initTabDefaults();
   activateTab('landing', { focus: false });
+  void hydrateWardriverRelease();
 }
 
 function resetConsoleToLogin() {
@@ -328,59 +329,88 @@ function bindOperatorDownloads() {
   });
 }
 
-async function handleOperatorDownload(event) {
-  const link = event.currentTarget;
-  if (!(link instanceof HTMLAnchorElement)) {
+function handleOperatorDownload(event) {
+  if (event.currentTarget?.getAttribute('aria-disabled') === 'true') {
+    event.preventDefault();
     return;
   }
-
-  const session = getOperatorSession();
-  if (!session?.token) {
+  // Downloads are navigations, not XHR payloads: the HttpOnly operator cookie
+  // authorizes the same-origin gate, then the gate issues a per-object Blob SAS.
+  // This avoids buffering a release APK in the operator console and keeps the
+  // signed Blob URL out of DOM state.
+  if (getOperatorSession()?.token) {
     return;
   }
-
   event.preventDefault();
-  const originalText = link.textContent;
-  link.setAttribute('aria-busy', 'true');
-  link.textContent = 'Decrypting…';
+  window.location.replace('/');
+}
+
+async function hydrateWardriverRelease() {
+  const card = document.querySelector('[data-operator-release-card]');
+  const endpoint = card?.dataset.operatorReleaseMetadata;
+  if (!endpoint || !getOperatorSession()?.token) {
+    return;
+  }
 
   try {
-    const response = await fetch(link.href, {
-      headers: buildOperatorHeaders({ Accept: '*/*' }),
+    const response = await fetch(endpoint, {
+      headers: buildOperatorHeaders({ Accept: 'application/json' }),
       credentials: 'same-origin',
+      cache: 'no-store',
     });
-
     if (!response.ok) {
-      throw new Error(`Download denied (${response.status})`);
+      throw new Error(`Release manifest unavailable (${response.status})`);
+    }
+    const payload = await response.json();
+    const artifact = payload?.artifact;
+    if (!artifact || artifact.buildType !== 'release' || artifact.downloadPath !== '/api/operator-downloads/wardriver/apk') {
+      throw new Error('Release manifest was rejected.');
     }
 
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const download = document.createElement('a');
-    download.href = objectUrl;
-    download.download = link.getAttribute('download') || inferDownloadName(link.href);
-    download.rel = 'noopener';
-    document.body.append(download);
-    download.click();
-    download.remove();
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    setReleaseField('package', artifact.packageId);
+    setReleaseField('version', `${artifact.versionName} / ${artifact.versionCode}`);
+    setReleaseField('size', formatReleaseSize(artifact.sizeBytes));
+    setReleaseField('signer', compactFingerprint(artifact.signerSha256));
+    setReleaseField('source', `${artifact.sourceTag} @ ${artifact.sourceCommit.slice(0, 12)}`);
+    setReleaseField('sha256', artifact.sha256);
+    setReleaseField('notes', artifact.notes.join(' · '));
+
+    const apkLink = document.querySelector('[data-operator-download="apk"]');
+    if (apkLink instanceof HTMLAnchorElement) {
+      apkLink.href = artifact.downloadPath;
+      apkLink.removeAttribute('aria-disabled');
+    }
+    const metadataLink = document.querySelector('[data-operator-download="metadata"]');
+    if (metadataLink instanceof HTMLAnchorElement) {
+      metadataLink.href = artifact.metadataPath;
+      metadataLink.removeAttribute('aria-disabled');
+    }
   } catch (error) {
-    console.error('Operator download failed', error);
-    alert(error?.message || 'Operator download failed.');
-  } finally {
-    link.removeAttribute('aria-busy');
-    link.textContent = originalText;
+    console.error('Wardriver release record unavailable', error);
+    setReleaseField('notes', 'Current signed release record is unavailable. Do not substitute the retired debug build.');
+    document.querySelectorAll('[data-operator-download]').forEach((link) => link.setAttribute('aria-disabled', 'true'));
   }
 }
 
-function inferDownloadName(href) {
-  try {
-    const path = new URL(href, window.location.origin).pathname;
-    const leaf = path.split('/').filter(Boolean).pop();
-    return leaf || 'operator-download';
-  } catch {
-    return 'operator-download';
+function setReleaseField(name, value) {
+  const field = document.querySelector(`[data-operator-release="${name}"]`);
+  if (field) {
+    field.textContent = String(value);
   }
+}
+
+function formatReleaseSize(sizeBytes) {
+  if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0) {
+    return 'Unspecified';
+  }
+  return `${(sizeBytes / (1024 * 1024)).toFixed(2)} MiB`;
+}
+
+function compactFingerprint(value) {
+  if (typeof value !== 'string' || !/^[a-f0-9]{64}$/i.test(value)) {
+    return 'Unverified';
+  }
+  return `${value.slice(0, 16)}…${value.slice(-8)}`.toUpperCase();
 }
 
 function bindTabSystem() {
