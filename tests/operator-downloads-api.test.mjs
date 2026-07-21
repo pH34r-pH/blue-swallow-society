@@ -146,6 +146,29 @@ test('operator APK request issues a bounded HTTPS redirect without buffering APK
   });
 });
 
+test('verified metadata refreshes the navigation cookie from a bearer session', async () => {
+  await withSigningKey(async () => {
+    const session = createOperatorToken();
+    const metadata = await invoke('metadata', {
+      headers: {
+        authorization: `Bearer ${session.token}`,
+        cookie: 'bss_operator_session=stale.invalid',
+      },
+      dependencies: fakeReleaseStore(),
+    });
+
+    assert.equal(metadata.status, 200);
+    assert.match(metadata.headers['Set-Cookie'], new RegExp(`^bss_operator_session=${encodeURIComponent(session.token)};`));
+
+    const navigationCookie = metadata.headers['Set-Cookie'].split(';', 1)[0];
+    const download = await invoke('apk', {
+      headers: { cookie: navigationCookie },
+      dependencies: fakeReleaseStore(),
+    });
+    assert.equal(download.status, 302);
+  });
+});
+
 test('release storage failures produce an explicit unavailable response and no stale fallback', async () => {
   await withSigningKey(async () => {
     const session = createOperatorToken();
