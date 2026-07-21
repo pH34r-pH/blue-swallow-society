@@ -124,7 +124,7 @@ function verifyOperatorRequest(req, { now = Date.now() } = {}) {
     return { ok: false, status: 403, error: 'Operator session expired.' };
   }
 
-  return { ok: true, token: payload };
+  return { ok: true, token: payload, rawToken: token };
 }
 
 function extractBearerToken(req) {
