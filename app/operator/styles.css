@@ -627,14 +627,6 @@ strong {
   scroll-snap-align: start;
 }
 
-.brief-archive-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-2);
-  text-decoration: none;
-}
-
 .tab-btn:hover:not(.active) {
   border-color: rgba(121, 170, 166, 0.55);
   color: var(--oxidized-patina);
@@ -3146,5 +3138,186 @@ strong {
 
   .tzeentch-position-book-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Morning dossier: a subordinate operator-console surface, not a parallel shell. */
+#morning-brief-tab {
+  min-width: 0;
+}
+
+.morning-brief-panel {
+  display: grid;
+  gap: var(--space-4);
+  padding: clamp(1.15rem, 3vw, 2rem);
+}
+
+.morning-brief-toolbar,
+#morning-brief-tab .brief-pages-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.morning-brief-toolbar .dashboard-status {
+  max-width: 58ch;
+}
+
+.morning-brief-run-select {
+  width: min(100%, 38rem);
+}
+
+#morning-brief-tab .brief-detail {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  min-height: 28rem;
+  padding: var(--space-4);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
+  background: rgba(7, 10, 11, 0.62);
+  box-shadow: inset 3px 0 0 rgba(201, 137, 98, 0.18);
+}
+
+#morning-brief-tab .brief-pages {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+#morning-brief-tab .brief-pages-header h3,
+#morning-brief-tab .brief-pages-header p {
+  margin: 0;
+}
+
+#morning-brief-tab .brief-pages-header p,
+#morning-brief-tab .brief-page figcaption,
+#morning-brief-tab .brief-meta,
+#morning-brief-tab .brief-context summary,
+#morning-brief-tab .brief-retained summary,
+#morning-brief-tab .brief-artifact small,
+#morning-brief-tab .brief-empty {
+  color: var(--text-1);
+}
+
+#morning-brief-tab .brief-carousel-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+#morning-brief-tab .brief-carousel-control,
+#morning-brief-tab .brief-artifact-download {
+  min-height: 2.5rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.7rem;
+}
+
+#morning-brief-tab .brief-carousel {
+  display: flex;
+  gap: var(--space-4);
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  padding: 0 0 var(--space-3);
+  scroll-snap-type: x mandatory;
+  scrollbar-color: var(--oxidized-patina) var(--street-ink);
+}
+
+#morning-brief-tab .brief-page {
+  position: relative;
+  flex: 0 0 min(88vw, 100%);
+  min-height: 13.75rem;
+  margin: 0;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-sm);
+  background: var(--street-ink);
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+#morning-brief-tab .brief-page img {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--corpo-paper);
+}
+
+#morning-brief-tab .brief-page figcaption {
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+#morning-brief-tab .brief-page-error {
+  padding: var(--space-4);
+  color: var(--signal-alert);
+}
+
+#morning-brief-tab .brief-context,
+#morning-brief-tab .brief-retained {
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-0);
+}
+
+#morning-brief-tab .brief-context summary,
+#morning-brief-tab .brief-retained summary {
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+#morning-brief-tab .brief-summary {
+  max-width: 76ch;
+  white-space: pre-wrap;
+}
+
+#morning-brief-tab .brief-meta {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+#morning-brief-tab .brief-artifacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+#morning-brief-tab .brief-artifact {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-0);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+@media (max-width: 760px) {
+  .morning-brief-panel {
+    padding: var(--space-4);
+  }
+
+  #morning-brief-tab .brief-detail {
+    padding: var(--space-3);
+  }
+
+  #morning-brief-tab .brief-page {
+    flex-basis: 100%;
+  }
+
+  #morning-brief-tab .brief-meta {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+
+  #morning-brief-tab .brief-meta dd {
+    margin: 0 0 var(--space-2);
   }
 }

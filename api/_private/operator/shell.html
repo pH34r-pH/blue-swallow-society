@@ -84,6 +84,18 @@
         </button>
         <button
           class="tab-btn"
+          data-tab="morning-brief"
+          role="tab"
+          aria-selected="false"
+          aria-controls="morning-brief-tab"
+          id="tab-morning-brief"
+          tabindex="-1"
+          type="button"
+        >
+          Morning dossier
+        </button>
+        <button
+          class="tab-btn"
           data-tab="slang"
           role="tab"
           aria-selected="false"
@@ -94,7 +106,6 @@
         >
           Slang
         </button>
-        <a class="tab-btn brief-archive-link" href="/operator/morning-brief.html">Morning dossier</a>
       </nav>
 
       <div id="landing-tab" class="tab-content active" role="tabpanel" aria-labelledby="tab-landing">
@@ -463,6 +474,29 @@
                 </dl>
               </aside>
             </div>
+          </article>
+        </section>
+      </div>
+
+      <div id="morning-brief-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-morning-brief">
+        <section class="container">
+          <article class="panel tab-panel morning-brief-panel" aria-labelledby="morningBriefTitle">
+            <div class="panel-heading morning-brief-heading">
+              <div>
+                <p class="eyebrow">// MOSAIC &amp; MURMURS / PRIVATE ARCHIVE //</p>
+                <h2 id="morningBriefTitle">Morning Field Dossiers</h2>
+              </div>
+              <p class="panel-meta">Immutable rendered packets, retained for seven days and verified before they reach this surface.</p>
+            </div>
+            <div class="morning-brief-toolbar">
+              <button id="briefReturnToConsole" class="btn btn-secondary" type="button">Return to operator console</button>
+              <p id="briefStatus" class="dashboard-status" aria-live="polite">Open the dossier tab to load the sealed archive.</p>
+            </div>
+            <label class="dashboard-field morning-brief-run-select" for="briefRunSelect">
+              <span>Archive date</span>
+              <select id="briefRunSelect" class="input dashboard-input" aria-label="Select archived morning brief"></select>
+            </label>
+            <article id="briefDetail" class="brief-detail" aria-live="polite"></article>
           </article>
         </section>
       </div>

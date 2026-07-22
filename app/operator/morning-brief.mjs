@@ -3,6 +3,7 @@ const status = document.getElementById('briefStatus');
 const runSelect = document.getElementById('briefRunSelect');
 const detailNode = document.getElementById('briefDetail');
 let selectionNonce = 0;
+let initialized = false;
 const activeObjectUrls = new Set();
 
 function operatorSession() {
@@ -130,7 +131,7 @@ function appendArtifactControls(detail, brief) {
     note.textContent = `${artifact.media_type} · ${shortHash(artifact.sha256)}`;
     const download = document.createElement('button');
     download.type = 'button';
-    download.className = 'brief-artifact-download';
+    download.className = 'btn btn-secondary brief-artifact-download';
     download.textContent = 'Retrieve';
     download.addEventListener('click', () => downloadArtifact(brief, artifact, download).catch(showError));
     item.append(label, note, download);
@@ -172,12 +173,12 @@ function renderCarousel(detail, brief, nonce) {
   controls.className = 'brief-carousel-controls';
   const previous = document.createElement('button');
   previous.type = 'button';
-  previous.className = 'brief-carousel-control';
+  previous.className = 'btn btn-secondary brief-carousel-control';
   previous.textContent = '← Previous';
   previous.setAttribute('aria-label', 'Previous dossier page');
   const next = document.createElement('button');
   next.type = 'button';
-  next.className = 'brief-carousel-control';
+  next.className = 'btn btn-secondary brief-carousel-control';
   next.textContent = 'Next →';
   next.setAttribute('aria-label', 'Next dossier page');
   controls.append(previous, next);
@@ -337,5 +338,9 @@ function showError(error) {
   detailNode.append(unavailable);
 }
 
-window.addEventListener('pagehide', releasePageUrls, { once: true });
-main().catch(showError);
+export function initMorningBrief() {
+  if (initialized) return;
+  initialized = true;
+  window.addEventListener('pagehide', releasePageUrls, { once: true });
+  void main().catch(showError);
+}

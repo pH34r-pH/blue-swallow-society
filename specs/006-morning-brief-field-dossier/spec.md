@@ -52,7 +52,7 @@ SWA provides the operator-token gateway at `/api/morning-brief` and never expose
 
 ### Operator UI
 
-`/operator/morning-brief.html` follows the existing operator shell token/session pattern, provides latest, history, detail, and privately fetched HTML/PNG artifacts, and does not fall back to a public root.
+`/operator/morning-brief.html` is an authenticated deep link: it boots the existing protected operator console with the `Morning dossier` tab selected. The tab provides latest/history selection, detail, and privately fetched HTML/PNG artifacts; its return control restores the landing tab at `/operator`. It neither replaces the console shell nor falls back to a public root.
 
 ## Acceptance
 

@@ -1,29 +1,24 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="color-scheme" content="dark" />
-  <meta name="robots" content="noindex, nofollow" />
-  <title>Morning Brief | Blue Swallow Society</title>
-  <link rel="stylesheet" href="/operator/styles.css" />
-  <link rel="stylesheet" href="/operator/morning-brief.css" />
-</head>
-<body data-mode="operator-brief">
-  <main class="brief-shell">
-    <header class="brief-header">
-      <a class="brief-back" href="/operator/agent.html">← operator console</a>
-      <p class="eyebrow">// MOSAIC &amp; MURMURS / PRIVATE ARCHIVE //</p>
-      <h1>Morning Field Dossiers</h1>
-      <p id="briefStatus" aria-live="polite">Loading sealed archive…</p>
-    </header>
-    <section class="brief-browser" aria-label="Morning brief archive">
-      <label class="brief-run-select-label" for="briefRunSelect">Archive date
-        <select id="briefRunSelect" aria-label="Select archived morning brief"></select>
-      </label>
-      <article id="briefDetail" class="brief-detail" aria-live="polite"></article>
-    </section>
-  </main>
-  <script type="module" src="/operator/morning-brief.mjs"></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#111619" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Blue Swallow Society | Morning Dossier</title>
+    <link rel="stylesheet" href="/operator/styles.css" />
+  </head>
+  <body data-mode="operator-loader">
+    <main id="operatorLoader" class="terminal-screen active" aria-label="Sealed morning dossier handoff">
+      <div class="terminal-container">
+        <section class="terminal-panel panel login-panel" aria-live="polite">
+          <p class="eyebrow">// SEALED HANDOFF //</p>
+          <h1 class="terminal-title">Blue Swallow Society</h1>
+          <p class="terminal-subtitle">Validating operator session.</p>
+        </section>
+      </div>
+    </main>
+    <script src="/operator/loader.js" type="module"></script>
+  </body>
 </html>
