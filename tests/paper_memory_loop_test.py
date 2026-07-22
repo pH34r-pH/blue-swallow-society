@@ -84,6 +84,8 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
                     str(market_snapshot),
                     "--idempotency-key",
                     "integration-tick-1",
+                    "--cadence",
+                    "wake_brief",
                     "--window-hours",
                     "1",
                     "--paper-sync-url",
@@ -110,6 +112,10 @@ class MosaicMurmursPaperMemoryLoopTest(unittest.TestCase):
             self.assertEqual(packet["matured_strategy_experience_count"], 0)
 
             latest_state = json.loads((state_dir / "latest_state.json").read_text(encoding="utf-8"))
+            wake_receipt = json.loads((state_dir / "wake-brief-receipt.json").read_text(encoding="utf-8"))
+            self.assertTrue(wake_receipt["ok"])
+            self.assertEqual(wake_receipt["canonical_paper_state"], latest_state["canonical_paper_state"])
+            self.assertEqual(wake_receipt["canonical_state_hash"], latest_state["canonical_state_hash"])
             self.assertEqual({run["loop_role"] for run in latest_state["last_runs"]}, {"primary", "supporting"})
             self.assertEqual(
                 [run["loop_id"] for run in latest_state["last_runs"] if run["loop_role"] == "primary"],

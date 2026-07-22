@@ -760,6 +760,7 @@ def _run_tick_locked(args: argparse.Namespace) -> dict[str, Any]:
         "engine_idempotency_key": engine_key,
         "engine_replayed": engine_result["replayed"],
         "canonical_paper_state": paper_state,
+        "canonical_state_hash": canonical_json_hash(paper_state),
         "paper_state_sync": paper_state_sync,
         "ledger_path": str(ledger_path),
         "state_dir": str(state_dir),
@@ -821,6 +822,19 @@ def _run_tick_locked(args: argparse.Namespace) -> dict[str, Any]:
                 snapshot.setdefault("warnings", []).append(str(exc))
             latest_state["source_warning_count"] = len(snapshot.get("warnings") or [])
             write_json(state_dir / "latest_state.json", latest_state)
+
+        if args.cadence == "wake_brief":
+            write_json(
+                state_dir / "wake-brief-receipt.json",
+                {
+                    "schema_version": "bss.morning_brief.wake_receipt.v1",
+                    "ok": not args.paper_sync_url or paper_state_sync.get("ok") is True,
+                    "updated_at": ended_at,
+                    "canonical_paper_state": paper_state,
+                    "canonical_state_hash": latest_state["canonical_state_hash"],
+                    "paper_state_sync": paper_state_sync,
+                },
+            )
 
         replay_record = load_json(replay_path, None)
         if not isinstance(replay_record, dict):
