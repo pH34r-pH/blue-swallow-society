@@ -19,6 +19,7 @@ import base64
 import hashlib
 import importlib.util
 import json
+import math
 import os
 import re
 import subprocess
@@ -55,6 +56,21 @@ def canonical_json(value: Any) -> bytes:
 
 def sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+
+def canonical_state_digest(value: Any) -> str:
+    """Hash canonical state semantically across Python/Node's integral-number encoding boundary."""
+    def normalize(item: Any) -> Any:
+        if isinstance(item, float):
+            if not math.isfinite(item):
+                raise RuntimeError("Canonical paper state contains a non-finite numeric value.")
+            return int(item) if item.is_integer() else item
+        if isinstance(item, list):
+            return [normalize(child) for child in item]
+        if isinstance(item, dict):
+            return {str(key): normalize(child) for key, child in item.items()}
+        return item
+    return sha256(canonical_json(normalize(value)))
 
 
 def _safe_path(root: Path, name: str) -> Path:
@@ -377,7 +393,7 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
     if not isinstance(canonical, dict):
         return {"status": "withheld", "reasons": ["canonical_state_missing"]}
     remote = fetch_canonical_paper_state(args.backend_url, args.paper_token)
-    if sha256(canonical_json(remote)) != sha256(canonical_json(canonical)):
+    if canonical_state_digest(remote) != canonical_state_digest(canonical):
         return {"status": "withheld", "reasons": ["remote_canonical_state_mismatch"]}
 
     output = Path(args.runtime_dir) / "rendered" / f"{run_id}-field-dossier"

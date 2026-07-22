@@ -150,6 +150,18 @@ class MorningBriefPublisherTests(unittest.TestCase):
         self.assertNotIn("bss-morning-brief.timer", installer)
         self.assertNotIn("bss-morning-brief.service", installer)
 
+    def test_canonical_state_digest_treats_integral_json_numbers_as_cross_runtime_equivalent(self):
+        publisher = load_module(PUBLISHER_PATH, "morning_brief_publisher_numeric_contract")
+        producer_state = {
+            "schema_version": "bss.paper_state.v3",
+            "ledger": {"cash_balance": 2000.0, "positions": [{"mark_price": 0.5, "quantity": 4.0}]},
+        }
+        backend_state = {
+            "schema_version": "bss.paper_state.v3",
+            "ledger": {"cash_balance": 2000, "positions": [{"mark_price": 0.5, "quantity": 4}]},
+        }
+        self.assertEqual(publisher.canonical_state_digest(producer_state), publisher.canonical_state_digest(backend_state))
+
     def test_stale_wake_withholds_before_any_backend_request(self):
         publisher = load_module(PUBLISHER_PATH, "morning_brief_publisher_stale")
         now = datetime.now(timezone.utc).replace(microsecond=0)
