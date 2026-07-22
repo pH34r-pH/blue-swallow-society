@@ -11,3 +11,5 @@
 - [ ] T009 Reconcile this feature branch with current `origin/main`, complete static/security/full-suite review, and refresh Graphify. Trace: all local TSTs.
 - [ ] T010 Deploy the reconciled production path and prove private archive plus SWA operator proxy against the live backend. Trace: TST-009.
 - [ ] T011 Update the local Hermes publishing job only after the live archive/proxy probe succeeds; run one fresh valid wake → collect → render → archive → scheduler-managed delivery → UI hash acceptance. Trace: TST-009.
+- [x] T012 [US3] Replace the text-first history pane with a dropdown-selected, authenticated, hash-verified scroll-snap PNG dossier carousel; preserve source artifacts as secondary provenance and allow only local blob image URLs. Trace: TST-008.
+- [x] T013 [US3] Enforce the seven-day archive lifecycle in memory and PostgreSQL stores, deleting artifact children before expired run parents atomically. Trace: TST-010.

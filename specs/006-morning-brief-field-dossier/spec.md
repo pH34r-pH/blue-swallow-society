@@ -18,7 +18,8 @@ One immutable, validated run package drives two independent outputs:
 - Invalid market marks are rejected by the adapter before they mutate the ledger. Prediction probabilities are finite values in `[0, 1]`.
 - A package has a deterministic `package_sha256`, ordered 1200x1500 PNG pages, HTML pages, a source index, and a render manifest covering all seven required lanes.
 - Discord and archive writes use exactly that package hash and persist receipts. Nothing is dispatched when validation, render, or archive persistence fails.
-- Archive writes are append-only: an existing run ID may replay only when its package hash matches; a changed package is a conflict.
+- Archive writes are append-only within the seven-day retention window: an existing retained run ID may replay only when its package hash matches; a changed package is a conflict. A successful archive transaction deletes artifact rows and run records whose `archived_at` is seven days old or older.
+- The operator surface presents verified rendered PNG pages in a horizontally scrollable, scroll-snap carousel; a dropdown selects any retained run. Text metadata and source files remain secondary provenance, not a substitute render.
 - Public routes expose neither brief content nor artifact metadata. All archive/UI/API responses require the existing operator-token boundary and use `private, no-store`.
 - No raw runtime path, credential, prompt, or backend URL is present in a rendered page, receipt, archive response, or operator UI.
 

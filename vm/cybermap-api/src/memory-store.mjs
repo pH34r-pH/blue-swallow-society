@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { forbidden, IngestError, tokenDigestMatches } from './auth.mjs';
 import { hashCanonicalJson, hashPersistedObservation } from './contracts.mjs';
 
+const MORNING_BRIEF_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
 export class MemoryObservationStore {
   #credentials;
   #batches = new Map();
@@ -149,7 +151,15 @@ export class MemoryObservationStore {
       archivedAt: this.#now().toISOString(),
     };
     this.#morningBriefs.set(packet.run_id, entry);
+    this.#pruneMorningBriefs();
     return { statusCode: 201, replayed: false, brief: cloneBrief(entry) };
+  }
+
+  #pruneMorningBriefs() {
+    const cutoff = this.#now().getTime() - MORNING_BRIEF_RETENTION_MS;
+    for (const [runId, entry] of this.#morningBriefs) {
+      if (Date.parse(entry.archivedAt) <= cutoff) this.#morningBriefs.delete(runId);
+    }
   }
 
   async listMorningBriefs({ limit = 30 } = {}) {

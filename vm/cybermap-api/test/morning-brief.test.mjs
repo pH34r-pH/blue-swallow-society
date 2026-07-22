@@ -26,12 +26,12 @@ function packageHash(packet) {
   }));
 }
 
-function validPackage({ runId = 'morning-brief-2026-07-21', content = '<h1>Brief</h1>' } = {}) {
+function validPackage({ runId = 'morning-brief-2026-07-21', generatedAt = '2026-07-21T13:00:00Z', content = '<h1>Brief</h1>' } = {}) {
   const body = Buffer.from(content, 'utf8');
   const packet = {
     schema_version: 'bss.morning_brief.package.v1',
     run_id: runId,
-    generated_at: '2026-07-21T13:00:00Z',
+    generated_at: generatedAt,
     canonical_state_hash: 'a'.repeat(64),
     package_sha256: '',
     summary: 'Validated operator packet.',
@@ -44,6 +44,16 @@ function validPackage({ runId = 'morning-brief-2026-07-21', content = '<h1>Brief
   };
   packet.package_sha256 = packageHash(packet);
   return packet;
+}
+
+function asStoredPackage(packet) {
+  return {
+    ...packet,
+    artifacts: packet.artifacts.map(({ content_base64, ...artifact }) => ({
+      ...artifact,
+      content: Buffer.from(content_base64, 'base64'),
+    })),
+  };
 }
 
 async function withServer(fn) {
@@ -101,6 +111,21 @@ test('private morning-brief endpoint is append-only, replay-safe, and serves ver
     assert.equal(conflict.status, 409);
     assert.equal((await conflict.json()).error, 'morning_brief_conflict');
   });
+});
+
+test('morning-brief archive retains only the seven newest daily runs', async () => {
+  let now = Date.parse('2026-07-14T13:00:00Z');
+  const store = new MemoryObservationStore({ now: () => new Date(now) });
+  for (let day = 0; day < 8; day += 1) {
+    now = Date.parse(`2026-07-${String(14 + day).padStart(2, '0')}T13:00:00Z`);
+    const runId = `morning-brief-2026-07-${String(14 + day).padStart(2, '0')}`;
+    const packet = asStoredPackage(validPackage({ runId, generatedAt: new Date(now).toISOString() }));
+    await store.putMorningBrief({ idempotencyKey: `${runId}:publish`, package: packet });
+  }
+  const runs = await store.listMorningBriefs({ limit: 30 });
+  assert.equal(runs.length, 7);
+  assert.equal(runs.at(-1).run_id, 'morning-brief-2026-07-15');
+  assert.equal(await store.getMorningBrief('morning-brief-2026-07-14'), null);
 });
 
 test('morning-brief private endpoint rejects missing token and corrupted artifact hash', async () => {

@@ -17,8 +17,10 @@
       <h1>Morning Field Dossiers</h1>
       <p id="briefStatus" aria-live="polite">Loading sealed archive…</p>
     </header>
-    <section class="brief-grid">
-      <nav id="briefRuns" class="brief-runs" aria-label="Morning brief history"></nav>
+    <section class="brief-browser" aria-label="Morning brief archive">
+      <label class="brief-run-select-label" for="briefRunSelect">Archive date
+        <select id="briefRunSelect" aria-label="Select archived morning brief"></select>
+      </label>
       <article id="briefDetail" class="brief-detail" aria-live="polite"></article>
     </section>
   </main>

@@ -368,6 +368,7 @@ export class PostgresObservationStore {
           [packet.run_id, artifact.artifact_id, artifact.media_type, artifact.sha256, artifact.content],
         );
       }
+      await pruneExpiredMorningBriefs(client);
       await client.query('COMMIT');
       transactionOpen = false;
       return { statusCode: 201, replayed: false, brief: morningBriefResponse(packet, inserted.rows[0].archived_at) };
@@ -486,6 +487,20 @@ export class PostgresObservationStore {
         : 'Cybermap PostGIS viewport returned no observations for this fix.',
     };
   }
+}
+
+async function pruneExpiredMorningBriefs(client) {
+  await client.query(
+    `DELETE FROM morning_brief_artifacts
+     WHERE run_id IN (
+       SELECT run_id FROM morning_brief_runs
+       WHERE archived_at <= clock_timestamp() - interval '7 days'
+     )`,
+  );
+  await client.query(
+    `DELETE FROM morning_brief_runs
+     WHERE archived_at <= clock_timestamp() - interval '7 days'`,
+  );
 }
 
 function rowToMorningBriefSummary(row) {

@@ -15,8 +15,9 @@ Fresh checkout prerequisite: `(cd api && npm ci --ignore-scripts)`. Unit and int
 | TST-005 | FR-005, FR-006; VM archive | Exercise private VM POST/list/detail/artifact behavior, token denial, append-only replay/conflict, no-store, and artifact-hash rejection. | `vm/cybermap-api/test/morning-brief.test.mjs` |
 | TST-006 | FR-005; package binding | Mutate an otherwise valid request after its hash is sealed. The VM returns `422 invalid_morning_brief`; it never archives an unbound hash. | `vm/cybermap-api/test/morning-brief.test.mjs` |
 | TST-007 | FR-007; exactly one scheduler authority | Inspect deployment templates. The VM installer has no Discord webhook setting and creates/enables no `bss-morning-brief` service or timer; the local Hermes scheduler remains the sole automatic dispatch authority. | `tests/morning_brief_publish_test.py`, `infra/scripts/install-cybermap-api.sh` |
-| TST-008 | FR-006, FR-007; SWA gateway/UI | Verify operator-token authentication, no-store headers, allowed proxy methods, artifact forwarding, UI token guard, and public-route denial. | `tests/morning-brief-api.test.mjs`, `tests/morning-brief-ui.test.mjs` |
+| TST-008 | FR-006, FR-007; SWA gateway/UI | Verify operator-token authentication, no-store headers, allowed proxy methods, artifact forwarding, UI token guard, public-route denial, `blob:` image CSP permission, dropdown run selection, and scroll-snap dossier carousel construction. | `tests/morning-brief-api.test.mjs`, `tests/morning-brief-ui.test.mjs` |
 | TST-009 | SC-003; production acceptance | Run wake → collect → validate → render → archive → scheduler-managed Discord delivery; fetch the archive through the authenticated live UI and compare its hash with the immutable package/receipt. | deployment receipt + live probes |
+| TST-010 | FR-005; bounded archive retention | Archive eight daily runs against both memory and scripted PostgreSQL stores. The eighth successful transaction deletes artifacts before parent rows at the seven-day boundary; list/detail no longer expose the expired run. | `vm/cybermap-api/test/morning-brief.test.mjs`, `vm/cybermap-api/test/postgres-store.test.mjs` |
 
 ## Requirement coverage
 
@@ -25,7 +26,8 @@ Fresh checkout prerequisite: `(cd api && npm ci --ignore-scripts)`. Unit and int
 | Invalid marks and stale/failed wake withhold before mutation/dispatch | TST-001 |
 | Seven-lane deterministic Field Dossier and redaction | TST-002 |
 | Batches ≤10, exact hash receipts, replay safety | TST-003, TST-004 |
-| Append-only private archive, artifact verification, public denial | TST-005, TST-006, TST-008 |
+| Append-only private archive, artifact verification, seven-day bounded retention, public denial | TST-005, TST-006, TST-008, TST-010 |
+| Authenticated dropdown selection and rendered image carousel parity | TST-008, TST-009 |
 | One scheduler authority and deployment-secret minimization | TST-007 |
 | Fresh real package appears in authenticated live operator UI | TST-009 |
 

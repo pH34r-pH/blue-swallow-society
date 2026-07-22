@@ -278,6 +278,39 @@ test('Postgres applyBatch validates durable replay receipts before returning the
   );
 });
 
+test('Postgres morning-brief archive removes artifacts and runs outside the seven-day retention window', async () => {
+  const packet = {
+    run_id: 'morning-brief-2026-07-21',
+    generated_at: '2026-07-21T13:00:00.000Z',
+    canonical_state_hash: 'a'.repeat(64),
+    package_sha256: 'b'.repeat(64),
+    summary: 'Validated operator packet.',
+    artifacts: [{
+      artifact_id: 'brief-html',
+      media_type: 'text/html; charset=utf-8',
+      sha256: 'c'.repeat(64),
+      content: Buffer.from('<h1>Brief</h1>'),
+    }],
+  };
+  const pool = new FakePool({ clientSteps: [
+    { sql: /^BEGIN$/i },
+    { sql: /SET LOCAL lock_timeout/i },
+    { sql: /mosaic-murmurs-morning-brief:/i },
+    { sql: /FROM morning_brief_runs[\s\S]*FOR UPDATE/i, rows: [] },
+    { sql: /INSERT INTO morning_brief_runs/i, rows: [{ archived_at: new Date('2026-07-21T13:00:01.000Z') }] },
+    { sql: /INSERT INTO morning_brief_artifacts/i },
+    { sql: /DELETE FROM morning_brief_artifacts[\s\S]*archived_at <= clock_timestamp\(\) - interval '7 days'/i },
+    { sql: /DELETE FROM morning_brief_runs[\s\S]*archived_at <= clock_timestamp\(\) - interval '7 days'/i },
+    { sql: /^COMMIT$/i },
+  ] });
+  const result = await new PostgresObservationStore({ pool }).putMorningBrief({
+    idempotencyKey: 'morning-brief-2026-07-21:publish',
+    package: packet,
+  });
+  assert.equal(result.statusCode, 201);
+  assert.equal(pool.client.unconsumedSteps, 0);
+});
+
 test('Postgres paper snapshots replay exact key/payload and keep the transaction serialized', async () => {
   const state = { generated_at: '2026-07-11T18:43:00.000Z', sequence: 1 };
   const payloadHash = hashCanonicalJson(state);
