@@ -34,7 +34,8 @@ module.exports = async function morningBriefProxy(context, req) {
       return;
     }
     const contentType = headers['Content-Type'].toLowerCase();
-    if (contentType.includes('application/json')) {
+    const artifactPath = path.includes('/artifacts/');
+    if (contentType.includes('application/json') && !artifactPath) {
       let payload;
       try { payload = await response.json(); } catch { payload = { ok: false, error: 'invalid_backend_payload' }; }
       context.res = { status: response.status, headers, body: payload };

@@ -96,6 +96,28 @@ test('morning brief API forwards operator-authenticated list and artifact reads 
   });
 });
 
+test('morning brief API preserves JSON artifact bytes instead of reparsing them', async () => {
+  await withEnvironment(async () => {
+    const raw = '{"cash_balance":2000.0,"schema_version":"bss.paper_state.v3"}';
+    global.fetch = async () => new Response(raw, {
+      status: 200,
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        'content-length': String(Buffer.byteLength(raw)),
+        'x-blue-swallow-artifact-sha256': 'c'.repeat(64),
+      },
+    });
+    const artifact = await invoke({
+      path: 'morning-brief-2026-07-21/artifacts/field-dossier-package',
+      headers: operatorHeaders(),
+    });
+    assert.equal(artifact.status, 200);
+    assert.equal(artifact.isRaw, true);
+    assert.equal(Buffer.from(artifact.body).toString('utf8'), raw);
+    assert.equal(artifact.headers['X-Blue-Swallow-Artifact-SHA256'], 'c'.repeat(64));
+  });
+});
+
 test('morning brief API preserves authenticated HEAD metadata and does not consume a body', async () => {
   await withEnvironment(async () => {
     global.fetch = async (_url, options) => {
