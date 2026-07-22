@@ -34,5 +34,7 @@ test('morning brief operator surface selects archived runs from a dropdown and p
   assert.match(source, /artifact\.media_type === 'image\/png'/);
   assert.match(css, /\.brief-carousel\b/);
   assert.match(css, /scroll-snap-type:\s*x mandatory/);
+  assert.match(css, /\.brief-page\s*\{[^}]*flex:\s*0 0 min\(88vw, 100%\)/);
+  assert.match(css, /@media \(max-width:\s*760px\)[\s\S]*?\.brief-page\s*\{\s*flex-basis:\s*100%;\s*\}/);
   assert.match(config, /img-src[^;]*\bblob:/);
 });

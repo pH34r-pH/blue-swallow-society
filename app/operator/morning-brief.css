@@ -27,7 +27,7 @@ body { background: var(--brief-graphite); color: var(--brief-paper); }
 .brief-carousel-control:hover, .brief-carousel-control:focus-visible, .brief-artifact-download:hover, .brief-artifact-download:focus-visible { border-color: var(--brief-paper); background: rgba(151, 185, 175, .13); }
 .brief-carousel-control:disabled, .brief-artifact-download:disabled { opacity: .65; cursor: wait; }
 .brief-carousel { display: flex; gap: 16px; overflow-x: auto; overscroll-behavior-inline: contain; padding: 0 0 14px; scroll-padding-inline: 6px; scroll-snap-type: x mandatory; scrollbar-color: var(--brief-nacre) var(--brief-ink); }
-.brief-page { position: relative; flex: 0 0 min(88vw, 1000px); min-height: 220px; margin: 0; border: 1px solid var(--brief-rule); background: var(--brief-ink); scroll-snap-align: start; scroll-snap-stop: always; }
+.brief-page { position: relative; flex: 0 0 min(88vw, 100%); min-height: 220px; margin: 0; border: 1px solid var(--brief-rule); background: var(--brief-ink); scroll-snap-align: start; scroll-snap-stop: always; }
 .brief-page img { display: block; width: 100%; height: auto; background: var(--brief-paper); }
 .brief-page figcaption { padding: 9px 11px; color: var(--brief-nacre); font: 11px/1.35 monospace; }
 .brief-page-error { padding: 18px; color: var(--brief-oxide); font: 12px/1.4 monospace; }
@@ -48,7 +48,7 @@ body { background: var(--brief-graphite); color: var(--brief-paper); }
   .brief-shell { padding-top: 24px; }
   .brief-detail { padding: 16px; }
   .brief-pages-header { align-items: flex-start; flex-direction: column; gap: 7px; }
-  .brief-page { flex-basis: calc(100vw - 64px); }
+  .brief-page { flex-basis: 100%; }
   .brief-meta { grid-template-columns: 1fr; gap: 3px; }
   .brief-meta dd { margin: 0 0 9px; }
 }
