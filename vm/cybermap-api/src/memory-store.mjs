@@ -3,16 +3,28 @@ import { randomUUID } from 'node:crypto';
 import { forbidden, IngestError, tokenDigestMatches } from './auth.mjs';
 import { hashCanonicalJson, hashPersistedObservation } from './contracts.mjs';
 
+const GLOBAL_SOURCE_CLASSES = Object.freeze(['green_public', 'green_owned', 'green_authorized']);
+const GLOBAL_MAX_CELLS = 1_000;
+const GLOBAL_VIEWPORT_SCHEMA_VERSION = 'bss.godeye.global_viewport.v1';
+
 export class MemoryObservationStore {
   #credentials;
   #batches = new Map();
   #observations = new Map();
   #paperStateUpdates = new Map();
   #paperState = null;
+  #globalCells;
+  #globalSources;
   #now;
   #randomUuid;
 
-  constructor({ credentials = [], now = () => new Date(), randomUuid = randomUUID } = {}) {
+  constructor({
+    credentials = [],
+    globalCells = [],
+    globalSources = [],
+    now = () => new Date(),
+    randomUuid = randomUUID,
+  } = {}) {
     this.#credentials = credentials.map((credential) => ({
       device_id: credential.device_id,
       source_id: credential.source_id,
@@ -22,6 +34,8 @@ export class MemoryObservationStore {
       enabled: credential.enabled === true,
       expires_at: credential.expires_at ?? null,
     }));
+    this.#globalCells = globalCells.map((cell) => structuredClone(cell));
+    this.#globalSources = globalSources.map((source) => structuredClone(source));
     this.#now = now;
     this.#randomUuid = randomUuid;
   }
@@ -159,9 +173,133 @@ export class MemoryObservationStore {
     };
   }
 
+  async queryGlobalViewport({
+    bbox,
+    zoom,
+    layer_ids: layerIds = [],
+    since = null,
+    max_cells: maxCells = GLOBAL_MAX_CELLS,
+    now = this.#now(),
+  } = {}) {
+    const selectedResolution = globalResolutionForZoom(zoom);
+    const eligibleSources = new Map(
+      this.#globalSources
+        .filter((source) => isEligibleGlobalSource(source, layerIds))
+        .map((source) => [source.layer_id, source]),
+    );
+    const sinceMs = since === null ? null : Date.parse(since);
+    const cells = this.#globalCells
+      .filter((cell) => cell.resolution === selectedResolution)
+      .filter((cell) => centroidInBbox(cell.centroid, bbox))
+      .filter((cell) => !Number.isFinite(sinceMs) || Date.parse(cell.last_seen_at) >= sinceMs)
+      .filter((cell) => cellUsesOnlyEligibleLayers(cell, eligibleSources))
+      .map((cell) => toAggregateCell(cell, eligibleSources))
+      .sort(compareAggregateCells)
+      .slice(0, boundedGlobalLimit(maxCells));
+
+    return {
+      ok: true,
+      schema_version: GLOBAL_VIEWPORT_SCHEMA_VERSION,
+      mode: 'global',
+      generated_at: new Date(now).toISOString(),
+      bbox: structuredClone(bbox),
+      requested_zoom: zoom,
+      selected_resolution: selectedResolution,
+      aggregation_applied: false,
+      cells,
+      source_health: [],
+      intelligence_gaps: [],
+    };
+  }
+
   batchCount() {
     return this.#batches.size;
   }
+}
+
+function globalResolutionForZoom(zoom) {
+  if (zoom <= 3) return 5;
+  if (zoom <= 7) return 7;
+  if (zoom <= 11) return 9;
+  return 11;
+}
+
+function boundedGlobalLimit(value) {
+  const limit = Number(value);
+  if (!Number.isInteger(limit) || limit < 1) return 1;
+  return Math.min(limit, GLOBAL_MAX_CELLS);
+}
+
+function isEligibleGlobalSource(source, layerIds) {
+  return layerIds.includes(source.layer_id)
+    && source.enabled === true
+    && source.global_layer === true
+    && source.terms_reviewed_at !== null
+    && source.allowed_preload === true
+    && GLOBAL_SOURCE_CLASSES.includes(source.source_class)
+    && (source.source_class !== 'green_authorized' || source.authorized_scope_ref !== null);
+}
+
+function centroidInBbox(centroid, bbox) {
+  return Number.isFinite(centroid?.lat)
+    && Number.isFinite(centroid?.lon)
+    && centroid.lon >= bbox.west
+    && centroid.lon <= bbox.east
+    && centroid.lat >= bbox.south
+    && centroid.lat <= bbox.north;
+}
+
+function cellUsesOnlyEligibleLayers(cell, eligibleSources) {
+  const layerIds = Object.keys(cell.layers ?? {});
+  return layerIds.length > 0 && layerIds.every((layerId) => eligibleSources.has(layerId));
+}
+
+function toAggregateCell(cell, eligibleSources) {
+  const layers = Object.fromEntries(
+    Object.entries(cell.layers).map(([layerId, aggregate]) => [
+      layerId,
+      { observation_count: finiteInteger(aggregate?.observation_count) },
+    ]),
+  );
+  return {
+    h3_cell: cell.h3_cell,
+    resolution: finiteInteger(cell.resolution),
+    centroid: {
+      lat: finiteOrNull(cell.centroid?.lat),
+      lon: finiteOrNull(cell.centroid?.lon),
+    },
+    source_classes: [...new Set(Object.keys(layers).map((layerId) => eligibleSources.get(layerId).source_class))].sort(),
+    observation_count: finiteInteger(cell.observation_count),
+    entity_count: finiteInteger(cell.entity_count),
+    first_seen_at: toIsoString(cell.first_seen_at),
+    last_seen_at: toIsoString(cell.last_seen_at),
+    layers,
+    freshness: aggregateFreshness(cell.freshness, Object.keys(layers)),
+    caveats: aggregateCaveats(cell.caveats),
+    salience: finiteOrNull(cell.salience),
+  };
+}
+
+function aggregateFreshness(freshness, layerIds) {
+  return Object.fromEntries(layerIds.map((layerId) => {
+    const record = freshness?.[layerId] ?? {};
+    return [layerId, {
+      state: typeof record.state === 'string' ? record.state : 'error',
+      age_seconds: finiteInteger(record.age_seconds),
+    }];
+  }));
+}
+
+function aggregateCaveats(caveats) {
+  return Array.isArray(caveats)
+    ? caveats.filter((caveat) => typeof caveat === 'string' && /^[a-z0-9_]{1,64}$/.test(caveat))
+    : [];
+}
+
+function compareAggregateCells(left, right) {
+  return (right.salience ?? 0) - (left.salience ?? 0)
+    || Date.parse(right.last_seen_at ?? 0) - Date.parse(left.last_seen_at ?? 0)
+    || String(left.h3_cell).localeCompare(String(right.h3_cell));
 }
 
 function toAccessPoint(entry, center) {
@@ -196,6 +334,17 @@ function toAccessPoint(entry, center) {
 function finiteOrNull(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function finiteInteger(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : 0;
+}
+
+function toIsoString(value) {
+  if (value instanceof Date) return value.toISOString();
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
 }
 
 function stringOrNull(value) {

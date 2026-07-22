@@ -34,6 +34,124 @@ test('authenticates an enrolled device without retaining the raw token', async (
   );
 });
 
+test('returns only bounded catalog-approved aggregate global cells from memory materialization', async () => {
+  const store = new MemoryObservationStore({
+    globalSources: [
+      {
+        layer_id: 'usgs-earthquakes',
+        source_class: 'green_public',
+        enabled: true,
+        global_layer: true,
+        terms_reviewed_at: '2026-07-22T00:00:00.000Z',
+        allowed_preload: true,
+      },
+      {
+        layer_id: 'orange-exposure',
+        source_class: 'orange_exposure',
+        enabled: true,
+        global_layer: true,
+        terms_reviewed_at: '2026-07-22T00:00:00.000Z',
+        allowed_preload: true,
+      },
+      {
+        layer_id: 'disabled-greenfeed',
+        source_class: 'green_public',
+        enabled: false,
+        global_layer: true,
+        terms_reviewed_at: '2026-07-22T00:00:00.000Z',
+        allowed_preload: true,
+      },
+    ],
+    globalCells: [
+      {
+        h3_cell: '872830828ffffff',
+        resolution: 7,
+        centroid: { lat: 47.61, lon: -122.33 },
+        source_classes: ['green_public'],
+        observation_count: 12,
+        entity_count: 0,
+        first_seen_at: '2026-07-22T19:00:00.000Z',
+        last_seen_at: '2026-07-22T19:55:00.000Z',
+        layers: { 'usgs-earthquakes': { observation_count: 12 } },
+        freshness: { 'usgs-earthquakes': { state: 'fresh', age_seconds: 300 } },
+        caveats: ['public_report_not_local_observation'],
+        salience: 0.9,
+        payload: { bssid: '00:11:22:33:44:55' },
+      },
+      {
+        h3_cell: '872830829ffffff',
+        resolution: 7,
+        centroid: { lat: 47.62, lon: -122.34 },
+        source_classes: ['green_public'],
+        observation_count: 4,
+        entity_count: 0,
+        first_seen_at: '2026-07-22T19:00:00.000Z',
+        last_seen_at: '2026-07-22T19:50:00.000Z',
+        layers: { 'usgs-earthquakes': { observation_count: 4 } },
+        freshness: { 'usgs-earthquakes': { state: 'fresh', age_seconds: 600 } },
+        caveats: [],
+        salience: 0.2,
+      },
+      {
+        h3_cell: '87283082affffff',
+        resolution: 7,
+        centroid: { lat: 47.61, lon: -122.33 },
+        source_classes: ['orange_exposure'],
+        observation_count: 99,
+        entity_count: 0,
+        first_seen_at: '2026-07-22T19:00:00.000Z',
+        last_seen_at: '2026-07-22T19:59:00.000Z',
+        layers: { 'orange-exposure': { observation_count: 99 } },
+        freshness: { 'orange-exposure': { state: 'fresh', age_seconds: 60 } },
+        caveats: [],
+        salience: 1,
+      },
+      {
+        h3_cell: '87283082bffffff',
+        resolution: 7,
+        centroid: { lat: 46.61, lon: -122.33 },
+        source_classes: ['green_public'],
+        observation_count: 4,
+        entity_count: 0,
+        first_seen_at: '2026-07-22T19:00:00.000Z',
+        last_seen_at: '2026-07-22T19:50:00.000Z',
+        layers: { 'usgs-earthquakes': { observation_count: 4 } },
+        freshness: { 'usgs-earthquakes': { state: 'fresh', age_seconds: 600 } },
+        caveats: [],
+        salience: 0.8,
+      },
+    ],
+    now: () => new Date('2026-07-22T20:00:00.000Z'),
+  });
+
+  const response = await store.queryGlobalViewport({
+    bbox: { west: -123, south: 47, east: -122, north: 48 },
+    zoom: 7,
+    layer_ids: ['usgs-earthquakes', 'orange-exposure', 'disabled-greenfeed'],
+    since: '2026-07-21T00:00:00.000Z',
+    max_cells: 1,
+  });
+
+  assert.equal(response.selected_resolution, 7);
+  assert.equal(response.aggregation_applied, false);
+  assert.equal(response.cells.length, 1);
+  assert.deepEqual(response.cells[0], {
+    h3_cell: '872830828ffffff',
+    resolution: 7,
+    centroid: { lat: 47.61, lon: -122.33 },
+    source_classes: ['green_public'],
+    observation_count: 12,
+    entity_count: 0,
+    first_seen_at: '2026-07-22T19:00:00.000Z',
+    last_seen_at: '2026-07-22T19:55:00.000Z',
+    layers: { 'usgs-earthquakes': { observation_count: 12 } },
+    freshness: { 'usgs-earthquakes': { state: 'fresh', age_seconds: 300 } },
+    caveats: ['public_report_not_local_observation'],
+    salience: 0.9,
+  });
+  assert.equal('payload' in response.cells[0], false);
+});
+
 test('applies a batch once and replays the identical stored receipt', async () => {
   const store = createStore();
   const credential = await store.authenticate({ deviceId: DEVICE_ID, token: INGEST_TOKEN, requiredScope: 'observations:write' });

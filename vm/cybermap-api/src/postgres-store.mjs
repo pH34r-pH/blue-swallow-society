@@ -3,7 +3,15 @@ import { latLngToCell } from 'h3-js';
 import { forbidden, hashToken, IngestError } from './auth.mjs';
 import { hashCanonicalJson, hashPersistedObservation } from './contracts.mjs';
 
-const REQUIRED_MIGRATIONS = Object.freeze(['0001_cybermap_core', '0002_device_ingest_contract', '0003_paper_state']);
+const REQUIRED_MIGRATIONS = Object.freeze([
+  '0001_cybermap_core',
+  '0002_device_ingest_contract',
+  '0003_paper_state',
+  '0004_godeye_global_cells_and_sources',
+]);
+const GLOBAL_SOURCE_CLASSES = Object.freeze(['green_public', 'green_owned', 'green_authorized']);
+const GLOBAL_MAX_CELLS = 1_000;
+const GLOBAL_VIEWPORT_SCHEMA_VERSION = 'bss.godeye.global_viewport.v1';
 
 /** Durable PostgreSQL/PostGIS implementation of the authenticated observation store contract. */
 export class PostgresObservationStore {
@@ -331,6 +339,86 @@ export class PostgresObservationStore {
     };
   }
 
+  async queryGlobalViewport({
+    bbox,
+    zoom,
+    layer_ids: layerIds,
+    since = null,
+    max_cells: maxCells = GLOBAL_MAX_CELLS,
+    now = new Date(),
+  } = {}) {
+    const selectedResolution = globalResolutionForZoom(zoom);
+    const result = await this.#pool.query(
+      `SELECT
+         cell.h3_cell,
+         cell.resolution,
+         ST_Y(ST_Centroid(cell.geom))::float8 AS centroid_lat,
+         ST_X(ST_Centroid(cell.geom))::float8 AS centroid_lon,
+         cell.source_classes::text[] AS source_classes,
+         cell.observation_count,
+         cell.entity_count,
+         cell.first_seen_at,
+         cell.last_seen_at,
+         cell.layers,
+         cell.freshness,
+         cell.caveats,
+         cell.salience::float8 AS salience
+       FROM cybermap_cells AS cell
+       WHERE cell.resolution = $1
+         AND ST_Intersects(
+           cell.geom,
+           ST_MakeEnvelope($2, $3, $4, $5, 4326)
+         )
+         AND ($8::timestamptz IS NULL OR cell.last_seen_at >= $8::timestamptz)
+         AND jsonb_object_length(cell.layers) > 0
+         AND NOT EXISTS (
+           SELECT 1
+           FROM jsonb_object_keys(cell.layers) AS cell_layer(layer_id)
+           LEFT JOIN source_catalog AS source
+             ON source.layer_id = cell_layer.layer_id
+            AND source.enabled = true
+            AND source.global_layer = true
+            AND source.terms_reviewed_at IS NOT NULL
+            AND source.allowed_preload = true
+            AND source.source_class = ANY($6::source_class[])
+            AND source.layer_id = ANY($7::text[])
+            AND (
+              source.source_class <> 'green_authorized'
+              OR source.authorized_scope_ref IS NOT NULL
+            )
+           WHERE source.layer_id IS NULL
+         )
+       ORDER BY cell.salience DESC, cell.last_seen_at DESC NULLS LAST, cell.h3_cell ASC
+       LIMIT $9`,
+      [
+        selectedResolution,
+        bbox.west,
+        bbox.south,
+        bbox.east,
+        bbox.north,
+        GLOBAL_SOURCE_CLASSES,
+        layerIds,
+        since,
+        boundedGlobalLimit(maxCells),
+      ],
+    );
+    const cells = result.rows.map((row) => rowToAggregateCell(row));
+
+    return {
+      ok: true,
+      schema_version: GLOBAL_VIEWPORT_SCHEMA_VERSION,
+      mode: 'global',
+      generated_at: new Date(now).toISOString(),
+      bbox: structuredClone(bbox),
+      requested_zoom: zoom,
+      selected_resolution: selectedResolution,
+      aggregation_applied: false,
+      cells,
+      source_health: [],
+      intelligence_gaps: [],
+    };
+  }
+
   async queryViewport({ lat, lon, radiusMeters = 100, limit = 100, maxAgeMs = null, now = new Date() } = {}) {
     const center = { lat, lon };
     const cutoff = Number.isFinite(maxAgeMs) ? new Date(new Date(now).getTime() - maxAgeMs).toISOString() : null;
@@ -426,9 +514,82 @@ function rowToAccessPoint(row) {
   };
 }
 
+function rowToAggregateCell(row) {
+  const centroid = parseJsonObject(row.centroid ?? {
+    lat: row.centroid_lat,
+    lon: row.centroid_lon,
+  });
+  const layers = aggregateLayers(row.layers);
+  return {
+    h3_cell: row.h3_cell,
+    resolution: finiteInteger(row.resolution),
+    centroid: {
+      lat: finiteOrNull(centroid.lat),
+      lon: finiteOrNull(centroid.lon),
+    },
+    source_classes: aggregateSourceClasses(row.source_classes),
+    observation_count: finiteInteger(row.observation_count),
+    entity_count: finiteInteger(row.entity_count),
+    first_seen_at: toIsoString(row.first_seen_at),
+    last_seen_at: toIsoString(row.last_seen_at),
+    layers,
+    freshness: aggregateFreshness(row.freshness, Object.keys(layers)),
+    caveats: aggregateCaveats(row.caveats),
+    salience: finiteOrNull(row.salience),
+  };
+}
+
+function globalResolutionForZoom(zoom) {
+  if (zoom <= 3) return 5;
+  if (zoom <= 7) return 7;
+  if (zoom <= 11) return 9;
+  return 11;
+}
+
+function boundedGlobalLimit(value) {
+  const limit = Number(value);
+  if (!Number.isInteger(limit) || limit < 1) return 1;
+  return Math.min(limit, GLOBAL_MAX_CELLS);
+}
+
+function aggregateSourceClasses(value) {
+  const classes = Array.isArray(value) ? value : parseJsonArray(value);
+  return [...new Set(classes.filter((sourceClass) => GLOBAL_SOURCE_CLASSES.includes(sourceClass)))].sort();
+}
+
+function aggregateLayers(value) {
+  const layers = parseJsonObject(value ?? {});
+  return Object.fromEntries(
+    Object.entries(layers).map(([layerId, aggregate]) => [
+      layerId,
+      { observation_count: finiteInteger(aggregate?.observation_count) },
+    ]),
+  );
+}
+
+function aggregateFreshness(value, layerIds) {
+  const freshness = parseJsonObject(value ?? {});
+  return Object.fromEntries(layerIds.map((layerId) => {
+    const record = freshness[layerId] ?? {};
+    return [layerId, {
+      state: typeof record.state === 'string' ? record.state : 'error',
+      age_seconds: finiteInteger(record.age_seconds),
+    }];
+  }));
+}
+
+function aggregateCaveats(value) {
+  return parseJsonArray(value ?? []).filter((caveat) => typeof caveat === 'string' && /^[a-z0-9_]{1,64}$/.test(caveat));
+}
+
 function finiteOrNull(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function finiteInteger(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : 0;
 }
 
 function stringOrNull(value) {
@@ -569,4 +730,9 @@ function storageContractRejected() {
 
 function parseJsonObject(value) {
   return typeof value === 'string' ? JSON.parse(value) : structuredClone(value);
+}
+
+function parseJsonArray(value) {
+  const parsed = typeof value === 'string' ? JSON.parse(value) : structuredClone(value);
+  return Array.isArray(parsed) ? parsed : [];
 }
