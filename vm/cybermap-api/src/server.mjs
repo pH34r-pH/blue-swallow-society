@@ -3,11 +3,22 @@ import http from 'node:http';
 
 import { IngestError } from './auth.mjs';
 import { ContractError, validateObservationBatch } from './contracts.mjs';
+import {
+  GlobalViewportContractError,
+  validateGlobalViewportRequest,
+  validateGlobalViewportResponse,
+} from './global-viewport-contract.mjs';
 
 const MAX_BODY_BYTES = 1_048_576;
 const INGEST_PATH = '/api/v1/observations/batch';
 const VIEWPORT_PATH = '/api/v1/cybermap/viewport';
+const GLOBAL_VIEWPORT_PATH = '/api/v1/cybermap/global-viewport';
 const PAPER_STATE_PATH = '/api/v1/paper/state';
+const GLOBAL_VIEWPORT_LAYER_IDS = Object.freeze([
+  'usgs-earthquakes',
+  'gdacs-alerts',
+  'nasa-eonet-events',
+]);
 const PAPER_LINE_IDS = Object.freeze(['standard', 'aggressive', 'hyper_aggressive']);
 const PAPER_STRATEGY_IDS = Object.freeze([
   'prediction_markets',
@@ -109,6 +120,11 @@ export function createRequestHandler({ store, now = Date.now, logger = null, ing
       if (request.method === 'GET' && url.pathname === VIEWPORT_PATH) {
         requireBackendReadToken(request);
         const viewport = await handleCybermapViewport(url, { store, now });
+        return sendJson(response, 200, viewport);
+      }
+      if (request.method === 'POST' && url.pathname === GLOBAL_VIEWPORT_PATH) {
+        requireBackendReadToken(request);
+        const viewport = await handleGlobalViewport(request, { store });
         return sendJson(response, 200, viewport);
       }
       if (url.pathname === PAPER_STATE_PATH && (request.method === 'GET' || request.method === 'PUT')) {
@@ -551,6 +567,37 @@ async function handleCybermapViewport(url, { store, now }) {
   return store.queryViewport({ lat, lon, radiusMeters, limit, maxAgeMs, now: new Date(nowMs) });
 }
 
+async function handleGlobalViewport(request, { store }) {
+  if (typeof store.queryGlobalViewport !== 'function') {
+    throw new IngestError('global_viewport_unavailable', 'Global viewport reads are not available.', { statusCode: 503 });
+  }
+  const contentType = String(request.headers['content-type'] ?? '').toLowerCase();
+  if (!contentType.startsWith('application/json')) {
+    request.resume();
+    throw new IngestError('invalid_global_viewport', 'Content-Type must be application/json.', { statusCode: 400 });
+  }
+
+  let body;
+  try {
+    body = JSON.parse(await readBody(request));
+  } catch (error) {
+    if (error instanceof IngestError) throw error;
+    throw new IngestError('invalid_global_viewport', 'Malformed JSON.', { statusCode: 400 });
+  }
+  const globalViewportRequest = validateGlobalViewportRequest(body, {
+    supportedLayerIds: GLOBAL_VIEWPORT_LAYER_IDS,
+  });
+
+  try {
+    const viewport = await store.queryGlobalViewport(globalViewportRequest);
+    return validateGlobalViewportResponse(viewport, {
+      supportedLayerIds: GLOBAL_VIEWPORT_LAYER_IDS,
+    });
+  } catch {
+    throw new IngestError('global_viewport_unavailable', 'Global viewport read model is unavailable.', { statusCode: 503 });
+  }
+}
+
 function requirePaperStateToken(request) {
   const expected = String(process.env.BSS_PAPER_STATE_TOKEN || '').trim();
   if (!PAPER_TOKEN_RE.test(expected)) {
@@ -641,7 +688,7 @@ function sendError(response, error) {
     response.destroy();
     return;
   }
-  if (error instanceof ContractError || error instanceof IngestError) {
+  if (error instanceof ContractError || error instanceof GlobalViewportContractError || error instanceof IngestError) {
     const body = { ok: false, error: error.code };
     if (error instanceof ContractError && error.path) body.path = error.path;
     return sendJson(response, error.statusCode, body, error.statusCode === 413 ? { Connection: 'close' } : {});
