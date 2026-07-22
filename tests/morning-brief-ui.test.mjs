@@ -35,6 +35,7 @@ test('morning brief operator surface selects archived runs from a dropdown and p
   assert.match(css, /\.brief-carousel\b/);
   assert.match(css, /scroll-snap-type:\s*x mandatory/);
   assert.match(css, /\.brief-page\s*\{[^}]*flex:\s*0 0 min\(88vw, 100%\)/);
+  assert.doesNotMatch(css, /scroll-padding-inline/);
   assert.match(css, /@media \(max-width:\s*760px\)[\s\S]*?\.brief-page\s*\{\s*flex-basis:\s*100%;\s*\}/);
   assert.match(config, /img-src[^;]*\bblob:/);
 });
