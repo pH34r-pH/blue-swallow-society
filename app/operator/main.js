@@ -18,6 +18,10 @@ import {
   mergeVisionDetections,
   parseVisionPayload,
 } from './vision.mjs';
+import {
+  DEFAULT_GODEYE_GLOBAL_VIEWPORT,
+  createGodeyeGlobalRenderer,
+} from './godeye-global.mjs';
 
 const TILE_BASE_URL = 'https://tile.openstreetmap.org';
 const MAP_ZOOM = 15;
@@ -100,6 +104,9 @@ const state = {
   },
   godeyeBound: false,
   godeyeReady: false,
+  godeyeMode: 'field',
+  godeyeModeBound: false,
+  godeyeGlobalRenderer: null,
   geolocationWatchId: null,
   currentLocation: null,
   godeyeRenderFrame: 0,
@@ -278,6 +285,8 @@ function resetConsoleToLogin() {
   stopTzeentchDashboard();
   stopArFeed();
   stopGodeyeFeed();
+  state.godeyeGlobalRenderer?.cancel();
+  state.godeyeMode = 'field';
   state.currentLocation = null;
   state.wigleData = emptyWigleDataset();
   state.wigleLiveData = null;
@@ -1516,6 +1525,7 @@ function initGodeyeTab() {
       locationBtn.addEventListener('click', startGodeyeFeed);
     }
 
+    bindGodeyeModeControls();
     bindWigleControls();
 
     if (!state.godeyeResizeBound) {
@@ -1537,7 +1547,67 @@ function initGodeyeTab() {
   renderGodeyeMap();
 }
 
+function bindGodeyeModeControls() {
+  if (state.godeyeModeBound) {
+    return;
+  }
+
+  document.querySelectorAll('[data-godeye-mode]').forEach((control) => {
+    control.addEventListener('click', () => {
+      activateGodeyeMode(control.dataset.godeyeMode);
+    });
+  });
+
+  state.godeyeModeBound = true;
+  syncGodeyeModeControls();
+}
+
+function syncGodeyeModeControls() {
+  document.querySelectorAll('[data-godeye-mode]').forEach((control) => {
+    const selected = control.dataset.godeyeMode === state.godeyeMode;
+    control.classList.toggle('active', selected);
+    control.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  });
+}
+
+function activateGodeyeMode(mode) {
+  if (mode !== 'field' && mode !== 'global') {
+    return;
+  }
+
+  state.godeyeMode = mode;
+  syncGodeyeModeControls();
+
+  if (mode === 'field') {
+    state.godeyeGlobalRenderer?.cancel();
+    renderGodeyeFields();
+    renderGodeyeMap();
+    return;
+  }
+
+  stopGodeyeFeed();
+  void loadGodeyeGlobalViewport();
+}
+
+async function loadGodeyeGlobalViewport() {
+  if (!state.authenticated || state.godeyeMode !== 'global') {
+    return;
+  }
+
+  if (!state.godeyeGlobalRenderer) {
+    state.godeyeGlobalRenderer = createGodeyeGlobalRenderer({
+      getHeaders: () => buildOperatorHeaders(),
+    });
+  }
+
+  await state.godeyeGlobalRenderer.loadViewport(DEFAULT_GODEYE_GLOBAL_VIEWPORT);
+}
+
 async function startGodeyeFeed() {
+  if (state.godeyeMode !== 'field') {
+    return;
+  }
+
   if (!navigator.geolocation) {
     updateGodeyeStatus('Geolocation is unavailable in this browser.');
     return;

@@ -8,6 +8,12 @@
 
 Treat **Cybermap/geospatial state as the first-class product**, not an appendage of the Static Web App or echo lab.
 
+## Current Godeye Global implementation status (2026-07-22)
+
+The feature lane now has a protected GlobalViewport read path, aggregate-cell stores, a provenance-first operator Global mode, and bounded fixture-only source adapters. The local closeout is recorded in [`specs/008-godeye-global-map-source-integration/implementation-status.md`](../specs/008-godeye-global-map-source-integration/implementation-status.md).
+
+USGS, GDACS, and NASA EONET remain disabled: their adapters declare `enabled: false` and `allowed_preload: false`; USGS alone has a documented terms/attribution review, while GDACS and NASA EONET retain `terms_reviewed_at: null`. The worker has no scheduler or provider configuration. A fixture-only test receipt does not enable a provider. See [`cybermap-usgs-terms-approval-2026-07-22.md`](./cybermap-usgs-terms-approval-2026-07-22.md) for the T020 scope and controlled-validation boundary.
+
 The target Azure shape is:
 
 ```text

@@ -370,6 +370,16 @@
               <p class="panel-meta">Hosted OpenStreetMap viewer for managed Cybermap observations, aircraft-track scaffolds, and non-camera overlays.</p>
             </div>
 
+            <div class="godeye-mode-controls" role="group" aria-label="Godeye map mode">
+              <button class="btn btn-secondary godeye-mode-control active" type="button" data-godeye-mode="field" aria-pressed="true">
+                Field
+              </button>
+              <button class="btn btn-secondary godeye-mode-control" type="button" data-godeye-mode="global" aria-pressed="false">
+                Global
+              </button>
+              <p class="panel-meta">Field reads the local 100 m viewport. Global reads bounded, materialized BSS cells only.</p>
+            </div>
+
             <div class="godeye-layout">
               <div class="map-panel">
                 <div id="godeyeMap" class="map-viewport" aria-label="OpenStreetMap current location map">
@@ -462,6 +472,46 @@
                 </dl>
               </aside>
             </div>
+
+            <section class="godeye-global-evidence" aria-label="Global source provenance ledger">
+              <div class="panel-heading panel-heading-compact">
+                <div>
+                  <p class="eyebrow">// GLOBAL //</p>
+                  <h3>Global source provenance ledger</h3>
+                </div>
+                <p class="panel-meta">Global context is aggregate evidence, not a local sighting or a provider request.</p>
+              </div>
+
+              <dl class="godeye-global-legend" aria-label="Global evidence fields">
+                <div><dt>Source class</dt><dd>Evidence policy for the selected layer.</dd></div>
+                <div><dt>Attribution</dt><dd>Provider credit retained with the layer.</dd></div>
+                <div><dt>Freshness</dt><dd>Last successful materialization, never a live claim.</dd></div>
+                <div><dt>Caveat</dt><dd>Coverage or evidence limits that remain visible.</dd></div>
+              </dl>
+
+              <div class="godeye-global-grid">
+                <section class="godeye-global-section" aria-labelledby="godeyeGlobalCellsTitle">
+                  <h4 id="godeyeGlobalCellsTitle">Aggregate cells</h4>
+                  <div class="godeye-global-cells" data-godeye-global-cells>
+                    <p class="godeye-global-cell godeye-global-cell-empty">Select Global to request bounded materialized cells.</p>
+                  </div>
+                </section>
+
+                <section class="godeye-global-section" aria-labelledby="godeyeGlobalLedgerTitle">
+                  <h4 id="godeyeGlobalLedgerTitle">Layer ledger</h4>
+                  <div class="godeye-global-ledger" data-godeye-global-ledger>
+                    <p class="godeye-global-source godeye-global-source-empty">No Global layer response loaded.</p>
+                  </div>
+                </section>
+
+                <section class="godeye-global-section" aria-labelledby="godeyeGlobalGapsTitle">
+                  <h4 id="godeyeGlobalGapsTitle">Intelligence gaps</h4>
+                  <ul class="godeye-global-gaps" data-godeye-global-intelligence-gaps>
+                    <li class="godeye-global-gap godeye-global-gap-empty">No Global layer response loaded.</li>
+                  </ul>
+                </section>
+              </div>
+            </section>
           </article>
         </section>
       </div>

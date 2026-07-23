@@ -1,0 +1,36 @@
+{
+  "fixture": {
+    "owner": "Blue Swallow Society",
+    "provenance": "synthetic source-normalization contract fixture",
+    "version": 1
+  },
+  "payload": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "us7000fixture-b",
+        "properties": {
+          "time": 1784747700000,
+          "mag": 2.8,
+          "type": "earthquake"
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-122.3331, 47.6097, 8.1]
+        }
+      },
+      {
+        "id": "us7000fixture-a",
+        "properties": {
+          "time": 1784745900000,
+          "mag": 4.2,
+          "type": "earthquake"
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-122.3321, 47.6062, 12.4]
+        }
+      }
+    ]
+  }
+}
