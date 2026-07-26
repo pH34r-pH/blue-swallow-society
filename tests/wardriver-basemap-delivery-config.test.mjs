@@ -21,8 +21,11 @@ test('Bicep keeps ordinary release blobs private and reserves $web for the manua
   assert.doesNotMatch(storage, /resource basemapStaticWebsite/);
   assert.match(storage, /resource releaseContainer[\s\S]*?publicAccess:\s*'None'/);
   assert.match(storage, /resource basemapToolchainContainer[\s\S]*?publicAccess:\s*'None'/);
+  assert.match(storage, /resource basemapInputContainer[\s\S]*?publicAccess:\s*'None'/);
   assert.match(storage, /toolchainContainerName string = 'wardriver-basemap-toolchain'/);
+  assert.match(storage, /inputContainerName string = 'wardriver-basemap-inputs'/);
   assert.match(main, /wardriverBasemapToolchainContainerName/);
+  assert.match(main, /wardriverBasemapInputContainerName/);
   assert.doesNotMatch(storage, /publicAccess:\s*'Blob'/);
   assert.match(storage, /basemapContainerName string = '\$web'/);
   assert.doesNotMatch(storage, /wardriverBasemapStyleUrl/);
@@ -55,6 +58,13 @@ test('manual basemap publication verifies its source and toolchain, emits proven
   assert.match(workflow, /PLANETILER_SHA256: f310bd0413e2e4512b27f4046d418664e8e1d3bf31603c2a70e23de06c167e4d/);
   assert.match(workflow, /wardriverBasemapToolchainContainerName/);
   assert.match(workflow, /toolchain_container/);
+  assert.match(workflow, /WASHINGTON_SOURCE_SHA256: b6cc3930b0219882a21f5affe40974ec67b2b92178b90bb2030f492e6b57ad7f/);
+  assert.match(workflow, /wardriverBasemapInputContainerName/);
+  assert.match(workflow, /input_container/);
+  assert.match(workflow, /Fetch and verify private Washington input/);
+  assert.match(workflow, /geofabrik\/washington\/washington\.osm\.pbf/);
+  assert.match(workflow, /washington-provenance\.json/);
+  assert.doesNotMatch(workflow, /curl[^\n]*download\.geofabrik\.de/);
   assert.match(workflow, /Fetch and verify pinned private Planetiler toolchain/);
   assert.match(workflow, /--container-name "\$TOOLCHAIN_CONTAINER"/);
   assert.match(workflow, /planetiler\/\$\{PLANETILER_VERSION\}\/planetiler\.jar/);
@@ -89,7 +99,7 @@ test('manual basemap publication verifies its source and toolchain, emits proven
     'the private toolchain must validate before public-host enablement',
   );
   assert.ok(
-    workflow.indexOf('Enable Storage static website') < workflow.indexOf('Fetch and verify bounded OpenStreetMap input'),
+    workflow.indexOf('Enable Storage static website') < workflow.indexOf('Fetch and verify private Washington input'),
     'the public static endpoint must be enabled only after OIDC proof and before tile generation',
   );
   assert.match(workflow, /STYLE_OBJECT_PATH: v1\/style\.json/);

@@ -2,10 +2,10 @@
 
 | Requirement | Test / evidence | Status |
 |---|---|---|
-| R1 | `tests/wardriver-basemap-delivery-config.test.mjs`; `az bicep build infra/main.bicep`; ordinary Blob access disabled, release/toolchain containers private, and manual OIDC-gated `$web` enablement | implemented locally |
+| R1 | `tests/wardriver-basemap-delivery-config.test.mjs`; `az bicep build infra/main.bicep`; ordinary Blob access disabled, release/toolchain/input containers private, and manual OIDC-gated `$web` enablement | implemented locally |
 | R2 | Style-template static contract; render-script canary with BSS static-website URL | implemented locally |
 | R3 | Publication workflow static contract checks versioned generation path, cache headers, provenance output | implemented locally |
-| R4 | Workflow static contract checks manual dispatch, OIDC preflight against private `wardriver-releases`, fixed-SHA/private-toolchain provenance verification before `$web` enablement/source download, Geofabrik checksum verification, and Java 21 | implemented locally |
+| R4 | Workflow static contract checks manual dispatch, OIDC preflight against private `wardriver-releases`, fixed-SHA/private-toolchain and Washington-input provenance verification before `$web` enablement/generation, immutable generation paths, cache headers, style/object public probes, and CORS | implemented locally; live dispatch pending |
 | R5 | Wardriver `MapLibreReleaseContractTest` and `ReleasePromotionContractTest` | implemented locally; candidate build pending |
 | R6 | Physical device receipt for render/markers/location/outage/lifecycle/update | pending |
 

@@ -13,6 +13,9 @@ param basemapContainerName string = '$web'
 @description('Private container holding checksum-pinned Planetiler toolchain inputs for the protected basemap publisher.')
 param toolchainContainerName string = 'wardriver-basemap-toolchain'
 
+@description('Private container holding a verified Washington OSM extract and source provenance for the protected publisher.')
+param inputContainerName string = 'wardriver-basemap-inputs'
+
 var storageAccountName = toLower('bsswd${uniqueString(subscription().id, resourceGroup().id, prefix)}')
 
 resource releaseStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -96,9 +99,18 @@ resource basemapToolchainContainer 'Microsoft.Storage/storageAccounts/blobServic
   }
 }
 
+resource basemapInputContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobService
+  name: inputContainerName
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
 // `$web` is enabled only by the protected publisher after OIDC data-plane proof.
 
 output storageAccountName string = releaseStorage.name
 output releaseContainerName string = releaseContainer.name
 output basemapToolchainContainerName string = basemapToolchainContainer.name
+output basemapInputContainerName string = basemapInputContainer.name
 output basemapContainerName string = basemapContainerName
