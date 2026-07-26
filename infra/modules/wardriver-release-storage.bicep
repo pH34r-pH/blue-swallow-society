@@ -7,6 +7,9 @@ param location string
 @description('Private Blob container containing immutable Wardriver APKs and manifests.')
 param containerName string = 'wardriver-releases'
 
+@description('Public Blob container containing only the BSS-hosted Wardriver basemap style and vector tiles.')
+param basemapContainerName string = 'wardriver-basemap'
+
 var storageAccountName = toLower('bsswd${uniqueString(subscription().id, resourceGroup().id, prefix)}')
 
 resource releaseStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -18,7 +21,9 @@ resource releaseStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
   properties: {
     accessTier: 'Hot'
-    allowBlobPublicAccess: false
+    // The release container stays private. This account also has one blob-read-only basemap
+    // container so MapLibre can request public style and tile bytes without a client secret.
+    allowBlobPublicAccess: true
     allowCrossTenantReplication: false
     allowSharedKeyAccess: true
     defaultToOAuthAuthentication: true
@@ -45,6 +50,30 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01'
       enabled: true
       days: 30
     }
+    cors: {
+      corsRules: [
+        {
+          allowedOrigins: [
+            'https://blueswallow.net'
+            'https://www.blueswallow.net'
+          ]
+          allowedMethods: [
+            'GET'
+            'HEAD'
+            'OPTIONS'
+          ]
+          allowedHeaders: [
+            '*'
+          ]
+          exposedHeaders: [
+            'Content-Length'
+            'Content-Type'
+            'ETag'
+          ]
+          maxAgeInSeconds: 86400
+        }
+      ]
+    }
   }
 }
 
@@ -56,5 +85,16 @@ resource releaseContainer 'Microsoft.Storage/storageAccounts/blobServices/contai
   }
 }
 
+// `Blob` permits anonymous reads of named style/tile objects but not container listing.
+resource wardriverBasemapContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobService
+  name: basemapContainerName
+  properties: {
+    publicAccess: 'Blob'
+  }
+}
+
 output storageAccountName string = releaseStorage.name
 output releaseContainerName string = releaseContainer.name
+output basemapContainerName string = wardriverBasemapContainer.name
+output wardriverBasemapStyleUrl string = 'https://${releaseStorage.name}.blob.${environment().suffixes.storage}/${wardriverBasemapContainer.name}/v1/style.json'

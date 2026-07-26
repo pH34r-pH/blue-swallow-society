@@ -1,0 +1,97 @@
+{
+  "version": 8,
+  "name": "Blue Swallow Wardriver Basemap",
+  "metadata": {
+    "blue-swallow": {
+      "purpose": "Wardriver on-device reference basemap",
+      "provenance": "Rendered from the published BSS vector-tile generation; see basemap-provenance.json.",
+      "privacy": "Tile requests go directly to BSS Blob Storage. The style contains no client credential."
+    }
+  },
+  "center": [-122.3321, 47.6062],
+  "zoom": 10,
+  "sources": {
+    "bss-basemap": {
+      "type": "vector",
+      "tiles": [
+        "__BSS_TILE_BASE_URL__/{z}/{x}/{y}.pbf"
+      ],
+      "minzoom": 0,
+      "maxzoom": 14,
+      "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap contributors</a>"
+    }
+  },
+  "layers": [
+    {
+      "id": "bss-ground",
+      "type": "background",
+      "paint": {
+        "background-color": "#e7e1d4"
+      }
+    },
+    {
+      "id": "bss-landcover",
+      "type": "fill",
+      "source": "bss-basemap",
+      "source-layer": "landcover",
+      "paint": {
+        "fill-color": "#d8ddcc",
+        "fill-opacity": 0.72
+      }
+    },
+    {
+      "id": "bss-landuse",
+      "type": "fill",
+      "source": "bss-basemap",
+      "source-layer": "landuse",
+      "paint": {
+        "fill-color": "#d7d0c1",
+        "fill-opacity": 0.55
+      }
+    },
+    {
+      "id": "bss-water",
+      "type": "fill",
+      "source": "bss-basemap",
+      "source-layer": "water",
+      "paint": {
+        "fill-color": "#8babb0",
+        "fill-opacity": 0.95
+      }
+    },
+    {
+      "id": "bss-waterway",
+      "type": "line",
+      "source": "bss-basemap",
+      "source-layer": "waterway",
+      "paint": {
+        "line-color": "#719aa0",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.35, 12, 1.8]
+      }
+    },
+    {
+      "id": "bss-buildings",
+      "type": "fill",
+      "source": "bss-basemap",
+      "source-layer": "building",
+      "minzoom": 12,
+      "paint": {
+        "fill-color": "#bcb5a8",
+        "fill-opacity": 0.72,
+        "fill-outline-color": "#8d887f"
+      }
+    },
+    {
+      "id": "bss-roads",
+      "type": "line",
+      "source": "bss-basemap",
+      "source-layer": "transportation",
+      "minzoom": 4,
+      "paint": {
+        "line-color": "#51565a",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.35, 9, 0.9, 14, 3.2],
+        "line-opacity": 0.9
+      }
+    }
+  ]
+}
