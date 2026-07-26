@@ -83,7 +83,9 @@ test('root login and anonymous operator handoff use one public-safe loader style
   assert.match(sharedLoginPanelRule, /text-align:\s*center\s*;/);
   assert.match(sharedLoaderCss, /\.login-btn\.btn\s*\{[\s\S]*background:\s*linear-gradient\(180deg, #2563eb, #1d4ed8\)/);
   assert.match(operatorLoaderCss, /^@import url\('\.\.\/loader\.css'\);\s*$/);
-  assert.doesNotMatch(rootStylesCss, /\.terminal-(?:screen|container|panel|title|input-field)|\.login-(?:controls|btn)|\.operator-handoff/);
+  assert.match(rootStylesCss, /\.operator-handoff\s*\{[\s\S]*background:\s*rgba\(239, 246, 255, 0\.8\)/);
+  assert.doesNotMatch(rootStylesCss, /\.terminal-(?:screen|container|panel|title|input-field)|\.login-(?:controls|btn)/);
+  assert.doesNotMatch(sharedLoaderCss, /\.operator-handoff/);
   assert.doesNotMatch(sharedLoaderCss, /Nacre-Moiré|nacre-moire|--nacre-|--street-/i);
 });
 

@@ -109,20 +109,6 @@ body {
   gap: 1.25rem;
 }
 
-.operator-handoff {
-  margin: 0;
-  padding: 1rem 1.15rem;
-  border: 1px solid rgba(37, 99, 235, 0.2);
-  border-radius: 1rem;
-  background: rgba(239, 246, 255, 0.8);
-  color: #1d4ed8;
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  line-height: 1.45;
-  text-transform: uppercase;
-}
-
 .login-btn.btn {
   width: 100%;
   min-height: 48px;
