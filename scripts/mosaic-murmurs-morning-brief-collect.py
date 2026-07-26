@@ -956,6 +956,50 @@ def compact_item(item: dict[str, Any]) -> dict[str, Any]:
     return compact
 
 
+def build_delivery_markdown(manifest: dict[str, Any]) -> str:
+    """Create the deterministic, provenance-preserving text artifact consumed by the renderer."""
+    inputs = manifest.get("brief_inputs") or {}
+    lines = [
+        "# Mosaic & Murmurs Morning Brief",
+        "",
+        f"Run: `{clean_text(manifest.get('run_id'), 80)}`",
+        f"Generated: {clean_text(manifest.get('generated_at_local'), 80)}",
+        f"Window: {clean_text((manifest.get('window') or {}).get('start'), 80)} → {clean_text((manifest.get('window') or {}).get('end'), 80)}",
+    ]
+
+    def append_lane(title: str, records: list[dict[str, Any]]) -> None:
+        lines.extend(["", f"## {title}"])
+        if not records:
+            lines.append("- No reportable entries in this validated collection window.")
+            return
+        for record in records:
+            name = clean_text(record.get("title"), 180) or "Untitled record"
+            source = clean_text(record.get("source"), 100) or "unknown source"
+            summary = clean_text(record.get("summary"), 420) or "No additional annotation."
+            url = clean_text(record.get("url"), 500)
+            lines.append(f"- **{name}** — {source}")
+            lines.append(f"  {summary}")
+            if url.startswith("https://"):
+                lines.append(f"  Source: {url}")
+
+    append_lane("Mosaic", list(inputs.get("breaking_reality") or []))
+    append_lane("Murmurs / Bridge", list(inputs.get("hype_weather") or []) + list(inputs.get("market_signals") or []))
+
+    lines.extend(["", "## Paper matrix"])
+    books = list(inputs.get("paper_books") or [])
+    if not books:
+        lines.append("- No paper-book summary is available.")
+    else:
+        for book in books:
+            display_name = clean_text(book.get("displayName"), 140) or "Unnamed book"
+            status = clean_text(book.get("status"), 48) or "unknown"
+            equity = book.get("equity")
+            lines.append(f"- {display_name}: {status}; equity {equity}.")
+
+    lines.extend(["", "## Governance", "- Paper-only; autonomous paper execution; no real-money execution.", ""])
+    return "\n".join(lines)
+
+
 def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     tz = ZoneInfo(args.timezone) if ZoneInfo else timezone.utc
     generated_at = utc_now()
@@ -1059,8 +1103,11 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     }
 
     output_path = runtime_dir / f"{run_id}.json"
+    delivery_path = runtime_dir / f"{run_id}.md"
     manifest["manifest_path"] = str(output_path)
+    manifest["delivery_path"] = str(delivery_path)
     output_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    delivery_path.write_text(build_delivery_markdown(manifest), encoding="utf-8")
     state_path.parent.mkdir(parents=True, exist_ok=True)
     state_path.write_text(
         json.dumps(

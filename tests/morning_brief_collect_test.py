@@ -192,6 +192,12 @@ class MorningBriefCollectorTests(unittest.TestCase):
 
             packet = module.cron_packet(manifest)
             self.assertTrue(Path(manifest["manifest_path"]).exists())
+            self.assertTrue(Path(manifest["delivery_path"]).exists())
+            delivery = Path(manifest["delivery_path"]).read_text(encoding="utf-8")
+            self.assertIn("# Mosaic & Murmurs Morning Brief", delivery)
+            self.assertIn("## Mosaic", delivery)
+            self.assertIn("Seattle emergency update", delivery)
+            self.assertNotIn(str(ledger), delivery)
             self.assertEqual(packet["breaking_reality"][0]["title"], "Seattle emergency update")
             self.assertEqual(packet["hype_weather"][0]["title"], "New local LLM release spikes attention")
             self.assertEqual(packet["paper_books"][0]["bookId"], "standard__prediction_markets")

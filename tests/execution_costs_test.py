@@ -117,6 +117,33 @@ class ExecutionCostAccountingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "transaction_costs"):
             self.engine.migrate_ledger(conflicted, self.now)
 
+    def test_prediction_contract_marks_and_execution_prices_stay_bounded_while_costs_remain_explicit(self):
+        ledger = self.engine.default_ledger(self.now)
+        book = next(book for book in ledger["books"] if book["book_id"] == "standard__prediction_markets")
+        quote = next(item for item in fresh_snapshot(self.now)["instruments"] if item["instrument_type"] == "prediction_market")
+        quote = {**quote, "mark_price": 1.0, "previous_mark_price": 1.0}
+        buy_decision = self.engine._decision(
+            run_key="bounded-prediction-buy", book=book, action="PAPER_BUY", status="paper_filled", now=self.now,
+            instrument=quote, paper_size=500.0, checks=["paper_only"], risk_passed=True, reason="prediction boundary test",
+        )
+        buy = self.engine._execute_buy(book, quote, 500.0, buy_decision, self.now)
+        position = book["positions"][0]
+
+        self.assertEqual(buy["reference_price"], 1.0)
+        self.assertEqual(buy["execution_price"], 1.0)
+        self.assertEqual(position["entry_price"], 1.0)
+        self.assertEqual(position["mark_price"], 1.0)
+        self.assertGreater(position["cost_basis"], position["quantity"] * position["entry_price"])
+
+        sell_decision = self.engine._decision(
+            run_key="bounded-prediction-sell", book=book, action="PAPER_SELL", status="paper_filled", now=self.now,
+            instrument=quote, paper_size=position["market_value"], checks=["paper_only"], risk_passed=True, reason="prediction boundary test",
+        )
+        sell = self.engine._execute_sell(book, quote, position["market_value"], sell_decision, self.now)
+        self.assertIsNotNone(sell)
+        self.assertEqual(sell["execution_price"], 1.0)
+        self.assertLess(book["realized_pnl"], 0.0)
+
     def test_explicit_prediction_settlement_uses_contractual_payoff_without_execution_friction(self):
         ledger = self.engine.default_ledger(self.now)
         book = next(book for book in ledger["books"] if book["book_id"] == "standard__prediction_markets")

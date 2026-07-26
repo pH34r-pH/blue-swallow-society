@@ -81,6 +81,8 @@ const state = {
   authenticated: false,
   activeTab: 'landing',
   tabSystemBound: false,
+  morningBriefInitialized: false,
+  morningBriefLoading: null,
   arBound: false,
   arReady: false,
   arEnabled: false,
@@ -133,6 +135,7 @@ const state = {
 
 function init() {
   bindTabSystem();
+  bindMorningBriefReturn();
   bindOperatorDownloads();
 
   if (isOperatorEntrypoint()) {
@@ -151,6 +154,22 @@ function init() {
 
 function isOperatorEntrypoint() {
   return window.location.pathname === '/operator' || window.location.pathname.startsWith('/operator/');
+}
+
+function initialOperatorTab() {
+  return window.location.pathname === '/operator/morning-brief.html' ? 'morning-brief' : 'landing';
+}
+
+function bindMorningBriefReturn() {
+  const returnButton = $('briefReturnToConsole');
+  if (returnButton) {
+    returnButton.addEventListener('click', returnToOperatorConsole);
+  }
+}
+
+function returnToOperatorConsole() {
+  history.replaceState(null, '', '/operator');
+  activateTab('landing', { focus: true });
 }
 
 function bindLoginFlow() {
@@ -249,7 +268,7 @@ function unlockConsole() {
   }
 
   initTabDefaults();
-  activateTab('landing', { focus: false });
+  activateTab(initialOperatorTab(), { focus: false });
   void hydrateWardriverRelease();
 }
 
@@ -453,6 +472,21 @@ function initTabDefaults() {
   renderWigleViews();
 }
 
+function initMorningBriefTab() {
+  if (state.morningBriefInitialized || state.morningBriefLoading) return;
+  state.morningBriefLoading = import('/operator/morning-brief.mjs')
+    .then(({ initMorningBrief }) => {
+      initMorningBrief();
+      state.morningBriefInitialized = true;
+    })
+    .catch((error) => {
+      console.error('Morning dossier module failed to load', error);
+    })
+    .finally(() => {
+      state.morningBriefLoading = null;
+    });
+}
+
 async function handleLogout() {
   stopTzeentchDashboard();
   stopArFeed();
@@ -477,7 +511,7 @@ function clearOperatorSession() {
 }
 
 function getTabButtons() {
-  return Array.from($$('.tab-btn'));
+  return Array.from($$('.tab-btn[data-tab]'));
 }
 
 function getTabPanels() {
@@ -528,6 +562,10 @@ function activateTabByIndex(index, { focus = false, tabButtons = getTabButtons()
 
   if (nextTabKey === 'tzeentch') {
     initTzeentchDashboard();
+  }
+
+  if (nextTabKey === 'morning-brief') {
+    initMorningBriefTab();
   }
 
   setTabAria(tabButtons, tabPanels, normalizedIndex);

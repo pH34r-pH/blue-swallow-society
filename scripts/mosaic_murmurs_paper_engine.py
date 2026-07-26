@@ -295,6 +295,8 @@ def _normalize_position(raw: dict[str, Any]) -> dict[str, Any]:
     entry_price = to_float(position.get("entry_price", position.get("basis")), 0.0)
     mark_price = to_float(position.get("mark_price", position.get("mark", entry_price)), entry_price)
     quantity = to_float(position.get("quantity"), 0.0)
+    instrument_type = str(position.get("instrument_type") or "unknown")
+    cost_basis = to_float(position.get("cost_basis"), quantity * entry_price) if instrument_type == "prediction_market" else quantity * entry_price
     position.update(
         {
             "position_id": str(position.get("position_id") or position.get("id") or stable_id("position", position.get("instrument_ref"))),
@@ -306,7 +308,7 @@ def _normalize_position(raw: dict[str, Any]) -> dict[str, Any]:
             "entry_price": round(entry_price, 10),
             "mark_price": round(mark_price, 10),
             "previous_mark_price": round(to_float(position.get("previous_mark_price"), mark_price), 10),
-            "cost_basis": money(quantity * entry_price),
+            "cost_basis": money(cost_basis),
             "market_value": money(quantity * mark_price),
             "mark_status": str(position.get("mark_status") or "fresh"),
             "source_id": position.get("source_id"),
@@ -785,11 +787,18 @@ def _execution_breakdown(instrument: dict[str, Any], reference_price: float, gro
     model = execution_cost_model(instrument)
     adverse_fields = ("half_spread_bps", "slippage_bps", "market_impact_bps", "latency_bps")
     adverse_bps = sum(model[field] for field in adverse_fields)
-    multiplier = 1.0 + adverse_bps / 10_000.0 if side == "buy" else max(0.0, 1.0 - adverse_bps / 10_000.0)
-    execution_price = reference_price * multiplier
+    if instrument.get("instrument_type") == "prediction_market":
+        # A binary contract is bounded in [0, 1]. Friction is a separate cash cost,
+        # never a synthetic contract price above one or below zero.
+        execution_price = reference_price
+        reference_notional = gross_notional
+        price_impact_total = gross_notional * adverse_bps / 10_000.0
+    else:
+        multiplier = 1.0 + adverse_bps / 10_000.0 if side == "buy" else max(0.0, 1.0 - adverse_bps / 10_000.0)
+        execution_price = reference_price * multiplier
+        reference_notional = gross_notional / multiplier if multiplier > 0 else 0.0
+        price_impact_total = abs(gross_notional - reference_notional)
     fee_amount = gross_notional * model["fee_bps"] / 10_000.0
-    reference_notional = gross_notional / multiplier if multiplier > 0 else 0.0
-    price_impact_total = abs(gross_notional - reference_notional)
     component_total_bps = sum(model[field] for field in adverse_fields)
 
     def component_cost(field: str) -> float:
@@ -826,13 +835,14 @@ def _record_execution_costs(book: dict[str, Any], costs: dict[str, Any]) -> None
 def _execute_buy(book: dict[str, Any], instrument: dict[str, Any], notional: float, decision: dict[str, Any], now: datetime) -> dict[str, Any]:
     before_cash = money(book["cash_balance"])
     mark = to_float(instrument["mark_price"])
+    prediction_market = instrument.get("instrument_type") == "prediction_market"
     model = execution_cost_model(instrument)
     adverse_bps = sum(model[field] for field in COST_BPS_FIELDS if field != "fee_bps")
-    gross_notional = notional * (1.0 + adverse_bps / 10_000.0)
+    gross_notional = notional if prediction_market else notional * (1.0 + adverse_bps / 10_000.0)
     costs = _execution_breakdown(instrument, mark, gross_notional, "buy")
     execution_price = costs["execution_price"]
     quantity = gross_notional / execution_price
-    total_outlay = money(gross_notional + costs["fee_amount"])
+    total_outlay = money(gross_notional + (costs["total_transaction_cost"] if prediction_market else costs["fee_amount"]))
     existing = _position_for(book, instrument["instrument_ref"])
     before_quantity = to_float((existing or {}).get("quantity"))
     if existing:
@@ -840,7 +850,11 @@ def _execute_buy(book: dict[str, Any], instrument: dict[str, Any], notional: flo
         new_quantity = before_quantity + quantity
         existing["quantity"] = round(new_quantity, 10)
         existing["cost_basis"] = money(old_cost + total_outlay)
-        existing["entry_price"] = round((old_cost + total_outlay) / new_quantity, 10)
+        if prediction_market:
+            old_reference_notional = before_quantity * to_float(existing.get("entry_price"))
+            existing["entry_price"] = round((old_reference_notional + quantity * mark) / new_quantity, 10)
+        else:
+            existing["entry_price"] = round((old_cost + total_outlay) / new_quantity, 10)
         existing["previous_mark_price"] = to_float(existing.get("mark_price"), mark)
         existing["mark_price"] = round(mark, 10)
         existing["market_value"] = money(new_quantity * mark)
@@ -855,7 +869,7 @@ def _execute_buy(book: dict[str, Any], instrument: dict[str, Any], notional: flo
             "symbol": instrument.get("symbol"),
             "title": instrument.get("title") or instrument.get("symbol") or instrument["instrument_ref"],
             "quantity": round(quantity, 10),
-            "entry_price": round(total_outlay / quantity, 10),
+            "entry_price": round(mark if prediction_market else total_outlay / quantity, 10),
             "mark_price": round(mark, 10),
             "previous_mark_price": round(mark, 10),
             "cost_basis": total_outlay,
@@ -912,6 +926,7 @@ def _execute_sell(
     if sell_quantity <= 0:
         return None
     before_cash = money(book["cash_balance"])
+    prediction_market = instrument.get("instrument_type") == "prediction_market"
     if terminal_settlement:
         execution_price = mark
         proceeds = sell_quantity * execution_price
@@ -928,14 +943,19 @@ def _execute_sell(
             "latency_cost": 0.0,
             "total_transaction_cost": 0.0,
         }
+    elif prediction_market:
+        execution_price = mark
+        proceeds = sell_quantity * execution_price
+        costs = _execution_breakdown(instrument, mark, proceeds, "sell")
     else:
         model = execution_cost_model(instrument)
         adverse_bps = sum(model[field] for field in COST_BPS_FIELDS if field != "fee_bps")
         execution_price = mark * max(0.0, 1.0 - adverse_bps / 10_000.0)
         proceeds = sell_quantity * execution_price
         costs = _execution_breakdown(instrument, mark, proceeds, "sell")
-    net_proceeds = money(proceeds - costs["fee_amount"])
-    basis_cost = sell_quantity * to_float(position.get("entry_price"))
+    net_proceeds = money(proceeds - (costs["total_transaction_cost"] if prediction_market and not terminal_settlement else costs["fee_amount"]))
+    position_cost_basis = to_float(position.get("cost_basis"), held_quantity * to_float(position.get("entry_price")))
+    basis_cost = position_cost_basis * sell_quantity / held_quantity if prediction_market and held_quantity > 0 else sell_quantity * to_float(position.get("entry_price"))
     remaining = max(0.0, held_quantity - sell_quantity)
     book["cash_balance"] = money(before_cash + net_proceeds)
     realized_pnl = money(net_proceeds - basis_cost)
@@ -946,7 +966,7 @@ def _execute_sell(
         book["positions"] = [entry for entry in book.get("positions", []) if entry is not position]
     else:
         position["quantity"] = round(remaining, 10)
-        position["cost_basis"] = money(remaining * to_float(position.get("entry_price")))
+        position["cost_basis"] = money(position_cost_basis * remaining / held_quantity) if prediction_market and held_quantity > 0 else money(remaining * to_float(position.get("entry_price")))
         position["mark_price"] = round(mark, 10)
         position["market_value"] = money(remaining * mark)
         position["updated_at"] = iso_z(now)

@@ -82,10 +82,12 @@ jobs:
           POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
           BSS_CYBERMAP_READ_TOKEN: ${{ secrets.BSS_CYBERMAP_READ_TOKEN }}
           BSS_PAPER_STATE_TOKEN: ${{ secrets.BSS_PAPER_STATE_TOKEN }}
+          BSS_MORNING_BRIEF_TOKEN: ${{ secrets.BSS_MORNING_BRIEF_TOKEN }}
         run: |
           password=$(printf '%s' "$POSTGRES_ADMIN_PASSWORD" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           read_token=$(printf '%s' "$BSS_CYBERMAP_READ_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           paper_token=$(printf '%s' "$BSS_PAPER_STATE_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          morning_brief_token=$(printf '%s' "$BSS_MORNING_BRIEF_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           if [ -z "$password" ]; then
             echo "::error::POSTGRES_ADMIN_PASSWORD secret is empty."
             exit 1
@@ -104,6 +106,10 @@ jobs:
           fi
           if ! printf '%s' "$paper_token" | grep -Eq '^[A-Za-z0-9._~-]{32,256}$'; then
             echo "::error::BSS_PAPER_STATE_TOKEN must be 32-256 URL/systemd-safe characters: A-Z a-z 0-9 . _ ~ -."
+            exit 1
+          fi
+          if ! printf '%s' "$morning_brief_token" | grep -Eq '^[A-Za-z0-9._~-]{32,256}$'; then
+            echo "::error::BSS_MORNING_BRIEF_TOKEN must be 32-256 URL/systemd-safe characters: A-Z a-z 0-9 . _ ~ -."
             exit 1
           fi
           echo "Backend secret shapes accepted."
@@ -128,12 +134,14 @@ jobs:
           POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
           BSS_CYBERMAP_READ_TOKEN: ${{ secrets.BSS_CYBERMAP_READ_TOKEN }}
           BSS_PAPER_STATE_TOKEN: ${{ secrets.BSS_PAPER_STATE_TOKEN }}
+          BSS_MORNING_BRIEF_TOKEN: ${{ secrets.BSS_MORNING_BRIEF_TOKEN }}
         run: |
           # Trim any stray whitespace/newlines from secrets before passing to az.
           ssh_key=$(printf '%s' "$SSH_KEY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           postgres_password=$(printf '%s' "$POSTGRES_ADMIN_PASSWORD" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           cybermap_read_token=$(printf '%s' "$BSS_CYBERMAP_READ_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           paper_state_token=$(printf '%s' "$BSS_PAPER_STATE_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          morning_brief_token=$(printf '%s' "$BSS_MORNING_BRIEF_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           set +e
           out=$(az deployment group create \
             --resource-group "$RESOURCE_GROUP" \
@@ -144,6 +152,7 @@ jobs:
             --parameters postgresAdministratorLoginPassword="$postgres_password" \
             --parameters cybermapReadToken="$cybermap_read_token" \
             --parameters paperStateToken="$paper_state_token" \
+            --parameters morningBriefToken="$morning_brief_token" \
             --parameters cybermapDeploymentVersion="${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}" \
             --query properties.outputs -o json 2>az_stderr.log)
           rc=$?
@@ -187,13 +196,15 @@ jobs:
           BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY: ${{ secrets.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY }}
           BSS_CYBERMAP_READ_TOKEN: ${{ secrets.BSS_CYBERMAP_READ_TOKEN }}
           BSS_PAPER_STATE_TOKEN: ${{ secrets.BSS_PAPER_STATE_TOKEN }}
+          BSS_MORNING_BRIEF_TOKEN: ${{ secrets.BSS_MORNING_BRIEF_TOKEN }}
         run: |
           passcode_hash=$(printf '%s' "$BLUE_SWALLOW_PASSCODE_SHA256" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           signing_key=$(printf '%s' "$BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           cybermap_read_token=$(printf '%s' "$BSS_CYBERMAP_READ_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           paper_state_token=$(printf '%s' "$BSS_PAPER_STATE_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-          if [ -z "$passcode_hash" ] || [ -z "$signing_key" ] || [ -z "$cybermap_read_token" ] || [ -z "$paper_state_token" ]; then
-            echo "::error::BLUE_SWALLOW_PASSCODE_SHA256, BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY, BSS_CYBERMAP_READ_TOKEN, and BSS_PAPER_STATE_TOKEN secrets must be configured."
+          morning_brief_token=$(printf '%s' "$BSS_MORNING_BRIEF_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [ -z "$passcode_hash" ] || [ -z "$signing_key" ] || [ -z "$cybermap_read_token" ] || [ -z "$paper_state_token" ] || [ -z "$morning_brief_token" ]; then
+            echo "::error::BLUE_SWALLOW_PASSCODE_SHA256, BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY, BSS_CYBERMAP_READ_TOKEN, BSS_PAPER_STATE_TOKEN, and BSS_MORNING_BRIEF_TOKEN secrets must be configured."
             exit 1
           fi
           if ! printf '%s' "$passcode_hash" | grep -Eq '^[a-fA-F0-9]{64}$'; then
@@ -225,8 +236,10 @@ jobs:
               BACKEND_ECHO_BASE_URL="${{ steps.deploy.outputs.backendEchoBaseUrl }}" \
               BACKEND_CYBERMAP_BASE_URL="${{ steps.deploy.outputs.backendCybermapBaseUrl }}" \
               BACKEND_PAPER_STATE_BASE_URL="${{ steps.deploy.outputs.backendCybermapBaseUrl }}" \
+              BACKEND_MORNING_BRIEF_BASE_URL="${{ steps.deploy.outputs.backendCybermapBaseUrl }}" \
               BSS_CYBERMAP_READ_TOKEN="$cybermap_read_token" \
               BSS_PAPER_STATE_TOKEN="$paper_state_token" \
+              BSS_MORNING_BRIEF_TOKEN="$morning_brief_token" \
               BSS_WARDRIVER_RELEASE_STORAGE_CONNECTION_STRING="$storage_connection_string" \
               BSS_WARDRIVER_RELEASE_CONTAINER="$release_container" \
               BSS_WARDRIVER_RELEASE_MANIFEST_BLOB="wardriver/releases/latest.json" \

@@ -6,6 +6,7 @@ import { hashCanonicalJson, hashPersistedObservation } from './contracts.mjs';
 const GLOBAL_SOURCE_CLASSES = Object.freeze(['green_public', 'green_owned', 'green_authorized']);
 const GLOBAL_MAX_CELLS = 1_000;
 const GLOBAL_VIEWPORT_SCHEMA_VERSION = 'bss.godeye.global_viewport.v1';
+const MORNING_BRIEF_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 export class MemoryObservationStore {
   #credentials;
@@ -15,6 +16,7 @@ export class MemoryObservationStore {
   #paperState = null;
   #globalCells;
   #globalSources;
+  #morningBriefs = new Map();
   #now;
   #randomUuid;
 
@@ -139,6 +141,56 @@ export class MemoryObservationStore {
 
   async getPaperState() {
     return this.#paperState ? structuredClone(this.#paperState) : null;
+  }
+
+  async putMorningBrief({ idempotencyKey, package: packet }) {
+    const existing = this.#morningBriefs.get(packet.run_id);
+    if (existing) {
+      if (existing.package.package_sha256 !== packet.package_sha256) {
+        throw new IngestError('morning_brief_conflict', 'A different package already exists for this run.', { statusCode: 409 });
+      }
+      return { statusCode: 200, replayed: true, brief: cloneBrief(existing) };
+    }
+    const entry = {
+      idempotencyKey,
+      package: {
+        ...structuredClone(packet),
+        artifacts: packet.artifacts.map(({ content, ...artifact }) => ({ ...artifact })),
+      },
+      artifacts: new Map(packet.artifacts.map((artifact) => [artifact.artifact_id, {
+        ...artifact,
+        content: Buffer.from(artifact.content),
+      }])),
+      archivedAt: this.#now().toISOString(),
+    };
+    this.#morningBriefs.set(packet.run_id, entry);
+    this.#pruneMorningBriefs();
+    return { statusCode: 201, replayed: false, brief: cloneBrief(entry) };
+  }
+
+  #pruneMorningBriefs() {
+    const cutoff = this.#now().getTime() - MORNING_BRIEF_RETENTION_MS;
+    for (const [runId, entry] of this.#morningBriefs) {
+      if (Date.parse(entry.archivedAt) <= cutoff) this.#morningBriefs.delete(runId);
+    }
+  }
+
+  async listMorningBriefs({ limit = 30 } = {}) {
+    return [...this.#morningBriefs.values()]
+      .sort((left, right) => String(right.package.generated_at).localeCompare(String(left.package.generated_at)))
+      .slice(0, limit)
+      .map((entry) => briefSummary(entry));
+  }
+
+  async getMorningBrief(runId) {
+    const entry = this.#morningBriefs.get(runId);
+    return entry ? cloneBrief(entry) : null;
+  }
+
+  async getMorningBriefArtifact(runId, artifactId) {
+    const artifact = this.#morningBriefs.get(runId)?.artifacts.get(artifactId);
+    if (!artifact) return null;
+    return { ...artifact, content: Buffer.from(artifact.content) };
   }
 
   observationCount() {
@@ -300,6 +352,26 @@ function compareAggregateCells(left, right) {
   return (right.salience ?? 0) - (left.salience ?? 0)
     || Date.parse(right.last_seen_at ?? 0) - Date.parse(left.last_seen_at ?? 0)
     || String(left.h3_cell).localeCompare(String(right.h3_cell));
+}
+
+function briefSummary(entry) {
+  const { package: packet, archivedAt } = entry;
+  return {
+    run_id: packet.run_id,
+    generated_at: packet.generated_at,
+    canonical_state_hash: packet.canonical_state_hash,
+    package_sha256: packet.package_sha256,
+    summary: packet.summary,
+    artifact_count: packet.artifacts.length,
+    archived_at: archivedAt,
+  };
+}
+
+function cloneBrief(entry) {
+  return {
+    ...briefSummary(entry),
+    artifacts: entry.package.artifacts.map((artifact) => ({ ...artifact })),
+  };
 }
 
 function toAccessPoint(entry, center) {
