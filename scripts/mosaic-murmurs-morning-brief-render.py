@@ -28,11 +28,13 @@ REQUIRED_LANES = (
     "PAPER ACTIONS / LEDGER",
     "PAPER BOOKS / LEDGER",
     "SOURCE MANIFEST / CAVEATS",
+    "TAROT / DAILY STUDY",
 )
 LANES = (
     ("mosaic", "MOSAIC / FACT LANE", "Breaking reality", "breaking_reality"),
     ("murmurs", "MURMURS / PERCEPTION LANE", "Hype weather", "hype_weather"),
     ("bridge", "BRIDGE / DELTA LANE", "Perceptual deltas", "market_signals"),
+    ("daily_tarot_study", "TAROT / DAILY STUDY", "Daily tarot study", "daily_tarot_study"),
     ("source_quarantine", "SOURCE QUARANTINE", "Source registry & quarantine", "source_errors"),
     ("paper_actions", "PAPER ACTIONS / LEDGER", "Paper actions", "paper_action_candidates"),
     ("paper_books", "PAPER BOOKS / LEDGER", "Paper books", "paper_books"),
@@ -131,12 +133,36 @@ def _records_for_lane(manifest: dict[str, Any], source_key: str) -> list[dict[st
             {"title": str(name), "summary": f"{count} items accepted by the collector."}
             for name, count in sorted((manifest.get("source_counts") or {}).items())
         ]
+    elif source_key == "daily_tarot_study":
+        study = (manifest.get("brief_inputs") or {}).get(source_key)
+        records = [study] if isinstance(study, dict) else []
     else:
         records = ((manifest.get("brief_inputs") or {}).get(source_key) or [])
     normalized: list[dict[str, Any]] = []
     for value in records:
         if isinstance(value, dict):
             item = sanitize(value)
+            if source_key == "daily_tarot_study":
+                upright = ", ".join(str(keyword) for keyword in item.get("upright_keywords") or []) or "No upright keywords recorded."
+                reversed_keywords = ", ".join(str(keyword) for keyword in item.get("reversed_keywords") or []) or "No reversed keywords recorded."
+                summary = " ".join(
+                    part for part in (
+                        str(item.get("arcana") or "Tarot study") + ".",
+                        f"Upright: {upright}.",
+                        f"Reversed: {reversed_keywords}.",
+                        f"Symbol focus: {item.get('symbol_focus') or 'No symbol focus recorded.'}",
+                        f"Reading drill: {item.get('reading_drill') or 'No reading drill recorded.'}",
+                        str(item.get("disclosure") or "Reflective study only; do not use this card as prediction or instruction."),
+                    ) if part
+                )
+                normalized.append({
+                    "title": str(item.get("card") or "Daily tarot study"),
+                    "summary": summary,
+                    "source": str(item.get("source") or "Fixed tarot curriculum"),
+                    "url": "",
+                    "confidence": f"cycle day {item.get('cycle_day') or 'unknown'}",
+                })
+                continue
             normalized.append({
                 "title": str(item.get("title") or item.get("displayName") or item.get("source_id") or item.get("book_id") or item.get("instrument_ref") or "Record"),
                 "summary": str(item.get("summary") or item.get("thesis") or item.get("message") or item.get("status") or "No additional annotation."),

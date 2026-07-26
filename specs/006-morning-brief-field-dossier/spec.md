@@ -32,6 +32,16 @@ One immutable, validated run package drives two independent outputs:
 - `PAPER ACTIONS / LEDGER`
 - `PAPER BOOKS / LEDGER`
 - `SOURCE MANIFEST / CAVEATS`
+- `TAROT / DAILY STUDY`
+
+## Daily tarot study
+
+The validated local package includes one reflective tarot-learning record each calendar day. The record is a deterministic study aid, not a prediction, instruction, or source of factual evidence.
+
+- The record is selected from a fixed 78-card curriculum by the configured brief timezone and repeats only after the complete cycle.
+- It includes a stable lesson ID, cycle day, card name, arcana, upright and reversed study keywords, a symbol focus, and a bounded reading drill.
+- The Markdown delivery, cron packet, and Field Dossier preserve the same record under `TAROT / DAILY STUDY`.
+- The curriculum has no network, account, user-profile, or runtime-path dependency.
 
 ## Interfaces
 
@@ -61,3 +71,4 @@ SWA provides the operator-token gateway at `/api/morning-brief` and never expose
 - Dispatcher tests prove batches of ≤10, hash-bound receipt creation, replay safety, and no send on withheld state.
 - VM, SWA proxy, and operator UI tests prove authorization, no-store headers, append-only conflicts, artifact hash verification, and public-route denial.
 - A fresh real run performs wake → collect → validate → render → archive → Discord receipt, then the authenticated live UI presents the same package hash.
+- Fixed local dates select stable curriculum records; the cycle wraps after 78 days; and a validated package contains one `TAROT / DAILY STUDY` page with no prediction or personal-data claim.

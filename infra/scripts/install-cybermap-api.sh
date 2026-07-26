@@ -32,6 +32,8 @@ if ! command -v node >/dev/null 2>&1 || ! node --version | grep -Eq '^v24\.'; th
   apt-get install -y nodejs
 fi
 
+POSTGRES_PASSWORD_URLENCODED="$(printf '%s' "$POSTGRES_PASSWORD" | node -e 'let value = ""; process.stdin.on("data", (chunk) => { value += chunk; }); process.stdin.on("end", () => process.stdout.write(encodeURIComponent(value)));')"
+
 if ! command -v caddy >/dev/null 2>&1; then
   curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
   curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt > /etc/apt/sources.list.d/caddy-stable.list
@@ -56,7 +58,7 @@ PGDATABASE=__POSTGRES_DATABASE_NAME__
 PGUSER=__POSTGRES_ADMINISTRATOR_LOGIN__
 PGPASSWORD=$POSTGRES_PASSWORD
 PGSSLMODE=require
-DATABASE_URL=postgresql://__POSTGRES_ADMINISTRATOR_LOGIN__:$POSTGRES_PASSWORD@__POSTGRES_SERVER_FQDN__:5432/__POSTGRES_DATABASE_NAME__?sslmode=require
+DATABASE_URL=postgresql://__POSTGRES_ADMINISTRATOR_LOGIN__:${POSTGRES_PASSWORD_URLENCODED}@__POSTGRES_SERVER_FQDN__:5432/__POSTGRES_DATABASE_NAME__?sslmode=require
 BSS_CYBERMAP_BIND_HOST=127.0.0.1
 BSS_CYBERMAP_PORT=__CYBERMAP_API_PORT__
 BSS_CYBERMAP_DB_POOL_MAX=4
@@ -94,7 +96,9 @@ run_migration() {
 run_migration 0001_cybermap_core db/migrations/0001_cybermap_core.sql
 run_migration 0002_device_ingest_contract db/migrations/0002_device_ingest_contract.sql
 run_migration 0003_paper_state db/migrations/0003_paper_state.sql
+run_migration 0004_godeye_global_cells_and_sources db/migrations/0004_godeye_global_cells_and_sources.sql
 run_migration 0004_morning_brief_archive db/migrations/0004_morning_brief_archive.sql
+psql -v ON_ERROR_STOP=1 -c "UPDATE source_catalog SET enabled = true, allowed_preload = true, terms_reviewed = true, updated_at = clock_timestamp() WHERE source_key = 'deflock-osm-alpr-reports'"
 
 cat > /etc/systemd/system/bss-cybermap-api.service <<'UNIT'
 [Unit]
@@ -118,6 +122,37 @@ ProtectHome=true
 WantedBy=multi-user.target
 UNIT
 
+cat > /etc/systemd/system/bss-deflock-source.service <<'UNIT'
+[Unit]
+Description=Blue Swallow DeFlock aggregate source job
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/bss/cybermap-api
+EnvironmentFile=/etc/bss/cybermap-api.env
+ExecStart=/usr/bin/node /opt/bss/cybermap-api/src/deflock-source-job.mjs
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+UNIT
+
+cat > /etc/systemd/system/bss-deflock-source.timer <<'UNIT'
+[Unit]
+Description=Run Blue Swallow DeFlock aggregate source job every six hours
+
+[Timer]
+OnBootSec=5m
+OnUnitActiveSec=6h
+RandomizedDelaySec=5m
+Persistent=true
+Unit=bss-deflock-source.service
+
+[Install]
+WantedBy=timers.target
+UNIT
 
 cat > /etc/caddy/Caddyfile <<'CADDY'
 __BACKEND_FQDN__ {
@@ -130,7 +165,10 @@ systemctl daemon-reload
 systemctl disable --now echo-server.service || true
 systemctl enable bss-cybermap-api.service
 systemctl restart bss-cybermap-api.service
+systemctl enable --now bss-deflock-source.timer
+systemctl start bss-deflock-source.service
 systemctl enable caddy.service
 systemctl reload-or-restart caddy.service
 systemctl is-active --quiet bss-cybermap-api.service
+systemctl is-active --quiet bss-deflock-source.timer
 systemctl is-active --quiet caddy.service

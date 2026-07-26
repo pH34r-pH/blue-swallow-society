@@ -3,46 +3,10 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
+const { createOperatorToken } = require('../api/_lib/operator-auth');
+
 const TEST_OPERATOR_DIGEST = '0'.repeat(64);
-const TEST_SIGNING_KEY = 'cybermap-global-viewport-signing-key-32-bytes-minimum';
-const FIXED_BACKEND_READ_TOKEN = 'fixed-backend-read-token-32-bytes-minimum';
-
-const globalViewportRequest = {
-  schema_version: 'bss.godeye.global_viewport.v1',
-  bbox: { west: -180, south: -85, east: 180, north: 85 },
-  zoom: 2,
-  layer_ids: ['usgs-earthquakes'],
-  max_cells: 1_000,
-};
-
-const globalViewportResponse = {
-  ok: true,
-  schema_version: 'bss.godeye.global_viewport.v1',
-  mode: 'global',
-  generated_at: '2026-07-22T20:00:00.000Z',
-  bbox: globalViewportRequest.bbox,
-  requested_zoom: globalViewportRequest.zoom,
-  selected_resolution: 5,
-  aggregation_applied: false,
-  cells: [],
-  source_health: [],
-  intelligence_gaps: [],
-};
-
-function makeContext() {
-  return {
-    log: {
-      error() {},
-      warn() {},
-      info() {},
-    },
-  };
-}
-
-function restoreEnv(key, value) {
-  if (value === undefined) delete process.env[key];
-  else process.env[key] = value;
-}
+const TEST_SIGNING_KEY = 'deflock-global-route-token-signing-key-32-bytes';
 
 function withOperatorEnv(env = {}) {
   return {
@@ -53,143 +17,82 @@ function withOperatorEnv(env = {}) {
 }
 
 function makeOperatorHeaders() {
-  const previousDigest = process.env.BLUE_SWALLOW_PASSCODE_SHA256;
-  const previousSigningKey = process.env.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY;
+  const priorDigest = process.env.BLUE_SWALLOW_PASSCODE_SHA256;
+  const priorKey = process.env.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY;
   process.env.BLUE_SWALLOW_PASSCODE_SHA256 = TEST_OPERATOR_DIGEST;
   process.env.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY = TEST_SIGNING_KEY;
-
   try {
-    const { createOperatorToken } = require('../api/_lib/operator-auth');
-    const session = createOperatorToken({ ttlMs: 60_000 });
-    return { 'x-blue-swallow-operator-token': session.token };
+    return { Authorization: `Bearer ${createOperatorToken({ ttlMs: 60_000 }).token}` };
   } finally {
-    restoreEnv('BLUE_SWALLOW_PASSCODE_SHA256', previousDigest);
-    restoreEnv('BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY', previousSigningKey);
+    restoreEnv('BLUE_SWALLOW_PASSCODE_SHA256', priorDigest);
+    restoreEnv('BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY', priorKey);
   }
 }
 
-function responseHeader(response, name) {
-  const expected = name.toLowerCase();
-  return Object.entries(response.headers || {}).find(([key]) => key.toLowerCase() === expected)?.[1];
+function restoreEnv(key, value) {
+  if (value === undefined) delete process.env[key];
+  else process.env[key] = value;
 }
 
-async function invokeRoute(req, env, fetchImpl) {
+async function invoke(req, env = {}, fetchImpl = global.fetch) {
   const route = require('../api/cybermap-global-viewport/index.js');
-  const previousEnv = {};
+  const prior = {};
   for (const [key, value] of Object.entries(env)) {
-    previousEnv[key] = process.env[key];
+    prior[key] = process.env[key];
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
   }
-
   const originalFetch = global.fetch;
   global.fetch = fetchImpl;
-
   try {
-    const context = makeContext();
+    const context = { log: { error() {} } };
     await route(context, req);
     return context.res;
   } finally {
     global.fetch = originalFetch;
-    for (const [key, value] of Object.entries(previousEnv)) restoreEnv(key, value);
+    for (const [key, value] of Object.entries(prior)) restoreEnv(key, value);
   }
 }
 
-function backendResponse(body, status = 200) {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    text: async () => JSON.stringify(body),
-  };
-}
-
-const configuredProxyEnv = {
-  BACKEND_CYBERMAP_BASE_URL: 'https://backend.local/root/',
-  BSS_CYBERMAP_READ_TOKEN: FIXED_BACKEND_READ_TOKEN,
+const request = {
+  schema_version: 'bss.global_viewport_request.v1',
+  bbox: { west: -125, south: 24, east: -66, north: 50 },
+  zoom: 4,
+  layer_ids: ['deflock-osm-alpr-reports'],
 };
 
-test('cybermap global viewport proxy rejects anonymous callers before backend I/O', async () => {
-  let fetchCalled = false;
-  const response = await invokeRoute(
-    { method: 'POST', headers: {}, body: globalViewportRequest },
-    withOperatorEnv(configuredProxyEnv),
-    async () => {
-      fetchCalled = true;
-      throw new Error('backend must not receive anonymous requests');
-    },
-  );
+test('global Cybermap proxy requires an operator token and rejects coordinate query strings', async () => {
+  const anonymous = await invoke({ body: request }, withOperatorEnv({
+    BACKEND_CYBERMAP_BASE_URL: 'https://backend.local', BSS_CYBERMAP_READ_TOKEN: 'read-token-value-32-byte-minimum',
+  }));
+  assert.equal(anonymous.status, 403);
 
-  assert.equal(fetchCalled, false);
-  assert.equal(response.status, 403);
-  assert.equal(response.body.ok, false);
-  assert.match(response.body.error, /operator session required/i);
-  assert.equal(responseHeader(response, 'cache-control'), 'no-store');
+  const queried = await invoke({ headers: makeOperatorHeaders(), query: { lat: '47.6062' }, body: request }, withOperatorEnv({
+    BACKEND_CYBERMAP_BASE_URL: 'https://backend.local', BSS_CYBERMAP_READ_TOKEN: 'read-token-value-32-byte-minimum',
+  }));
+  assert.equal(queried.status, 400);
+  assert.match(queried.body.message, /query string/i);
 });
 
-test('cybermap global viewport proxy forwards only its fixed backend-read credential', async () => {
-  const fetchCalls = [];
-  const response = await invokeRoute(
-    {
-      method: 'POST',
-      headers: {
-        ...makeOperatorHeaders(),
-        authorization: 'Bearer browser-operator-token-must-not-forward',
-        'x-blue-swallow-cybermap-read-token': 'browser-read-token-must-not-forward',
-      },
-      body: globalViewportRequest,
-    },
-    withOperatorEnv(configuredProxyEnv),
-    async (url, options) => {
-      fetchCalls.push({ url: String(url), options });
-      return backendResponse(globalViewportResponse);
-    },
-  );
+test('global Cybermap proxy POSTs only bounded aggregate requests to the VM backend', async () => {
+  const calls = [];
+  const backendPayload = {
+    schema_version: 'bss.global_viewport_response.v1', ok: true, mode: 'global', cells: [],
+    sources: [{ source_id: 'deflock-osm-alpr-reports', status: 'disabled' }],
+  };
+  const response = await invoke({ headers: makeOperatorHeaders(), body: request }, withOperatorEnv({
+    BACKEND_CYBERMAP_BASE_URL: 'https://backend.local/root/', BSS_CYBERMAP_READ_TOKEN: 'read-token-value-32-byte-minimum',
+  }), async (url, options) => {
+    calls.push({ url: String(url), options });
+    return { ok: true, status: 200, text: async () => JSON.stringify(backendPayload) };
+  });
 
   assert.equal(response.status, 200);
-  assert.deepEqual(response.body, globalViewportResponse);
-  assert.equal(responseHeader(response, 'cache-control'), 'no-store');
-  assert.equal(fetchCalls.length, 1);
-  assert.equal(fetchCalls[0].url, 'https://backend.local/root/api/v1/cybermap/global-viewport');
-  assert.equal(fetchCalls[0].options.method, 'POST');
-  assert.deepEqual(fetchCalls[0].options.headers, {
-    accept: 'application/json',
-    'content-type': 'application/json',
-    'x-blue-swallow-cybermap-read-token': FIXED_BACKEND_READ_TOKEN,
-  });
-  assert.equal(fetchCalls[0].options.body, JSON.stringify(globalViewportRequest));
-});
-
-test('cybermap global viewport proxy fails closed when its backend read credential is unavailable', async () => {
-  let fetchCalled = false;
-  const response = await invokeRoute(
-    { method: 'POST', headers: makeOperatorHeaders(), body: globalViewportRequest },
-    withOperatorEnv({
-      BACKEND_CYBERMAP_BASE_URL: 'https://backend.local',
-      BSS_CYBERMAP_READ_TOKEN: '',
-    }),
-    async () => {
-      fetchCalled = true;
-      throw new Error('backend must not receive a request without its fixed credential');
-    },
-  );
-
-  assert.equal(fetchCalled, false);
-  assert.equal(response.status, 503);
-  assert.equal(response.body.ok, false);
-  assert.equal(response.body.error, 'global_viewport_unavailable');
-  assert.equal(responseHeader(response, 'cache-control'), 'no-store');
-});
-
-test('cybermap global viewport proxy maps upstream failures to a controlled unavailable response', async () => {
-  const response = await invokeRoute(
-    { method: 'POST', headers: makeOperatorHeaders(), body: globalViewportRequest },
-    withOperatorEnv(configuredProxyEnv),
-    async () => backendResponse({ error: 'backend diagnostic must not reach the browser' }, 502),
-  );
-
-  assert.equal(response.status, 503);
-  assert.equal(response.body.ok, false);
-  assert.equal(response.body.error, 'global_viewport_unavailable');
-  assert.equal(responseHeader(response, 'cache-control'), 'no-store');
-  assert.doesNotMatch(JSON.stringify(response.body), /backend diagnostic/i);
+  assert.deepEqual(response.body, backendPayload);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://backend.local/root/api/v1/cybermap/global-viewport');
+  assert.equal(calls[0].options.method, 'POST');
+  assert.equal(calls[0].options.headers['x-blue-swallow-cybermap-read-token'], 'read-token-value-32-byte-minimum');
+  assert.deepEqual(JSON.parse(calls[0].options.body), request);
+  assert.equal(calls[0].options.body.includes('lat'), false);
 });

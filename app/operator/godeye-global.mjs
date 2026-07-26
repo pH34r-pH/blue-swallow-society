@@ -1,10 +1,10 @@
 export const GODEYE_GLOBAL_VIEWPORT_ENDPOINT = '/api/cybermap/global-viewport';
 export const DEFAULT_GODEYE_GLOBAL_VIEWPORT = {
-  schema_version: 'bss.godeye.global_viewport.v1',
+  schema_version: 'bss.global_viewport_request.v1',
   bbox: { west: -180, south: -85, east: 180, north: 85 },
   zoom: 2,
-  layer_ids: ['usgs-earthquakes'],
-  max_cells: 1_000,
+  layer_ids: ['deflock-osm-alpr-reports'],
+  cell_limit: 1_000,
 };
 
 const DEFAULT_CACHE_TTL_MS = 15_000;
@@ -73,11 +73,47 @@ function deriveState(ok, cells, sourceHealth, intelligenceGaps) {
 }
 
 export function normalizeGlobalViewportResponse(payload) {
+  const isDeflockResponse = payload?.schema_version === 'bss.global_viewport_response.v1';
+  if (isDeflockResponse) {
+    const source_health = (Array.isArray(payload?.sources) ? payload.sources : []).map((source) => ({
+      layer_id: source?.source_id,
+      display_name: source?.source_id,
+      source_class: source?.source_class,
+      health: source?.status,
+      allowed_preload: source?.allowed_preload === true,
+      last_success_at: source?.last_success_at ?? null,
+      attribution: source?.attribution ?? '',
+      caveat_count: Array.isArray(source?.caveats) ? source.caveats.length : 0,
+    }));
+    const healthByLayer = new Map(source_health.map((source) => [source.layer_id, source]));
+    const cells = (Array.isArray(payload?.cells) ? payload.cells : []).map((cell) => {
+      const layers = Object.fromEntries((cell?.source_ids ?? []).map((layerId) => [layerId, { report_count: cell.report_count }]));
+      const freshness = Object.fromEntries((cell?.source_ids ?? []).map((layerId) => [layerId, { state: healthByLayer.get(layerId)?.health ?? 'empty' }]));
+      return {
+        ...cell,
+        observation_count: cell?.report_count ?? 0,
+        entity_count: 0,
+        layers,
+        freshness,
+      };
+    });
+    const intelligence_gaps = source_health
+      .filter((source) => ['error', 'disabled', 'stale'].includes(source.health))
+      .map((source) => ({ state: source.health, reason: `source_${source.layer_id}_${source.health}` }));
+    const ok = payload?.ok === true;
+    return {
+      ok,
+      state: deriveState(ok, cells, source_health, intelligence_gaps),
+      cells,
+      source_health,
+      intelligence_gaps,
+    };
+  }
+
   const cells = Array.isArray(payload?.cells) ? payload.cells : [];
   const source_health = Array.isArray(payload?.source_health) ? payload.source_health : [];
   const intelligence_gaps = Array.isArray(payload?.intelligence_gaps) ? payload.intelligence_gaps : [];
   const ok = payload?.ok === true;
-
   return {
     ok,
     state: deriveState(ok, cells, source_health, intelligence_gaps),

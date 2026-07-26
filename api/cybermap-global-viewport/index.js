@@ -72,6 +72,12 @@ module.exports = async function cybermapGlobalViewport(context, req) {
     return sendJson(context, 405, { ok: false, error: 'post_required' }, { allow: 'POST' });
   }
 
+  const requestUrl = new URL(String(req?.url || '/'), 'https://operator.invalid');
+  const queryKeys = new Set([...requestUrl.searchParams.keys(), ...Object.keys(req?.query || {})]);
+  if (['lat', 'lon', 'latitude', 'longitude', 'bssid', 'ssid', 'raw'].some((key) => queryKeys.has(key))) {
+    return sendJson(context, 400, { ok: false, error: 'query_not_allowed', message: 'Coordinate query strings are not allowed.' });
+  }
+
   try {
     const payload = await fetchGlobalViewport(backendUrl(), requestBody(req));
     return sendJson(context, 200, payload);
