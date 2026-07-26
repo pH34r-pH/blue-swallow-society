@@ -20,6 +20,9 @@ test('Bicep keeps ordinary release blobs private and reserves $web for the manua
   assert.match(storage, /allowBlobPublicAccess:\s*false/);
   assert.doesNotMatch(storage, /resource basemapStaticWebsite/);
   assert.match(storage, /resource releaseContainer[\s\S]*?publicAccess:\s*'None'/);
+  assert.match(storage, /resource basemapToolchainContainer[\s\S]*?publicAccess:\s*'None'/);
+  assert.match(storage, /toolchainContainerName string = 'wardriver-basemap-toolchain'/);
+  assert.match(main, /wardriverBasemapToolchainContainerName/);
   assert.doesNotMatch(storage, /publicAccess:\s*'Blob'/);
   assert.match(storage, /basemapContainerName string = '\$web'/);
   assert.doesNotMatch(storage, /wardriverBasemapStyleUrl/);
@@ -48,10 +51,18 @@ test('manual basemap publication verifies its source and toolchain, emits proven
   assert.match(workflow, /workflow_dispatch/);
   assert.match(workflow, /washington/);
   assert.match(workflow, /download\.geofabrik\.de\/north-america\/us\/washington-latest\.osm\.pbf/);
-  assert.match(workflow, /gh release download "\$PLANETILER_VERSION"/);
-  assert.match(workflow, /--repo onthegomap\/planetiler/);
-  assert.match(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/);
-  assert.doesNotMatch(workflow, /https:\/\/github\.com\/onthegomap\/planetiler\/releases\/download/);
+  assert.match(workflow, /PLANETILER_VERSION: v0\.10\.2/);
+  assert.match(workflow, /PLANETILER_SHA256: f310bd0413e2e4512b27f4046d418664e8e1d3bf31603c2a70e23de06c167e4d/);
+  assert.match(workflow, /wardriverBasemapToolchainContainerName/);
+  assert.match(workflow, /toolchain_container/);
+  assert.match(workflow, /Fetch and verify pinned private Planetiler toolchain/);
+  assert.match(workflow, /--container-name "\$TOOLCHAIN_CONTAINER"/);
+  assert.match(workflow, /planetiler\/\$\{PLANETILER_VERSION\}\/planetiler\.jar/);
+  assert.match(workflow, /planetiler-provenance\.json/);
+  assert.match(workflow, /sha256sum --check --strict/);
+  assert.doesNotMatch(workflow, /gh release download/);
+  assert.doesNotMatch(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/);
+  assert.doesNotMatch(workflow, /curl[^\n]*github\.com\/onthegomap\/planetiler/);
   assert.match(workflow, /actions\/setup-java@v4/);
   assert.match(workflow, /java-version: '21'/);
   assert.match(workflow, /\$JAVA_HOME\/bin\/java/);
@@ -70,8 +81,12 @@ test('manual basemap publication verifies its source and toolchain, emits proven
   assert.match(workflow, /release_container/);
   assert.match(workflow, /CONTAINER: \$\{\{ steps\.basemap\.outputs\.release_container \}\}/);
   assert.ok(
-    workflow.indexOf('Verify OIDC Blob data-plane access') < workflow.indexOf('Fetch and verify bounded OpenStreetMap input'),
-    'data-plane RBAC must fail before the expensive map build',
+    workflow.indexOf('Verify OIDC Blob data-plane access') < workflow.indexOf('Fetch and verify pinned private Planetiler toolchain'),
+    'data-plane RBAC must fail before the private toolchain read',
+  );
+  assert.ok(
+    workflow.indexOf('Fetch and verify pinned private Planetiler toolchain') < workflow.indexOf('Enable Storage static website'),
+    'the private toolchain must validate before public-host enablement',
   );
   assert.ok(
     workflow.indexOf('Enable Storage static website') < workflow.indexOf('Fetch and verify bounded OpenStreetMap input'),
