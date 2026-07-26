@@ -35,7 +35,7 @@ A tile generation shall use a source/renderer/commit-derived prefix below `$web/
 
 ### R4 — Source and publication controls
 
-Publication shall run only by manual GitHub Actions dispatch in the protected `wardriver-basemap-publication` environment. The job shall use OIDC with a scoped `Storage Blob Data Contributor` role and must prove that data-plane access before it downloads or renders a tile generation. It shall verify the Geofabrik sidecar SHA-256 and Planetiler release SHA-256 before generation. It shall not accept an arbitrary input URL.
+Publication shall run only by manual GitHub Actions dispatch in the protected `wardriver-basemap-publication` environment. The job shall use OIDC with a scoped `Storage Blob Data Contributor` role and must prove that data-plane access against the existing private `wardriver-releases` container before it enables `$web`, downloads, or renders a tile generation. It shall verify the Geofabrik sidecar SHA-256 and Planetiler release SHA-256 before generation. It shall not accept an arbitrary input URL.
 
 ### R5 — Android renderer policy
 

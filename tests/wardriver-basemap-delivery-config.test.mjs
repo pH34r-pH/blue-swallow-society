@@ -63,7 +63,9 @@ test('manual basemap publication verifies its source and toolchain, emits proven
   assert.match(workflow, /expected_style_url_pattern/);
   assert.match(workflow, /primaryEndpoints\.web/);
   assert.match(workflow, /PUBLIC_PREFIX: wardriver-basemap/);
-  assert.match(workflow, /container" != '\$web'/);
+  assert.match(workflow, /wardriverReleaseContainerName/);
+  assert.match(workflow, /release_container/);
+  assert.match(workflow, /CONTAINER: \$\{\{ steps\.basemap\.outputs\.release_container \}\}/);
   assert.ok(
     workflow.indexOf('Verify OIDC Blob data-plane access') < workflow.indexOf('Fetch and verify bounded OpenStreetMap input'),
     'data-plane RBAC must fail before the expensive map build',
