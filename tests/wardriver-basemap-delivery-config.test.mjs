@@ -80,6 +80,8 @@ test('manual basemap publication verifies its source and toolchain, emits proven
   assert.match(workflow, /--download/);
   assert.match(workflow, /--maxzoom=12/);
   assert.match(workflow, /sha256sum --check/);
+  assert.match(workflow, /style_url="\$\{static_website_root\}\$\{PUBLIC_PREFIX\}\/\$\{STYLE_OBJECT_PATH\}"/);
+  assert.match(workflow, /public_root="\$\{static_website_root%\/\}"/);
   assert.match(workflow, /--auth-mode login/);
   assert.match(workflow, /Storage Blob Data Contributor/);
   assert.match(workflow, /Verify OIDC Blob data-plane access/);
