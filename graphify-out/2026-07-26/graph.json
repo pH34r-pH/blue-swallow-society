@@ -762,7 +762,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "api_lib_operator_auth_getconfigureddigest",
-      "community": 37,
+      "community": 91,
       "norm_label": "getconfigureddigest()"
     },
     {
@@ -772,7 +772,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "api_lib_operator_auth_verifypasscode",
-      "community": 37,
+      "community": 91,
       "norm_label": "verifypasscode()"
     },
     {
@@ -782,7 +782,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "api_lib_operator_auth_createoperatortoken",
-      "community": 37,
+      "community": 117,
       "norm_label": "createoperatortoken()"
     },
     {
@@ -942,7 +942,7 @@
       "source_location": "L282",
       "_origin": "ast",
       "id": "api_lib_operator_auth_base64urlencode",
-      "community": 37,
+      "community": 117,
       "norm_label": "base64urlencode()"
     },
     {
@@ -4862,7 +4862,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "app_operator_main_emptywigledataset",
-      "community": 17,
+      "community": 20,
       "norm_label": "emptywigledataset()"
     },
     {
@@ -4872,7 +4872,7 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_wardriver_mtls_portal_app_operator_main",
-      "community": 20,
+      "community": 43,
       "norm_label": "$()"
     },
     {
@@ -5102,7 +5102,7 @@
       "source_location": "L474",
       "_origin": "ast",
       "id": "app_operator_main_inittabdefaults",
-      "community": 119,
+      "community": 20,
       "norm_label": "inittabdefaults()"
     },
     {
@@ -5382,7 +5382,7 @@
       "source_location": "L1018",
       "_origin": "ast",
       "id": "app_operator_main_ensurecamerastream",
-      "community": 20,
+      "community": 43,
       "norm_label": "ensurecamerastream()"
     },
     {
@@ -5552,7 +5552,7 @@
       "source_location": "L1601",
       "_origin": "ast",
       "id": "app_operator_main_bindgodeyemodecontrols",
-      "community": 43,
+      "community": 17,
       "norm_label": "bindgodeyemodecontrols()"
     },
     {
@@ -5562,7 +5562,7 @@
       "source_location": "L1616",
       "_origin": "ast",
       "id": "app_operator_main_syncgodeyemodecontrols",
-      "community": 43,
+      "community": 17,
       "norm_label": "syncgodeyemodecontrols()"
     },
     {
@@ -5572,7 +5572,7 @@
       "source_location": "L1624",
       "_origin": "ast",
       "id": "app_operator_main_activategodeyemode",
-      "community": 43,
+      "community": 17,
       "norm_label": "activategodeyemode()"
     },
     {
@@ -5582,7 +5582,7 @@
       "source_location": "L1643",
       "_origin": "ast",
       "id": "app_operator_main_loadgodeyeglobalviewport",
-      "community": 71,
+      "community": 17,
       "norm_label": "loadgodeyeglobalviewport()"
     },
     {
@@ -5702,7 +5702,7 @@
       "source_location": "L1861",
       "_origin": "ast",
       "id": "app_operator_main_renderwigleviews",
-      "community": 119,
+      "community": 20,
       "norm_label": "renderwigleviews()"
     },
     {
@@ -5782,7 +5782,7 @@
       "source_location": "L1986",
       "_origin": "ast",
       "id": "app_operator_main_schedulegodeyerender",
-      "community": 43,
+      "community": 119,
       "norm_label": "schedulegodeyerender()"
     },
     {
@@ -5822,7 +5822,7 @@
       "source_location": "L2149",
       "_origin": "ast",
       "id": "app_operator_main_showterminalerror",
-      "community": 20,
+      "community": 43,
       "norm_label": "showterminalerror()"
     },
     {
@@ -5832,7 +5832,7 @@
       "source_location": "L2163",
       "_origin": "ast",
       "id": "app_operator_main_hideterminalerror",
-      "community": 20,
+      "community": 43,
       "norm_label": "hideterminalerror()"
     },
     {
@@ -5932,7 +5932,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "app_operator_map_math_metersperpixel",
-      "community": 9,
+      "community": 119,
       "norm_label": "metersperpixel()"
     },
     {
@@ -9001,7 +9001,7 @@
       "label": "migration_applied()",
       "file_type": "code",
       "source_file": "infra/scripts/install-cybermap-api.sh",
-      "source_location": "L88",
+      "source_location": "L89",
       "metadata": {
         "language": "bash",
         "kind": "bash_function"
@@ -9015,7 +9015,7 @@
       "label": "run_migration()",
       "file_type": "code",
       "source_file": "infra/scripts/install-cybermap-api.sh",
-      "source_location": "L98",
+      "source_location": "L99",
       "metadata": {
         "language": "bash",
         "kind": "bash_function"
@@ -15940,7 +15940,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "tests_wigle_api_test_makeoperatorheaders",
-      "community": 37,
+      "community": 117,
       "norm_label": "makeoperatorheaders()"
     },
     {
@@ -16670,7 +16670,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_contracts_contracterror",
-      "community": 52,
+      "community": 28,
       "norm_label": "contracterror"
     },
     {
@@ -16680,7 +16680,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_contracts_contracterror_constructor",
-      "community": 52,
+      "community": 28,
       "norm_label": ".constructor()"
     },
     {
@@ -16700,7 +16700,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_contracts_hashcanonicaljson",
-      "community": 52,
+      "community": 150,
       "norm_label": "hashcanonicaljson()"
     },
     {
@@ -16710,7 +16710,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_contracts_hashpersistedobservation",
-      "community": 52,
+      "community": 150,
       "norm_label": "hashpersistedobservation()"
     },
     {
@@ -17990,7 +17990,7 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_memory_store_memoryobservationstore_applybatch",
-      "community": 52,
+      "community": 150,
       "norm_label": ".applybatch()"
     },
     {
@@ -18000,7 +18000,7 @@
       "source_location": "L141",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_memory_store_memoryobservationstore_putpaperstate",
-      "community": 52,
+      "community": 150,
       "norm_label": ".putpaperstate()"
     },
     {
@@ -18450,7 +18450,7 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_postgres_store_postgresobservationstore_applybatch",
-      "community": 52,
+      "community": 150,
       "norm_label": ".applybatch()"
     },
     {
@@ -18740,7 +18740,7 @@
       "source_location": "L971",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_postgres_store_insertobservations",
-      "community": 52,
+      "community": 150,
       "norm_label": "insertobservations()"
     },
     {
@@ -18750,7 +18750,7 @@
       "source_location": "L1037",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_postgres_store_touchcredential",
-      "community": 52,
+      "community": 150,
       "norm_label": "touchcredential()"
     },
     {
@@ -19410,7 +19410,7 @@
       "source_location": "L829",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_handledeflockglobalviewport",
-      "community": 68,
+      "community": 58,
       "norm_label": "handledeflockglobalviewport()"
     },
     {
@@ -19860,7 +19860,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_contracts_test",
-      "community": 52,
+      "community": 28,
       "norm_label": "contracts.test.mjs"
     },
     {
@@ -19870,7 +19870,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_contracts_test_now",
-      "community": 52,
+      "community": 28,
       "norm_label": "now"
     },
     {
@@ -25580,7 +25580,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_cybermap_usgs_terms_approval_2026_07_22_md",
-      "community": 150,
+      "community": 75,
       "norm_label": "cybermap-usgs-terms-approval-2026-07-22.md"
     },
     {
@@ -25590,7 +25590,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_cybermap_usgs_terms_approval_2026_07_22_usgs_earthquake_hazards_terms_review_and_controlled_enablement_receipt",
-      "community": 150,
+      "community": 75,
       "norm_label": "usgs earthquake hazards terms review and controlled enablement receipt"
     },
     {
@@ -25600,7 +25600,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_cybermap_usgs_terms_approval_2026_07_22_approved_scope",
-      "community": 150,
+      "community": 75,
       "norm_label": "approved scope"
     },
     {
@@ -25610,7 +25610,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_cybermap_usgs_terms_approval_2026_07_22_provider_review",
-      "community": 150,
+      "community": 75,
       "norm_label": "provider review"
     },
     {
@@ -25620,7 +25620,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_cybermap_usgs_terms_approval_2026_07_22_server_side_configuration",
-      "community": 150,
+      "community": 75,
       "norm_label": "server-side configuration"
     },
     {
@@ -25630,7 +25630,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_cybermap_usgs_terms_approval_2026_07_22_tst_009_controlled_validation",
-      "community": 150,
+      "community": 75,
       "norm_label": "tst-009 controlled validation"
     },
     {
@@ -56783,7 +56783,7 @@
       "relation": "defines",
       "confidence": "EXTRACTED",
       "source_file": "infra/scripts/install-cybermap-api.sh",
-      "source_location": "L88",
+      "source_location": "L89",
       "weight": 1.0,
       "source": "infra_scripts_install_cybermap_api",
       "target": "infra_scripts_install_cybermap_api_migration_applied",
@@ -56793,7 +56793,7 @@
       "relation": "defines",
       "confidence": "EXTRACTED",
       "source_file": "infra/scripts/install-cybermap-api.sh",
-      "source_location": "L98",
+      "source_location": "L99",
       "weight": 1.0,
       "source": "infra_scripts_install_cybermap_api",
       "target": "infra_scripts_install_cybermap_api_run_migration",
@@ -56813,7 +56813,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "infra/scripts/install-cybermap-api.sh",
-      "source_location": "L108",
+      "source_location": "L109",
       "weight": 1.0,
       "context": "call",
       "source": "infra_scripts_install_cybermap_api_sh__entry",
@@ -56824,7 +56824,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "infra/scripts/install-cybermap-api.sh",
-      "source_location": "L101",
+      "source_location": "L102",
       "weight": 1.0,
       "context": "call",
       "source": "infra_scripts_install_cybermap_api_run_migration",
@@ -92518,5 +92518,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "0b7aea705f1bb028e025d499496378594e927318"
+  "built_at_commit": "17bb3f1e032bb771b21b2b9a118a92568121a32a"
 }
