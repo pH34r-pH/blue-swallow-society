@@ -1,6 +1,6 @@
 # Tasks: Wardriver MapLibre Basemap
 
-- [x] Add public named-object BSS basemap storage contract while preserving private release objects.
+- [x] Replace the policy-blocked public Blob container design with a `$web` static-website basemap path while preserving private release objects.
 - [x] Add BSS style template, immutable vector-tile extractor, style renderer, and provenance-capable publisher workflow.
 - [x] Check Bicep locally; run a Java 21 Planetiler canary and local static tests.
 - [ ] Deploy infrastructure to Azure and run the protected first Washington publication.
