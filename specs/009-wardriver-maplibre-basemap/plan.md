@@ -2,7 +2,7 @@
 
 ## Implementation approach
 
-1. Keep the dedicated Wardriver Blob account's ordinary anonymous access disabled. Keep the release container private; enable its `$web` static-website resource as the sole public read-only basemap path.
+1. Keep the dedicated Wardriver Blob account's ordinary anonymous access disabled. Keep the release container private; during protected manual publication, prove OIDC data-plane access then enable its `$web` static-website resource as the sole public read-only basemap path.
 2. Produce a MapLibre v8 style from `basemap/style.template.json`. The checked-in template has no remote tile origin. Publication renders a generation-specific BSS static-website tile base into the style.
 3. On protected manual dispatch, prove the OIDC principal can read `$web` before any expensive work; then download the bounded Washington Geofabrik PBF and its checksum, download Planetiler `v0.10.2` and its checksum, render vector MBTiles on Java 21, extract gzip XYZ PBF objects, and publish provenance plus immutable tiles.
 4. Compile signed Wardriver `bss.15+` with `WIGLE_BSS_FORCE_MAPLIBRE=true` and the BSS static-website style endpoint. Ignore old renderer/style preferences on all MapLibre surfaces.

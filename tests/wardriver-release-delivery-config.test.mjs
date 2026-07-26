@@ -13,7 +13,7 @@ test('Bicep provisions a recoverable Wardriver release account with private ordi
   assert.match(main, /wardriver-release-storage/);
   assert.match(storage, /Microsoft\.Storage\/storageAccounts/);
   assert.match(storage, /allowBlobPublicAccess:\s*false/);
-  assert.match(storage, /resource basemapStaticWebsite 'Microsoft\.Storage\/storageAccounts\/staticWebsite@2023-05-01'/);
+  assert.doesNotMatch(storage, /resource basemapStaticWebsite/);
   assert.match(storage, /minimumTlsVersion:\s*'TLS1_2'/);
   assert.match(storage, /isVersioningEnabled:\s*true/);
   assert.match(storage, /deleteRetentionPolicy/);

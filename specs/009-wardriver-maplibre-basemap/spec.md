@@ -17,11 +17,11 @@ This specification owns observable basemap behavior for Wardriver `bss.15+`.
 
 ### R1 — Public static-website paths; private Blob containers
 
-The existing Wardriver storage account shall set `allowBlobPublicAccess: false`. The existing `wardriver-releases` container shall remain `publicAccess: 'None'`. Basemap bytes shall be uploaded under the Storage static website's system `$web` container and read only through explicit static-website object paths; ordinary Blob listing remains unauthenticated-denied.
+The existing Wardriver storage account shall set `allowBlobPublicAccess: false`. The existing `wardriver-releases` container shall remain `publicAccess: 'None'`. The protected manual publisher shall enable the Storage static website and upload basemap bytes under its system `$web` container; clients read only through explicit static-website object paths, while ordinary Blob listing remains unauthenticated-denied.
 
 ### R2 — Client style endpoint
 
-The BSS deployment shall output a style endpoint of this form:
+After it enables `$web`, the protected publisher shall resolve and emit a style endpoint of this form:
 
 ```text
 https://<storage-account>.<azure-web-zone>.web.core.windows.net/wardriver-basemap/v1/style.json

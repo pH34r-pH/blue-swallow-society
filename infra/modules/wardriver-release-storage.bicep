@@ -77,17 +77,6 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01'
   }
 }
 
-// Microsoft documents $web as anonymously readable even when ordinary Blob anonymous
-// access is disabled. It is the only public delivery surface in this account.
-resource basemapStaticWebsite 'Microsoft.Storage/storageAccounts/staticWebsite@2023-05-01' = {
-  parent: releaseStorage
-  name: 'default'
-  properties: {
-    indexDocument: 'index.html'
-    error404Document: '404.html'
-  }
-}
-
 resource releaseContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
   parent: blobService
   name: containerName
@@ -96,9 +85,8 @@ resource releaseContainer 'Microsoft.Storage/storageAccounts/blobServices/contai
   }
 }
 
-// `$web` is created by the staticWebsite setting. Do not declare it with Blob public access.
+// `$web` is enabled only by the protected publisher after OIDC data-plane proof.
 
 output storageAccountName string = releaseStorage.name
 output releaseContainerName string = releaseContainer.name
 output basemapContainerName string = basemapContainerName
-output wardriverBasemapStyleUrl string = '${releaseStorage.properties.primaryEndpoints.web}wardriver-basemap/v1/style.json'

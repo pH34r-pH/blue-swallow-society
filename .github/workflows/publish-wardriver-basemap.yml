@@ -46,7 +46,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Resolve the deployed public basemap contract
+      - name: Resolve the deployed basemap storage target
         id: basemap
         run: |
           set -euo pipefail
@@ -57,18 +57,13 @@ jobs:
             -o json)
           account=$(jq -r '.wardriverReleaseStorageAccountName.value' <<<"$outputs")
           container=$(jq -r '.wardriverBasemapContainerName.value' <<<"$outputs")
-          style_url=$(jq -r '.wardriverBasemapStyleUrl.value' <<<"$outputs")
-          expected_style_url_pattern="^https://${account}\.[a-z0-9-]+\.web\.core\.windows\.net/${PUBLIC_PREFIX}/${STYLE_OBJECT_PATH}$"
-          if ! [[ "$account" =~ ^[a-z0-9]{3,24}$ ]] || [ "$container" != '$web' ] || ! [[ "$style_url" =~ $expected_style_url_pattern ]]; then
-            echo '::error::Deployed Wardriver basemap outputs are absent or violate the static-website public-style contract.'
+          if ! [[ "$account" =~ ^[a-z0-9]{3,24}$ ]] || [ "$container" != '$web' ]; then
+            echo '::error::Deployed Wardriver basemap storage outputs are absent or violate the private-Blob contract.'
             exit 1
           fi
-          public_root="${style_url%/${STYLE_OBJECT_PATH}}"
           echo 'This workflow requires Storage Blob Data Contributor on the Wardriver storage account only.'
           echo "account=$account" >> "$GITHUB_OUTPUT"
           echo "container=$container" >> "$GITHUB_OUTPUT"
-          echo "style_url=$style_url" >> "$GITHUB_OUTPUT"
-          echo "public_root=$public_root" >> "$GITHUB_OUTPUT"
 
       - name: Verify OIDC Blob data-plane access
         env:
@@ -83,6 +78,36 @@ jobs:
             --account-name "$ACCOUNT" \
             --name "$CONTAINER" \
             --only-show-errors -o none
+
+      - name: Enable Storage static website
+        id: static_website
+        env:
+          ACCOUNT: ${{ steps.basemap.outputs.account }}
+        run: |
+          set -euo pipefail
+          # $web is the policy-compliant public path. This data-plane operation is deliberately
+          # after the scoped OIDC proof and before any costly input download.
+          az storage blob service-properties update --auth-mode login \
+            --account-name "$ACCOUNT" \
+            --static-website true \
+            --index-document index.html \
+            --404-document 404.html \
+            --only-show-errors -o none
+          static_website_root=$(az storage account show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$ACCOUNT" \
+            --query 'primaryEndpoints.web' \
+            -o tsv)
+          static_website_root="${static_website_root%/}/"
+          style_url="${static_website_root}${PUBLIC_PREFIX}/${STYLE_OBJECT_PATH}"
+          expected_style_url_pattern="^https://${ACCOUNT}\\.[a-z0-9-]+\\.web\\.core\\.windows\\.net/${PUBLIC_PREFIX}/${STYLE_OBJECT_PATH}$"
+          if ! [[ "$style_url" =~ $expected_style_url_pattern ]]; then
+            echo '::error::Storage static-website endpoint is absent or violates the BSS style contract.'
+            exit 1
+          fi
+          public_root="${style_url%/${STYLE_OBJECT_PATH}}"
+          echo "style_url=$style_url" >> "$GITHUB_OUTPUT"
+          echo "public_root=$public_root" >> "$GITHUB_OUTPUT"
 
       - name: Fetch and verify bounded OpenStreetMap input and Planetiler
         id: inputs
@@ -125,7 +150,7 @@ jobs:
         id: render
         env:
           WORK: ${{ steps.inputs.outputs.work }}
-          PUBLIC_ROOT: ${{ steps.basemap.outputs.public_root }}
+          PUBLIC_ROOT: ${{ steps.static_website.outputs.public_root }}
           SOURCE_URL: ${{ steps.inputs.outputs.source_url }}
           SOURCE_SHA256: ${{ steps.inputs.outputs.source_sha256 }}
           PLANETILER_SHA256: ${{ steps.inputs.outputs.planetiler_sha256 }}
@@ -223,7 +248,7 @@ jobs:
 
       - name: Verify public named-object delivery without a Blob listing
         env:
-          STYLE_URL: ${{ steps.basemap.outputs.style_url }}
+          STYLE_URL: ${{ steps.static_website.outputs.style_url }}
           TILE_BASE_URL: ${{ steps.render.outputs.tile_base_url }}
           SAMPLE_TILE: ${{ steps.tiles.outputs.sample_tile }}
         run: |
