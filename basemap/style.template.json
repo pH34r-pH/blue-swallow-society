@@ -17,7 +17,7 @@
         "__BSS_TILE_BASE_URL__/{z}/{x}/{y}.pbf"
       ],
       "minzoom": 0,
-      "maxzoom": 14,
+      "maxzoom": 12,
       "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap contributors</a>"
     }
   },

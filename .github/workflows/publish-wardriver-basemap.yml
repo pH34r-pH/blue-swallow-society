@@ -186,6 +186,7 @@ jobs:
           set -euo pipefail
           "$JAVA_HOME/bin/java" -Xmx6g -jar "$WORK/planetiler.jar" \
             --download \
+            --maxzoom=12 \
             --osm-path="$WORK/washington.osm.pbf" \
             --output="$WORK/washington.mbtiles"
           python3 scripts/extract-mbtiles-tiles.py \
