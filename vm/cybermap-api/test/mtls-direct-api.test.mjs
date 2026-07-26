@@ -15,7 +15,7 @@ function makeServer() {
       source_id: 'source-owned-device-1',
       source_class: 'owned_device',
       mtls_certificate_fingerprint: CLIENT_FINGERPRINT,
-      scopes: ['observations:write'],
+      scopes: ['observations:write', 'cybermap:read'],
       enabled: true,
     }],
     now: () => new Date('2026-07-26T18:43:00.000Z'),
@@ -33,6 +33,7 @@ function mtlsHeaders(extra = {}) {
     'content-type': 'application/json',
     'x-blue-swallow-mtls-proxy-secret': PROXY_SECRET,
     'x-blue-swallow-mtls-client-fingerprint': CLIENT_FINGERPRINT,
+    'x-blue-swallow-device-id': DEVICE_ID,
     ...extra,
   };
 }
@@ -81,5 +82,12 @@ test('direct mTLS viewport accepts body coordinates and does not use a token or 
     assert.equal(payload.source, 'cybermap-postgis');
     assert.equal(payload.totalResults, 0);
     assert.equal(Object.hasOwn(payload, 'accessPoints'), false);
+
+    const mismatchedDevice = await fetch(`${baseUrl}/api/v1/cybermap/viewport`, {
+      method: 'POST',
+      headers: mtlsHeaders({ 'x-blue-swallow-device-id': 'wrong-device' }),
+      body: JSON.stringify({ lat: 47.61, lon: -122.33, radiusMeters: 250, limit: 20 }),
+    });
+    assert.equal(mismatchedDevice.status, 403);
   });
 });

@@ -144,8 +144,13 @@ export function createRequestHandler({
         return sendJson(response, readiness.ok ? 200 : 503, readiness);
       }
       if (request.method === 'POST' && url.pathname === VIEWPORT_PATH) {
-        requireMtlsProxyAssertion(request, mtlsProxySecret);
-        const viewport = await handleMtlsViewport(request, { store, now });
+        const mtlsAssertion = requireMtlsProxyAssertion(request, mtlsProxySecret);
+        const viewport = await handleMtlsViewport(request, {
+          store,
+          now,
+          mtlsAssertion,
+          deviceId: singleHeader(request, 'x-blue-swallow-device-id'),
+        });
         return sendJson(response, 200, toAggregateViewportResponse(viewport));
       }
       if (request.method === 'GET' && url.pathname === VIEWPORT_PATH) {
@@ -734,7 +739,15 @@ function buildEchoPayload(url) {
   };
 }
 
-async function handleMtlsViewport(request, { store, now }) {
+async function handleMtlsViewport(request, { store, now, mtlsAssertion, deviceId }) {
+  if (!deviceId || deviceId.length > 160 || typeof store.authenticateMtls !== 'function') {
+    throw new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
+  }
+  await store.authenticateMtls({
+    deviceId,
+    certificateFingerprint: mtlsAssertion.certificateFingerprint,
+    requiredScope: 'cybermap:read',
+  });
   if (typeof store.queryViewport !== 'function') {
     throw new IngestError('viewport_unavailable', 'Cybermap viewport reads are not available.', { statusCode: 503 });
   }
