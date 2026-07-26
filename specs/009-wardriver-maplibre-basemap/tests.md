@@ -5,7 +5,7 @@
 | R1 | `tests/wardriver-basemap-delivery-config.test.mjs`; `az bicep build infra/main.bicep`; ordinary Blob access disabled and manual OIDC-gated `$web` enablement | implemented locally |
 | R2 | Style-template static contract; render-script canary with BSS static-website URL | implemented locally |
 | R3 | Publication workflow static contract checks versioned generation path, cache headers, provenance output | implemented locally |
-| R4 | Workflow static contract checks manual dispatch, OIDC preflight against private `wardriver-releases` before `$web` enablement/source download, checksum verification, Java 21 | implemented locally |
+| R4 | Workflow static contract checks manual dispatch, OIDC preflight against private `wardriver-releases` before `$web` enablement/source download, pinned Planetiler GitHub Releases API retrieval + checksum verification, Java 21 | implemented locally |
 | R5 | Wardriver `MapLibreReleaseContractTest` and `ReleasePromotionContractTest` | implemented locally; candidate build pending |
 | R6 | Physical device receipt for render/markers/location/outage/lifecycle/update | pending |
 

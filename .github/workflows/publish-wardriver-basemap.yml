@@ -113,6 +113,11 @@ jobs:
 
       - name: Fetch and verify bounded OpenStreetMap input and Planetiler
         id: inputs
+        env:
+          # Use the Releases API rather than anonymous browser asset redirects. The token is
+          # GitHub's ephemeral, repository-scoped workflow token; no release credential enters
+          # the generated tiles, provenance, or Android build.
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/wardriver-basemap"
@@ -122,10 +127,11 @@ jobs:
           curl --fail --location --retry 3 --retry-all-errors --output washington-latest.osm.pbf "$source_url"
           curl --fail --location --retry 3 --retry-all-errors --output washington-latest.osm.pbf.sha256 "$source_url.sha256"
           sha256sum --check washington-latest.osm.pbf.sha256
-          curl --fail --location --retry 3 --retry-all-errors --output planetiler.jar \
-            "https://github.com/onthegomap/planetiler/releases/download/${PLANETILER_VERSION}/planetiler.jar"
-          curl --fail --location --retry 3 --retry-all-errors --output planetiler.jar.sha256 \
-            "https://github.com/onthegomap/planetiler/releases/download/${PLANETILER_VERSION}/planetiler.jar.sha256"
+          gh release download "$PLANETILER_VERSION" \
+            --repo onthegomap/planetiler \
+            --pattern planetiler.jar \
+            --pattern planetiler.jar.sha256 \
+            --dir "$work"
           sha256sum --check planetiler.jar.sha256
           echo "source_url=$source_url" >> "$GITHUB_OUTPUT"
           echo "source_sha256=$(sha256sum washington-latest.osm.pbf | awk '{print $1}')" >> "$GITHUB_OUTPUT"
