@@ -27,7 +27,7 @@ Azure Database for PostgreSQL Flexible Server B1MS + PostGIS (target Cybermap st
 
 The browser never calls the VM directly. The frontend calls the Static Web App API, and the API proxies the request to the VM.
 
-The audited implementation-versus-design matrix is maintained in [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-system-implementation-delta.md). It distinguishes deployed, working-tree, prototype, schema-only, and designed-only capabilities across the website, VM/API, and Wardriver.
+The [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-system-implementation-delta.md) is a dated historical audit with explicit source reconciliations; it is not deployment proof. Current source-state documentation is `docs/static-web-app-functionality.md`, with Cybermap route contracts in the Functions and their tests.
 
 ---
 

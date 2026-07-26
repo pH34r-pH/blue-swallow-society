@@ -4,9 +4,11 @@
 
 **Created**: 2026-05-23
 
-**Status**: Draft
+**Status**: Historical prototype record — superseded by `specs/009-adversarial-surface-remediation/`
 
 **Input**: User description: "Create a cyberpunk-themed terminal interface web application for the Blue Swallow Society network console with authentication, tabbed navigation, and interactive components"
+
+> **Historical prototype record — superseded:** This 2026-05 specification preserves the initial terminal-console proposal. It is not current operating guidance. The current passcode split validates server-side configuration only; `/api/echo` and `/api/agent` are retired, and authenticated operator assets use the grant boundary specified in `specs/009-adversarial-surface-remediation/`.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -19,7 +21,7 @@ Users must be able to securely authenticate to access the Blue Swallow Society n
 **Independent Test**: Can be fully tested by attempting login with valid/invalid passcodes and verifying interface state changes accordingly.
 
 **Acceptance Scenarios**:
-1. **Given** user is on the login screen, **When** they enter the correct passcode "blue-swallow", **Then** the terminal screen hides and the main interface becomes active
+1. **Historical test scenario:** Given an isolated local harness with a non-secret test-only passcode, when the configured value is accepted, then the terminal screen hides and the main interface becomes active.
 2. **Given** user is on the login screen, **When** they enter an incorrect passcode, **Then** an error message "ACCESS DENIED - INVALID CREDENTIALS" is displayed
 3. **Given** user is authenticated, **When** they click the logout button, **Then** the login screen reappears and chat history is cleared
 
@@ -80,7 +82,7 @@ The network console must be accessible and usable across different device sizes 
 - **FR-004**: System MUST provide a real-time chat interface with user/agent message styling and timestamps
 - **FR-005**: System MUST implement persistent chat history within the user's session
 - **FR-006**: System MUST provide logout functionality that clears session data and returns to login screen
-- **FR-007**: System MUST communicate with backend APIs for passcode validation (/api/validate-passcode), agent responses (/api/agent), echo functionality (/api/echo), and profile data (/api/profile)
+- **FR-007 (historical):** The initial prototype named `/api/validate-passcode`, `/api/agent`, `/api/echo`, and `/api/profile`. The current source retires `/api/agent` and `/api/echo`; current API contracts are documented in `docs/static-web-app-functionality.md`.
 - **FR-008**: System MUST implement responsive design principles using CSS flexbox and grid
 - **FR-009**: System MUST provide error messaging for authentication feedback and API errors
 - **FR-010**: System MUST implement cyberpunk-inspired visual styling with dark backgrounds and neon accents
@@ -101,8 +103,8 @@ The network console must be accessible and usable across different device sizes 
 
 ## Assumptions
 - Users have basic familiarity with terminal-style interfaces and web applications
-- The backend APIs (/api/validate-passcode, /api/agent, /api/echo, /api/profile) are available and functioning as specified
+- The initial prototype assumed `/api/validate-passcode`, `/api/agent`, `/api/echo`, and `/api/profile` were available; the retired routes are preserved here only as historical scope.
 - Users have stable internet connectivity for real-time communication
 - Modern web browser support for ES6 JavaScript, CSS flexbox, and CSS grid
-- The hardcoded passcode "blue-swallow" is acceptable for development and testing purposes
+- The original hardcoded-passcode prototype is retired. Local tests use explicitly non-secret test fixtures; production passcode material remains configuration-only.
 - Azure Static Web App built-in authentication (AAD) is configured in `staticwebapp.config.json` but not used by the frontend passcode gate; it is reserved for future external identity integration
