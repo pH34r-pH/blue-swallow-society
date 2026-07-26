@@ -340,8 +340,8 @@
     "semantic_hash": ""
   },
   "infra/scripts/install-cybermap-api.sh": {
-    "mtime": 1785078513.1333497,
-    "ast_hash": "0dde3aba020bf0cf91e4c90c8066b541",
+    "mtime": 1785081013.4070122,
+    "ast_hash": "e47d792e8b021d1624d99cfccf1a6447",
     "semantic_hash": ""
   },
   "local-server.js": {
@@ -450,8 +450,8 @@
     "semantic_hash": ""
   },
   "tests/cybermap-schema.test.mjs": {
-    "mtime": 1785078518.0534627,
-    "ast_hash": "759f97b5b606d7336566a68fb366d995",
+    "mtime": 1785081018.3271406,
+    "ast_hash": "c8774575867a42893d88694227d4413f",
     "semantic_hash": ""
   },
   "tests/cybermap-viewport-api.test.mjs": {
