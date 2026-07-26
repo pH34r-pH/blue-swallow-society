@@ -11,6 +11,7 @@ const REQUIRED_MIGRATIONS = Object.freeze([
   '0004_morning_brief_archive',
 ]);
 const GLOBAL_SOURCE_CLASSES = Object.freeze(['green_public', 'green_owned', 'green_authorized']);
+const GREEN_TILE_SOURCE_CLASSES = Object.freeze(['green_public', 'green_owned', 'green_authorized']);
 const GLOBAL_MAX_CELLS = 1_000;
 const GLOBAL_VIEWPORT_SCHEMA_VERSION = 'bss.godeye.global_viewport.v1';
 
@@ -770,6 +771,40 @@ export class PostgresObservationStore {
         ? 'Cybermap PostGIS viewport ready.'
         : 'Cybermap PostGIS viewport returned no observations for this fix.',
     };
+  }
+
+  async queryVectorTile({ z, x, y } = {}) {
+    const result = await this.#pool.query(
+      `WITH bounds AS (
+         SELECT ST_TileEnvelope($1, $2, $3) AS geom
+       ), features AS (
+         SELECT
+           cell.h3_cell,
+           cell.resolution,
+           cell.observation_count,
+           cell.entity_count,
+           cell.salience::float8 AS salience,
+           array_to_string(cell.source_classes, ',') AS source_class_summary,
+           CASE
+             WHEN cell.last_seen_at >= clock_timestamp() - interval '15 minutes' THEN 'fresh'
+             ELSE 'stale'
+           END AS freshness_status,
+           CASE
+             WHEN jsonb_array_length(cell.caveats) > 0 THEN 'present'
+             ELSE 'none'
+           END AS caveat_status,
+           ST_AsMVTGeom(ST_Transform(cell.geom, 3857), bounds.geom, 4096, 64, true) AS geom
+         FROM cybermap_cells AS cell
+         CROSS JOIN bounds
+         WHERE cardinality(cell.source_classes) > 0
+           AND cell.source_classes <@ $4::source_class[]
+           AND ST_Intersects(ST_Transform(cell.geom, 3857), bounds.geom)
+       )
+       SELECT COALESCE(ST_AsMVT(features, 'green_cells', 4096, 'geom'), ''::bytea) AS tile
+       FROM features`,
+      [z, x, y, GREEN_TILE_SOURCE_CLASSES],
+    );
+    return Buffer.from(result.rows[0]?.tile ?? Buffer.alloc(0));
   }
 }
 

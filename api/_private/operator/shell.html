@@ -331,7 +331,7 @@
                 <p class="eyebrow">// GODEYE //</p>
                 <h2>Hosted viewer</h2>
               </div>
-              <p class="panel-meta">Managed Cybermap observations. No camera overlays.</p>
+              <p class="panel-meta">Managed Cybermap observations. Fixed POST /api/cybermap/viewport; no arbitrary endpoint.</p>
             </div>
 
             <div class="godeye-mode-controls" role="group" aria-label="Godeye map mode">
@@ -344,80 +344,47 @@
               <p class="panel-meta">Field: local 100 m. Global: bounded materialized cells.</p>
             </div>
 
-            <div class="godeye-layout">
-              <div class="map-panel">
-                <div id="godeyeMap" class="map-viewport" aria-label="OpenStreetMap current location map">
-                  <div id="godeyeTiles" class="map-tiles" aria-hidden="true"></div>
-                  <div class="map-grid" aria-hidden="true"></div>
-                  <div class="map-reticle" aria-hidden="true"></div>
-                  <div id="godeyeAccuracy" class="map-accuracy" aria-hidden="true"></div>
-                  <div id="godeyeMarker" class="map-marker" aria-hidden="true">
-                    <span class="map-marker-core"></span>
-                    <span class="map-marker-head"></span>
-                  </div>
-                  <div id="godeyeWigleMarkers" class="map-wigle-markers" aria-hidden="true"></div>
-                  <div class="map-label">
-                    <span class="map-label-title">Current fix</span>
-                    <span id="godeyeCoords">Awaiting geolocation permission.</span>
-                  </div>
+            <div class="godeye-workbench">
+              <section class="godeye-map-panel" aria-label="Managed Cybermap map">
+                <div id="godeyeMapCanvas" class="godeye-map-canvas" data-map-state="idle">
+                  <p class="godeye-map-placeholder">Initialize a current fix to load policy-filtered layers.</p>
                 </div>
-              </div>
+                <p id="godeyeCoords" class="godeye-coordinate-readout">No GPS fix yet. Managed Cybermap requests use the fixed operator route.</p>
+              </section>
 
-              <aside class="geo-panel">
-                <button id="locationBtn" class="btn btn-primary sensor-action" type="button">Enable location</button>
-
-                <div class="geo-card">
-                  <p class="sensor-label">Cybermap source</p>
-                  <label class="wigle-field" for="wigleEndpointInput">
-                    <span>Godeye viewport API</span>
-                    <input
-                      id="wigleEndpointInput"
-                      class="input dashboard-input"
-                      type="url"
-                      placeholder="/api/cybermap/viewport"
-                      autocomplete="off"
-                      autocapitalize="none"
-                      spellcheck="false"
-                    />
-                  </label>
-                  <div class="wigle-action-row">
-                    <button id="wigleConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect Cybermap viewport</button>
-                  </div>
-                  <p id="wigleStatusText">Cybermap viewport not connected.</p>
-                </div>
-
-                <div class="geo-card">
-                  <p class="sensor-label">Location status</p>
+              <aside class="godeye-ledger-panel">
+                <div class="geo-card godeye-actions">
+                  <button id="locationBtn" class="btn btn-primary sensor-action" type="button">Enable location</button>
+                  <button id="godeyeRefreshBtn" class="btn btn-secondary sensor-action" type="button">Refresh managed context</button>
                   <p id="geoStatusText">Geolocation not requested.</p>
                 </div>
 
                 <div class="geo-card">
-                  <p class="sensor-label">Godeye map readout</p>
-                  <p id="godeyeWigleStatus">Awaiting current fix.</p>
-                  <div id="godeyeWigleList" class="wigle-list"></div>
+                  <p class="sensor-label">Approved layer ledger</p>
+                  <div id="godeyeLayerLedger" class="godeye-layer-ledger"></div>
+                </div>
+
+                <div class="geo-card">
+                  <p class="sensor-label">Source health</p>
+                  <div id="godeyeSourceHealth" class="godeye-source-health">Gateway-backed materialization pending.</div>
+                </div>
+
+                <div class="geo-card">
+                  <p class="sensor-label">Selected cell</p>
+                  <div id="godeyeSelectedCell" class="godeye-inspector">Select an approved green cell for bounded provenance.</div>
+                </div>
+
+                <div class="geo-card">
+                  <p class="sensor-label">Session timeline</p>
+                  <div id="godeyeTimeline" class="godeye-timeline">No transient context in this session.</div>
                 </div>
 
                 <dl class="geo-metrics">
-                  <div>
-                    <dt>Latitude</dt>
-                    <dd id="geoLat">—</dd>
-                  </div>
-                  <div>
-                    <dt>Longitude</dt>
-                    <dd id="geoLon">—</dd>
-                  </div>
-                  <div>
-                    <dt>Accuracy</dt>
-                    <dd id="geoAccuracy">—</dd>
-                  </div>
-                  <div>
-                    <dt>Heading</dt>
-                    <dd id="geoHeading">—</dd>
-                  </div>
-                  <div>
-                    <dt>Speed</dt>
-                    <dd id="geoSpeed">—</dd>
-                  </div>
+                  <div><dt>Latitude</dt><dd id="geoLat">—</dd></div>
+                  <div><dt>Longitude</dt><dd id="geoLon">—</dd></div>
+                  <div><dt>Accuracy</dt><dd id="geoAccuracy">—</dd></div>
+                  <div><dt>Heading</dt><dd id="geoHeading">—</dd></div>
+                  <div><dt>Speed</dt><dd id="geoSpeed">—</dd></div>
                 </dl>
               </aside>
             </div>

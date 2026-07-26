@@ -3159,6 +3159,8 @@ strong {
   border-style: dashed;
   border-color: rgba(197, 190, 179, 0.28);
   color: var(--text-2);
+}
+
 /* Morning dossier: a subordinate operator-console surface, not a parallel shell. */
 #morning-brief-tab {
   min-width: 0;
@@ -3337,5 +3339,109 @@ strong {
 
   #morning-brief-tab .brief-meta dd {
     margin: 0 0 var(--space-2);
+  }
+}
+
+/* Godeye MapLibre workbench: controlled layers, bounded inspection. */
+.godeye-workbench {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.godeye-map-panel,
+.godeye-ledger-panel {
+  min-width: 0;
+  border: 1px solid rgba(121, 170, 166, 0.2);
+  border-radius: var(--radius-md);
+  background: rgba(5, 10, 18, 0.58);
+}
+
+.godeye-map-panel {
+  overflow: hidden;
+}
+
+.godeye-map-canvas {
+  position: relative;
+  min-height: clamp(22rem, 52vw, 42rem);
+  background: #111217;
+}
+
+.godeye-map-placeholder {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--text-2);
+}
+
+.godeye-coordinate-readout {
+  margin: 0;
+  padding: 0.7rem var(--space-3);
+  border-top: 1px solid rgba(121, 170, 166, 0.16);
+  color: var(--text-2);
+  font-size: 0.78rem;
+}
+
+.godeye-ledger-panel {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.godeye-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.godeye-actions > p {
+  flex: 1 1 100%;
+  margin: 0.25rem 0 0;
+  color: var(--text-2);
+}
+
+.godeye-layer-ledger,
+.godeye-source-health,
+.godeye-inspector,
+.godeye-timeline {
+  display: grid;
+  gap: 0.5rem;
+  color: var(--text-1);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.godeye-layer-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid rgba(238, 231, 220, 0.08);
+}
+
+.godeye-layer-row input {
+  accent-color: var(--oxidized-patina);
+}
+
+.godeye-timeline {
+  max-height: 12rem;
+  overflow: auto;
+}
+
+.godeye-timeline-row {
+  margin: 0;
+  padding: 0.45rem 0;
+  border-bottom: 1px dotted rgba(238, 231, 220, 0.14);
+}
+
+@media (min-width: 1120px) {
+  .godeye-workbench {
+    grid-template-columns: minmax(0, 1.65fr) minmax(20rem, 0.75fr);
+    align-items: start;
+  }
+
+  .godeye-ledger-panel {
+    max-height: 42rem;
+    overflow: auto;
   }
 }

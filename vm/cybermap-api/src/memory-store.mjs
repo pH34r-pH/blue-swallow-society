@@ -328,6 +328,10 @@ export class MemoryObservationStore {
     return { cells, sources };
   }
 
+  async queryVectorTile() {
+    return Buffer.alloc(0);
+  }
+
   batchCount() {
     return this.#batches.size;
   }

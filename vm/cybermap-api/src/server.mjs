@@ -18,6 +18,8 @@ const MAX_BODY_BYTES = 1_048_576;
 const MAX_MORNING_BRIEF_BODY_BYTES = 32 * 1_024 * 1_024;
 const INGEST_PATH = '/api/v1/observations/batch';
 const VIEWPORT_PATH = '/api/v1/cybermap/viewport';
+const TILE_PATH_RE = /^\/api\/v1\/cybermap\/tiles\/(\d+)\/(\d+)\/(\d+)$/;
+const TILE_MAX_ZOOM = 12;
 const GLOBAL_VIEWPORT_PATH = '/api/v1/cybermap/global-viewport';
 const PAPER_STATE_PATH = '/api/v1/paper/state';
 const GLOBAL_VIEWPORT_LAYER_IDS = Object.freeze([
@@ -157,6 +159,11 @@ export function createRequestHandler({
         requireBackendReadToken(request);
         const viewport = await handleCybermapViewport(url, { store, now });
         return sendJson(response, 200, viewport);
+      }
+      if (request.method === 'GET' && url.pathname.startsWith('/api/v1/cybermap/tiles/')) {
+        requireBackendReadToken(request);
+        const tile = await handleCybermapTile(url, { store });
+        return sendBinary(response, 200, tile, 'application/vnd.mapbox-vector-tile', { 'Cache-Control': 'no-store' });
       }
       if (request.method === 'POST' && url.pathname === GLOBAL_VIEWPORT_PATH) {
         requireBackendReadToken(request);
@@ -805,6 +812,31 @@ async function handleCybermapViewport(url, { store, now }) {
   const nowMs = Number.isFinite(clock) ? clock : now();
 
   return store.queryViewport({ lat, lon, radiusMeters, limit, maxAgeMs, now: new Date(nowMs) });
+}
+
+async function handleCybermapTile(url, { store }) {
+  if (typeof store.queryVectorTile !== 'function') {
+    throw new IngestError('tile_unavailable', 'Cybermap tile reads are not available.', { statusCode: 503 });
+  }
+  if (url.search) {
+    throw new IngestError('invalid_tile', 'Cybermap tile requests do not accept query parameters.', { statusCode: 400 });
+  }
+  const match = TILE_PATH_RE.exec(url.pathname);
+  if (!match) {
+    throw new IngestError('invalid_tile', 'Tile path must contain numeric z, x, and y values.', { statusCode: 400 });
+  }
+  const [z, x, y] = match.slice(1).map(Number);
+  const width = 2 ** z;
+  if (!Number.isSafeInteger(z) || z > TILE_MAX_ZOOM
+      || !Number.isSafeInteger(x) || !Number.isSafeInteger(y)
+      || x >= width || y >= width) {
+    throw new IngestError('invalid_tile', 'Tile coordinates are outside the supported Cybermap range.', { statusCode: 400 });
+  }
+  const tile = await store.queryVectorTile({ z, x, y });
+  if (!Buffer.isBuffer(tile) && !(tile instanceof Uint8Array)) {
+    throw new IngestError('tile_unavailable', 'Cybermap tile store returned an invalid payload.', { statusCode: 503 });
+  }
+  return Buffer.from(tile);
 }
 
 async function handleGlobalViewport(request, { store, now }) {
