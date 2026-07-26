@@ -12,20 +12,18 @@ function parseJson(path) {
   return JSON.parse(read(path));
 }
 
-test('Bicep keeps release blobs private and serves basemap objects only from the storage static-website endpoint', () => {
+test('Bicep keeps ordinary release blobs private and reserves $web for the manually gated basemap publication', () => {
   assert.equal(existsSync(storageModule), true);
   const storage = read('infra/modules/wardriver-release-storage.bicep');
   const main = read('infra/main.bicep');
 
   assert.match(storage, /allowBlobPublicAccess:\s*false/);
-  assert.match(storage, /resource basemapStaticWebsite 'Microsoft\.Storage\/storageAccounts\/staticWebsite@2023-05-01'/);
-  assert.match(storage, /indexDocument: 'index\.html'/);
+  assert.doesNotMatch(storage, /resource basemapStaticWebsite/);
   assert.match(storage, /resource releaseContainer[\s\S]*?publicAccess:\s*'None'/);
   assert.doesNotMatch(storage, /publicAccess:\s*'Blob'/);
   assert.match(storage, /basemapContainerName string = '\$web'/);
-  assert.match(storage, /primaryEndpoints\.web/);
-  assert.match(storage, /wardriverBasemapStyleUrl/);
-  assert.match(main, /wardriverBasemapStyleUrl/);
+  assert.doesNotMatch(storage, /wardriverBasemapStyleUrl/);
+  assert.doesNotMatch(main, /wardriverBasemapStyleUrl/);
 });
 
 test('the checked-in style is BSS-branded, attributable, and cannot point at a third-party tile origin', () => {
@@ -59,12 +57,20 @@ test('manual basemap publication verifies its source and toolchain, emits proven
   assert.match(workflow, /Storage Blob Data Contributor/);
   assert.match(workflow, /Verify OIDC Blob data-plane access/);
   assert.match(workflow, /az storage container show --auth-mode login/);
-  assert.ok(workflow.includes('web\\.core\\.windows\\.net'));
+  assert.match(workflow, /Enable Storage static website/);
+  assert.match(workflow, /az storage blob service-properties update --auth-mode login/);
+  assert.match(workflow, /--static-website true/);
+  assert.match(workflow, /expected_style_url_pattern/);
+  assert.match(workflow, /primaryEndpoints\.web/);
   assert.match(workflow, /PUBLIC_PREFIX: wardriver-basemap/);
   assert.match(workflow, /container" != '\$web'/);
   assert.ok(
     workflow.indexOf('Verify OIDC Blob data-plane access') < workflow.indexOf('Fetch and verify bounded OpenStreetMap input'),
     'data-plane RBAC must fail before the expensive map build',
+  );
+  assert.ok(
+    workflow.indexOf('Enable Storage static website') < workflow.indexOf('Fetch and verify bounded OpenStreetMap input'),
+    'the public static endpoint must be enabled only after OIDC proof and before tile generation',
   );
   assert.match(workflow, /STYLE_OBJECT_PATH: v1\/style\.json/);
   assert.match(workflow, /basemap-provenance\.json/);

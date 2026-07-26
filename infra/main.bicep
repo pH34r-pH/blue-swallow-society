@@ -198,7 +198,6 @@ output postgresGeoRedundantBackup string = postgresModule.outputs.geoRedundantBa
 output wardriverReleaseStorageAccountName string = wardriverReleaseStorage.outputs.storageAccountName
 output wardriverReleaseContainerName string = wardriverReleaseStorage.outputs.releaseContainerName
 output wardriverBasemapContainerName string = wardriverReleaseStorage.outputs.basemapContainerName
-output wardriverBasemapStyleUrl string = wardriverReleaseStorage.outputs.wardriverBasemapStyleUrl
 output postgresHighAvailabilityMode string = postgresModule.outputs.highAvailabilityMode
 output openAiDeployed bool = deployOpenAi
 output openAiEndpoint string = deployOpenAi ? openAiModule!.outputs.endpoint : ''
