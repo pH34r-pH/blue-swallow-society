@@ -20,8 +20,8 @@ def parse_args() -> argparse.Namespace:
 def validate_tile_base_url(value: str) -> str:
     value = value.rstrip("/")
     parsed = urlparse(value)
-    if parsed.scheme != "https" or not parsed.hostname or not parsed.hostname.endswith(".blob.core.windows.net"):
-        raise SystemExit("tile base URL must use an HTTPS Azure Blob endpoint")
+    if parsed.scheme != "https" or not parsed.hostname or not parsed.hostname.endswith(".web.core.windows.net"):
+        raise SystemExit("tile base URL must use an HTTPS Azure static-website endpoint")
     if not parsed.path.startswith("/wardriver-basemap/") or not parsed.path.endswith("/tiles"):
         raise SystemExit("tile base URL must address the public wardriver-basemap container and a generation tiles path")
     if parsed.query or parsed.fragment:
