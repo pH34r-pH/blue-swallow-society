@@ -555,8 +555,8 @@
     "semantic_hash": ""
   },
   "tests/wardriver-basemap-delivery-config.test.mjs": {
-    "mtime": 1785100723.3968632,
-    "ast_hash": "7bb85e99f64b170c802df6753503d213",
+    "mtime": 1785102244.2142005,
+    "ast_hash": "6cb14627d4d7847418f488a7e0baa061",
     "semantic_hash": ""
   },
   "tests/wardriver-release-current-api.test.mjs": {
@@ -920,8 +920,8 @@
     "semantic_hash": ""
   },
   ".github/workflows/publish-wardriver-basemap.yml": {
-    "mtime": 1785100747.0056183,
-    "ast_hash": "1dc2085d6956ee1f9acf63f159b4cf65",
+    "mtime": 1785102239.4940815,
+    "ast_hash": "f4749988b5ae38a16129e78197c4e5be",
     "semantic_hash": ""
   },
   ".github/workflows/setup-azure-creds.md": {
@@ -1375,8 +1375,8 @@
     "semantic_hash": ""
   },
   "specs/009-wardriver-maplibre-basemap/plan.md": {
-    "mtime": 1785100746.7376099,
-    "ast_hash": "cb222eadb5143398e41b5260e78af107",
+    "mtime": 1785102239.2620757,
+    "ast_hash": "c0e41a2ed3a245f26e6b01b770f11c24",
     "semantic_hash": ""
   },
   "specs/009-wardriver-maplibre-basemap/spec.md": {
