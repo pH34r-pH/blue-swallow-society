@@ -96,6 +96,7 @@
   "94": "tzeentch-route.test.mjs",
   "95": "Blue Swallow Society System Implementation Delta",
   "96": "Core Principles",
+  "97": "index.js",
   "98": "Requirements",
   "99": "iso",
   "100": "PaperMarketDataTests",
@@ -136,6 +137,7 @@
   "135": "BSS Cybermap API — authenticated observation ingest",
   "136": "index.js",
   "137": "Safe options",
+  "138": "global-viewport-http.test.mjs",
   "139": "006 — Field Dossier Production Design",
   "140": "RED/GREEN Sequences",
   "141": "passcode-api.test.mjs",
@@ -147,6 +149,7 @@
   "147": "Tzeentch Paper API Status",
   "148": "local-server.js",
   "149": "extract-mbtiles-tiles.py",
+  "150": "Recommended delivery sequence",
   "151": "Tasks: Wardriver Immutable Release Delivery",
   "152": "User Scenarios & Testing *(mandatory)*",
   "153": "paper-state-proxy.test.mjs",
@@ -258,5 +261,9 @@
   "259": "datetime",
   "260": "Path",
   "261": "0003_paper_state.sql",
-  "262": "0004_morning_brief_archive.sql"
+  "262": "0004_morning_brief_archive.sql",
+  "263": "plan.md",
+  "264": "tasks.md",
+  "265": "tests.md",
+  "266": "operator-data-controllers.test.mjs"
 }
