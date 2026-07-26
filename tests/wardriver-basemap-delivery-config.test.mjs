@@ -39,6 +39,7 @@ test('the checked-in style is BSS-branded, attributable, and cannot point at a t
   assert.equal(style.version, 8);
   assert.equal(style.name, 'Blue Swallow Wardriver Basemap');
   assert.equal(style.sources?.['bss-basemap']?.type, 'vector');
+  assert.equal(style.sources?.['bss-basemap']?.maxzoom, 12);
   assert.deepEqual(style.sources?.['bss-basemap']?.tiles, ['__BSS_TILE_BASE_URL__/{z}/{x}/{y}.pbf']);
   assert.match(style.sources?.['bss-basemap']?.attribution ?? '', /OpenStreetMap contributors/);
   assert.ok(style.layers.some((layer) => layer.id === 'bss-water'));
@@ -77,6 +78,7 @@ test('manual basemap publication verifies its source and toolchain, emits proven
   assert.match(workflow, /java-version: '21'/);
   assert.match(workflow, /\$JAVA_HOME\/bin\/java/);
   assert.match(workflow, /--download/);
+  assert.match(workflow, /--maxzoom=12/);
   assert.match(workflow, /sha256sum --check/);
   assert.match(workflow, /--auth-mode login/);
   assert.match(workflow, /Storage Blob Data Contributor/);
