@@ -17,7 +17,7 @@ This specification owns observable basemap behavior for Wardriver `bss.15+`.
 
 ### R1 — Public static-website paths; private Blob containers
 
-The existing Wardriver storage account shall set `allowBlobPublicAccess: false`. The existing `wardriver-releases` container shall remain `publicAccess: 'None'`. The protected manual publisher shall enable the Storage static website and upload basemap bytes under its system `$web` container; clients read only through explicit static-website object paths, while ordinary Blob listing remains unauthenticated-denied.
+The existing Wardriver storage account shall set `allowBlobPublicAccess: false`. The existing `wardriver-releases` and `wardriver-basemap-toolchain` containers shall remain `publicAccess: 'None'`. The latter holds the checksum-pinned Planetiler JAR and its source provenance; it is never a public map or APK path. The protected manual publisher shall enable the Storage static website and upload basemap bytes under its system `$web` container; clients read only through explicit static-website object paths, while ordinary Blob listing remains unauthenticated-denied.
 
 ### R2 — Client style endpoint
 
@@ -35,7 +35,7 @@ A tile generation shall use a source/renderer/commit-derived prefix below `$web/
 
 ### R4 — Source and publication controls
 
-Publication shall run only by manual GitHub Actions dispatch in the protected `wardriver-basemap-publication` environment. The job shall use OIDC with a scoped `Storage Blob Data Contributor` role and must prove that data-plane access against the existing private `wardriver-releases` container before it enables `$web`, downloads, or renders a tile generation. It shall verify the Geofabrik sidecar SHA-256 and Planetiler release SHA-256 before generation. It shall not accept an arbitrary input URL.
+Publication shall run only by manual GitHub Actions dispatch in the protected `wardriver-basemap-publication` environment. The job shall use OIDC with a scoped `Storage Blob Data Contributor` role and must prove that data-plane access against the existing private `wardriver-releases` container before it enables `$web`, downloads, or renders a tile generation. It shall fetch Planetiler `v0.10.2` only from the private `wardriver-basemap-toolchain` container, validate its fixed SHA-256 and source-provenance record, and verify the Geofabrik sidecar SHA-256 before generation. It shall not accept an arbitrary input URL.
 
 ### R5 — Android renderer policy
 

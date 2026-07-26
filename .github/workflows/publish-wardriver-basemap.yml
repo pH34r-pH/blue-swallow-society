@@ -22,6 +22,7 @@ concurrency:
 env:
   RESOURCE_GROUP: rg-blue-swallow
   PLANETILER_VERSION: v0.10.2
+  PLANETILER_SHA256: f310bd0413e2e4512b27f4046d418664e8e1d3bf31603c2a70e23de06c167e4d
   # The policy blocks ordinary anonymous Blob access. The named $web static-website path is public read-only.
   PUBLIC_PREFIX: wardriver-basemap
   STYLE_OBJECT_PATH: v1/style.json
@@ -58,7 +59,8 @@ jobs:
           account=$(jq -r '.wardriverReleaseStorageAccountName.value' <<<"$outputs")
           container=$(jq -r '.wardriverBasemapContainerName.value' <<<"$outputs")
           release_container=$(jq -r '.wardriverReleaseContainerName.value' <<<"$outputs")
-          if ! [[ "$account" =~ ^[a-z0-9]{3,24}$ ]] || [ "$container" != '$web' ] || [ "$release_container" != 'wardriver-releases' ]; then
+          toolchain_container=$(jq -r '.wardriverBasemapToolchainContainerName.value' <<<"$outputs")
+          if ! [[ "$account" =~ ^[a-z0-9]{3,24}$ ]] || [ "$container" != '$web' ] || [ "$release_container" != 'wardriver-releases' ] || [ "$toolchain_container" != 'wardriver-basemap-toolchain' ]; then
             echo '::error::Deployed Wardriver storage outputs are absent or violate the private-Blob contract.'
             exit 1
           fi
@@ -66,6 +68,7 @@ jobs:
           echo "account=$account" >> "$GITHUB_OUTPUT"
           echo "container=$container" >> "$GITHUB_OUTPUT"
           echo "release_container=$release_container" >> "$GITHUB_OUTPUT"
+          echo "toolchain_container=$toolchain_container" >> "$GITHUB_OUTPUT"
 
       - name: Verify OIDC Blob data-plane access
         env:
@@ -81,6 +84,36 @@ jobs:
             --name "$CONTAINER" \
             --only-show-errors -o none
 
+      - name: Fetch and verify pinned private Planetiler toolchain
+        id: toolchain
+        env:
+          ACCOUNT: ${{ steps.basemap.outputs.account }}
+          TOOLCHAIN_CONTAINER: ${{ steps.basemap.outputs.toolchain_container }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/wardriver-basemap"
+          mkdir -p "$work"
+          az storage blob download --auth-mode login \
+            --account-name "$ACCOUNT" \
+            --container-name "$TOOLCHAIN_CONTAINER" \
+            --name "planetiler/${PLANETILER_VERSION}/planetiler.jar" \
+            --file "$work/planetiler.jar" \
+            --only-show-errors -o none
+          az storage blob download --auth-mode login \
+            --account-name "$ACCOUNT" \
+            --container-name "$TOOLCHAIN_CONTAINER" \
+            --name "planetiler/${PLANETILER_VERSION}/planetiler-provenance.json" \
+            --file "$work/planetiler-provenance.json" \
+            --only-show-errors -o none
+          printf '%s  %s\n' "$PLANETILER_SHA256" "$work/planetiler.jar" | sha256sum --check --strict
+          jq -e \
+            --arg version "$PLANETILER_VERSION" \
+            --arg sha256 "$PLANETILER_SHA256" \
+            --arg source_url "https://github.com/onthegomap/planetiler/releases/download/${PLANETILER_VERSION}/planetiler.jar" \
+            '.schemaVersion == 1 and .name == "Planetiler" and .releaseTag == $version and .sourceUrl == $source_url and .sha256 == $sha256' \
+            "$work/planetiler-provenance.json" > /dev/null
+          echo "work=$work" >> "$GITHUB_OUTPUT"
+
       - name: Enable Storage static website
         id: static_website
         env:
@@ -88,7 +121,7 @@ jobs:
         run: |
           set -euo pipefail
           # $web is the policy-compliant public path. This data-plane operation is deliberately
-          # after the scoped OIDC proof and before any costly input download.
+          # after private OIDC/toolchain proof and before the costly source download.
           az storage blob service-properties update --auth-mode login \
             --account-name "$ACCOUNT" \
             --static-website true \
@@ -111,32 +144,20 @@ jobs:
           echo "style_url=$style_url" >> "$GITHUB_OUTPUT"
           echo "public_root=$public_root" >> "$GITHUB_OUTPUT"
 
-      - name: Fetch and verify bounded OpenStreetMap input and Planetiler
+      - name: Fetch and verify bounded OpenStreetMap input
         id: inputs
         env:
-          # Use the Releases API rather than anonymous browser asset redirects. The token is
-          # GitHub's ephemeral, repository-scoped workflow token; no release credential enters
-          # the generated tiles, provenance, or Android build.
-          GH_TOKEN: ${{ github.token }}
+          WORK: ${{ steps.toolchain.outputs.work }}
         run: |
           set -euo pipefail
-          work="$RUNNER_TEMP/wardriver-basemap"
-          mkdir -p "$work"
-          cd "$work"
+          cd "$WORK"
           source_url='https://download.geofabrik.de/north-america/us/washington-latest.osm.pbf'
           curl --fail --location --retry 3 --retry-all-errors --output washington-latest.osm.pbf "$source_url"
           curl --fail --location --retry 3 --retry-all-errors --output washington-latest.osm.pbf.sha256 "$source_url.sha256"
           sha256sum --check washington-latest.osm.pbf.sha256
-          gh release download "$PLANETILER_VERSION" \
-            --repo onthegomap/planetiler \
-            --pattern planetiler.jar \
-            --pattern planetiler.jar.sha256 \
-            --dir "$work"
-          sha256sum --check planetiler.jar.sha256
           echo "source_url=$source_url" >> "$GITHUB_OUTPUT"
           echo "source_sha256=$(sha256sum washington-latest.osm.pbf | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-          echo "planetiler_sha256=$(sha256sum planetiler.jar | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-          echo "work=$work" >> "$GITHUB_OUTPUT"
+          echo "work=$WORK" >> "$GITHUB_OUTPUT"
 
       - name: Generate and validate BSS vector tiles
         id: tiles
@@ -161,7 +182,8 @@ jobs:
           PUBLIC_ROOT: ${{ steps.static_website.outputs.public_root }}
           SOURCE_URL: ${{ steps.inputs.outputs.source_url }}
           SOURCE_SHA256: ${{ steps.inputs.outputs.source_sha256 }}
-          PLANETILER_SHA256: ${{ steps.inputs.outputs.planetiler_sha256 }}
+          TOOLCHAIN_CONTAINER: ${{ steps.basemap.outputs.toolchain_container }}
+          TOOLCHAIN_PROVENANCE_OBJECT: planetiler/${{ env.PLANETILER_VERSION }}/planetiler-provenance.json
           TILE_COUNT: ${{ steps.tiles.outputs.tile_count }}
         run: |
           set -euo pipefail
@@ -191,6 +213,11 @@ jobs:
               name: 'Planetiler',
               version: process.env.PLANETILER_VERSION,
               sha256: process.env.PLANETILER_SHA256,
+              toolchain: {
+                container: process.env.TOOLCHAIN_CONTAINER,
+                provenanceObject: process.env.TOOLCHAIN_PROVENANCE_OBJECT,
+                sourceUrl: `https://github.com/onthegomap/planetiler/releases/download/${process.env.PLANETILER_VERSION}/planetiler.jar`,
+              },
             },
             tileGeneration: process.env.generation,
             tileBaseUrl: process.env.tile_base_url,
