@@ -27,7 +27,7 @@ Azure Database for PostgreSQL Flexible Server B1MS + PostGIS (target Cybermap st
 
 The browser never calls the VM directly. The frontend calls the Static Web App API, and the API proxies the request to the VM.
 
-The audited implementation-versus-design matrix is maintained in [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-system-implementation-delta.md). It distinguishes deployed, working-tree, prototype, schema-only, and designed-only capabilities across the website, VM/API, and Wardriver.
+The [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-system-implementation-delta.md) is a dated historical audit with explicit source reconciliations; it is not deployment proof. Current source-state documentation is `docs/static-web-app-functionality.md`, with Cybermap route contracts in the Functions and their tests.
 
 ---
 
@@ -44,23 +44,20 @@ The audited implementation-versus-design matrix is maintained in [Blue Swallow S
 │       └── setup-azure-creds.md
 ├── api/
 │   ├── profile/
-│   ├── agent/
+│   ├── operator-assets/
 │   ├── operator-downloads/
 │   ├── operator-shell/
 │   └── _private/
 │       ├── downloads/
-│       └── operator/
+│       └── operator/assets/
 ├── app/
 │   ├── index.html
 │   ├── main.js
 │   ├── styles.css
 │   ├── operator/
 │   │   ├── index.html
-│   │   ├── agent.html
-│   │   ├── main.js
-│   │   ├── agent.js
-│   │   ├── styles.css
-│   │   └── *.mjs
+│   │   ├── loader.css
+│   │   └── loader.js
 │   └── staticwebapp.config.json
 ├── docs/
 │   ├── architecture.md
@@ -118,11 +115,11 @@ The split behavior is server-side:
 - the standard page currently renders an events calendar, list view, and local-browser supply-claim POC seeded with **The Great Northern Hoot** camping trip at Penrose Point State Park, site 83, July 17–20, 2026;
 - no browser bundle contains the canonical passcode literal or hash.
 
-The hidden operator half lives under `/operator` and `/agent`:
-- `/operator` ships only a token-aware loader; the real operator shell is served by `/api/operator-shell` from `api/_private/operator/shell.html` after `X-Blue-Swallow-Operator-Token` validation;
-- operator data APIs (`/api/wigle`, `/api/agent`, `/api/osint`, `/api/tzeentch`) fail closed inside the Functions layer with `requireOperatorToken`;
+The hidden operator half lives under `/operator`:
+- `/operator` ships only a token-aware loader; the real operator shell is served by `/api/operator-shell` from `api/_private/operator/shell.html` after `X-Blue-Swallow-Operator-Token` validation, then loads allowlisted private assets from `/api/operator-assets/{asset}` with a short-lived cookie grant;
+- operator data APIs (`/api/wigle`, `/api/osint`, `/api/tzeentch`) fail closed inside the Functions layer with `requireOperatorToken`;
 - the Wardriver APK is no longer a public static asset and is served only by `/api/operator-downloads/wardriver/*` after the same operator-token check;
-- Godeye, Tzeentch, WiGLE, and agent surfaces are lazy-loaded from operator assets only.
+- Godeye, Tzeentch, and WiGLE surfaces are lazy-loaded from token-gated operator assets only.
 
 The WiGLE proxy at `/api/wigle` supports:
 - `mode=current` → AR current-state path. Reads the device-local WiGLE database/export through `WIGLE_LOCAL_DB_PATH` or `WIGLE_LOCAL_DB_URL`, filters to recent rows (`maxAgeSeconds`, default 45), and orders candidates by signal strength.
@@ -189,7 +186,7 @@ The VM API gateway exposes HTTPS only; the retired echo service is not deployed 
 - `allowedSourceIp` parameter restricts SSH to your CIDR.
 - Daily auto-shutdown schedule (DevTestLab) caps idle cost.
 - SWA `globalHeaders` set CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy`.
-- Operator access uses the passcode-issued token, not SWA Easy Auth, for `/api/wigle`, `/api/agent`, `/api/osint`, `/api/tzeentch`, and `/api/operator-downloads/wardriver/*`. `/api/profile` and `/account/*` remain SWA-authenticated.
+- Operator access uses the passcode-issued token, not SWA Easy Auth, for `/api/wigle`, `/api/osint`, `/api/tzeentch`, and `/api/operator-downloads/wardriver/*`. `/api/operator-assets/{asset}` additionally requires a short-lived asset-grant cookie. `/api/profile` and `/account/*` remain SWA-authenticated.
 
 Next hardening to consider:
 - remove the VM public IP and reach it via private link / VNet integration on the SWA

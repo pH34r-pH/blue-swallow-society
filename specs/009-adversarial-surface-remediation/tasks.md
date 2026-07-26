@@ -28,9 +28,9 @@
 
 ## Phase 3 — Remove the Placeholder Agent Surface
 
-- [ ] T013 [US2] Add/complete TST-003 assertions for `/agent`, `/agent.html`, `/api/agent`, `view=agent`, Interface Lab markup, placeholder response text, and loader/template paths. Run the named test and record expected RED.
-- [ ] T014 [US2] Remove `api/agent/`, `app/operator/{agent.html,agent.js,agent-loader.js}`, and `api/_private/operator/agent.html`. Remove agent rewrites from `app/staticwebapp.config.json` and the private-template selection from `api/operator-shell/index.js`. Update tests/docs that claim the placeholder is a current operator capability.
-- [ ] T015 [US2] Run `node --test --test-name-pattern='agent|Interface Lab|private view' tests/adversarial-surface-remediation.test.mjs tests/operator-shell-api.test.mjs tests/ui-shell.test.mjs` and record GREEN: the unavailable route has no live-inference claim and the main console remains protected.
+- [x] T013 [US2] Add/complete TST-003 assertions for `/agent`, `/agent.html`, `/api/agent`, `view=agent`, Interface Lab markup, placeholder response text, and loader/template paths. RED observed: the local server had no exported test factory and did not declare `/api/agent` as an intentional 404.
+- [x] T014 [US2] Remove `api/agent/`, `app/operator/{agent.html,agent.js,agent-loader.js}`, and `api/_private/operator/agent.html`. Remove agent rewrites from `app/staticwebapp.config.json` and the private-template selection from `api/operator-shell/index.js`. Update tests/docs that claim the placeholder is a current operator capability.
+- [x] T015 [US2] Run `node --test --test-name-pattern='agent|Interface Lab|private view' tests/adversarial-surface-remediation.test.mjs tests/operator-shell-api.test.mjs tests/ui-shell.test.mjs`. GREEN: 4 pass, 0 fail; local anonymous GET/POST/PATCH requests to all retired paths return 404 without agent content.
 
 ## Phase 4 — Make WiGLE and Vision Fixtures Test-Only
 

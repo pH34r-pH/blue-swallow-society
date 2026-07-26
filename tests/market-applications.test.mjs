@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildTzeentchApplications } from '../app/operator/osint-applications.mjs';
+import { buildTzeentchApplications } from '../api/_private/operator/assets/osint-applications.mjs';
 
 test('buildTzeentchApplications creates crypto and polymarket application lanes', () => {
   const payload = buildTzeentchApplications({

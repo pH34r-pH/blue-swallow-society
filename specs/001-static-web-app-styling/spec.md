@@ -4,9 +4,11 @@
 
 **Created**: 2026-05-23
 
-**Status**: Draft
+**Status**: Historical prototype record — superseded by the current public/private surface design
 
 **Input**: User description: "Create a cyberpunk/terminal-inspired design system for the Blue Swallow Society static web application with dark backgrounds, neon accents, and terminal-style UI elements"
+
+> **Historical prototype record — superseded:** This 2026-05 styling proposal predates the public cover and authenticated Nacre-Moiré operator split. It is not a current implementation guide; use `docs/static-web-app-functionality.md` and `specs/009-adversarial-surface-remediation/` for active surface boundaries.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -107,4 +109,4 @@ The interface must be accessible to users with different abilities while maintai
 - The design system will be implemented primarily in `/app/styles.css` using custom CSS with BEM-like naming conventions
 - Terminal effects like cursor blinking and text selection styling are enhancements rather than core requirements
 - Accessibility considerations will be balanced with the cyberpunk aesthetic goals
-- The hardcoded passcode "blue-swallow" for development does not require special security styling considerations
+- The former hardcoded-passcode development assumption is retired. Production passcode material remains configuration-only, and test fixtures must be explicitly non-secret.

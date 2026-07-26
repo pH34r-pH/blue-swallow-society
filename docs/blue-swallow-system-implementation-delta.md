@@ -4,7 +4,9 @@
 **Scope:** deployed website, Azure Static Web Apps Functions, Azure VM/infrastructure, Cybermap/PostGIS design, Mosaic & Murmurs automation, and the Blue Swallow Wardriver Android fork  
 **Method:** source review, proposal/spec comparison, local test/build execution, read-only Azure/GitHub inspection, Hermes scheduler inspection, and deployed-host smoke tests
 
-> **Historical audit snapshot:** This document records the deployment state observed on 2026-07-11. Later remediations can supersede its findings; do not use it as current-operation or deployment guidance.
+> **Historical audit snapshot — superseded in part:** This document records the deployment state observed on 2026-07-11. It is retained for provenance only; do not use its deployment observations as current-operation or deployment guidance.
+>
+> **Source reconciliation (2026-07-26; source-only, not deployment evidence):** The repository now retires `/api/echo` and the Agent surface, delivers private operator assets through a short-lived grant, keeps WiGLE/vision fixtures test-only, and contains token-gated `/api/cybermap/viewport` and `/api/cybermap/observations/batch` Functions. The dated capability matrix below preserves audit-time facts; this notice supersedes only the named source-state findings and does not claim a live deployment.
 
 ## Executive verdict
 
@@ -65,12 +67,12 @@ The implementation therefore has three distinct maturity bands:
 | Public root | Unchanged title, one entry field, lowercase login button | Implemented and live; root contains no APK/operator links | **Operational** | `app/index.html`, `app/main.js`, deployed root smoke |
 | Passcode split | Operator credential opens hidden console; all other values open event cover site | Server-side digest validation and signed session issuance; non-match opens event site | **Operational** | `api/validate-passcode/index.js`, live valid/invalid probes |
 | Event cover site | Standard personal/event-planning surface | Calendar/list and local-browser supply claims implemented; latest enhancements are partly uncommitted | **Operational / evolving** | `app/main.js`, `app/public-events.mjs`, UI tests |
-| Hidden operator shell | Real shell must not ship in public root | Shell HTML is token-gated behind `/api/operator-shell`; static loader redirects unauthenticated users | **Operational with exposure gap** | `api/_private/operator/shell.html`, `api/operator-shell/index.js` |
-| Operator code concealment | No public-side operator implementation disclosure | `/operator/main.js` and `/operator/tzeentch.mjs` are anonymously downloadable if paths are guessed | **Partial** | live anonymous `200` on operator modules |
-| Operator API auth | All operator data/actions require scoped session token | WiGLE, OSINT, agent, Tzeentch, shell, and download routes call `requireOperatorToken` | **Operational** | `api/_lib/operator-auth.js`, anonymous live `403` probes |
+| Hidden operator shell | Real shell must not ship in public root | **Historical audit observation:** shell HTML was token-gated, but guessed static modules remained downloadable. **Superseded source state (2026-07-26):** the public directory retains only a generic loader; private assets require the asset-grant route. | **Historical gap remediated in source** | audit-time live probes; `api/operator-assets/index.js` |
+| Operator code concealment | No public-side operator implementation disclosure | **Historical audit observation:** guessed `/operator` modules were anonymously downloadable. **Superseded source state (2026-07-26):** private modules move through an allowlisted asset Function after shell validation. | **Historical gap remediated in source** | audit-time live `200`; `api/operator-assets/index.js` |
+| Operator API auth | All operator data/actions require scoped session token | WiGLE, OSINT, Tzeentch, shell, and download routes call `requireOperatorToken`; the Agent route is retired. | **Operational at audit; reconciled source** | `api/_lib/operator-auth.js`, anonymous audit probes |
 | Wardriver distribution | APK available only after operator auth | APK/metadata served from Functions-private directory; public `/downloads/*` returns `404` | **Operational** | `api/operator-downloads/index.js`, live smoke |
 | Wardriver artifact quality | Reproducible, release-signed field artifact | Distributed artifact is a debug APK; no release-signing/promotion pipeline | **Prototype** | private artifact metadata, `buildType: debug` |
-| Godeye/WiGLE map | Live Cybermap backed by durable observations and provenance | Can render sample/local/bridge-derived markers; no durable Cybermap backend read | **Prototype** | `app/operator/wigle.mjs`, `/api/wigle` |
+| Godeye/WiGLE map | Live Cybermap backed by durable observations and provenance | **Historical audit observation:** it rendered sample/local/bridge-derived markers without a durable backend read. **Superseded source state (2026-07-26):** runtime samples are fixture-only and the repository contains a token-gated Cybermap viewport proxy; backing-service deployment remains unproven. | **Prototype; source reconciliation recorded** | audit-time source; `api/cybermap-viewport/index.js` |
 | Browser AR | Current observation overlays with honest confidence/range | Candidate boxes are signal/heuristic UI; no camera/depth/bearing fusion | **Prototype** | `app/operator/main.js`, Wardriver repair plan |
 | OSINT | Token-gated public-source reconnaissance with SSRF controls | Implemented with target classification, bounded fetches, DNS/private-IP checks, and redirect revalidation | **Operational, bounded** | `api/osint/index.js`, `api/osint/safety.js`, tests |
 | Tzeentch feeds | Murmurs perception feed plus Mosaic/Bridge context | Live public news/crypto/prediction adapters and operator UI exist | **Operational / partial doctrine** | `api/tzeentch/index.js`, `app/operator/tzeentch.mjs` |
@@ -90,7 +92,7 @@ The implementation therefore has three distinct maturity bands:
 | Cybermap schema | Append-only observations, entities, H3 cells, memories, sync batches | `0001` core plus `0002` scoped device credentials/content hashes/durable receipts exist and textual contract tests pass | **Schema only** | `vm/cybermap-api/db/migrations/` |
 | Schema execution | Migration applies against empty PostGIS and is versioned | No disposable/managed PostGIS execution proof was found | **Missing verification** | only static Node schema tests exist |
 | Cybermap materializer | Derive cells/entities from observations with provenance | No materializer implementation found | **Designed only** | no materializer files; design docs only |
-| SWA Cybermap proxy | Same-origin token-gated viewport/cell/entity reads | No `/api/cybermap/*` Functions exist | **Designed only** | repair plan/API spec versus `api/` tree |
+| SWA Cybermap proxy | Same-origin token-gated viewport/cell/entity reads | **Historical audit observation:** the 2026-07-11 tree lacked Cybermap proxy Functions. **Superseded source state (2026-07-26):** `api/cybermap-viewport/index.js` and `api/cybermap-observations-batch/index.js` are present and retain Function-layer credential checks. | **Partially implemented in source; not deployment proof** | audit-time tree versus current source |
 | Wardriver branding/package | Co-installable BSS fork | App id, version, icon, and default English name are branded | **Operational** | Gradle, manifest, resources |
 | Wardriver scan platform | Wi-Fi/BLE/cell/GNSS capture from WiGLE base | Upstream scanning/database surfaces remain functional and build-tested | **Operational base** | inherited app code and Gradle tests |
 | RaID camera surface | Live camera plus range/ID/service telemetry | CameraX preview, decorative mesh, reticle, and honest “range pending” status | **Prototype** | `RaIDFragment.java`, `RaIDOverlayView.java` |
@@ -151,10 +153,10 @@ Mosaic and Murmurs are responsible for making investment decisions autonomously;
 ### UI/product delta
 
 - **Operator landing:** still primarily mood/interface scaffolding rather than operational health and queue state.
-- **Godeye:** useful local/demo map renderer, not Cybermap. Sample data must remain visibly labeled and never become fallback “live” data.
+- **Godeye (historical audit observation):** a useful local/demo map renderer, not a durable Cybermap path. **Superseded source state (2026-07-26):** deterministic records are test fixtures only; runtime reports live, local, empty, stale, or unavailable state without a fallback.
 - **Browser AR:** implementation helpers exist, but the private shell does not expose a complete sensor-fusion workflow.
 - **Tzeentch:** strongest implemented operator surface, but Mosaic truth synthesis, Bridge deltas, provenance calibration, and durable autonomous decision history are thinner than the doctrine.
-- **Agent surface:** protected UI/API scaffolding exists; it is not the planned autonomous dual-loop daemon.
+- **Agent surface (historical audit observation):** protected UI/API scaffolding existed but was not the planned autonomous dual-loop daemon. **Superseded source state (2026-07-26):** the Agent surface and route are retired.
 
 ## Backing VM API and infrastructure review
 
@@ -349,7 +351,7 @@ No dream-consolidation job was present. Documentation should distinguish **propo
 6. Commit the Wardriver bridge hardening/client/outbox after review.
 7. Implement `ObservationBatchV1` export from real scanner/session records.
 8. Add Android Keystore enrollment, explicit upload policy, WorkManager retry, and sync receipts.
-9. Add SWA `/api/cybermap/*` proxies and update Godeye to prefer backend data with no sample fallback.
+9. **Superseded source work:** retain the implemented `/api/cybermap/viewport` and `/api/cybermap/observations/batch` Functions, then add only read routes backed by accepted VM contracts. Godeye must prefer backend data and retain no sample fallback.
 10. Add one end-to-end test: fake Wardriver batch -> API -> PostGIS -> viewport -> Godeye payload.
 
 ### P1 — finish Black ICE and paper governance

@@ -10,6 +10,7 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const appRoot = join(repoRoot, 'app');
+const privateAssetRoot = join(repoRoot, 'api', '_private', 'operator', 'assets');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -195,6 +196,22 @@ test('Obscura renders Tzeentch peer tabs, nested intel views, Mosaic facts, and 
       res.end(readFileSync(join(repoRoot, 'api/_private/operator/shell.html'), 'utf8'));
       return;
     }
+    if (url.pathname.startsWith('/api/operator-assets/')) {
+      const assetName = decodeURIComponent(url.pathname.slice('/api/operator-assets/'.length));
+      const assetPath = normalize(join(privateAssetRoot, assetName));
+      if (!assetPath.startsWith(privateAssetRoot)) {
+        res.writeHead(403).end('forbidden');
+        return;
+      }
+
+      try {
+        res.writeHead(200, { 'Content-Type': MIME_TYPES[extname(assetPath)] || 'application/octet-stream' });
+        res.end(readFileSync(assetPath));
+      } catch {
+        res.writeHead(404).end('not found');
+      }
+      return;
+    }
     if (url.pathname === '/api/osint') {
       sendJson(res, osintPayload);
       return;
@@ -286,6 +303,20 @@ function operatorSessionSeedScript() {
 function browserBootScript() {
   return String.raw`
     <script>
+      // Obscura does not dispatch load for dynamically inserted stylesheets. This fixture
+      // serves every private asset successfully, so it supplies the browser completion
+      // signal without changing the production loader's error path.
+      const appendToHead = document.head.append.bind(document.head);
+      document.head.append = (...nodes) => {
+        const result = appendToHead(...nodes);
+        for (const node of nodes) {
+          if (node.tagName === 'LINK' && node.href.includes('/api/operator-assets/')) {
+            setTimeout(() => node.onload?.(), 0);
+          }
+        }
+        return result;
+      };
+
       window.__bssErrors = [];
       window.addEventListener('error', (event) => window.__bssErrors.push(event.message));
       window.addEventListener('unhandledrejection', (event) => window.__bssErrors.push(event.reason?.message || String(event.reason)));

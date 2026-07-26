@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const shell = readFileSync(new URL('../api/_private/operator/shell.html', import.meta.url), 'utf8');
-const main = readFileSync(new URL('../app/operator/main.js', import.meta.url), 'utf8');
-const styles = readFileSync(new URL('../app/operator/styles.css', import.meta.url), 'utf8');
+const main = readFileSync(new URL('../api/_private/operator/assets/main.js', import.meta.url), 'utf8');
+const styles = readFileSync(new URL('../api/_private/operator/assets/styles.css', import.meta.url), 'utf8');
 
 test('Godeye embeds a separate attributed public-reports aggregate panel', () => {
   assert.ok(shell.includes('id="deflockGlobalMap"'));

@@ -231,10 +231,6 @@ h4 {
   margin-bottom: 1rem;
 }
 
-.agent-hero {
-  padding: clamp(1.1rem, 3vw, 1.75rem);
-}
-
 .tab-btn:not(.active) {
   color: #b4bab6;
   border-color: rgba(238, 231, 220, 0.18);

@@ -49,14 +49,14 @@ Nacre-Moiré may speak directly on the operator surface in terse first person. C
 
 ## Assets and implementation
 
-- Protected mark: `api/_private/operator/nacre-moire-mark.svg`
-- Base anonymous loader layout and neutral material tokens: `app/operator/styles.css`
-- Protected persona override layer: `api/_private/operator/nacre-moire.css`
-- Protected shell and Interface Lab: `api/_private/operator/shell.html`, `api/_private/operator/agent.html`
-- Token-gated renderer: `api/operator-shell/index.js`
-- Anonymous identity-free handoffs: `app/operator/index.html`, `app/operator/agent.html`
+- Protected mark: `api/_private/operator/assets/nacre-moire-mark.svg`
+- Base anonymous loader layout: `app/operator/loader.css`
+- Protected console stylesheet and persona override layer: `api/_private/operator/assets/{styles.css,theme.css}`
+- Protected shell: `api/_private/operator/shell.html`
+- Token-gated shell renderer and asset handler: `api/operator-shell/index.js`, `api/operator-assets/index.js`
+- Anonymous identity-free handoff: `app/operator/index.html`
 - Contract tests: `tests/ui-shell.test.mjs`, `tests/operator-shell-api.test.mjs`
 
-The anonymous handoffs contain no persona name, logo, private copy, or identity-bearing CSS. `/api/operator-shell` validates the passcode-issued operator token before combining the private template, stylesheet, and vector mark.
+The anonymous handoff contains no persona name, logo, private copy, or identity-bearing CSS. `/api/operator-shell` validates the passcode-issued operator token before returning the private template and issuing a short-lived grant for the allowlisted stylesheet, modules, and vector mark.
 
 Any future operator UI change should preserve the public/operator branding boundary and extend these tokens before adding one-off visual effects.

@@ -61,7 +61,7 @@ export function releaseSupplyItem(claims, eventId, supplyId, name) {
 
 export function getSupplyClaimLabel(eventId, supplyId, claims) {
   const claimant = normalizeClaimName(claims?.[eventId]?.[supplyId]);
-  return claimant ? `${claimant} will bring this.` : 'needed';
+  return claimant ? `Claimed by ${claimant}.` : 'needed';
 }
 
 export function buildEventCalendarMonth(events, monthKey) {

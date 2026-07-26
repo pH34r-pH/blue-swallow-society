@@ -27,13 +27,13 @@ The static `/operator` entrypoint ships only a loader:
 
 - `app/operator/index.html`
 - `app/operator/loader.js`
-- `app/operator/styles.css`
+- `app/operator/loader.css`
 
 The actual operator shell markup lives outside the public static app at:
 
 - `api/_private/operator/shell.html`
 
-`/operator/loader.js` reads the passcode-issued token from session storage, fetches `/api/operator-shell` with `X-Blue-Swallow-Operator-Token`, injects the private shell, then imports `/operator/main.js` and related modules.
+`/operator/loader.js` reads the passcode-issued token from session storage and fetches `/api/operator-shell` with `X-Blue-Swallow-Operator-Token`. A successful shell response issues a short-lived, path-scoped asset-grant cookie. The loader waits for allowlisted private stylesheets, injects the private shell, then imports `/api/operator-assets/main.js`; a shell, stylesheet, or module failure clears the session and returns to `/`.
 
 ### Authentication
 
@@ -75,7 +75,7 @@ Passcode/operator APIs:
 - `/api/wigle` (GET/POST): local/current WiGLE snapshot proxy; requires operator token.
 - `/api/cybermap/viewport` (POST): token-gated Godeye viewport proxy to the managed PostGIS backend; requires operator token.
 - `/api/cybermap/observations/batch` (POST): Wardriver observation-batch HTTPS ingress proxy to the VM backend; requires enrolled-device ingest headers.
-- `/api/agent` (POST): protected agent prompt route; requires operator token.
+- `/api/operator-assets/{asset}` (GET/HEAD): allowlisted private operator assets; requires the short-lived asset-grant cookie issued by `/api/operator-shell`.
 - `/api/profile` (GET): protected profile endpoint.
 
 ## Security Considerations
@@ -83,6 +83,7 @@ Passcode/operator APIs:
 - Public HTML/CSS contains only the Blue Swallow Society passcode split and the standard event-planning branch.
 - `/operator` does not ship the operator shell; it only ships a token-aware loader.
 - `/api/operator-shell` fails closed without `X-Blue-Swallow-Operator-Token`.
+- `/api/operator-assets/{asset}` accepts only GET/HEAD, a valid short-lived asset grant, and a fixed filename allowlist; denial occurs before a private file read and responses use `Cache-Control: private, no-store`.
 - `/downloads/*` returns `404`.
 - Wardriver APK and metadata live under `api/_private/downloads/` and are served only by `/api/operator-downloads/wardriver/{apk|metadata}` after operator-token validation.
 - Operator APIs are routed anonymously through SWA so the passcode flow can reach them, then fail closed inside Functions through `requireOperatorToken`.
@@ -90,4 +91,4 @@ Passcode/operator APIs:
 - Sensitive investigation state uses session storage, not durable local storage.
 - Production CSP keeps browser connections same-origin.
 - Local dev server returns JSON `501` for unmounted `/api/*` routes instead of masking them with SPA HTML.
-- Sample WiGLE data is explicitly labeled as demo data.
+- This routing pass introduces no WiGLE or vision synthetic records; fixture-only remediation remains tracked separately in `specs/009-adversarial-surface-remediation/tasks.md` (T016–T019).

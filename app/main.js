@@ -193,7 +193,7 @@ function renderEventsCalendar() {
   const monthLabel = document.createElement('h3');
   monthLabel.textContent = calendar.monthLabel;
   const legend = document.createElement('p');
-  legend.textContent = 'Dates with event blocks are marked below.';
+  legend.textContent = 'Event dates marked.';
   heading.append(monthLabel, legend);
   container.append(heading);
 
@@ -321,14 +321,14 @@ function createSupplyListItem(event, supply, claims, currentName) {
 
   if (claimedByCurrentName) {
     action.dataset.supplyAction = 'release';
-    action.textContent = 'erase my name';
+    action.textContent = 'Release';
   } else if (isClaimedByOther) {
     action.disabled = true;
-    action.textContent = 'claimed';
-    action.title = 'Choose this claim name to edit it.';
+    action.textContent = 'Claimed';
+    action.title = 'Use this name to edit this claim.';
   } else {
     action.dataset.supplyAction = 'claim';
-    action.textContent = 'I’ll bring this';
+    action.textContent = 'Claim';
   }
 
   item.append(text, action);
@@ -343,7 +343,7 @@ function handleSupplyClaim(event) {
 
   const claimName = getCurrentClaimName();
   if (!claimName) {
-    updateClaimNameStatus('Enter a name before claiming supplies.');
+    updateClaimNameStatus('Enter a name to claim supplies.');
     $('eventClaimName')?.focus();
     return;
   }
@@ -358,7 +358,7 @@ function handleSupplyClaim(event) {
 
   saveSupplyClaims(nextClaims);
   renderEventsList();
-  updateClaimNameStatus(`${claimName} is the active supply-claim name.`);
+  updateClaimNameStatus(`Active name: ${claimName}.`);
 }
 
 function appendMeta(meta, label, value) {
@@ -380,8 +380,8 @@ function updateClaimNameStatus(message) {
   }
 
   status.textContent = message || (getCurrentClaimName()
-    ? `${getCurrentClaimName()} is the active supply-claim name.`
-    : 'No name selected yet.');
+    ? `Active name: ${getCurrentClaimName()}.`
+    : 'No active claim name.');
 }
 
 function readStoredClaimName() {

@@ -1,8 +1,12 @@
 # Wardriver RaID + BSS Backend Repair Plan
 
-**Status:** Current-state investigation and phased repair plan
-**Date:** 2026-07-11
+**Status:** Historical investigation snapshot — superseded in part by source reconciliation
+**Snapshot date:** 2026-07-11
 **Scope:** Blue Swallow Society public/operator split, Wardriver RaID, device-local bridge, BSS Functions, VM Cybermap API, and Godeye Cybermap rendering
+
+> **Historical investigation snapshot — superseded in part:** This document preserves the 2026-07-11 assessment and planned repair sequence. Do not read its audit-time gaps as current deployment or source status.
+>
+> **Source reconciliation (2026-07-26; source-only, not deployment evidence):** `api/cybermap-viewport/index.js` and `api/cybermap-observations-batch/index.js` now implement constrained same-origin proxies. The viewport requires an operator token; batch ingest requires device, ingest-token, and idempotency headers. Neither source fact proves a deployed VM/PostGIS path.
 
 ## Security invariant
 
@@ -66,7 +70,7 @@ Real pieces found:
 
 - Public/operator split is implemented in the Static Web App and Functions layer. The public root is intended to remain passcode-only.
 - `/api/validate-passcode` issues an operator session only for the configured passcode digest.
-- `/api/operator-shell`, `/api/wigle`, `/api/osint`, `/api/agent`, the paper/runtime endpoint, and `/api/operator-downloads/wardriver/*` all call `requireOperatorToken` in the Functions layer.
+- `/api/operator-shell`, `/api/wigle`, `/api/osint`, the paper/runtime endpoint, and `/api/operator-downloads/wardriver/*` all call `requireOperatorToken` in the Functions layer. Private shell assets use a separate short-lived, cookie-bound asset grant.
 - `/downloads/*` is explicitly blocked by `app/staticwebapp.config.json`.
 - `/api/wigle` supports three read modes:
   - `mode=current`: recent observations for AR, read from `WIGLE_LOCAL_DB_PATH` or `WIGLE_LOCAL_DB_URL`.
@@ -77,7 +81,7 @@ Real pieces found:
 
 Stubbed or weak pieces:
 
-- `app/operator/wigle.mjs` still carries `createSampleWigleDataset()` and sample APs. It is safe only if clearly labeled and never promoted as live.
+- **Historical audit observation:** `app/operator/wigle.mjs` carried `createSampleWigleDataset()` and sample APs. **Superseded source state (2026-07-26):** test fixtures now own deterministic records; `api/_private/operator/assets/wigle.mjs` preserves explicit unavailable and empty states without a sample fallback.
 - `buildArCandidateBoxes()` renders candidate UI boxes from normalized signal/candidate data; it is not real AR sensor fusion.
 - `buildWigleMapState()` renders local viewport markers but does not read a durable Cybermap backend.
 - Hosted SWA browsers cannot read a phone's `127.0.0.1` bridge or Android app-private sqlite database. Production must go through a server-reachable bridge/backend, not browser-local fantasy wiring.
@@ -88,14 +92,14 @@ Missing pieces:
 - The repository now has a strict authenticated/idempotent `/api/v1/observations/batch` implementation and PostgreSQL store, but it is not deployed to the VM.
 - No PostGIS-backed observation ledger is deployed or wired to production Godeye/Cybermap.
 - No materializer writes `cybermap_cells` from Wardriver/RaID observations.
-- No SWA Function proxy exposes Cybermap viewport/cell/entity reads from the VM.
+- **Historical audit observation:** the snapshot found no SWA Cybermap read proxy. **Superseded source state (2026-07-26):** `api/cybermap-viewport/index.js` and `api/cybermap-observations-batch/index.js` exist; cell/entity proxy routes remain unimplemented and deployment proof remains open.
 - No upload telemetry exists for range/ID/service observations from the APK into the backend.
 
 ## Root cause summary
 
-RaID currently has a local sensor/visualization slice, not an end-to-end field intelligence system.
+At the 2026-07-11 snapshot, RaID had a local sensor/visualization slice rather than an end-to-end field intelligence system.
 
-The Android fork can observe local Wi-Fi/BLE/cellular cache and expose it on loopback. The BSS operator UI can render candidate overlays and local map markers. The BSS Functions API can read configured local/live sources. The first authenticated/idempotent ingest backend now exists in source, but there is still no deployed PostGIS ledger, scanner-to-batch exporter, enrolled upload worker, Cybermap materializer, or read path.
+The Android fork can observe local Wi-Fi/BLE/cellular cache and expose it on loopback. The BSS operator UI can render candidate overlays and local map markers. The BSS Functions API can read configured local/live sources. The source now also contains constrained viewport and batch-ingest proxies, but there is still no deployment proof for a PostGIS ledger, scanner-to-batch exporter, enrolled upload worker, Cybermap materializer, or end-to-end read path.
 
 That is why AR/range/ID/service telemetry, upload, and Cybermap still feel missing or stubbed: the shipped path remains read-only local snapshot plus UI heuristics. The write contract is no longer hand-waving, but it is not yet a live field path.
 
@@ -284,12 +288,9 @@ Goal: operator Cybermap shows persisted RaID/owned observations with provenance.
 
 SWA/API tasks:
 
-1. Add token-gated SWA Function proxy routes for Cybermap reads:
-   - `/api/cybermap/viewport`
-   - `/api/cybermap/cells/{h3Cell}`
-   - `/api/cybermap/entities/{id}`
+1. Maintain the implemented token-gated `/api/cybermap/viewport` proxy and add only the still-missing cell/entity read routes when their backend contracts exist. The batch ingress proxy is implemented separately at `/api/cybermap/observations/batch`.
 2. Keep browser clients same-origin; Functions proxy to VM over private/Tailscale/HTTPS path.
-3. Update Godeye to prefer backend viewport data. Keep local bridge/sample modes as explicit lab modes only.
+3. Update Godeye to prefer backend viewport data. Keep the local bridge as an explicit lab mode only; deterministic samples stay in test fixtures and must not enter runtime paths.
 4. Add UI badges for source class, freshness, retention class, and confidence radius.
 5. Add stale/unavailable suppression: no fake live markers when backend or bridge is absent.
 
@@ -302,7 +303,7 @@ Materializer tasks:
 Test gates:
 
 - Node tests for viewport proxy auth and query validation.
-- Browser/UI tests proving sample data is labeled and cannot masquerade as live.
+- Browser/UI tests proving test fixtures cannot enter runtime output and unavailable data remains explicit.
 - Integration test: ingested RaID observation appears in Cybermap viewport with matching provenance.
 - Deployed smoke: wrong passcode cannot hit Cybermap APIs; operator token can read only allowed layers.
 
@@ -345,7 +346,7 @@ A repair is complete only when all of these are true:
 - Wardriver can upload controlled, passive-observation, idempotent observation batches after operator enrollment, with explicit retention/redaction classes.
 - VM Cybermap API persists observations in PostGIS and returns viewport/cell/entity reads.
 - Godeye renders persisted backend data with freshness/source/provenance markers.
-- Sample data is available only as explicitly labeled lab/demo mode.
+- Deterministic sample data exists only in test fixtures; runtime views report live, local, empty, stale, or unavailable state explicitly.
 - Public site remains unchanged and silent: no APK links, no operator links, no operator API names.
 - All tests and deployed smoke gates pass.
 

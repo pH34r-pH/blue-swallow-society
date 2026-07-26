@@ -1,12 +1,16 @@
 # Tzeentch Paper API Status
 
-**Status:** Working with source warnings
+**Status:** Historical local-test record — superseded by current source and the current test suite
 **Date:** 2026-07-11
 **Scope:** `api/tzeentch` paper-book payload and live handler smoke test
 
+> **Historical local-test record — superseded:** This captures a 2026-07-11 direct handler result. It is not current deployment evidence, operating configuration, or a credential source.
+>
+> **Test-only boundary:** The smoke command below uses hermetic `TEST-ONLY` fixtures and no app settings. Run it only in an isolated local test context; never deploy these values or use them as production configuration.
+
 ## Answer
 
-Yes: the Tzeentch paper API handler is working in a direct local function smoke test. It returned HTTP `200`, `ok: true`, `publicOnly: true`, `paperOnly: true`, and three legacy warm-memory paper books. This smoke output predates the canonical five `$1,000 paper` book doctrine.
+At capture time, the Tzeentch paper API handler returned HTTP `200`, `ok: true`, `publicOnly: true`, `paperOnly: true`, and three legacy warm-memory paper books in a direct local function smoke test. This smoke output predates the canonical five `$1,000 paper` book doctrine.
 
 The live smoke test produced:
 
@@ -49,15 +53,12 @@ Unit tests:
 node --test tests/tzeentch-api.test.mjs tests/tzeentch-route.test.mjs tests/tzeentch-dashboard.test.mjs
 ```
 
-Direct local handler smoke test:
+Hermetic local handler smoke (test context only):
+
+The route test supplies in-process `TEST-ONLY` feed and paper-state fixtures. It validates the handler without a live backend, production app settings, or copied credentials.
 
 ```bash
-BLUE_SWALLOW_PASSCODE_SHA256=$(printf 'paper-api-test-passcode' | sha256sum | cut -d' ' -f1) \
-BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY='paper-api-smoke-token-signing-key-32-bytes-minimum' \
-BLUE_SWALLOW_OPERATOR_ID=paper-api-smoke \
-BLUE_SWALLOW_OPERATOR_TOKEN_TTL_MS=60000 \
-BLUE_SWALLOW_PAPER_LEDGER_PATH=/tmp/bss-paper-api-smoke-ledger.json \
-node -e "const handler=require('./api/tzeentch/index.js'); const { createOperatorToken }=require('./api/_lib/operator-auth.js'); (async()=>{ const {token}=createOperatorToken({operatorId:'paper-api-smoke'}); const ctx={log:{error:(m)=>console.error('LOGERR',m)}}; await handler(ctx,{headers:new Headers({authorization:'Bearer '+token})}); console.log(JSON.stringify(ctx.res.body.paperBooks,null,2)); })().catch(e=>{console.error(e.stack||e);process.exit(1);});"
+node --test --test-name-pattern='bearer-token protected read-only payload' tests/tzeentch-route.test.mjs
 ```
 
 ## Semantics

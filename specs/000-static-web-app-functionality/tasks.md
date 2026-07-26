@@ -2,6 +2,8 @@
 
 **Input**: Design documents from `/specs/000-static-web-app-functionality/`
 
+> **Historical implementation record — superseded:** This task ledger preserves the initial 2026-05 prototype history. It is not executable current work: the former hardcoded-passcode assumption, Agent placeholder, and echo route are retired. Use `specs/009-adversarial-surface-remediation/` and current tests for active work.
+
 **Prerequisites**: plan.md (required), spec.md (required for user stories)
 
 **Tests**: Manual browser testing and Azure SWA preview validation.
@@ -36,8 +38,8 @@
 
 - [x] T004 Implement `app/main.js` module loader and shared utilities (DOM helpers, event delegation)
 - [x] T005 Implement session state manager in `app/main.js` (`isAuthenticated`, `chatHistory`, `currentTab`)
-- [x] T006 [P] Verify `api/validate-passcode/function.json` and `api/validate-passcode/index.js` exist and compare against passcode "blue-swallow"
-- [x] T007 [P] Verify `api/agent/function.json` and `api/agent/index.js` exist and implement placeholder response logic
+- [x] T006 [P] Historical record: verify the initial `api/validate-passcode` prototype used a test-only passcode fixture; the current implementation uses configuration-only validation.
+- [x] T007 [P] Historical record: verify the initial `api/agent` placeholder; the route is retired in the current source.
 - [x] T008 [P] Verify `api/profile/function.json` and `api/profile/index.js` exist and return decoded client principal
 - [x] T009 Verify `app/styles.css` is linked in all HTML pages (`app/index.html`, `app/agent.html`)
 
@@ -49,7 +51,7 @@
 
 **Goal**: Users can authenticate with the passcode and manage their session securely
 
-**Independent Test**: Load `app/index.html`, enter "blue-swallow", verify main UI appears; enter wrong passcode, verify error; click logout, verify login screen returns and chatHistory is cleared
+**Historical independent test:** In an isolated local harness with a non-secret test fixture, load `app/index.html`, submit the configured test value, verify UI state, then verify logout clears session state. Do not use this record as a production runbook.
 
 ### Tests for User Story 1
 
@@ -60,8 +62,8 @@
 ### Implementation for User Story 1
 
 - [x] T013 [US1] Implement terminal login UI in `app/index.html` with password input and submit button
-- [x] T014 [P] [US1] Verify passcode validation logic in `app/main.js` calls `POST /api/validate-passcode` and falls back to client-side validation
-- [x] T015 [P] [US1] Verify `api/validate-passcode/index.js` compares against hardcoded passcode "blue-swallow" and returns JSON `{ok: boolean}`
+- [x] T014 [P] [US1] Historical record: the prototype called `POST /api/validate-passcode` with a client fallback. The fallback is retired; current validation is server-side.
+- [x] T015 [P] [US1] Historical record: the prototype compared a hardcoded test value and returned JSON `{ok: boolean}`. The current Function uses configuration-only validation.
 - [x] T016 [US1] Implement logout handler in `app/main.js` that clears session state and returns to login screen
 - [x] T017 [US1] Add input sanitization for passcode field (max length, strip HTML tags) in `app/main.js`
 - [x] T018 [US1] Add error state styling hook in `app/main.js` for failed authentication

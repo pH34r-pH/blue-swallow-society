@@ -1,13 +1,40 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { once } from 'node:events';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { request as httpRequest } from 'node:http';
+import { createRequire } from 'node:module';
 
 const root = new URL('../', import.meta.url);
+const require = createRequire(import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const exists = (path) => existsSync(new URL(path, root));
 
 function routeConfig(config, route) {
   return config.routes.find((entry) => entry.route === route);
+}
+
+function requestLocalServer(server, path, method) {
+  const address = server.address();
+  return new Promise((resolve, reject) => {
+    const request = httpRequest({
+      hostname: '127.0.0.1',
+      method,
+      path,
+      port: address.port,
+    }, (response) => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => {
+        body += chunk;
+      });
+      response.once('end', () => {
+        resolve({ body, status: response.statusCode });
+      });
+    });
+    request.once('error', reject);
+    request.end();
+  });
 }
 
 test('anonymous echo-lab route is retired without weakening Cybermap token routes', () => {
@@ -84,4 +111,154 @@ test('anonymous echo-lab route is retired without weakening Cybermap token route
   const observationBatch = read('api/cybermap-observations-batch/index.js');
   assert.match(observationBatch, /x-blue-swallow-ingest-token/);
   assert.match(observationBatch, /requiredHeader\(req, header\)/);
+});
+
+test('the public operator directory contains only generic loader files while private assets use a token-gated Function route', () => {
+  assert.deepEqual(
+    readdirSync(new URL('app/operator/', root)).sort(),
+    ['index.html', 'loader.css', 'loader.js'],
+    'anonymous static delivery must not expose private modules, CSS, HTML, or persona material',
+  );
+
+  const staticWebApp = JSON.parse(read('app/staticwebapp.config.json'));
+  assert.deepEqual(routeConfig(staticWebApp, '/operator'), {
+    route: '/operator',
+    rewrite: '/operator/index.html',
+    allowedRoles: ['anonymous', 'authenticated'],
+  });
+  assert.equal(routeConfig(staticWebApp, '/operator/*'), undefined);
+  assert.deepEqual(routeConfig(staticWebApp, '/api/operator-assets/*')?.allowedRoles, ['anonymous', 'authenticated']);
+  assert.equal(exists('api/operator-assets/index.js'), true);
+  assert.equal(exists('api/operator-assets/function.json'), true);
+});
+
+test('WiGLE and vision sample records are fixture-only and runtime fallbacks stay unavailable', () => {
+  for (const fixture of [
+    'tests/fixtures/wigle-sample-data.mjs',
+    'tests/fixtures/vision-sample-data.mjs',
+  ]) {
+    assert.equal(exists(fixture), true, `${fixture} must be test-only fixture data`);
+  }
+
+  const runtimeSources = [
+    'api/_private/operator/assets/wigle.mjs',
+    'api/_private/operator/assets/vision.mjs',
+    'api/_private/operator/assets/main.js',
+  ];
+  const runtimeSamplePatterns = [
+    /createSample(?:Wigle|Vision)Dataset/,
+    /SAMPLE_(?:LOCATION|ACCESS_POINTS|TIMESTAMP|FRAME|DETECTIONS)/,
+    /source\s*:\s*['"]sample['"]/,
+    /sourceLabel\s*=\s*['"]sample['"]/,
+    /live, local, or sample vision payloads/,
+  ];
+
+  for (const sourcePath of runtimeSources) {
+    const source = read(sourcePath);
+    for (const pattern of runtimeSamplePatterns) {
+      assert.doesNotMatch(source, pattern, `${sourcePath} must not ship a sample fallback`);
+    }
+  }
+  const main = read('api/_private/operator/assets/main.js');
+  assert.doesNotMatch(main, /visionSourceLabel:\s*['"]live['"]/);
+  assert.doesNotMatch(main, /visionSourceLabel\s*=\s*['"]live['"]/);
+});
+
+test('private bootstrap composes named Godeye and vision controllers through the asset manifest', () => {
+  const controllerAssets = [
+    'godeye-controller.mjs',
+    'vision-controller.mjs',
+  ];
+  const privateMain = read('api/_private/operator/assets/main.js');
+  const assetManifest = read('api/operator-assets/index.js');
+
+  for (const asset of controllerAssets) {
+    assert.equal(exists(`api/_private/operator/assets/${asset}`), true, `${asset} must be a private controller module`);
+    assert.match(assetManifest, new RegExp(`['"]${asset.replace('.', '\\.') }['"]`), `${asset} must be allowlisted for private ESM loading`);
+  }
+  assert.match(privateMain, /createGodeyeController/);
+  assert.match(privateMain, /createVisionController/);
+});
+
+test('the retired agent surface has no Function, loader, template, CSS, route rewrite, or shell selector', async (t) => {
+  const staticWebApp = JSON.parse(read('app/staticwebapp.config.json'));
+  for (const route of ['/agent', '/agent.html', '/api/agent']) {
+    assert.deepEqual(routeConfig(staticWebApp, route), { route, statusCode: 404 });
+  }
+
+  for (const retiredPath of [
+    'api/agent/index.js',
+    'api/agent/function.json',
+    'api/_private/operator/agent.html',
+    'app/operator/agent.html',
+    'app/operator/agent.js',
+    'app/operator/agent-loader.js',
+  ]) {
+    assert.equal(exists(retiredPath), false, `${retiredPath} must be removed rather than relabelled`);
+  }
+
+  const operatorShell = read('api/operator-shell/index.js');
+  assert.doesNotMatch(operatorShell, /AGENT_PATH|view=agent|Interface Lab|Agent placeholder/);
+  assert.doesNotMatch(operatorShell, /['"]agent['"]/);
+  assert.doesNotMatch(read('api/_private/operator/shell.html'), /Interface Lab|Agent placeholder/);
+  assert.doesNotMatch(read('api/_private/operator/assets/styles.css'), /\.agent-(?:shell|hero|input-area|output)\b/);
+  assert.doesNotMatch(read('api/_private/operator/assets/theme.css'), /\.agent-hero\b/);
+
+  assert.match(
+    read('local-server.js'),
+    /module\.exports\s*=\s*\{\s*createLocalServer\s*\};/,
+    'local development must expose an isolated server factory for route denial tests',
+  );
+  const { createLocalServer } = require('../local-server.js');
+  const server = createLocalServer();
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+
+  for (const path of ['/agent', '/agent.html', '/api/agent']) {
+    for (const method of ['GET', 'POST', 'PATCH']) {
+      const response = await requestLocalServer(server, path, method);
+      assert.equal(response.status, 404, `${method} ${path} must not resolve a retired agent surface`);
+      assert.doesNotMatch(response.body, /Agent placeholder|Interface Lab|Nacre-Moiré/i);
+    }
+  }
+});
+
+test('historical documentation marks superseded audit evidence and keeps local smoke inputs test-only', () => {
+  const implementationDelta = read('docs/blue-swallow-system-implementation-delta.md');
+  const paperApiStatus = read('docs/tzeentch-paper-api-status.md');
+  const wardriverRepairPlan = read('docs/wardriver-raid-backend-repair-plan.md');
+  const readme = read('README.md');
+  const legacyStaticSpecPaths = [
+    'specs/000-static-web-app-functionality/spec.md',
+    'specs/000-static-web-app-functionality/plan.md',
+    'specs/000-static-web-app-functionality/tasks.md',
+    'specs/001-static-web-app-styling/spec.md',
+  ];
+
+  assert.match(implementationDelta.slice(0, 1_000), /Historical audit snapshot[^\n]*superseded/i);
+  assert.match(implementationDelta, /Source reconciliation \(2026-07-26; source-only, not deployment evidence\)/);
+  assert.match(implementationDelta, /`\/api\/cybermap\/viewport` and `\/api\/cybermap\/observations\/batch`/);
+  assert.doesNotMatch(implementationDelta, /No `\/api\/cybermap\/\*` Functions exist/);
+  assert.doesNotMatch(implementationDelta, /Sample data must remain visibly labeled and never become fallback “live” data|Add SWA `\/api\/cybermap\/\*` proxies/);
+  assert.doesNotMatch(implementationDelta, /Agent surface:\*\*\s+protected UI\/API scaffolding exists/);
+  assert.match(wardriverRepairPlan.slice(0, 1_000), /Historical investigation snapshot[^\n]*superseded/i);
+  assert.match(wardriverRepairPlan, /`api\/cybermap-viewport\/index\.js` and `api\/cybermap-observations-batch\/index\.js`/);
+  assert.doesNotMatch(wardriverRepairPlan, /No SWA Function proxy exposes Cybermap viewport\/cell\/entity reads from the VM/);
+  assert.doesNotMatch(wardriverRepairPlan, /local bridge\/sample modes|Sample data is available only as explicitly labeled lab\/demo mode/i);
+  assert.match(readme, /Current source-state documentation is `docs\/static-web-app-functionality\.md`/);
+
+  assert.match(paperApiStatus.slice(0, 1_000), /Historical local-test record[^\n]*superseded/i);
+  assert.match(paperApiStatus, /TEST-ONLY/);
+  assert.match(paperApiStatus, /never deploy these values/i);
+  assert.doesNotMatch(paperApiStatus, /paper-api-test-passcode|paper-api-smoke-token-signing-key/);
+  assert.match(paperApiStatus, /Hermetic local handler smoke \(test context only\)/);
+  assert.match(paperApiStatus, /node --test --test-name-pattern='bearer-token protected read-only payload' tests\/tzeentch-route\.test\.mjs/);
+  assert.doesNotMatch(paperApiStatus, /node -e "const handler=require\('\.\/api\/tzeentch\/index\.js'\)/);
+
+  for (const legacyStaticSpecPath of legacyStaticSpecPaths) {
+    const source = read(legacyStaticSpecPath);
+    assert.match(source.slice(0, 1_000), /Historical (?:prototype|implementation) record[^\n]*superseded/i);
+    assert.doesNotMatch(source, /["'`]blue-swallow["'`]/, `${legacyStaticSpecPath} must not present an obsolete passcode as usable`);
+  }
 });

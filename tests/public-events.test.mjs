@@ -51,7 +51,7 @@ test('claim flow uses the entered name and only releases that normalized name', 
 
   const claimed = claimSupplyItem(emptyClaims, event.id, supply.id, '  Ada   Lovelace  ');
   assert.equal(claimed[event.id][supply.id], 'Ada Lovelace');
-  assert.equal(getSupplyClaimLabel(event.id, supply.id, claimed), 'Ada Lovelace will bring this.');
+  assert.equal(getSupplyClaimLabel(event.id, supply.id, claimed), 'Claimed by Ada Lovelace.');
 
   const wrongRelease = releaseSupplyItem(claimed, event.id, supply.id, 'Grace Hopper');
   assert.equal(wrongRelease[event.id][supply.id], 'Ada Lovelace');

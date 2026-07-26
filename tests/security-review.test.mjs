@@ -11,15 +11,13 @@ const operatorLoaderJs = read('app/operator/loader.js');
 const operatorShell = read('api/_private/operator/shell.html');
 const rootCss = read('app/styles.css');
 const rootMainJs = read('app/main.js');
-const operatorMainJs = read('app/operator/main.js');
-const tzeentchJs = read('app/operator/tzeentch.mjs');
-const tzeentchDashboardJs = read('app/operator/tzeentch-dashboard.mjs');
-const chainedDaemonJs = read('app/operator/chained-daemon.mjs');
-const agentJs = read('app/operator/agent.js');
-const agentApi = read('api/agent/index.js');
+const operatorMainJs = read('api/_private/operator/assets/main.js');
+const tzeentchJs = read('api/_private/operator/assets/tzeentch.mjs');
+const tzeentchDashboardJs = read('api/_private/operator/assets/tzeentch-dashboard.mjs');
+const chainedDaemonJs = read('api/_private/operator/assets/chained-daemon.mjs');
 const wigleApi = read('api/wigle/index.js');
 const localServer = read('local-server.js');
-const styles = read('app/operator/styles.css');
+const styles = read('api/_private/operator/assets/styles.css');
 const deployWorkflow = read('.github/workflows/deploy-static-web-app.yml');
 const infraParams = JSON.parse(read('infra/main.parameters.json'));
 const vmBicep = read('infra/vm-echo-lab.bicep');
@@ -52,7 +50,7 @@ test('Static Web Apps routes do not collide after Azure trailing-slash normaliza
 });
 
 test('operator APIs are reachable from the passcode login but fail closed on passcode-issued bearer tokens or cookies', () => {
-  ['/api/wigle', '/api/cybermap/viewport', '/api/cybermap/observations/batch', '/api/agent', '/api/osint', '/api/tzeentch'].forEach((route) => {
+  ['/api/wigle', '/api/cybermap/viewport', '/api/cybermap/observations/batch', '/api/osint', '/api/tzeentch'].forEach((route) => {
     assert.deepEqual(routeConfig(route)?.allowedRoles, ['anonymous', 'authenticated'], `${route} must not be SWA-AAD gated before token validation`);
   });
   assert.deepEqual(routeConfig('/api/validate-passcode')?.allowedRoles, ['anonymous', 'authenticated']);
@@ -61,13 +59,9 @@ test('operator APIs are reachable from the passcode login but fail closed on pas
 
   assert.ok(read('api/osint/index.js').includes('requireOperatorToken'));
   assert.ok(read('api/tzeentch/index.js').includes('requireOperatorToken'));
-  assert.ok(agentApi.includes('requireOperatorToken'));
   assert.ok(wigleApi.includes('requireOperatorToken'));
   assert.ok(cybermapViewportApi.includes('requireOperatorToken'));
   assert.ok(operatorDownloadsApi.includes('requireOperatorToken'));
-  assert.ok(agentJs.includes('Authorization: `Bearer ${session.token}`'));
-  assert.ok(agentJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
-  assert.ok(operatorMainJs.includes('Authorization: `Bearer ${session.token}`'));
   assert.ok(operatorMainJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
 });
 
@@ -106,7 +100,7 @@ test('operator entrypoint is separate from the root face, unlinked, and client-g
   assert.ok(!operatorHtml.includes('/api/operator-downloads/wardriver/apk'));
   assert.ok(operatorLoaderJs.includes("fetch('/api/operator-shell'"));
   assert.ok(operatorLoaderJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
-  assert.ok(operatorLoaderJs.includes("import('/operator/main.js')"));
+  assert.ok(operatorLoaderJs.includes("import('/api/operator-assets/main.js')"));
   assert.ok(operatorShell.includes('terminalScreen'));
   assert.ok(operatorShell.includes('mainInterface'));
   assert.ok(!indexHtml.includes('operator/index.html'));
@@ -115,14 +109,14 @@ test('operator entrypoint is separate from the root face, unlinked, and client-g
   assert.ok(operatorMainJs.includes('getOperatorSession()'));
 });
 
-test('operator HTML, JS, CSS, modules, and legacy routes are passcode-flow reachable without SWA AAD', () => {
+test('the token-aware loader and token-gated asset route are passcode-flow reachable without SWA AAD', () => {
   assert.deepEqual(routeConfig('/operator')?.allowedRoles, ['anonymous', 'authenticated']);
   assert.equal(routeConfig('/operator')?.rewrite, '/operator/index.html');
-  assert.deepEqual(routeConfig('/operator/*')?.allowedRoles, ['anonymous', 'authenticated']);
-  assert.deepEqual(routeConfig('/agent')?.allowedRoles, ['anonymous', 'authenticated']);
-  assert.equal(routeConfig('/agent')?.rewrite, '/operator/agent.html');
-  assert.deepEqual(routeConfig('/agent.html')?.allowedRoles, ['anonymous', 'authenticated']);
-  assert.equal(routeConfig('/agent.html')?.rewrite, '/operator/agent.html');
+  assert.equal(routeConfig('/operator/*'), undefined);
+  assert.deepEqual(routeConfig('/api/operator-assets/*')?.allowedRoles, ['anonymous', 'authenticated']);
+  assert.equal(routeConfig('/agent')?.statusCode, 404);
+  assert.equal(routeConfig('/agent.html')?.statusCode, 404);
+  assert.equal(routeConfig('/api/agent')?.statusCode, 404);
 });
 
 test('passcode auth has no client fallback secret, canonical passcode literal, or local bypass', () => {
@@ -174,8 +168,9 @@ test('device-local endpoints stay same-origin under the production CSP', () => {
   assert.ok(operatorShell.includes('placeholder="/api/cybermap/viewport"'));
 });
 
-test('OSINT, Cybermap coordinates, and agent prompts are sent via POST bodies, not URLs or persistent storage', () => {
+test('OSINT and Cybermap coordinates are sent via POST bodies, not URLs or persistent storage', () => {
   const cybermapViewportApi = read('api/cybermap-viewport/index.js');
+  const godeyeController = read('api/_private/operator/assets/godeye-controller.mjs');
   assert.ok(tzeentchJs.includes("fetch(new URL('/api/osint', window.location.origin).toString()"));
   assert.ok(tzeentchJs.includes("method: 'POST'"));
   assert.ok(tzeentchJs.includes('body: JSON.stringify'));
@@ -186,15 +181,8 @@ test('OSINT, Cybermap coordinates, and agent prompts are sent via POST bodies, n
   assert.ok(tzeentchJs.includes('Authorization: `Bearer ${session.token}`'));
   assert.ok(tzeentchJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
 
-  assert.ok(agentJs.includes("fetch('/api/agent'"));
-  assert.ok(agentJs.includes("method: 'POST'"));
-  assert.ok(agentJs.includes('buildOperatorHeaders({'));
-  assert.ok(agentJs.includes('body: JSON.stringify({ prompt })'));
-  assert.ok(!agentJs.includes('/api/agent?prompt='));
-  assert.ok(!agentApi.includes('req.query'));
-  assert.ok(!agentApi.includes('prompt:'));
-
-  assert.ok(operatorMainJs.includes('function buildWigleRequestPayload'));
+  assert.ok(operatorMainJs.includes('godeyeController.buildRequestPayload'));
+  assert.ok(godeyeController.includes('function buildRequestPayload'));
   assert.ok(operatorMainJs.includes("method: 'POST'"));
   assert.ok(operatorMainJs.includes('body: JSON.stringify(requestPayload)'));
   assert.ok(operatorMainJs.includes('buildOperatorHeaders({'));

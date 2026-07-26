@@ -1,14 +1,16 @@
 # Implementation Plan: Static Web Application Functionality
 
-**Branch**: `000-static-web-app-functionality` | **Date**: 2026-05-23 | **Spec**: [spec.md](./spec.md)
+**Branch**: `000-static-web-app-functionality` | **Date**: 2026-05-23 | **Status**: Historical implementation record — superseded | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `/specs/000-static-web-app-functionality/spec.md`
+
+> **Historical implementation record — superseded:** This plan records the initial 2026-05 terminal-console implementation. It is not a current architecture or local-runbook source. Current public/private boundaries are defined by `specs/009-adversarial-surface-remediation/` and `docs/static-web-app-functionality.md`.
 
 **Note**: This template is filled in by the `__SPECKIT_COMMAND_PLAN__` command. See `.specify/templates/plan-template.md` for the execution workflow.
 
 ## Summary
 
-Implement a cyberpunk-themed terminal interface web application for the Blue Swallow Society network console. The feature provides client-side authentication with a hardcoded passcode, tabbed navigation across four sections (Landing, Agentic, Monitoring, Experiments), a real-time chat interface with an AI agent, and responsive design for multi-device access. The frontend is a static Azure Web App backed by Azure Functions for API operations.
+The initial plan implemented a terminal-style network-console prototype with client-side assumptions, tabbed navigation, an Agentic placeholder, and responsive styling. It is superseded: passcode validation is server-side configuration, the Agent and echo paths are retired, and the current protected console loads through the asset-grant boundary.
 
 ## Technical Context
 
@@ -26,7 +28,7 @@ Implement a cyberpunk-themed terminal interface web application for the Blue Swa
 
 **Performance Goals**: Authentication response < 3s, tab switch < 1s, chat response < 5s
 
-**Constraints**: No PII collection; hardcoded passcode acceptable for dev only; CSP headers required; all user inputs sanitized; AAD auth routes exist in SWA config but are not used by the frontend login flow
+**Historical constraints**: No PII collection; CSP headers required; all user inputs sanitized; AAD auth routes existed in SWA config but were not used by the frontend login flow. The former hardcoded-passcode development assumption is retired.
 
 **Scale/Scope**: Single-tenant society console; expected concurrent users < 10
 
@@ -68,9 +70,9 @@ app/
 └── staticwebapp.config.json  # Azure SWA routing and security headers
 
 api/
-├── validate-passcode/   # Azure Function: POST /api/validate-passcode
-├── agent/               # Azure Function: POST /api/agent
-├── echo/                # Azure Function: GET /api/echo (see spec 002)
+├── validate-passcode/   # Current Azure Function: POST /api/validate-passcode
+├── agent/               # Historical only; retired from the current source
+├── echo/                # Historical only; retired from the current source
 └── profile/             # Azure Function: GET /api/profile
 ```
 
