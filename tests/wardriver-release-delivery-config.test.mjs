@@ -7,16 +7,17 @@ const main = readFileSync(new URL('infra/main.bicep', root), 'utf8');
 const workflow = readFileSync(new URL('.github/workflows/deploy-static-web-app.yml', root), 'utf8');
 const moduleUrl = new URL('infra/modules/wardriver-release-storage.bicep', root);
 
-test('Bicep provisions a dedicated private, recoverable Wardriver release account', () => {
+test('Bicep provisions a recoverable Wardriver release account with private ordinary Blob access', () => {
   assert.equal(existsSync(moduleUrl), true);
   const storage = readFileSync(moduleUrl, 'utf8');
   assert.match(main, /wardriver-release-storage/);
   assert.match(storage, /Microsoft\.Storage\/storageAccounts/);
   assert.match(storage, /allowBlobPublicAccess:\s*false/);
+  assert.doesNotMatch(storage, /resource basemapStaticWebsite/);
   assert.match(storage, /minimumTlsVersion:\s*'TLS1_2'/);
   assert.match(storage, /isVersioningEnabled:\s*true/);
   assert.match(storage, /deleteRetentionPolicy/);
-  assert.match(storage, /publicAccess:\s*'None'/);
+  assert.match(storage, /resource releaseContainer[\s\S]*?publicAccess:\s*'None'/);
 });
 
 test('deployment wires the release-only connection string into SWA without logging it', () => {

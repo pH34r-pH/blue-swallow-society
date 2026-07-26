@@ -8,6 +8,11 @@ import {
   validateGlobalViewportRequest,
   validateGlobalViewportResponse,
 } from './global-viewport-contract.mjs';
+import {
+  DeflockViewportError,
+  buildDeflockViewportResponse,
+  validateDeflockViewportRequest,
+} from './deflock-viewport-contract.mjs';
 
 const MAX_BODY_BYTES = 1_048_576;
 const MAX_MORNING_BRIEF_BODY_BYTES = 32 * 1_024 * 1_024;
@@ -20,6 +25,7 @@ const GLOBAL_VIEWPORT_LAYER_IDS = Object.freeze([
   'gdacs-alerts',
   'nasa-eonet-events',
 ]);
+const DEFLOCK_GLOBAL_VIEWPORT_SCHEMA = 'bss.global_viewport_request.v1';
 const MORNING_BRIEFS_PATH = '/api/v1/morning-briefs';
 const PAPER_LINE_IDS = Object.freeze(['standard', 'aggressive', 'hyper_aggressive']);
 const PAPER_STRATEGY_IDS = Object.freeze([
@@ -99,9 +105,17 @@ const MORNING_BRIEF_ARTIFACT_ID_RE = /^[a-z0-9][a-z0-9-]{1,120}$/;
 const SHA256_RE = /^[a-f0-9]{64}$/;
 const RFC3339_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 
-export function createCybermapApiServer({ store, now = Date.now, logger = null, ingestDeadlineMs = 5_000 } = {}) {
+export function createCybermapApiServer({
+  store,
+  now = Date.now,
+  logger = null,
+  ingestDeadlineMs = 5_000,
+  mtlsProxySecret = process.env.BSS_MTLS_PROXY_SECRET,
+} = {}) {
   if (!store) throw new TypeError('store is required');
-  const server = http.createServer(createRequestHandler({ store, now, logger, ingestDeadlineMs }));
+  const server = http.createServer(createRequestHandler({
+    store, now, logger, ingestDeadlineMs, mtlsProxySecret,
+  }));
   server.requestTimeout = 30_000;
   server.headersTimeout = 10_000;
   server.keepAliveTimeout = 5_000;
@@ -109,7 +123,13 @@ export function createCybermapApiServer({ store, now = Date.now, logger = null, 
   return server;
 }
 
-export function createRequestHandler({ store, now = Date.now, logger = null, ingestDeadlineMs = 5_000 }) {
+export function createRequestHandler({
+  store,
+  now = Date.now,
+  logger = null,
+  ingestDeadlineMs = 5_000,
+  mtlsProxySecret = process.env.BSS_MTLS_PROXY_SECRET,
+}) {
   return async function requestHandler(request, response) {
     try {
       const url = new URL(request.url, 'http://127.0.0.1');
@@ -123,6 +143,11 @@ export function createRequestHandler({ store, now = Date.now, logger = null, ing
         const readiness = await store.ready();
         return sendJson(response, readiness.ok ? 200 : 503, readiness);
       }
+      if (request.method === 'POST' && url.pathname === VIEWPORT_PATH) {
+        requireMtlsProxyAssertion(request, mtlsProxySecret);
+        const viewport = await handleMtlsViewport(request, { store, now });
+        return sendJson(response, 200, toAggregateViewportResponse(viewport));
+      }
       if (request.method === 'GET' && url.pathname === VIEWPORT_PATH) {
         requireBackendReadToken(request);
         const viewport = await handleCybermapViewport(url, { store, now });
@@ -130,7 +155,7 @@ export function createRequestHandler({ store, now = Date.now, logger = null, ing
       }
       if (request.method === 'POST' && url.pathname === GLOBAL_VIEWPORT_PATH) {
         requireBackendReadToken(request);
-        const viewport = await handleGlobalViewport(request, { store });
+        const viewport = await handleGlobalViewport(request, { store, now });
         return sendJson(response, 200, viewport);
       }
       if (url.pathname === PAPER_STATE_PATH && (request.method === 'GET' || request.method === 'PUT')) {
@@ -146,7 +171,10 @@ export function createRequestHandler({ store, now = Date.now, logger = null, ing
         request.resume();
         return sendJson(response, 404, { ok: false, error: 'not_found' });
       }
-      return await handleObservationBatch(request, response, { store, now, ingestDeadlineMs });
+      const mtlsAssertion = mtlsProxyAssertionIfPresent(request, mtlsProxySecret);
+      return await handleObservationBatch(request, response, {
+        store, now, ingestDeadlineMs, mtlsAssertion,
+      });
     } catch (error) {
       logger?.error?.({ code: error?.code ?? 'internal_error', statusCode: error?.statusCode ?? 500 });
       return sendError(response, error);
@@ -154,7 +182,9 @@ export function createRequestHandler({ store, now = Date.now, logger = null, ing
   };
 }
 
-async function handleObservationBatch(request, response, { store, now, ingestDeadlineMs }) {
+async function handleObservationBatch(request, response, {
+  store, now, ingestDeadlineMs, mtlsAssertion = null,
+}) {
   const contentType = String(request.headers['content-type'] ?? '').toLowerCase();
   if (!contentType.startsWith('application/json')) {
     request.resume();
@@ -162,16 +192,15 @@ async function handleObservationBatch(request, response, { store, now, ingestDea
   }
 
   const token = singleHeader(request, 'x-blue-swallow-ingest-token');
-  const deviceId = singleHeader(request, 'x-blue-swallow-device-id');
-  const idempotencyKey = singleHeader(request, 'idempotency-key');
-  if (!token || token.length < 32 || token.length > 512
-      || !deviceId || deviceId.length > 160
-      || !idempotencyKey || idempotencyKey.length > 200) {
+  const headerDeviceId = singleHeader(request, 'x-blue-swallow-device-id');
+  const headerIdempotencyKey = singleHeader(request, 'idempotency-key');
+  if (!mtlsAssertion && (!token || token.length < 32 || token.length > 512
+      || !headerDeviceId || headerDeviceId.length > 160
+      || !headerIdempotencyKey || headerIdempotencyKey.length > 200)) {
     request.resume();
     throw new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
   }
 
-  const credential = await store.authenticate({ deviceId, token, requiredScope: 'observations:write' });
   const rawBody = await readBody(request);
   let parsed;
   try {
@@ -179,14 +208,23 @@ async function handleObservationBatch(request, response, { store, now, ingestDea
   } catch {
     throw new IngestError('invalid_json', 'Malformed JSON.', { statusCode: 400 });
   }
-  if (parsed?.device_id !== deviceId) {
-    throw new IngestError('device_id_mismatch', 'Device header and body do not match.', { statusCode: 400 });
-  }
-  if (parsed?.idempotency_key !== idempotencyKey) {
-    throw new IngestError('idempotency_key_mismatch', 'Idempotency header and body do not match.', { statusCode: 400 });
-  }
-
   const batch = validateObservationBatch(parsed, { now: now() });
+  let credential;
+  if (mtlsAssertion) {
+    credential = await store.authenticateMtls({
+      deviceId: batch.device_id,
+      certificateFingerprint: mtlsAssertion.certificateFingerprint,
+      requiredScope: 'observations:write',
+    });
+  } else {
+    if (batch.device_id !== headerDeviceId) {
+      throw new IngestError('device_id_mismatch', 'Device header and body do not match.', { statusCode: 400 });
+    }
+    if (batch.idempotency_key !== headerIdempotencyKey) {
+      throw new IngestError('idempotency_key_mismatch', 'Idempotency header and body do not match.', { statusCode: 400 });
+    }
+    credential = await store.authenticate({ deviceId: headerDeviceId, token, requiredScope: 'observations:write' });
+  }
   const result = await withIngestDeadline(
     store.applyBatch({ credential, batch }),
     ingestDeadlineMs,
@@ -696,6 +734,44 @@ function buildEchoPayload(url) {
   };
 }
 
+async function handleMtlsViewport(request, { store, now }) {
+  if (typeof store.queryViewport !== 'function') {
+    throw new IngestError('viewport_unavailable', 'Cybermap viewport reads are not available.', { statusCode: 503 });
+  }
+  const contentType = String(request.headers['content-type'] ?? '').toLowerCase();
+  if (!contentType.startsWith('application/json')) {
+    request.resume();
+    throw new IngestError('invalid_viewport', 'Content-Type must be application/json.', { statusCode: 400 });
+  }
+  let body;
+  try {
+    body = JSON.parse(await readBody(request));
+  } catch (error) {
+    if (error instanceof IngestError) throw error;
+    throw new IngestError('invalid_viewport', 'Malformed JSON.', { statusCode: 400 });
+  }
+  const lat = parseFiniteNumber(body?.lat);
+  const lon = parseFiniteNumber(body?.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    throw new IngestError('invalid_viewport', 'lat and lon body fields are required.', { statusCode: 400 });
+  }
+  const radiusMeters = clampFiniteNumber(body.radiusMeters, 25, 5_000, 100);
+  const limit = Math.trunc(clampFiniteNumber(body.limit, 1, 500, 100));
+  return store.queryViewport({ lat, lon, radiusMeters, limit, now: new Date(now()) });
+}
+
+function toAggregateViewportResponse(viewport) {
+  return {
+    ok: viewport?.ok === true,
+    mode: 'viewport',
+    live: viewport?.live === true,
+    source: typeof viewport?.source === 'string' ? viewport.source : 'cybermap-postgis',
+    totalResults: Number.isInteger(viewport?.totalResults) ? viewport.totalResults : 0,
+    updatedAt: typeof viewport?.updatedAt === 'string' ? viewport.updatedAt : new Date().toISOString(),
+    message: typeof viewport?.message === 'string' ? viewport.message : 'Cybermap PostGIS viewport ready.',
+  };
+}
+
 async function handleCybermapViewport(url, { store, now }) {
   if (typeof store.queryViewport !== 'function') {
     throw new IngestError('viewport_unavailable', 'Cybermap viewport reads are not available.', { statusCode: 503 });
@@ -718,16 +794,12 @@ async function handleCybermapViewport(url, { store, now }) {
   return store.queryViewport({ lat, lon, radiusMeters, limit, maxAgeMs, now: new Date(nowMs) });
 }
 
-async function handleGlobalViewport(request, { store }) {
-  if (typeof store.queryGlobalViewport !== 'function') {
-    throw new IngestError('global_viewport_unavailable', 'Global viewport reads are not available.', { statusCode: 503 });
-  }
+async function handleGlobalViewport(request, { store, now }) {
   const contentType = String(request.headers['content-type'] ?? '').toLowerCase();
   if (!contentType.startsWith('application/json')) {
     request.resume();
     throw new IngestError('invalid_global_viewport', 'Content-Type must be application/json.', { statusCode: 400 });
   }
-
   let body;
   try {
     body = JSON.parse(await readBody(request));
@@ -735,18 +807,74 @@ async function handleGlobalViewport(request, { store }) {
     if (error instanceof IngestError) throw error;
     throw new IngestError('invalid_global_viewport', 'Malformed JSON.', { statusCode: 400 });
   }
+  if (body?.schema_version === DEFLOCK_GLOBAL_VIEWPORT_SCHEMA) return handleDeflockGlobalViewport(body, { store, now });
+  return handleLegacyGlobalViewport(body, { store });
+}
+
+async function handleLegacyGlobalViewport(body, { store }) {
+  if (typeof store.queryGlobalViewport !== 'function') {
+    throw new IngestError('global_viewport_unavailable', 'Global viewport reads are not available.', { statusCode: 503 });
+  }
   const globalViewportRequest = validateGlobalViewportRequest(body, {
     supportedLayerIds: GLOBAL_VIEWPORT_LAYER_IDS,
   });
-
   try {
     const viewport = await store.queryGlobalViewport(globalViewportRequest);
-    return validateGlobalViewportResponse(viewport, {
-      supportedLayerIds: GLOBAL_VIEWPORT_LAYER_IDS,
-    });
+    return validateGlobalViewportResponse(viewport, { supportedLayerIds: GLOBAL_VIEWPORT_LAYER_IDS });
   } catch {
     throw new IngestError('global_viewport_unavailable', 'Global viewport read model is unavailable.', { statusCode: 503 });
   }
+}
+
+async function handleDeflockGlobalViewport(body, { store, now }) {
+  if (typeof store.queryDeflockGlobalViewport !== 'function') {
+    throw new IngestError('deflock_viewport_unavailable', 'DeFlock global viewport reads are not available.', { statusCode: 503 });
+  }
+  let viewportRequest;
+  try {
+    viewportRequest = validateDeflockViewportRequest(body);
+  } catch (error) {
+    if (error instanceof DeflockViewportError) {
+      throw new IngestError(error.code, 'DeFlock viewport request is invalid.', { statusCode: error.statusCode });
+    }
+    throw error;
+  }
+  try {
+    const materialized = await store.queryDeflockGlobalViewport(viewportRequest);
+    return buildDeflockViewportResponse({
+      request: viewportRequest,
+      cells: materialized?.cells ?? [],
+      sources: materialized?.sources ?? [],
+      now: new Date(now()).toISOString(),
+    });
+  } catch (error) {
+    if (error instanceof DeflockViewportError) {
+      throw new IngestError(error.code, 'Stored DeFlock viewport data is invalid.', { statusCode: 503 });
+    }
+    throw error;
+  }
+}
+
+function requireMtlsProxyAssertion(request, proxySecret) {
+  const assertion = mtlsProxyAssertionIfPresent(request, proxySecret);
+  if (!assertion) throw new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
+  return assertion;
+}
+
+function mtlsProxyAssertionIfPresent(request, proxySecret) {
+  const suppliedSecret = singleHeader(request, 'x-blue-swallow-mtls-proxy-secret');
+  const certificateFingerprint = singleHeader(request, 'x-blue-swallow-mtls-client-fingerprint').toLowerCase();
+  if (!suppliedSecret && !certificateFingerprint) return null;
+  const expectedSecret = String(proxySecret || '').trim();
+  if (!expectedSecret || !safeEqualString(suppliedSecret, expectedSecret)
+      || !SHA256_RE.test(certificateFingerprint) || !isLoopbackAddress(request.socket?.remoteAddress)) {
+    throw new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
+  }
+  return Object.freeze({ certificateFingerprint });
+}
+
+function isLoopbackAddress(address) {
+  return address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
 }
 
 function requirePaperStateToken(request) {

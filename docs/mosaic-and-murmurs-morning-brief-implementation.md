@@ -94,6 +94,12 @@ The collector currently polls read-only public market endpoints:
 - CoinGecko trending coins
 - CoinGecko BTC/ETH/SOL market snapshots
 
+## Daily tarot study
+
+Every collected local-day run includes one record from a fixed 78-card tarot curriculum. The collector uses the configured brief timezone, starts the cycle at `2026-01-01`, and repeats after card 78. A record contains its card, arcana, upright and reversed study keywords, symbol focus, reading drill, and a reflective-study disclosure.
+
+The record appears unchanged in the deterministic delivery Markdown, cron packet, and `TAROT / DAILY STUDY` Field Dossier page. It makes no predictive, personal, or factual claim and has no network or account dependency. Use it with the physical deck and its guidebook: compare the printed symbols with the daily drill before reading a spread.
+
 ## Paper ledger semantics
 
 The launch ledger is the 24-book Cartesian product of three aggression lines (`standard`, `aggressive`, `hyper_aggressive`) and eight strategies (`prediction_markets`, `crypto`, `equity_watch`, `local_event_watch`, `ai_cyber_watch`, `cross_asset_momentum`, `contrarian_reversion`, `volatility_barbell`). Every book starts independently with `$1,000` invested and `$1,000` banked.

@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [0, 0] },
+      "properties": {
+        "fixture": "synthetic-only",
+        "osmId": "synthetic-osm-id",
+        "operator": "synthetic-operator",
+        "direction": 180
+      }
+    }
+  ]
+}

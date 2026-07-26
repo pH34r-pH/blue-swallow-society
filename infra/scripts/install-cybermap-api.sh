@@ -6,6 +6,7 @@ POSTGRES_PASSWORD="$(printf '%s' '__POSTGRES_PASSWORD_B64__' | base64 -d)"
 CYBERMAP_READ_TOKEN="$(printf '%s' '__CYBERMAP_READ_TOKEN_B64__' | base64 -d)"
 PAPER_STATE_TOKEN="$(printf '%s' '__PAPER_STATE_TOKEN_B64__' | base64 -d)"
 MORNING_BRIEF_TOKEN="$(printf '%s' '__MORNING_BRIEF_TOKEN_B64__' | base64 -d)"
+BSS_MTLS_PROXY_SECRET="$(printf '%s' '__BSS_MTLS_PROXY_SECRET_B64__' | base64 -d)"
 if [ -z "$POSTGRES_PASSWORD" ]; then
   echo "PostgreSQL password is empty" >&2
   exit 1
@@ -22,6 +23,10 @@ if [ -z "$MORNING_BRIEF_TOKEN" ]; then
   echo "Morning brief token is empty" >&2
   exit 1
 fi
+if [ -z "$BSS_MTLS_PROXY_SECRET" ]; then
+  echo "mTLS proxy secret is empty" >&2
+  exit 1
+fi
 
 
 apt-get update
@@ -31,6 +36,8 @@ if ! command -v node >/dev/null 2>&1 || ! node --version | grep -Eq '^v24\.'; th
   curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
   apt-get install -y nodejs
 fi
+
+POSTGRES_PASSWORD_URLENCODED="$(printf '%s' "$POSTGRES_PASSWORD" | node -e 'let value = ""; process.stdin.on("data", (chunk) => { value += chunk; }); process.stdin.on("end", () => process.stdout.write(encodeURIComponent(value)));')"
 
 if ! command -v caddy >/dev/null 2>&1; then
   curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
@@ -49,6 +56,13 @@ cd /opt/bss/cybermap-api
 npm ci --omit=dev
 
 install -d -m 0750 -o root -g root /etc/bss
+install -d -m 0755 -o root -g root /etc/caddy
+printf '%s' '__WARDIVER_MTLS_TRUST_CERT_PEM_B64__' | base64 -d > /etc/caddy/wardriver-mtls-trust.pem
+chmod 0644 /etc/caddy/wardriver-mtls-trust.pem
+if ! grep -q -- 'BEGIN CERTIFICATE' /etc/caddy/wardriver-mtls-trust.pem; then
+  echo "Wardriver mTLS trust certificate is invalid" >&2
+  exit 1
+fi
 cat > /etc/bss/cybermap-api.env <<ENV
 PGHOST=__POSTGRES_SERVER_FQDN__
 PGPORT=5432
@@ -56,13 +70,14 @@ PGDATABASE=__POSTGRES_DATABASE_NAME__
 PGUSER=__POSTGRES_ADMINISTRATOR_LOGIN__
 PGPASSWORD=$POSTGRES_PASSWORD
 PGSSLMODE=require
-DATABASE_URL=postgresql://__POSTGRES_ADMINISTRATOR_LOGIN__:$POSTGRES_PASSWORD@__POSTGRES_SERVER_FQDN__:5432/__POSTGRES_DATABASE_NAME__?sslmode=require
+DATABASE_URL=postgresql://__POSTGRES_ADMINISTRATOR_LOGIN__:${POSTGRES_PASSWORD_URLENCODED}@__POSTGRES_SERVER_FQDN__:5432/__POSTGRES_DATABASE_NAME__?sslmode=verify-full
 BSS_CYBERMAP_BIND_HOST=127.0.0.1
 BSS_CYBERMAP_PORT=__CYBERMAP_API_PORT__
 BSS_CYBERMAP_DB_POOL_MAX=4
 BSS_CYBERMAP_READ_TOKEN=$CYBERMAP_READ_TOKEN
 BSS_PAPER_STATE_TOKEN=$PAPER_STATE_TOKEN
 BSS_MORNING_BRIEF_TOKEN=$MORNING_BRIEF_TOKEN
+BSS_MTLS_PROXY_SECRET=$BSS_MTLS_PROXY_SECRET
 
 ENV
 chmod 0600 /etc/bss/cybermap-api.env
@@ -94,7 +109,9 @@ run_migration() {
 run_migration 0001_cybermap_core db/migrations/0001_cybermap_core.sql
 run_migration 0002_device_ingest_contract db/migrations/0002_device_ingest_contract.sql
 run_migration 0003_paper_state db/migrations/0003_paper_state.sql
+run_migration 0004_godeye_global_cells_and_sources db/migrations/0004_godeye_global_cells_and_sources.sql
 run_migration 0004_morning_brief_archive db/migrations/0004_morning_brief_archive.sql
+psql -v ON_ERROR_STOP=1 -c "UPDATE source_catalog SET enabled = true, allowed_preload = true, terms_reviewed = true, updated_at = clock_timestamp() WHERE source_key = 'deflock-osm-alpr-reports'"
 
 cat > /etc/systemd/system/bss-cybermap-api.service <<'UNIT'
 [Unit]
@@ -118,19 +135,73 @@ ProtectHome=true
 WantedBy=multi-user.target
 UNIT
 
+cat > /etc/systemd/system/bss-deflock-source.service <<'UNIT'
+[Unit]
+Description=Blue Swallow DeFlock aggregate source job
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/bss/cybermap-api
+EnvironmentFile=/etc/bss/cybermap-api.env
+ExecStart=/usr/bin/node /opt/bss/cybermap-api/src/deflock-source-job.mjs
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+UNIT
+
+cat > /etc/systemd/system/bss-deflock-source.timer <<'UNIT'
+[Unit]
+Description=Run Blue Swallow DeFlock aggregate source job every six hours
+
+[Timer]
+OnBootSec=5m
+OnUnitActiveSec=6h
+RandomizedDelaySec=5m
+Persistent=true
+Unit=bss-deflock-source.service
+
+[Install]
+WantedBy=timers.target
+UNIT
 
 cat > /etc/caddy/Caddyfile <<'CADDY'
 __BACKEND_FQDN__ {
   encode zstd gzip
   reverse_proxy 127.0.0.1:__CYBERMAP_API_PORT__
 }
+
+__BACKEND_FQDN__:8443 {
+  tls {
+    client_auth {
+      mode require_and_verify
+      trust_pool file /etc/caddy/wardriver-mtls-trust.pem
+    }
+  }
+  @wardriver_mtls path /api/v1/cybermap/viewport /api/v1/observations/batch
+  handle @wardriver_mtls {
+    reverse_proxy 127.0.0.1:__CYBERMAP_API_PORT__ {
+      header_up -X-Blue-Swallow-Mtls-Proxy-Secret
+      header_up -X-Blue-Swallow-Mtls-Client-Fingerprint
+      header_up X-Blue-Swallow-Mtls-Proxy-Secret {env.BSS_MTLS_PROXY_SECRET}
+      header_up X-Blue-Swallow-Mtls-Client-Fingerprint {tls_client_fingerprint}
+    }
+  }
+  respond "not_found" 404
+}
 CADDY
+caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
 systemctl daemon-reload
 systemctl disable --now echo-server.service || true
 systemctl enable bss-cybermap-api.service
 systemctl restart bss-cybermap-api.service
+systemctl enable --now bss-deflock-source.timer
+systemctl start bss-deflock-source.service
 systemctl enable caddy.service
 systemctl reload-or-restart caddy.service
 systemctl is-active --quiet bss-cybermap-api.service
+systemctl is-active --quiet bss-deflock-source.timer
 systemctl is-active --quiet caddy.service

@@ -38,12 +38,25 @@ def sample_manifest(now: datetime) -> dict:
             "market_signals": [{"title": "Belief delta", "summary": "Market belief remains separate from fact.", "source": "Market", "url": "https://example.test/market", "confidence": "medium"}],
             "paper_action_candidates": [{"action": "WATCH", "book_id": "standard__crypto", "instrument_ref": "crypto:bitcoin", "paper_size": 0, "thesis": "Watch only.", "risk_policy_passed": True}],
             "paper_books": [{"displayName": "Standard / Crypto", "openPositionCount": 0, "grossPaperExposure": 0, "dailyPnl": 0, "cumulativePnl": 0, "drawdownPct": 0, "status": "flat"}],
+            "daily_tarot_study": {"lesson_id": "tarot-study-2026-07-21", "cycle_day": 7, "card": "The Chariot", "arcana": "Major Arcana", "upright_keywords": ["direction", "discipline", "will"], "reversed_keywords": ["scattered effort", "force", "loss of direction"], "symbol_focus": "Two contrasting creatures, armor, and the star canopy.", "reading_drill": "Separate deliberate direction from control for its own sake.", "disclosure": "Reflective study only; do not use this card as prediction or instruction.", "source": "Fixed 78-card tarot study curriculum"},
         },
         "governance": {"paper_only": True, "autonomous_paper_execution": True, "no_real_money_execution": True},
     }
 
 
 class MorningBriefFieldDossierTests(unittest.TestCase):
+    def test_validated_package_includes_one_daily_tarot_study_page(self):
+        renderer = load_module(SCRIPT_PATH, "field_dossier_tarot")
+        now = datetime(2026, 7, 21, 13, 0, tzinfo=timezone.utc)
+        canonical = {"generated_at": iso(now), "ledger": {"books": []}}
+        receipt = {"ok": True, "updated_at": iso(now), "canonical_paper_state": canonical}
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = renderer.render_field_dossier(sample_manifest(now), "Validated study packet.", receipt, Path(tmpdir), now=now)
+
+        tarot_pages = [page for page in result["pages"] if page["lane"] == "TAROT / DAILY STUDY"]
+        self.assertEqual(len(tarot_pages), 1)
+        self.assertEqual(tarot_pages[0]["title"], "Daily tarot study")
+
     def test_prediction_adapter_rejects_out_of_range_outcome_prices_before_emitting_instruments(self):
         market = load_module(MARKET_PATH, "market_data")
         now = datetime(2026, 7, 21, tzinfo=timezone.utc)

@@ -35,11 +35,17 @@ jobs:
           POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
           BSS_CYBERMAP_READ_TOKEN: ${{ secrets.BSS_CYBERMAP_READ_TOKEN }}
           BSS_PAPER_STATE_TOKEN: ${{ secrets.BSS_PAPER_STATE_TOKEN }}
+          BSS_MORNING_BRIEF_TOKEN: ${{ secrets.BSS_MORNING_BRIEF_TOKEN }}
+          BSS_MTLS_PROXY_SECRET: ${{ secrets.BSS_MTLS_PROXY_SECRET }}
+          BSS_WARDRIVER_MTLS_TRUST_PEM: ${{ secrets.BSS_WARDRIVER_MTLS_TRUST_PEM }}
         run: |
           ssh_key=$(printf '%s' "$SSH_KEY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           postgres_password=$(printf '%s' "$POSTGRES_ADMIN_PASSWORD" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           cybermap_read_token=$(printf '%s' "$BSS_CYBERMAP_READ_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           paper_state_token=$(printf '%s' "$BSS_PAPER_STATE_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          morning_brief_token=$(printf '%s' "$BSS_MORNING_BRIEF_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          mtls_proxy_secret=$(printf '%s' "$BSS_MTLS_PROXY_SECRET" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          mtls_trust_pem=$(printf '%s' "$BSS_WARDRIVER_MTLS_TRUST_PEM" | tr -d '\r')
           az deployment group what-if \
             --resource-group "$RESOURCE_GROUP" \
             --template-file infra/main.bicep \
@@ -47,4 +53,7 @@ jobs:
             --parameters sshPublicKey="$ssh_key" \
             --parameters postgresAdministratorLoginPassword="$postgres_password" \
             --parameters cybermapReadToken="$cybermap_read_token" \
-            --parameters paperStateToken="$paper_state_token"
+            --parameters paperStateToken="$paper_state_token" \
+            --parameters morningBriefToken="$morning_brief_token" \
+            --parameters mtlsProxySecret="$mtls_proxy_secret" \
+            --parameters wardriverMtlsTrustCertificatePem="$mtls_trust_pem"

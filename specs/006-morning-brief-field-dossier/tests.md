@@ -18,6 +18,7 @@ Fresh checkout prerequisite: `(cd api && npm ci --ignore-scripts)`. Unit and int
 | TST-008 | FR-006, FR-007; SWA gateway/UI | Verify operator-token authentication, no-store headers, allowed proxy methods, artifact forwarding, UI token guard, public-route denial, `blob:` image CSP permission, dropdown run selection, and scroll-snap dossier carousel construction. | `tests/morning-brief-api.test.mjs`, `tests/morning-brief-ui.test.mjs` |
 | TST-009 | SC-003; production acceptance | Run wake → collect → validate → render → archive → scheduler-managed Discord delivery; fetch the archive through the authenticated live UI and compare its hash with the immutable package/receipt. | deployment receipt + live probes |
 | TST-010 | FR-005; bounded archive retention | Archive eight daily runs against both memory and scripted PostgreSQL stores. The eighth successful transaction deletes artifacts before parent rows at the seven-day boundary; list/detail no longer expose the expired run. | `vm/cybermap-api/test/morning-brief.test.mjs`, `vm/cybermap-api/test/postgres-store.test.mjs` |
+| TST-011 | Daily tarot study; deterministic learning packet | For fixed `America/Los_Angeles` dates, select the expected fixed-curriculum record, prove the 78-day wrap, and assert that Markdown, cron packet, and a validated Field Dossier page preserve one reflective `TAROT / DAILY STUDY` record. | `tests/morning_brief_collect_test.py`, `tests/morning_brief_field_dossier_test.py` |
 
 ## Requirement coverage
 
@@ -30,6 +31,7 @@ Fresh checkout prerequisite: `(cd api && npm ci --ignore-scripts)`. Unit and int
 | Authenticated dropdown selection and rendered image carousel parity | TST-008, TST-009 |
 | One scheduler authority and deployment-secret minimization | TST-007 |
 | Fresh real package appears in authenticated live operator UI | TST-009 |
+| Deterministic non-predictive daily tarot study appears in all morning-brief outputs | TST-011 |
 
 ## Commands
 

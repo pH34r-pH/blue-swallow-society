@@ -50,6 +50,16 @@ test('successful root authentication replaces passcode entry with a sealed hando
   assert.match(rootMainJs, /if \(loginBtn && !operatorHandoffStarted\)/);
 });
 
+test('successful root authentication replaces passcode entry with a sealed handoff before navigation', () => {
+  assert.match(indexHtml, /id="loginControls"/);
+  assert.match(indexHtml, /id="operatorHandoff"/);
+  assert.match(indexHtml, /id="operatorHandoff"[^>]*role="status"/);
+  assert.match(rootMainJs, /function showOperatorHandoff\(\)/);
+  assert.match(rootMainJs, /operatorHandoffStarted\s*=\s*true/);
+  assert.match(rootMainJs, /persistOperatorSession\(session\);\s*showOperatorHandoff\(\);\s*window\.location\.assign\('\/operator'\)/);
+  assert.match(rootMainJs, /if \(loginBtn && !operatorHandoffStarted\)/);
+});
+
 test('root login and standard public branch use the restored white/blue theme, not the operator dark shell', () => {
   assert.match(indexHtml, /<meta name="color-scheme" content="light" \/>/);
   assert.match(indexHtml, /<meta name="theme-color" content="#f8fafc" \/>/);

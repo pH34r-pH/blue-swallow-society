@@ -10,6 +10,8 @@ const ingestMigration = read('vm/cybermap-api/db/migrations/0002_device_ingest_c
 const ingestMigrationLower = ingestMigration.toLowerCase();
 const paperStateMigration = read('vm/cybermap-api/db/migrations/0003_paper_state.sql');
 const paperStateMigrationLower = paperStateMigration.toLowerCase();
+const globalSourceMigration = read('vm/cybermap-api/db/migrations/0004_godeye_global_cells_and_sources.sql');
+const globalSourceMigrationLower = globalSourceMigration.toLowerCase();
 const dbReadme = read('vm/cybermap-api/db/README.md');
 const installCybermapApi = read('infra/scripts/install-cybermap-api.sh');
 
@@ -178,13 +180,25 @@ test('migration docs define the lightweight ordered SQL runner contract', () => 
 
 test('VM Cybermap installer applies checked-in SQL migrations with psql', () => {
   assert.match(installCybermapApi, /postgresql-client/);
-  assert.match(installCybermapApi, /DATABASE_URL=postgresql:\/\/__POSTGRES_ADMINISTRATOR_LOGIN__:\$POSTGRES_PASSWORD@__POSTGRES_SERVER_FQDN__:5432\/__POSTGRES_DATABASE_NAME__\?sslmode=require/);
+  assert.match(installCybermapApi, /POSTGRES_PASSWORD_URLENCODED=/);
+  assert.match(installCybermapApi, /DATABASE_URL=postgresql:\/\/__POSTGRES_ADMINISTRATOR_LOGIN__:\$\{POSTGRES_PASSWORD_URLENCODED\}@__POSTGRES_SERVER_FQDN__:5432\/__POSTGRES_DATABASE_NAME__\?sslmode=verify-full/);
   assert.match(installCybermapApi, /psql\s+-v\s+ON_ERROR_STOP=1\s+-f\s+"\$file"/);
   assert.match(installCybermapApi, /schema_migrations/);
   assert.match(installCybermapApi, /0001_cybermap_core\.sql/);
   assert.match(installCybermapApi, /0002_device_ingest_contract\.sql/);
   assert.match(installCybermapApi, /0003_paper_state\.sql/);
   assert.doesNotMatch(installCybermapApi, /scripts\/migrate\.mjs/);
+});
+
+test('DeFlock deployment enables the catalog, applies migration 0004, and schedules a bounded source job', () => {
+  assert.match(globalSourceMigrationLower, /'deflock-osm-alpr-reports'/);
+  assert.match(globalSourceMigrationLower, /allowed_preload\s*,\s*retains_raw_payload[\s\S]*true\s*,\s*false\s*,\s*86400\s*,\s*true\s*,\s*true/);
+  assert.match(globalSourceMigrationLower, /'production_enablement',\s*'operator approved and scheduled'/);
+  assert.match(installCybermapApi, /run_migration 0004_godeye_global_cells_and_sources db\/migrations\/0004_godeye_global_cells_and_sources\.sql/);
+  assert.match(installCybermapApi, /bss-deflock-source\.service/);
+  assert.match(installCybermapApi, /bss-deflock-source\.timer/);
+  assert.match(installCybermapApi, /src\/deflock-source-job\.mjs/);
+  assert.match(installCybermapApi, /systemctl start bss-deflock-source\.service/);
 });
 
 test('device ingest migration stores only token digests and scoped enrollment state', () => {

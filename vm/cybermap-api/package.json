@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node src/main.mjs",
+    "greenfeed:deflock": "node src/deflock-source-job.mjs",
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {

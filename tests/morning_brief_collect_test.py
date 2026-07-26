@@ -1,6 +1,7 @@
 import importlib.util
 import tempfile
 import unittest
+from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -17,6 +18,27 @@ def load_morning_module():
 
 
 class MorningBriefCollectorTests(unittest.TestCase):
+    def test_daily_tarot_study_uses_a_fixed_78_card_cycle(self):
+        module = load_morning_module()
+
+        first = module.daily_tarot_study(date(2026, 1, 1))
+        wrapped = module.daily_tarot_study(date(2026, 1, 1) + timedelta(days=78))
+
+        self.assertEqual(first, {
+            "lesson_id": "tarot-study-2026-01-01",
+            "cycle_day": 1,
+            "card": "The Fool",
+            "arcana": "Major Arcana",
+            "upright_keywords": ["beginning", "openness", "trust"],
+            "reversed_keywords": ["recklessness", "avoidance", "unreadiness"],
+            "symbol_focus": "Horizon, white rose, small companion, and the unmeasured step.",
+            "reading_drill": "Name the question. Read The Fool as a starting condition, then let adjacent cards constrain the next step.",
+            "disclosure": "Reflective study only; do not use this card as prediction or instruction.",
+            "source": "Fixed 78-card tarot study curriculum",
+        })
+        self.assertEqual(wrapped["card"], first["card"])
+        self.assertEqual(wrapped["cycle_day"], 1)
+
     def test_default_paper_books_include_full_three_by_eight_matrix_awaiting_allocation(self):
         module = load_morning_module()
         books = module.summarize_books(module.DEFAULT_LEDGER_DATA, Path("missing.json"), False)
@@ -196,6 +218,7 @@ class MorningBriefCollectorTests(unittest.TestCase):
             delivery = Path(manifest["delivery_path"]).read_text(encoding="utf-8")
             self.assertIn("# Mosaic & Murmurs Morning Brief", delivery)
             self.assertIn("## Mosaic", delivery)
+            self.assertIn("## Tarot / Daily Study", delivery)
             self.assertIn("Seattle emergency update", delivery)
             self.assertNotIn(str(ledger), delivery)
             self.assertEqual(packet["breaking_reality"][0]["title"], "Seattle emergency update")
@@ -203,6 +226,8 @@ class MorningBriefCollectorTests(unittest.TestCase):
             self.assertEqual(packet["paper_books"][0]["bookId"], "standard__prediction_markets")
             self.assertEqual(len(packet["paper_books"]), 24)
             self.assertEqual(packet["paper_action_candidates"][0]["action"], "PAPER_BUY")
+            self.assertEqual(packet["daily_tarot_study"], manifest["brief_inputs"]["daily_tarot_study"])
+            self.assertIn(packet["daily_tarot_study"]["card"], delivery)
             self.assertTrue(packet["governance"]["paper_only"])
             self.assertTrue(packet["governance"]["autonomous_paper_execution"])
             self.assertFalse(packet["governance"]["human_review_required_for_actions"])

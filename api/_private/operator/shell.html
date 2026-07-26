@@ -461,6 +461,21 @@
                 </section>
               </div>
             </section>
+
+            <section class="deflock-global-surface" aria-labelledby="deflockGlobalTitle">
+              <div class="deflock-global-heading">
+                <div><p class="eyebrow">// PUBLIC REPORTED //</p><h3 id="deflockGlobalTitle">Public-reported ALPR aggregate</h3></div>
+                <button id="deflockGlobalRefreshBtn" class="btn btn-secondary" type="button">Refresh aggregate layer</button>
+              </div>
+              <p class="deflock-global-intent">Coarse, source-attributed cells only. Reports are public-reported, not verified or live; Godeye does not calculate routes or expose point records.</p>
+              <div class="deflock-global-layout">
+                <div id="deflockGlobalMap" class="map-viewport deflock-global-map" aria-label="Continental public-reported ALPR aggregate map">
+                  <div class="map-grid" aria-hidden="true"></div><div id="deflockGlobalCells" class="deflock-global-cells" aria-hidden="true"></div>
+                  <div class="map-label"><span class="map-label-title">Public-reported aggregate</span><span id="deflockGlobalMapStatus">No aggregate layer loaded.</span></div>
+                </div>
+                <aside class="deflock-global-meta"><p class="sensor-label">Layer state</p><p id="deflockGlobalStatus">Public-reported ALPR aggregate is not loaded yet.</p><p class="sensor-label">Attribution</p><p id="deflockGlobalAttribution">© OpenStreetMap contributors; data available under ODbL. DeFlock delivery reference.</p></aside>
+              </div>
+            </section>
           </article>
         </section>
       </div>

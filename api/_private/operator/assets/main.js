@@ -34,6 +34,10 @@ const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
 const GODEYE_VIEWPORT_ENDPOINT = '/api/cybermap/viewport';
 const godeyeController = createGodeyeController();
 const visionController = createVisionController();
+const GODEYE_GLOBAL_VIEWPORT_ENDPOINT = '/api/cybermap/global-viewport';
+const DEFLOCK_GLOBAL_CENTER = Object.freeze({ latitude: 39.1, longitude: -98.3 });
+const DEFLOCK_GLOBAL_ZOOM = 3;
+const DEFLOCK_GLOBAL_BBOX = Object.freeze({ west: -125, south: 24, east: -66, north: 50 });
 
 function emptyWigleDataset(source = 'cybermap-postgis') {
   return godeyeController.emptyDataset(source);
@@ -104,6 +108,10 @@ const state = {
   godeyeMode: 'field',
   godeyeModeBound: false,
   godeyeGlobalRenderer: null,
+  deflockGlobalBound: false,
+  deflockGlobalData: null,
+  deflockGlobalLoading: false,
+  deflockGlobalStatus: 'Public-reported ALPR aggregate is not loaded yet.',
   geolocationWatchId: null,
   currentLocation: null,
   godeyeRenderFrame: 0,
@@ -1543,6 +1551,7 @@ function initGodeyeTab() {
 
     bindGodeyeModeControls();
     bindWigleControls();
+    bindDeflockGlobalControls();
 
     if (!state.godeyeResizeBound) {
       window.addEventListener('resize', scheduleGodeyeRender);
@@ -1561,6 +1570,10 @@ function initGodeyeTab() {
   renderGodeyeFields();
   renderWigleViews();
   renderGodeyeMap();
+  renderDeflockGlobalMap();
+  if (!state.deflockGlobalData && !state.deflockGlobalLoading) {
+    void refreshDeflockGlobalViewport({ quiet: true });
+  }
 }
 
 function bindGodeyeModeControls() {
@@ -1617,6 +1630,88 @@ async function loadGodeyeGlobalViewport() {
   }
 
   await state.godeyeGlobalRenderer.loadViewport(DEFAULT_GODEYE_GLOBAL_VIEWPORT);
+}
+
+function bindDeflockGlobalControls() {
+  if (state.deflockGlobalBound) return;
+  $('deflockGlobalRefreshBtn')?.addEventListener('click', () => { void refreshDeflockGlobalViewport(); });
+  state.deflockGlobalBound = true;
+}
+
+function buildDeflockGlobalRequest() {
+  return {
+    schema_version: 'bss.global_viewport_request.v1',
+    bbox: DEFLOCK_GLOBAL_BBOX,
+    zoom: DEFLOCK_GLOBAL_ZOOM,
+    layer_ids: ['deflock-osm-alpr-reports'],
+    cell_limit: 600,
+  };
+}
+
+async function refreshDeflockGlobalViewport({ quiet = false } = {}) {
+  if (state.deflockGlobalLoading) return false;
+  state.deflockGlobalLoading = true;
+  const refreshButton = $('deflockGlobalRefreshBtn');
+  if (refreshButton) refreshButton.disabled = true;
+  if (!quiet) setDeflockGlobalStatus('Reading the BSS materialized public-reports layer…');
+  try {
+    const response = await fetch(GODEYE_GLOBAL_VIEWPORT_ENDPOINT, {
+      method: 'POST',
+      headers: buildOperatorHeaders({ Accept: 'application/json', 'Content-Type': 'application/json' }),
+      credentials: 'same-origin',
+      cache: 'no-store',
+      body: JSON.stringify(buildDeflockGlobalRequest()),
+    });
+    const payload = await response.json();
+    if (!response.ok || payload?.schema_version !== 'bss.global_viewport_response.v1') throw new Error(payload?.message || `HTTP ${response.status}`);
+    state.deflockGlobalData = payload;
+    const source = payload.sources?.find((entry) => entry.source_id === 'deflock-osm-alpr-reports');
+    const count = Array.isArray(payload.cells) ? payload.cells.length : 0;
+    const status = source?.status || 'unknown';
+    setDeflockGlobalStatus(status === 'disabled'
+      ? 'Public-reports layer is disabled by catalog configuration.'
+      : status === 'stale'
+        ? `Public-reports layer is stale; displaying ${count} coarse aggregate cell${count === 1 ? '' : 's'} with its source warning.`
+        : `Public-reports layer ${status}; displaying ${count} coarse aggregate cell${count === 1 ? '' : 's'}.`);
+    return true;
+  } catch (error) {
+    state.deflockGlobalData = null;
+    setDeflockGlobalStatus(`Public-reports aggregate unavailable: ${error.message}`);
+    return false;
+  } finally {
+    state.deflockGlobalLoading = false;
+    if (refreshButton) refreshButton.disabled = false;
+    renderDeflockGlobalMap();
+  }
+}
+
+function setDeflockGlobalStatus(message) {
+  state.deflockGlobalStatus = message;
+  setText('deflockGlobalStatus', message);
+  setText('deflockGlobalMapStatus', message);
+}
+
+function renderDeflockGlobalMap() {
+  const cellLayer = $('deflockGlobalCells');
+  if (!cellLayer) return;
+  const attribution = state.deflockGlobalData?.sources?.find((entry) => entry.source_id === 'deflock-osm-alpr-reports')?.attribution
+    || '© OpenStreetMap contributors; data available under ODbL. DeFlock delivery reference.';
+  setText('deflockGlobalAttribution', attribution);
+  const fragment = document.createDocumentFragment();
+  for (const cell of state.deflockGlobalData?.cells ?? []) {
+    const latitude = Number(cell?.centroid?.latitude);
+    const longitude = Number(cell?.centroid?.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+    const marker = document.createElement('span');
+    marker.className = 'deflock-global-cell';
+    marker.style.left = `${((longitude - DEFLOCK_GLOBAL_BBOX.west) / (DEFLOCK_GLOBAL_BBOX.east - DEFLOCK_GLOBAL_BBOX.west)) * 100}%`;
+    marker.style.top = `${((DEFLOCK_GLOBAL_BBOX.north - latitude) / (DEFLOCK_GLOBAL_BBOX.north - DEFLOCK_GLOBAL_BBOX.south)) * 100}%`;
+    const count = Math.max(0, Number(cell.report_count) || 0);
+    marker.textContent = count > 99 ? '99+' : String(count);
+    marker.title = `Public-reported aggregate: ${count} report${count === 1 ? '' : 's'} at H3 resolution ${cell.resolution}.`;
+    fragment.appendChild(marker);
+  }
+  cellLayer.replaceChildren(fragment);
 }
 
 async function startGodeyeFeed() {

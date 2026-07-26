@@ -50,6 +50,13 @@
       ]
     },
     {
+      "route": "/api/cybermap/global-viewport",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
       "route": "/api/cybermap/observations/batch",
       "allowedRoles": [
         "anonymous",

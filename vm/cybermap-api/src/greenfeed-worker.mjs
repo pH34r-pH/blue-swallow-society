@@ -1,3 +1,10 @@
+import { gunzipSync } from 'node:zlib';
+
+import { materializeDeflockReports } from './deflock-materializer.mjs';
+import { DEFLOCK_DATA_URL, DEFLOCK_SOURCE_ID, extractDeflockReportPoints } from './sources/deflock-osm-alpr-reports.mjs';
+
+export { DEFLOCK_DATA_URL, DEFLOCK_SOURCE_ID };
+
 const DEFAULT_BACKOFF_MS = Object.freeze({
   rate_limited: 60_000,
   failed: 30_000,
@@ -191,4 +198,114 @@ function logFailure(logger, run) {
   } catch {
     // Diagnostic sinks must not alter worker state or source-run receipts.
   }
+}
+
+const DEFLOCK_MAX_BYTES = 35 * 1024 * 1024;
+const DEFLOCK_MAX_DECOMPRESSED_BYTES = 256 * 1024 * 1024;
+const DEFLOCK_DEADLINE_MS = 45_000;
+
+export async function runDeflockSourceJob({ source, fetchImpl = globalThis.fetch, store, now = () => new Date(), deadlineMs = DEFLOCK_DEADLINE_MS } = {}) {
+  const sourceKey = source?.source_key ?? source?.id;
+  if (!source || sourceKey !== DEFLOCK_SOURCE_ID) throw new TypeError('A DeFlock source entry is required.');
+  if (!store || typeof store.recordDeflockSourceFetchRun !== 'function' || typeof store.replaceDeflockSourceCells !== 'function') {
+    throw new TypeError('A DeFlock source-run/cell store is required.');
+  }
+  const startedAt = deflockIsoNow(now);
+  if (source.enabled !== true) {
+    const sourceRun = deflockRun({ startedAt, outcome: 'disabled' });
+    await store.recordDeflockSourceFetchRun(sourceRun);
+    return { outcome: 'disabled', source_id: DEFLOCK_SOURCE_ID };
+  }
+
+  let timeout = null;
+  const controller = new AbortController();
+  try {
+    timeout = setTimeout(() => controller.abort(), deadlineMs);
+    const response = await fetchImpl(DEFLOCK_DATA_URL, {
+      method: 'GET',
+      headers: { Accept: 'application/geo+json, application/json' },
+      redirect: 'error',
+      signal: controller.signal,
+    });
+    if (!response?.ok) return deflockRecordFailure(store, deflockRun({ startedAt, outcome: response?.status === 429 ? 'rate_limited' : 'http_error', http_status: Number(response?.status) || null }));
+    if (deflockContentLength(response.headers?.get?.('content-length')) > DEFLOCK_MAX_BYTES) {
+      return deflockRecordFailure(store, deflockRun({ startedAt, outcome: 'payload_too_large', http_status: response.status }));
+    }
+    const compressedBytes = Buffer.from(await response.arrayBuffer());
+    if (compressedBytes.byteLength > DEFLOCK_MAX_BYTES) {
+      return deflockRecordFailure(store, deflockRun({ startedAt, outcome: 'payload_too_large', http_status: response.status }));
+    }
+    let payload;
+    try {
+      payload = decodeDeflockPayload(compressedBytes);
+    } catch (error) {
+      return deflockRecordFailure(store, deflockRun({
+        startedAt,
+        outcome: error?.code === 'payload_too_large' ? 'payload_too_large' : 'invalid_payload',
+        http_status: response.status,
+      }));
+    }
+    let reports;
+    try {
+      reports = extractDeflockReportPoints(payload);
+    } catch {
+      return deflockRecordFailure(store, deflockRun({ startedAt, outcome: 'invalid_payload', http_status: response.status }));
+    }
+    const observedAt = deflockIsoNow(now);
+    const cells = materializeDeflockReports(reports, { observedAt });
+    await store.replaceDeflockSourceCells({ source_id: DEFLOCK_SOURCE_ID, observed_at: observedAt, cells });
+    const success = deflockRun({
+      startedAt, outcome: 'success', http_status: response.status, etag: deflockEtag(response.headers?.get?.('etag')),
+      item_count: reports.length, normalized_count: reports.length, cell_count: cells.length, completed_at: deflockIsoNow(now),
+    });
+    await store.recordDeflockSourceFetchRun(success);
+    return { outcome: 'success', source_id: DEFLOCK_SOURCE_ID, item_count: reports.length, cell_count: cells.length };
+  } catch (error) {
+    return deflockRecordFailure(store, deflockRun({ startedAt, outcome: error?.name === 'AbortError' ? 'timeout' : 'network_error' }));
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+function deflockRun({ startedAt, outcome, http_status = null, etag = null, item_count = 0, normalized_count = 0, cell_count = 0, completed_at = startedAt }) {
+  return { source_id: DEFLOCK_SOURCE_ID, outcome, started_at: startedAt, completed_at, http_status, etag, item_count, normalized_count, cell_count };
+}
+
+async function deflockRecordFailure(store, sourceRun) {
+  await store.recordDeflockSourceFetchRun(sourceRun);
+  return { outcome: sourceRun.outcome, source_id: DEFLOCK_SOURCE_ID };
+}
+
+function decodeDeflockPayload(bytes) {
+  const isGzip = bytes?.[0] === 0x1f && bytes?.[1] === 0x8b;
+  let decoded;
+  try {
+    decoded = isGzip ? gunzipSync(bytes, { maxOutputLength: DEFLOCK_MAX_DECOMPRESSED_BYTES }) : bytes;
+  } catch (cause) {
+    const error = new Error('The DeFlock source payload could not be decompressed.');
+    error.code = cause?.code === 'ERR_BUFFER_TOO_LARGE' ? 'payload_too_large' : 'invalid_payload';
+    throw error;
+  }
+  if (decoded.byteLength > DEFLOCK_MAX_DECOMPRESSED_BYTES) {
+    const error = new Error('The decompressed DeFlock source payload exceeds the configured bound.');
+    error.code = 'payload_too_large';
+    throw error;
+  }
+  return JSON.parse(decoded.toString('utf8'));
+}
+
+function deflockContentLength(value) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function deflockEtag(value) {
+  return typeof value === 'string' && value.length > 0 && value.length <= 256 ? value : null;
+}
+
+function deflockIsoNow(now) {
+  const value = now();
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) throw new TypeError('now must return a valid date');
+  return date.toISOString();
 }
