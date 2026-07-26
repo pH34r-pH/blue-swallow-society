@@ -16,7 +16,8 @@
       ]
     },
     {
-      "route": "/operator/*",
+      "route": "/operator/morning-brief.html",
+      "rewrite": "/operator/index.html",
       "allowedRoles": [
         "anonymous",
         "authenticated"
@@ -64,10 +65,7 @@
     },
     {
       "route": "/api/agent",
-      "allowedRoles": [
-        "anonymous",
-        "authenticated"
-      ]
+      "statusCode": 404
     },
     {
       "route": "/api/tzeentch",
@@ -85,6 +83,13 @@
     },
     {
       "route": "/api/operator-shell",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/api/operator-assets/*",
       "allowedRoles": [
         "anonymous",
         "authenticated"
@@ -117,19 +122,11 @@
     },
     {
       "route": "/agent",
-      "rewrite": "/operator/agent.html",
-      "allowedRoles": [
-        "anonymous",
-        "authenticated"
-      ]
+      "statusCode": 404
     },
     {
       "route": "/agent.html",
-      "rewrite": "/operator/agent.html",
-      "allowedRoles": [
-        "anonymous",
-        "authenticated"
-      ]
+      "statusCode": 404
     },
     {
       "route": "/login",

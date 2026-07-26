@@ -7,7 +7,7 @@ let wigleModulePromise;
 
 function getWigleModule() {
   if (!wigleModulePromise) {
-    const modulePath = path.resolve(__dirname, '../../app/operator/wigle.mjs');
+    const modulePath = path.resolve(__dirname, '../_private/operator/assets/wigle.mjs');
     wigleModulePromise = import(pathToFileURL(modulePath).href);
   }
 

@@ -29,6 +29,17 @@ function redirectHome() {
   window.location.replace('/');
 }
 
+function loadPrivateStylesheet(assetName) {
+  return new Promise((resolve, reject) => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `/api/operator-assets/${assetName}`;
+    link.onload = () => resolve();
+    link.onerror = () => reject(new Error(`Failed to load private stylesheet: ${assetName}`));
+    document.head.append(link);
+  });
+}
+
 async function boot() {
   const session = getOperatorSession();
   if (!session) {
@@ -50,9 +61,13 @@ async function boot() {
   }
 
   const shell = await response.text();
+  await Promise.all([
+    loadPrivateStylesheet('styles.css'),
+    loadPrivateStylesheet('theme.css'),
+  ]);
   document.body.innerHTML = shell;
   document.body.dataset.mode = 'operator';
-  await import('/operator/main.js');
+  await import('/api/operator-assets/main.js');
 }
 
 boot().catch((error) => {

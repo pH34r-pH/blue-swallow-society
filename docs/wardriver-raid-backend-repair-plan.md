@@ -66,7 +66,7 @@ Real pieces found:
 
 - Public/operator split is implemented in the Static Web App and Functions layer. The public root is intended to remain passcode-only.
 - `/api/validate-passcode` issues an operator session only for the configured passcode digest.
-- `/api/operator-shell`, `/api/wigle`, `/api/osint`, `/api/agent`, the paper/runtime endpoint, and `/api/operator-downloads/wardriver/*` all call `requireOperatorToken` in the Functions layer.
+- `/api/operator-shell`, `/api/wigle`, `/api/osint`, the paper/runtime endpoint, and `/api/operator-downloads/wardriver/*` all call `requireOperatorToken` in the Functions layer. Private shell assets use a separate short-lived, cookie-bound asset grant.
 - `/downloads/*` is explicitly blocked by `app/staticwebapp.config.json`.
 - `/api/wigle` supports three read modes:
   - `mode=current`: recent observations for AR, read from `WIGLE_LOCAL_DB_PATH` or `WIGLE_LOCAL_DB_URL`.

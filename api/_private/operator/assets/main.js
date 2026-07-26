@@ -10,14 +10,14 @@ import {
   buildWigleMapState,
   filterWigleRecordsByRadius,
   isLiveWigleSnapshot,
-  mergeWigleRecords,
   parseWiglePayload,
 } from './wigle.mjs';
 import {
   buildArDetectionBoxes,
-  mergeVisionDetections,
   parseVisionPayload,
 } from './vision.mjs';
+import { createGodeyeController } from './godeye-controller.mjs';
+import { createVisionController } from './vision-controller.mjs';
 import {
   DEFAULT_GODEYE_GLOBAL_VIEWPORT,
   createGodeyeGlobalRenderer,
@@ -32,16 +32,11 @@ const GEO_OPTIONS = {
 };
 const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
 const GODEYE_VIEWPORT_ENDPOINT = '/api/cybermap/viewport';
+const godeyeController = createGodeyeController();
+const visionController = createVisionController();
 
 function emptyWigleDataset(source = 'cybermap-postgis') {
-  return {
-    location: null,
-    accessPoints: [],
-    source,
-    mode: 'viewport',
-    live: false,
-    updatedAt: null,
-  };
+  return godeyeController.emptyDataset(source);
 }
 
 const $ = (id) => document.getElementById(id);
@@ -127,10 +122,10 @@ const state = {
   wigleSourceLabel: 'cybermap-postgis',
   visionBound: false,
   visionRenderFrame: 0,
-  visionData: { frame: null, detections: [] },
+  visionData: visionController.emptyDataset(),
   visionEndpoint: '',
   visionStatus: 'Live object detections are not connected yet.',
-  visionSourceLabel: 'live',
+  visionSourceLabel: 'unavailable',
 };
 
 function init() {
@@ -315,10 +310,10 @@ function resetConsoleToLogin() {
   state.wigleEndpoint = GODEYE_VIEWPORT_ENDPOINT;
   state.wigleStatus = 'Godeye Cybermap viewport is not connected yet.';
   state.wigleSourceLabel = 'cybermap-postgis';
-  state.visionData = { frame: null, detections: [] };
+  state.visionData = visionController.emptyDataset();
   state.visionEndpoint = '';
   state.visionStatus = 'Live object detections are not connected yet.';
-  state.visionSourceLabel = 'live';
+  state.visionSourceLabel = 'unavailable';
   state.arEnabled = false;
   state.arFullscreen = false;
   const endpointInput = $('wigleEndpointInput');
@@ -474,7 +469,7 @@ function initTabDefaults() {
 
 function initMorningBriefTab() {
   if (state.morningBriefInitialized || state.morningBriefLoading) return;
-  state.morningBriefLoading = import('/operator/morning-brief.mjs')
+  state.morningBriefLoading = import('./morning-brief.mjs')
     .then(({ initMorningBrief }) => {
       initMorningBrief();
       state.morningBriefInitialized = true;
@@ -675,18 +670,6 @@ function syncArFeedToggle() {
   button.textContent = state.arEnabled ? 'Camera feed: ON' : 'Camera feed: OFF';
 }
 
-function buildWigleRequestPayload(params = {}) {
-  const payload = {};
-  Object.entries(params).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === '') {
-      return;
-    }
-
-    payload[key] = value;
-  });
-  return payload;
-}
-
 async function toggleArFeed() {
   if (state.arEnabled) {
     disableArFeed();
@@ -815,7 +798,7 @@ async function refreshLiveWigleFeed({ quiet = false } = {}) {
   }
 
   try {
-    const requestPayload = buildWigleRequestPayload({
+    const requestPayload = godeyeController.buildRequestPayload({
       lat: location.lat,
       lon: location.lon,
       radiusMeters: 100,
@@ -1388,24 +1371,19 @@ async function handleVisionFileChange(event) {
   }
 }
 
-function applyVisionDataset(payload, { sourceLabel = 'sample', message = '', merge = true } = {}) {
+function applyVisionDataset(payload, { sourceLabel = 'unavailable', message = '', merge = true } = {}) {
   const parsed = payload && typeof payload === 'object' && Array.isArray(payload.detections)
     ? payload
     : parseVisionPayload(payload, { source: sourceLabel });
 
-  const currentDetections = Array.isArray(state.visionData?.detections) ? state.visionData.detections : [];
-  const nextDetections = merge ? mergeVisionDetections(currentDetections, parsed.detections) : mergeVisionDetections(parsed.detections);
-  const nextFrame = parsed.frame || state.visionData?.frame || null;
-
-  state.visionData = {
-    frame: nextFrame,
-    detections: nextDetections,
-    source: sourceLabel,
-    updatedAt: parsed.updatedAt || new Date().toISOString(),
-  };
+  state.visionData = visionController.reduceDataset(parsed, {
+    sourceLabel,
+    previous: state.visionData,
+    merge,
+  });
   state.visionSourceLabel = sourceLabel;
 
-  setVisionStatus(message || `Loaded ${nextDetections.length} detections.`);
+  setVisionStatus(message || `Loaded ${state.visionData.detections.length} detections.`);
   renderVisionViews();
 }
 
@@ -1424,7 +1402,7 @@ function renderArDetectionLayer() {
   const status = $('visionStatusText');
   const frame = $('arFrame');
   const records = state.visionData?.detections || [];
-  const sourceLabel = state.visionSourceLabel || state.visionData?.source || 'sample';
+  const sourceLabel = state.visionSourceLabel || state.visionData?.source || 'unavailable';
   const summary = records.length
     ? `${state.visionStatus} · ${records.length} detection${records.length === 1 ? '' : 's'} · ${sourceLabel}`
     : state.visionStatus;
@@ -1712,18 +1690,13 @@ function applyWigleDataset(payload, { sourceLabel = 'cybermap-postgis', message 
     : parseWiglePayload(payload, { source: sourceLabel });
 
   if (target === 'live') {
-    const currentRecords = Array.isArray(state.wigleLiveData?.accessPoints) ? state.wigleLiveData.accessPoints : [];
-    const nextRecords = merge ? mergeWigleRecords(currentRecords, parsed.accessPoints) : mergeWigleRecords(parsed.accessPoints);
-    const nextLocation = parsed.location || state.currentLocation || state.wigleLiveData?.location || null;
-
-    state.wigleLiveData = {
-      location: nextLocation,
-      accessPoints: nextRecords,
-      source: sourceLabel,
-      updatedAt: parsed.updatedAt || new Date().toISOString(),
+    state.wigleLiveData = godeyeController.reduceDataset(parsed, {
+      sourceLabel,
+      previous: state.wigleLiveData,
+      currentLocation: state.currentLocation,
+      merge,
       live,
-      mode: 'viewport',
-    };
+    });
     state.wigleLiveReady = live;
     state.wigleLiveSourceLabel = sourceLabel;
 
@@ -1731,21 +1704,17 @@ function applyWigleDataset(payload, { sourceLabel = 'cybermap-postgis', message 
       ? `Godeye Cybermap viewport ready from ${sourceLabel}.`
       : `Godeye Cybermap viewport from ${sourceLabel} returned no recent observations.`));
   } else {
-    const currentRecords = Array.isArray(state.wigleData?.accessPoints) ? state.wigleData.accessPoints : [];
-    const nextRecords = merge ? mergeWigleRecords(currentRecords, parsed.accessPoints) : mergeWigleRecords(parsed.accessPoints);
-    const nextLocation = parsed.location || state.currentLocation || state.wigleData?.location || null;
-
-    state.wigleData = {
-      location: nextLocation,
-      accessPoints: nextRecords,
-      source: sourceLabel,
-      updatedAt: parsed.updatedAt || new Date().toISOString(),
-      mode: 'viewport',
+    state.wigleData = godeyeController.reduceDataset(parsed, {
+      sourceLabel,
+      previous: state.wigleData,
+      currentLocation: state.currentLocation,
+      merge,
       live,
-    };
+    });
     state.wigleSourceLabel = sourceLabel;
 
-    setWigleStatus(message || `Loaded ${nextRecords.length} Cybermap observation${nextRecords.length === 1 ? '' : 's'}.`);
+    const count = state.wigleData.accessPoints.length;
+    setWigleStatus(message || `Loaded ${count} Cybermap observation${count === 1 ? '' : 's'}.`);
   }
 
   renderWigleViews();

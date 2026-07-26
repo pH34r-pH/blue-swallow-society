@@ -10,8 +10,8 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const appRoot = join(repoRoot, 'app');
+const privateAssetRoot = join(repoRoot, 'api/_private/operator/assets');
 const operatorShell = readFileSync(join(repoRoot, 'api/_private/operator/shell.html'), 'utf8');
-const nacreCss = readFileSync(join(repoRoot, 'api/_private/operator/nacre-moire.css'), 'utf8');
 const fixturePng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl4W7sAAAAASUVORK5CYII=', 'base64');
 
 const MIME_TYPES = {
@@ -48,8 +48,26 @@ test('Obscura renders the Morning dossier inside the protected operator console 
         response.writeHead(403).end('forbidden');
         return;
       }
-      response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      response.end(`<style>${nacreCss}</style>${operatorShell}`);
+      response.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Set-Cookie': 'bss_operator_asset_grant=fixture; Path=/api/operator-assets; HttpOnly; SameSite=Strict',
+      });
+      response.end(operatorShell);
+      return;
+    }
+    if (url.pathname.startsWith('/api/operator-assets/')) {
+      const assetName = url.pathname.slice('/api/operator-assets/'.length);
+      const assetPath = normalize(join(privateAssetRoot, assetName));
+      if (!assetPath.startsWith(privateAssetRoot) || !assetName) {
+        response.writeHead(403).end('forbidden');
+        return;
+      }
+      try {
+        response.writeHead(200, { 'Content-Type': MIME_TYPES[extname(assetPath)] || 'application/octet-stream' });
+        response.end(readFileSync(assetPath));
+      } catch {
+        response.writeHead(404).end('not found');
+      }
       return;
     }
     if (url.pathname === '/api/morning-brief') {
@@ -84,7 +102,9 @@ test('Obscura renders the Morning dossier inside the protected operator console 
       return;
     }
 
-    const pathname = url.pathname === '/operator' ? '/operator/index.html' : (url.pathname === '/' ? '/index.html' : url.pathname);
+    const pathname = ['/operator', '/operator/morning-brief.html'].includes(url.pathname)
+      ? '/operator/index.html'
+      : (url.pathname === '/' ? '/index.html' : url.pathname);
     const filePath = normalize(join(appRoot, pathname));
     if (!filePath.startsWith(appRoot)) {
       response.writeHead(403).end('forbidden');
@@ -93,7 +113,7 @@ test('Obscura renders the Morning dossier inside the protected operator console 
     try {
       const body = readFileSync(filePath);
       response.writeHead(200, { 'Content-Type': MIME_TYPES[extname(filePath)] || 'application/octet-stream' });
-      if (pathname === '/operator/morning-brief.html') {
+      if (url.pathname === '/operator/morning-brief.html') {
         const html = body.toString('utf8').replace(
           '<script src="/operator/loader.js" type="module"></script>',
           `${operatorSessionSeedScript()}${browserBootScript()}<script src="/operator/loader.js" type="module"></script>`,
@@ -163,6 +183,20 @@ function operatorSessionSeedScript() {
 function browserBootScript() {
   return String.raw`
     <script>
+      // Obscura does not dispatch load for dynamically inserted stylesheets. This fixture
+      // serves every private asset successfully, so it supplies the browser completion
+      // signal without changing the production loader's error path.
+      const appendToHead = document.head.append.bind(document.head);
+      document.head.append = (...nodes) => {
+        const result = appendToHead(...nodes);
+        for (const node of nodes) {
+          if (node.tagName === 'LINK' && node.href.includes('/api/operator-assets/')) {
+            setTimeout(() => node.onload?.(), 0);
+          }
+        }
+        return result;
+      };
+
       window.__bssErrors = [];
       window.addEventListener('error', (event) => window.__bssErrors.push(event.message));
       window.addEventListener('unhandledrejection', (event) => window.__bssErrors.push(event.reason?.message || String(event.reason)));

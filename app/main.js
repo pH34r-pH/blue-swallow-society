@@ -11,6 +11,8 @@ import {
 const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
 const CLAIM_NAME_KEY = 'blue-swallow-society:event-claim-name';
 const SUPPLY_CLAIMS_KEY = 'blue-swallow-society:event-supply-claims';
+let operatorHandoffStarted = false;
+let operatorLoginInFlight = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -36,6 +38,10 @@ function init() {
 }
 
 async function handleLogin() {
+  if (operatorHandoffStarted || operatorLoginInFlight) {
+    return;
+  }
+
   const passcodeInput = $('passcodeInput');
   const loginBtn = $('loginBtn');
   const passcode = passcodeInput ? passcodeInput.value.trim() : '';
@@ -43,6 +49,8 @@ async function handleLogin() {
   if (!passcode) {
     return;
   }
+
+  operatorLoginInFlight = true;
 
   if (loginBtn) {
     loginBtn.disabled = true;
@@ -52,6 +60,7 @@ async function handleLogin() {
     const session = await requestOperatorSession(passcode);
     if (session?.token) {
       persistOperatorSession(session);
+      showOperatorHandoff();
       window.location.assign('/operator');
       return;
     }
@@ -61,8 +70,11 @@ async function handleLogin() {
     console.warn('Standard site fallback selected.', error);
     showStandardSite();
   } finally {
-    if (loginBtn) {
+    if (loginBtn && !operatorHandoffStarted) {
       loginBtn.disabled = false;
+    }
+    if (!operatorHandoffStarted) {
+      operatorLoginInFlight = false;
     }
   }
 }
@@ -89,6 +101,27 @@ function persistOperatorSession(session) {
     sessionStorage.setItem(OPERATOR_SESSION_KEY, JSON.stringify(session));
   } catch {
     // Session storage is best-effort; the server-side cookie is the download fallback.
+  }
+}
+
+function showOperatorHandoff() {
+  operatorHandoffStarted = true;
+  document.body.dataset.mode = 'operator-handoff';
+
+  const loginControls = $('loginControls');
+  const operatorHandoff = $('operatorHandoff');
+  const passcodeInput = $('passcodeInput');
+
+  if (loginControls) {
+    loginControls.hidden = true;
+  }
+
+  if (passcodeInput) {
+    passcodeInput.value = '';
+  }
+
+  if (operatorHandoff) {
+    operatorHandoff.hidden = false;
   }
 }
 

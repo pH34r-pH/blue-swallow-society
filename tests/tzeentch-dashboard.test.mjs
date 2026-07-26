@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildSparklinePath, buildTzeentchDashboardModel } from '../app/operator/tzeentch-dashboard.mjs';
+import { buildSparklinePath, buildTzeentchDashboardModel } from '../api/_private/operator/assets/tzeentch-dashboard.mjs';
 import { createDemoDashboardDataset } from './fixtures/tzeentch-demo-data.mjs';
 
 test('buildTzeentchDashboardModel shapes Mosaic, Murmurs, Actionable Intel, and Positions data', () => {

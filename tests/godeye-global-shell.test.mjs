@@ -4,10 +4,10 @@ import { existsSync, readFileSync } from 'node:fs';
 
 const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
-const operatorMain = read('app/operator/main.js');
+const operatorMain = read('api/_private/operator/assets/main.js');
 const operatorShell = read('api/_private/operator/shell.html');
-const operatorStyles = read('app/operator/styles.css');
-const globalModuleUrl = new URL('../app/operator/godeye-global.mjs', import.meta.url);
+const operatorStyles = read('api/_private/operator/assets/styles.css');
+const globalModuleUrl = new URL('../api/_private/operator/assets/godeye-global.mjs', import.meta.url);
 const globalViewportRequest = {
   schema_version: 'bss.godeye.global_viewport.v1',
   bbox: { west: -180, south: -85, east: 180, north: 85 },
@@ -48,7 +48,7 @@ function readGlobalModule() {
   assert.equal(
     existsSync(globalModuleUrl),
     true,
-    'Global mode must use its own app/operator/godeye-global.mjs renderer module',
+    'Global mode must use its own private Godeye renderer module',
   );
   return readFileSync(globalModuleUrl, 'utf8');
 }

@@ -8,27 +8,31 @@
     <meta name="description" content="Blue Swallow Society private entry." />
     <title>Blue Swallow Society</title>
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/loader.css" />
   </head>
   <body data-mode="login">
     <main id="terminalScreen" class="terminal-screen active" aria-label="Private access login">
       <div class="terminal-container">
         <section class="terminal-panel panel login-panel" aria-label="Authentication portal">
           <h1 class="terminal-title">Blue Swallow Society</h1>
-          <input
-            id="passcodeInput"
-            class="input terminal-input-field"
-            type="password"
-            autocomplete="off"
-            autocapitalize="none"
-            spellcheck="false"
-            enterkeyhint="go"
-            maxlength="128"
-            aria-label="Passcode"
-          />
+          <div id="loginControls" class="login-controls">
+            <input
+              id="passcodeInput"
+              class="input terminal-input-field"
+              type="password"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck="false"
+              enterkeyhint="go"
+              maxlength="128"
+              aria-label="Passcode"
+            />
 
-          <div class="terminal-actions">
-            <button id="loginBtn" class="btn login-btn" type="button">login</button>
+            <div class="terminal-actions">
+              <button id="loginBtn" class="btn login-btn" type="button">login</button>
+            </div>
           </div>
+          <p id="operatorHandoff" class="operator-handoff" role="status" aria-live="polite" hidden>Authenticating operator session…</p>
         </section>
       </div>
     </main>

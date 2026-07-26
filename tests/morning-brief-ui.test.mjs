@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 
-const moduleUrl = new URL('../app/operator/morning-brief.mjs', import.meta.url);
-const htmlUrl = new URL('../app/operator/morning-brief.html', import.meta.url);
-const operatorStylesUrl = new URL('../app/operator/styles.css', import.meta.url);
+const moduleUrl = new URL('../api/_private/operator/assets/morning-brief.mjs', import.meta.url);
+const htmlUrl = new URL('../app/operator/index.html', import.meta.url);
+const operatorStylesUrl = new URL('../api/_private/operator/assets/styles.css', import.meta.url);
 const privateShellUrl = new URL('../api/_private/operator/shell.html', import.meta.url);
-const consoleMainUrl = new URL('../app/operator/main.js', import.meta.url);
+const consoleMainUrl = new URL('../api/_private/operator/assets/main.js', import.meta.url);
 const configUrl = new URL('../app/staticwebapp.config.json', import.meta.url);
 const source = readFileSync(moduleUrl, 'utf8');
 const html = readFileSync(htmlUrl, 'utf8');
@@ -16,7 +16,7 @@ const consoleMain = readFileSync(consoleMainUrl, 'utf8');
 const config = readFileSync(configUrl, 'utf8');
 
 test('morning brief operator surface is session-gated and does not put protected artifact URLs in anchors', () => {
-  assert.match(html, /noindex, nofollow/);
+  assert.match(html, /id="operatorLoader"/);
   assert.match(source, /if \(!operatorSession\(\)\) \{\s*redirectToLogin\(\);/);
   assert.match(source, /headers: operatorHeaders\(\)/);
   assert.match(source, /fetchArtifact\(brief\.run_id, artifact\)/);
@@ -58,6 +58,7 @@ test('morning dossier is a protected operator-console tab and returns to that co
   assert.match(consoleMain, /history\.replaceState\(null, '', '\/operator'\)/);
   assert.match(consoleMain, /return window\.location\.pathname === '\/operator\/morning-brief\.html' \? 'morning-brief' : 'landing'/);
   assert.match(consoleMain, /if \(nextTabKey === 'morning-brief'\) \{\s*initMorningBriefTab\(\);/);
+  assert.match(config, /"route": "\/operator\/morning-brief\.html",\s*"rewrite": "\/operator\/index\.html"/);
   assert.match(operatorStyles, /#morning-brief-tab\s*\{/);
   assert.doesNotMatch(operatorStyles, /--brief-/);
   assert.doesNotMatch(operatorStyles, /brief-archive-link/);

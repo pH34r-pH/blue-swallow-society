@@ -8,7 +8,8 @@ import {
   filterWigleRecordsByRadius,
   isLiveWigleSnapshot,
   normalizeWigleRecord,
-} from '../app/operator/wigle.mjs';
+} from '../api/_private/operator/assets/wigle.mjs';
+import { createWigleSampleFixture } from './fixtures/wigle-sample-data.mjs';
 
 test('normalizeWigleRecord standardizes WiGLE-like inputs', () => {
   const record = normalizeWigleRecord({
@@ -149,6 +150,23 @@ test('isLiveWigleSnapshot only promotes explicit live snapshots', () => {
   assert.equal(isLiveWigleSnapshot({ streamState: 'bridge', accessPoints: [] }), true);
   assert.equal(isLiveWigleSnapshot({ mode: 'database', accessPoints: [] }), false);
   assert.equal(isLiveWigleSnapshot({ source: 'sample', accessPoints: [] }), false);
+});
+
+test('WiGLE fixture supplies deterministic records without a runtime fallback', () => {
+  const fixture = createWigleSampleFixture();
+  const map = buildWigleMapState(fixture);
+
+  assert.equal(fixture.source, 'sample');
+  assert.equal(map.markers.length, fixture.accessPoints.length);
+  assert.equal(map.center.lat, fixture.location.lat);
+});
+
+test('buildWigleMapState preserves an explicit empty state without an inferred location', () => {
+  const map = buildWigleMapState();
+
+  assert.equal(map.center, null);
+  assert.deepEqual(map.tileGrid, []);
+  assert.deepEqual(map.markers, []);
 });
 
 test('buildWigleMapState keeps the Godeye map inside a 100m local radius', () => {

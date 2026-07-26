@@ -7,56 +7,6 @@ const WIFI_FREQUENCY_CHANNELS = new Map([
   [2412, 1], [2417, 2], [2422, 3], [2427, 4], [2432, 5], [2437, 6], [2442, 7],
   [2447, 8], [2452, 9], [2457, 10], [2462, 11], [2467, 12], [2472, 13], [2484, 14],
 ]);
-const SAMPLE_LOCATION = {
-  lat: 47.6154,
-  lon: -122.3362,
-  accuracy: 14,
-  heading: 38,
-  speed: 0.4,
-  timestamp: '2026-07-09T12:00:00Z',
-};
-
-const SAMPLE_ACCESS_POINTS = [
-  {
-    bssid: 'e8:de:27:aa:11:01',
-    ssid: 'BSS-WorkRouter',
-    lat: 47.61555,
-    lon: -122.33615,
-    signalDbm: -44,
-    channel: 6,
-    security: 'WPA2',
-    vendor: 'Ubiquiti',
-    lastSeen: '2026-07-09T12:15:00Z',
-    source: 'sample',
-    deviceClass: 'router',
-  },
-  {
-    bssid: 'e8:de:27:aa:11:02',
-    ssid: 'BSS-Guest',
-    lat: 47.61582,
-    lon: -122.33572,
-    signalDbm: -58,
-    channel: 11,
-    security: 'WPA2',
-    vendor: 'Ubiquiti',
-    lastSeen: '2026-07-09T12:12:30Z',
-    source: 'sample',
-    deviceClass: 'access point',
-  },
-  {
-    bssid: '00:11:22:33:44:55',
-    ssid: 'BSS-Camera',
-    lat: 47.61486,
-    lon: -122.33708,
-    signalDbm: -71,
-    channel: 1,
-    security: 'WPA2',
-    vendor: 'Generic',
-    lastSeen: '2026-07-08T16:42:00Z',
-    source: 'sample',
-    deviceClass: 'network appliance',
-  },
-];
 
 export function normalizeWigleRecord(record, { source = 'live' } = {}) {
   if (!record || typeof record !== 'object') {
@@ -337,20 +287,22 @@ export function buildWigleMapState({
   radiusMeters = null,
 } = {}) {
   const normalizedAccessPoints = mergeWigleRecords(accessPoints);
-  const center = normalizeLocation(location) || inferCenterFromAccessPoints(normalizedAccessPoints) || SAMPLE_LOCATION;
-  const mappedAccessPoints = Number.isFinite(radiusMeters)
+  const center = normalizeLocation(location) || inferCenterFromAccessPoints(normalizedAccessPoints);
+  const mappedAccessPoints = center && Number.isFinite(radiusMeters)
     ? filterWigleRecordsByRadius(normalizedAccessPoints, center, radiusMeters)
     : normalizedAccessPoints;
 
-  const tileGrid = buildTileGrid({
-    lat: center.lat,
-    lon: center.lon,
-    zoom,
-    width: viewportWidth,
-    height: viewportHeight,
-  });
+  const tileGrid = center
+    ? buildTileGrid({
+      lat: center.lat,
+      lon: center.lon,
+      zoom,
+      width: viewportWidth,
+      height: viewportHeight,
+    })
+    : [];
 
-  const markers = mappedAccessPoints.map((ap) => {
+  const markers = center ? mappedAccessPoints.map((ap) => {
     const projection = projectAccessPoint(ap, tileGrid, zoom, center);
     return {
       ...ap,
@@ -368,7 +320,7 @@ export function buildWigleMapState({
       rangeRadiusPx: estimateRangeRadiusPx(ap, center.lat, zoom),
       visible: isWithinViewport(projection.left, projection.top, viewportWidth, viewportHeight),
     };
-  });
+  }) : [];
 
   const strongest = [...markers].sort((left, right) => scoreRecord(right) - scoreRecord(left))[0] || null;
   const sourceCounts = markers.reduce((counts, marker) => {
@@ -499,18 +451,6 @@ export function buildCurrentWigleState({
     current: currentRecords.length > 0,
     maxAgeMs: ageLimit,
     updatedAt: latestSeenMs ? new Date(latestSeenMs).toISOString() : new Date(nowMs).toISOString(),
-  };
-}
-
-export function createSampleWigleDataset() {
-  return {
-    location: { ...SAMPLE_LOCATION },
-    accessPoints: SAMPLE_ACCESS_POINTS.map((entry) => ({ ...entry })),
-    source: 'sample',
-    mode: 'sample',
-    live: false,
-    streamState: 'sample',
-    updatedAt: SAMPLE_LOCATION.timestamp,
   };
 }
 

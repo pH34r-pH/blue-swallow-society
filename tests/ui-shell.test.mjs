@@ -5,21 +5,18 @@ import { existsSync, readFileSync } from 'node:fs';
 const indexHtml = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
 const rootMainJs = readFileSync(new URL('../app/main.js', import.meta.url), 'utf8');
 const operatorHtml = readFileSync(new URL('../app/operator/index.html', import.meta.url), 'utf8');
-const operatorAgentHtml = readFileSync(new URL('../app/operator/agent.html', import.meta.url), 'utf8');
 const operatorShell = readFileSync(new URL('../api/_private/operator/shell.html', import.meta.url), 'utf8');
-const operatorPrivateAgentUrl = new URL('../api/_private/operator/agent.html', import.meta.url);
-const operatorPrivateAgentHtml = existsSync(operatorPrivateAgentUrl) ? readFileSync(operatorPrivateAgentUrl, 'utf8') : '';
 const operatorLoaderJs = readFileSync(new URL('../app/operator/loader.js', import.meta.url), 'utf8');
-const operatorAgentLoaderUrl = new URL('../app/operator/agent-loader.js', import.meta.url);
-const operatorAgentLoaderJs = existsSync(operatorAgentLoaderUrl) ? readFileSync(operatorAgentLoaderUrl, 'utf8') : '';
+const operatorLoaderCss = readFileSync(new URL('../app/operator/loader.css', import.meta.url), 'utf8');
 const operatorShellApiJs = readFileSync(new URL('../api/operator-shell/index.js', import.meta.url), 'utf8');
-const mainJs = readFileSync(new URL('../app/operator/main.js', import.meta.url), 'utf8');
-const tzeentchJs = readFileSync(new URL('../app/operator/tzeentch.mjs', import.meta.url), 'utf8');
-const stylesCss = readFileSync(new URL('../app/operator/styles.css', import.meta.url), 'utf8');
-const nacreStylesUrl = new URL('../api/_private/operator/nacre-moire.css', import.meta.url);
-const nacreStylesCss = existsSync(nacreStylesUrl) ? readFileSync(nacreStylesUrl, 'utf8') : '';
+const operatorAssetsApiJs = readFileSync(new URL('../api/operator-assets/index.js', import.meta.url), 'utf8');
+const mainJs = readFileSync(new URL('../api/_private/operator/assets/main.js', import.meta.url), 'utf8');
+const tzeentchJs = readFileSync(new URL('../api/_private/operator/assets/tzeentch.mjs', import.meta.url), 'utf8');
+const stylesCss = readFileSync(new URL('../api/_private/operator/assets/styles.css', import.meta.url), 'utf8');
+const nacreStylesUrl = new URL('../api/_private/operator/assets/theme.css', import.meta.url);
+const nacreStylesCss = readFileSync(nacreStylesUrl, 'utf8');
 const rootStylesCss = readFileSync(new URL('../app/styles.css', import.meta.url), 'utf8');
-const nacreMarkUrl = new URL('../api/_private/operator/nacre-moire-mark.svg', import.meta.url);
+const nacreMarkUrl = new URL('../api/_private/operator/assets/nacre-moire-mark.svg', import.meta.url);
 
 test('root face is the unchanged Blue Swallow Society passcode split screen', () => {
   assert.match(indexHtml, /<body data-mode="login">/);
@@ -32,6 +29,25 @@ test('root face is the unchanged Blue Swallow Society passcode split screen', ()
   assert.ok(!indexHtml.includes('/downloads/blue-swallow-wardriver.json'));
   assert.ok(!indexHtml.includes('/operator/'));
   assert.ok(!indexHtml.includes('OPERATOR CONSOLE'));
+  for (const privateSurface of [
+    'X-Blue-Swallow-Operator-Token',
+    '/api/operator-shell',
+    '/api/operator-assets',
+    'Nacre-Moiré',
+    'blue-swallow-wardriver',
+  ]) {
+    assert.ok(!rootMainJs.includes(privateSurface), `root client leaked ${privateSurface}`);
+  }
+});
+
+test('successful root authentication replaces passcode entry with a sealed handoff before navigation', () => {
+  assert.match(indexHtml, /id="loginControls"/);
+  assert.match(indexHtml, /id="operatorHandoff"/);
+  assert.match(indexHtml, /id="operatorHandoff"[^>]*role="status"/);
+  assert.match(rootMainJs, /function showOperatorHandoff\(\)/);
+  assert.match(rootMainJs, /operatorHandoffStarted\s*=\s*true/);
+  assert.match(rootMainJs, /persistOperatorSession\(session\);\s*showOperatorHandoff\(\);\s*window\.location\.assign\('\/operator'\)/);
+  assert.match(rootMainJs, /if \(loginBtn && !operatorHandoffStarted\)/);
 });
 
 test('root login and standard public branch use the restored white/blue theme, not the operator dark shell', () => {
@@ -40,12 +56,25 @@ test('root login and standard public branch use the restored white/blue theme, n
 
   assert.match(rootStylesCss, /color-scheme:\s*light\s*;/);
   assert.match(rootStylesCss, /linear-gradient\(180deg, #f8fafc 0%, #e5ecf6 100%\)/);
-  assert.match(rootStylesCss, /\.terminal-panel\.login-panel\s*\{[\s\S]*background:\s*linear-gradient\(180deg, rgba\(255, 255, 255, 0\.96\), rgba\(247, 250, 255, 0\.9\)\)/);
-  assert.match(rootStylesCss, /\.login-btn\.btn\s*\{[\s\S]*background:\s*linear-gradient\(180deg, #2563eb, #1d4ed8\)/);
   assert.match(rootStylesCss, /\.standard-site\s*\{[\s\S]*background:[\s\S]*linear-gradient\(180deg, #f8fafc 0%, #e5ecf6 100%\)/);
   assert.match(rootStylesCss, /\.standard-site \.panel\s*\{[\s\S]*background:\s*rgba\(255, 255, 255, 0\.92\)/);
   assert.doesNotMatch(rootStylesCss, /color-scheme:\s*dark\s*;/);
   assert.doesNotMatch(rootStylesCss, /--neon-|#040611|#070c18|repeating-linear-gradient/);
+});
+
+test('root login and anonymous operator handoff use one public-safe loader stylesheet', () => {
+  const sharedLoaderUrl = new URL('../app/loader.css', import.meta.url);
+  assert.equal(existsSync(sharedLoaderUrl), true, 'public loader structure must have one maintained stylesheet');
+
+  const sharedLoaderCss = readFileSync(sharedLoaderUrl, 'utf8');
+  const sharedLoginPanelRule = sharedLoaderCss.match(/\.terminal-panel\.login-panel\s*\{(?<body>[\s\S]*?)\}/)?.groups.body || '';
+  assert.match(indexHtml, /<link rel="stylesheet" href="\/loader\.css" \/>/);
+  assert.match(sharedLoaderCss, /\.terminal-panel\.login-panel\s*\{[\s\S]*background:\s*linear-gradient\(180deg, rgba\(255, 255, 255, 0\.96\), rgba\(247, 250, 255, 0\.9\)\)/);
+  assert.match(sharedLoginPanelRule, /text-align:\s*center\s*;/);
+  assert.match(sharedLoaderCss, /\.login-btn\.btn\s*\{[\s\S]*background:\s*linear-gradient\(180deg, #2563eb, #1d4ed8\)/);
+  assert.match(operatorLoaderCss, /^@import url\('\.\.\/loader\.css'\);\s*$/);
+  assert.doesNotMatch(rootStylesCss, /\.terminal-(?:screen|container|panel|title|input-field)|\.login-(?:controls|btn)|\.operator-handoff/);
+  assert.doesNotMatch(sharedLoaderCss, /Nacre-Moiré|nacre-moire|--nacre-|--street-/i);
 });
 
 test('root login branches server-side: operator token opens /operator, every non-token response opens the standard site', () => {
@@ -86,11 +115,18 @@ test('standard personal site exposes event calendar, list view, and name-based s
 test('operator entrypoint requires an existing passcode-issued session before showing the console', () => {
   assert.ok(operatorHtml.includes('operatorLoader'));
   assert.ok(operatorHtml.includes('/operator/loader.js'));
+  assert.ok(operatorHtml.includes('/operator/loader.css'));
   assert.ok(!operatorHtml.includes('mainInterface'));
   assert.ok(!operatorHtml.includes('/api/operator-downloads/wardriver/apk'));
   assert.ok(operatorLoaderJs.includes("fetch('/api/operator-shell'"));
   assert.ok(operatorLoaderJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
-  assert.ok(operatorLoaderJs.includes("import('/operator/main.js')"));
+  assert.ok(operatorLoaderJs.includes("loadPrivateStylesheet('styles.css')"));
+  assert.ok(operatorLoaderJs.includes("loadPrivateStylesheet('theme.css')"));
+  assert.match(operatorLoaderJs, /return new Promise\(/, 'private stylesheet delivery must expose a failure-aware Promise');
+  assert.match(operatorLoaderJs, /link\.onload\s*=\s*\(\)\s*=>\s*resolve\(\)/, 'private stylesheet delivery must resolve only after load');
+  assert.match(operatorLoaderJs, /link\.onerror\s*=\s*\(\)\s*=>\s*reject\(/, 'private stylesheet delivery must reject a failed private stylesheet request');
+  assert.match(operatorLoaderJs, /await Promise\.all\(\[\s*loadPrivateStylesheet\('styles\.css'\),\s*loadPrivateStylesheet\('theme\.css'\),\s*\]\)/, 'the private shell must wait for both private stylesheets before rendering');
+  assert.ok(operatorLoaderJs.includes("import('/api/operator-assets/main.js')"));
   assert.ok(operatorShell.includes('terminalScreen'));
   assert.ok(operatorShell.includes('mainInterface'));
   assert.ok(mainJs.includes("window.location.replace('/')"));
@@ -105,15 +141,13 @@ test('Nacre-Moiré identity is disclosed only inside token-gated operator respon
   assert.match(operatorShell, /I keep the operator surface disciplined/);
   assert.match(operatorShell, /Operator surfaces are evidence rooms/);
   assert.doesNotMatch(operatorShell, /lorem ipsum|mobile-first cyberpunk console/i);
-  assert.match(operatorPrivateAgentHtml, /Nacre-Moiré Interface Lab/);
-  assert.match(operatorPrivateAgentHtml, /They are the operator-side persona/);
 
-  const anonymousOperatorBundle = [operatorHtml, operatorAgentHtml, operatorLoaderJs, operatorAgentLoaderJs, stylesCss].join('\n');
+  const anonymousOperatorBundle = [operatorHtml, operatorLoaderJs, operatorLoaderCss].join('\n');
   assert.doesNotMatch(anonymousOperatorBundle, /Nacre-Moiré|nacre-moire|--nacre-/i);
   assert.doesNotMatch(indexHtml, /Nacre-Moiré|nacre-moire/i);
   assert.doesNotMatch(rootStylesCss, /--nacre-|nacre-moire|moire-field/i);
-  assert.match(operatorAgentLoaderJs, /fetch\('\/api\/operator-shell\?view=agent'/);
-  assert.match(operatorAgentLoaderJs, /'X-Blue-Swallow-Operator-Token': session\.token/);
+  assert.match(operatorAssetsApiJs, /theme\.css/);
+  assert.match(operatorAssetsApiJs, /nacre-moire-mark\.svg/);
 });
 
 test('operator design system uses protected material layers, not generic neon', () => {
@@ -124,8 +158,8 @@ test('operator design system uses protected material layers, not generic neon', 
   assert.match(stylesCss, /--corpo-paper:/);
   assert.match(nacreStylesCss, /\.moire-field/);
   assert.match(nacreStylesCss, /Street-built competence under executive restraint/);
-  assert.match(operatorShellApiJs, /NACRE_STYLE_PATH/);
-  assert.match(operatorShellApiJs, /NACRE_MARK_PATH/);
+  assert.match(operatorShellApiJs, /createOperatorAssetGrant/);
+  assert.match(operatorAssetsApiJs, /verifyOperatorAssetGrant/);
   assert.doesNotMatch(`${stylesCss}\n${nacreStylesCss}`, /--neon-|same cyberpunk shell/i);
   assert.doesNotMatch(`${stylesCss}\n${nacreStylesCss}`, /#72ff9f|#55e8ff|#ff4fd8|rgba\(71,\s*227,\s*130/i);
 });

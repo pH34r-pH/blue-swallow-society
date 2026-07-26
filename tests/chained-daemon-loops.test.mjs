@@ -9,7 +9,7 @@ import {
   buildSelfPentestWarrant,
   buildTier2SensorFleetManifest,
   buildTier2SplitState,
-} from '../app/operator/chained-daemon.mjs';
+} from '../api/_private/operator/assets/chained-daemon.mjs';
 import { createDemoChainedDaemonObservations } from './fixtures/tzeentch-demo-data.mjs';
 
 const NOW = Date.parse('2026-07-10T12:00:00Z');
@@ -102,20 +102,20 @@ test('self-pentest warrant defaults to report-only local review with hard denied
 test('self-pentest routine turns simulated compromises into findings and repair tickets', () => {
   const run = buildChainedDaemonSelfPentestRun({
     warrant: {
-      allowedAssetIds: ['api-agent', 'static-app'],
+      allowedAssetIds: ['api-operator-assets', 'static-app'],
       operator: 'test-operator',
     },
     assets: [
       {
-        id: 'api-agent',
-        name: 'Agent API',
+        id: 'api-operator-assets',
+        name: 'Operator asset Function',
         owned: true,
         authorized: true,
         writeCapable: true,
         authRequired: false,
         actionCapable: true,
         reviewRequired: false,
-        evidenceRefs: ['api/agent/index.js', 'app/staticwebapp.config.json'],
+        evidenceRefs: ['api/operator-assets/index.js', 'app/staticwebapp.config.json'],
       },
       {
         id: 'static-app',
@@ -215,7 +215,7 @@ test('self-pentest detects prompt-tool and paper-action gate failures', () => {
         kind: 'agent-policy',
         toolCapabilities: ['shell', 'network', 'external-message'],
         reviewRequired: false,
-        evidenceRefs: ['app/operator/chained-daemon.mjs'],
+        evidenceRefs: ['api/_private/operator/assets/chained-daemon.mjs'],
       },
       {
         id: 'paper-action-surface',
@@ -330,18 +330,18 @@ test('tier 2 sensor fleet keeps expanded local sensors disabled until opt-in and
 test('repair regression loop requires patch, test, and retest evidence before clearing promotion blockers', () => {
   const run = buildChainedDaemonSelfPentestRun({
     warrant: {
-      allowedAssetIds: ['api-agent'],
+      allowedAssetIds: ['api-operator-assets'],
       operator: 'test-operator',
     },
     assets: [
       {
-        id: 'api-agent',
-        name: 'Agent API',
+        id: 'api-operator-assets',
+        name: 'Operator asset Function',
         owned: true,
         authorized: true,
         writeCapable: true,
         authRequired: false,
-        evidenceRefs: ['api/agent/index.js'],
+        evidenceRefs: ['api/operator-assets/index.js'],
       },
     ],
   }, { now: NOW });
@@ -355,9 +355,9 @@ test('repair regression loop requires patch, test, and retest evidence before cl
     selfPentestRun: run,
     repairs: [
       {
-        findingKey: 'unauthenticated-write-surface:api-agent',
+        findingKey: 'unauthenticated-write-surface:api-operator-assets',
         status: 'verified',
-        patchRefs: ['api/agent/index.js'],
+        patchRefs: ['api/operator-assets/index.js'],
         testRefs: ['tests/security-review.test.mjs'],
         retestResult: 'pass',
       },

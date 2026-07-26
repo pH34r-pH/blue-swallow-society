@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 
 import {
   buildArDetectionBoxes,
-  createSampleVisionDataset,
   normalizeVisionDetection,
   parseVisionPayload,
-} from '../app/operator/vision.mjs';
+} from '../api/_private/operator/assets/vision.mjs';
+import { createVisionSampleFixture } from './fixtures/vision-sample-data.mjs';
 
 test('normalizeVisionDetection standardizes object detection inputs', () => {
   const detection = normalizeVisionDetection({
@@ -56,9 +56,10 @@ test('buildArDetectionBoxes orders overlays by confidence and maps them to viewp
   assert.ok(overlay.boxes[0].y >= 0 && overlay.boxes[0].y <= 1920);
 });
 
-test('createSampleVisionDataset returns sample detections', () => {
-  const dataset = createSampleVisionDataset();
+test('vision fixture returns deterministic sample detections for parser coverage', () => {
+  const dataset = createVisionSampleFixture();
 
   assert.equal(dataset.source, 'sample');
   assert.ok(dataset.detections.length >= 3);
+  assert.equal(parseVisionPayload(dataset).detections.length, dataset.detections.length);
 });
