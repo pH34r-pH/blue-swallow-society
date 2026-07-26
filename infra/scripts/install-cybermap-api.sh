@@ -56,9 +56,10 @@ cd /opt/bss/cybermap-api
 npm ci --omit=dev
 
 install -d -m 0750 -o root -g root /etc/bss
-printf '%s' '__WARDIVER_MTLS_TRUST_CERT_PEM_B64__' | base64 -d > /etc/bss/wardriver-mtls-trust.pem
-chmod 0644 /etc/bss/wardriver-mtls-trust.pem
-if ! grep -q -- 'BEGIN CERTIFICATE' /etc/bss/wardriver-mtls-trust.pem; then
+install -d -m 0755 -o root -g root /etc/caddy
+printf '%s' '__WARDIVER_MTLS_TRUST_CERT_PEM_B64__' | base64 -d > /etc/caddy/wardriver-mtls-trust.pem
+chmod 0644 /etc/caddy/wardriver-mtls-trust.pem
+if ! grep -q -- 'BEGIN CERTIFICATE' /etc/caddy/wardriver-mtls-trust.pem; then
   echo "Wardriver mTLS trust certificate is invalid" >&2
   exit 1
 fi
@@ -176,7 +177,7 @@ __BACKEND_FQDN__:8443 {
   tls {
     client_auth {
       mode require_and_verify
-      trust_pool file /etc/bss/wardriver-mtls-trust.pem
+      trust_pool file /etc/caddy/wardriver-mtls-trust.pem
     }
   }
   @wardriver_mtls path /api/v1/cybermap/viewport /api/v1/observations/batch
