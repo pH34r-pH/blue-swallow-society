@@ -48,7 +48,10 @@ test('manual basemap publication verifies its source and toolchain, emits proven
   assert.match(workflow, /workflow_dispatch/);
   assert.match(workflow, /washington/);
   assert.match(workflow, /download\.geofabrik\.de\/north-america\/us\/washington-latest\.osm\.pbf/);
-  assert.match(workflow, /planetiler\.jar\.sha256/);
+  assert.match(workflow, /gh release download "\$PLANETILER_VERSION"/);
+  assert.match(workflow, /--repo onthegomap\/planetiler/);
+  assert.match(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/);
+  assert.doesNotMatch(workflow, /https:\/\/github\.com\/onthegomap\/planetiler\/releases\/download/);
   assert.match(workflow, /actions\/setup-java@v4/);
   assert.match(workflow, /java-version: '21'/);
   assert.match(workflow, /\$JAVA_HOME\/bin\/java/);
