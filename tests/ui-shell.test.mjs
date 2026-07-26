@@ -90,7 +90,7 @@ test('root login branches server-side: operator token opens /operator, every non
 test('standard personal site is the non-operator branch and contains no wardriver artifact links', () => {
   assert.match(indexHtml, /id="standardSite"/);
   assert.match(indexHtml, /Event Planning/);
-  assert.match(indexHtml, /private gatherings/i);
+  assert.match(indexHtml, /Dates, venues, and supply claims\./);
   assert.ok(!indexHtml.includes('Wardriver APK'));
   assert.ok(!indexHtml.includes('co.blueswallow.wardriver'));
 });
@@ -134,12 +134,66 @@ test('operator entrypoint requires an existing passcode-issued session before sh
   assert.ok(mainJs.includes('unlockConsole()'));
 });
 
+test('public cover and private console put controls before explanatory copy', () => {
+  for (const publicCopy of [
+    'Gatherings, dates, supplies.',
+    'Dates, venues, and supply claims.',
+    'Name required to claim or release supplies.',
+  ]) {
+    assert.ok(indexHtml.includes(publicCopy), publicCopy);
+  }
+  for (const publicControl of [
+    'id="eventClaimName"',
+    'id="eventClaimNameStatus"',
+    'aria-live="polite"',
+    'id="eventsCalendar"',
+    'id="eventsList"',
+  ]) {
+    assert.ok(indexHtml.includes(publicControl), publicControl);
+  }
+  assert.match(rootMainJs, /action\.textContent = 'Claim';/);
+  assert.match(rootMainJs, /action\.textContent = 'Release';/);
+  assert.doesNotMatch(indexHtml, /A lightweight personal planning page for private gatherings/);
+  assert.doesNotMatch(indexHtml, /Enter a name, then mark an open supply as yours/);
+
+  for (const operatorControl of [
+    'data-tab="tzeentch"',
+    'data-tab="godeye"',
+    'data-tab="morning-brief"',
+    'data-operator-download="apk"',
+    'data-operator-release="sha256"',
+    'id="tzeentchStatus"',
+    'id="godeyeWigleStatus"',
+    'aria-label="Global source provenance ledger"',
+    'id="briefStatus"',
+    'aria-live="polite"',
+  ]) {
+    assert.ok(operatorShell.includes(operatorControl), operatorControl);
+  }
+  for (const operatorCopy of [
+    'Signed release. Provenance attached.',
+    'Verify the release record before install. Captures stay local.',
+    'Enter a target.',
+    'Method &amp; privacy',
+    'Managed Cybermap observations. No camera overlays.',
+    'Verified packets. Retention: seven days.',
+    'House terms. Use sparingly.',
+  ]) {
+    assert.ok(operatorShell.includes(operatorCopy), operatorCopy);
+  }
+  assert.doesNotMatch(operatorShell, /Operator tools/);
+  assert.doesNotMatch(operatorShell, /Telemetry, evidence, and signed releases/);
+  assert.doesNotMatch(operatorShell, /Operator surfaces are evidence rooms, not arcades/);
+  assert.doesNotMatch(operatorShell, /I keep the cover clean and the operator layer exact/);
+  assert.doesNotMatch(operatorShell, /tzeentch-operator-brief/);
+  assert.doesNotMatch(operatorShell, /slang-guidance/);
+  assert.doesNotMatch(operatorShell, /Modern usage notes/);
+});
+
 test('Nacre-Moiré identity is disclosed only inside token-gated operator responses', () => {
   assert.match(operatorShell, /data-persona="nacre-moire"/);
   assert.match(operatorShell, /<h1 class="console-heading">Nacre-Moiré<\/h1>/);
   assert.match(operatorShell, /class="persona-pronouns">they \/ them<\/span>/);
-  assert.match(operatorShell, /I keep the operator surface disciplined/);
-  assert.match(operatorShell, /Operator surfaces are evidence rooms/);
   assert.doesNotMatch(operatorShell, /lorem ipsum|mobile-first cyberpunk console/i);
 
   const anonymousOperatorBundle = [operatorHtml, operatorLoaderJs, operatorLoaderCss].join('\n');

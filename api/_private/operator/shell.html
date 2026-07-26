@@ -32,14 +32,11 @@
                 <h1 class="console-heading">Nacre-Moiré</h1>
                 <span class="persona-pronouns">they / them</span>
               </div>
-              <p class="lede">
-                I keep the operator surface disciplined: field telemetry, evidence, and paper state—street-built, boardroom-legible.
-              </p>
             </div>
           </div>
 
           <div class="site-header-actions">
-            <p class="operator-register" aria-label="Authenticated operator session and aesthetic register">session sealed / executive control</p>
+            <p class="operator-register" aria-label="Authenticated operator session">Session sealed</p>
             <button id="logoutBtn" class="btn btn-secondary logout-btn" type="button">Lock</button>
           </div>
         </div>
@@ -110,31 +107,6 @@
 
       <div id="landing-tab" class="tab-content active" role="tabpanel" aria-labelledby="tab-landing">
         <section class="container landing-stack">
-          <article class="panel tab-panel landing-panel">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">// LANDING //</p>
-                <h2>Manifesto</h2>
-              </div>
-              <p class="panel-meta">Operator surfaces are evidence rooms, not arcades.</p>
-            </div>
-
-            <div class="manifesto-copy">
-              <p>
-                I keep the cover clean and the operator layer exact. Public ritual stays public; field telemetry, source provenance,
-                and paper state cross the authenticated seam only when they have earned it.
-              </p>
-              <p>
-                Street hardware leaves marks. Patched joints, oxidized metal, and old constraints stay visible because wear is history,
-                not decoration. Executive restraint makes that history legible under pressure.
-              </p>
-              <p>
-                No glow without signal. No ornament without status. Every claim keeps its source, every control states its consequence,
-                and every system remains useful when the mood lighting dies.
-              </p>
-            </div>
-          </article>
-
           <article
             class="panel tab-panel landing-panel download-card"
             aria-labelledby="wardriverDownloadTitle"
@@ -146,14 +118,12 @@
                 <p class="eyebrow">// RELEASE //</p>
                 <h2 id="wardriverDownloadTitle">Blue Swallow Wardriver APK</h2>
               </div>
-              <p class="panel-meta">Signed field release, staged through the operator gate with a sealed provenance record.</p>
+              <p class="panel-meta">Signed release. Provenance attached.</p>
             </div>
 
             <div class="download-grid">
               <div class="download-copy">
-                <p>
-                  Install only after the release record settles. Field captures remain local; this lane moves an exact, signed APK—not a live sensor feed.
-                </p>
+                <p>Verify the release record before install. Captures stay local.</p>
                 <ul class="download-facts" aria-label="APK build facts">
                   <li><span>Package</span><strong data-operator-release="package">Awaiting sealed manifest.</strong></li>
                   <li><span>Version</span><strong data-operator-release="version">Awaiting sealed manifest.</strong></li>
@@ -184,28 +154,10 @@
             <div class="panel-heading">
               <div>
                 <p class="eyebrow">// TZEENTCH //</p>
-                <h2>Tzeentch OSINT workspace</h2>
+                <h2>Public-source search</h2>
               </div>
-              <p class="panel-meta">Public-source, read-only triage: overview first, filter next, evidence on demand.</p>
+              <p class="panel-meta">Read-only triage. Inspect evidence.</p>
             </div>
-
-            <section class="tzeentch-operator-brief" aria-label="OSINT interaction model">
-              <article class="brief-card">
-                <span class="brief-step">01</span>
-                <strong>Set scope</strong>
-                <p>Enter a domain, URL, IP, email, or handle. Auto mode classifies the target before fan-out.</p>
-              </article>
-              <article class="brief-card">
-                <span class="brief-step">02</span>
-                <strong>Read provenance</strong>
-                <p>Facts stay tagged as public records, platform traces, archive hits, or derived normalization.</p>
-              </article>
-              <article class="brief-card">
-                <span class="brief-step">03</span>
-                <strong>Escalate carefully</strong>
-                <p>No private-source lookups, no persistent PII; use source links and session-only recents for review.</p>
-              </article>
-            </section>
 
             <div class="tzeentch-subtabs" role="tablist" aria-label="Tzeentch sub-tabs">
               <button id="tzeentchSurfaceSeek" class="tzeentch-subtab is-active" data-surface="seek" role="tab" aria-selected="true" aria-controls="tzeentchSeekPanel" type="button">
@@ -256,12 +208,12 @@
                 <button id="tzeentchClearBtn" class="btn btn-secondary dashboard-action" type="button">Overview</button>
               </div>
 
-              <p id="tzeentchStatus" class="dashboard-status" role="status">Load a target to fan out across public sources.</p>
+              <p id="tzeentchStatus" class="dashboard-status" role="status">Enter a target.</p>
               <details class="tzeentch-method-card">
-                <summary>Method and privacy boundaries</summary>
+                <summary>Method &amp; privacy</summary>
                 <div class="method-grid">
-                  <p><strong>Sources:</strong> RDAP, DNS, certificate transparency, archives, GitHub, Reddit, Wikipedia, and live public feeds.</p>
-                  <p><strong>Handling:</strong> query text is sent in a POST body, recent targets stay in session storage only, and displayed facts are evidence hints—not identity proof.</p>
+                  <p><strong>Sources:</strong> RDAP, DNS, certificate transparency, archives, GitHub, Reddit, Wikipedia, and public feeds.</p>
+                  <p><strong>Handling:</strong> POST query; session-only recents; evidence, not identity proof.</p>
                 </div>
               </details>
               <div id="tzeentchSources" class="dashboard-chip-row" aria-label="Supported source families"></div>
@@ -379,7 +331,7 @@
                 <p class="eyebrow">// GODEYE //</p>
                 <h2>Hosted viewer</h2>
               </div>
-              <p class="panel-meta">Hosted OpenStreetMap viewer for managed Cybermap observations, aircraft-track scaffolds, and non-camera overlays.</p>
+              <p class="panel-meta">Managed Cybermap observations. No camera overlays.</p>
             </div>
 
             <div class="godeye-mode-controls" role="group" aria-label="Godeye map mode">
@@ -389,7 +341,7 @@
               <button class="btn btn-secondary godeye-mode-control" type="button" data-godeye-mode="global" aria-pressed="false">
                 Global
               </button>
-              <p class="panel-meta">Field reads the local 100 m viewport. Global reads bounded, materialized BSS cells only.</p>
+              <p class="panel-meta">Field: local 100 m. Global: bounded materialized cells.</p>
             </div>
 
             <div class="godeye-layout">
@@ -415,21 +367,6 @@
                 <button id="locationBtn" class="btn btn-primary sensor-action" type="button">Enable location</button>
 
                 <div class="geo-card">
-                  <p class="sensor-label">Map stack</p>
-                  <p>The map uses OpenStreetMap tiles for now; MapLibre is the likely swap if the overlay stack needs more control later.</p>
-                </div>
-
-                <div class="geo-card">
-                  <p class="sensor-label">Overlay slots</p>
-                  <p>FlightRadar24 and other live tracks can be layered here without bringing the camera/AR client back into the hosted shell.</p>
-                  <div class="overlay-slot-list">
-                    <span class="source-chip source-chip-live">Cybermap radius</span>
-                    <span class="source-chip">FlightRadar24 scaffold</span>
-                    <span class="source-chip">MapLibre-ready</span>
-                  </div>
-                </div>
-
-                <div class="geo-card">
                   <p class="sensor-label">Cybermap source</p>
                   <label class="wigle-field" for="wigleEndpointInput">
                     <span>Godeye viewport API</span>
@@ -446,17 +383,17 @@
                   <div class="wigle-action-row">
                     <button id="wigleConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect Cybermap viewport</button>
                   </div>
-                  <p id="wigleStatusText">Godeye Cybermap viewport is not connected yet.</p>
+                  <p id="wigleStatusText">Cybermap viewport not connected.</p>
                 </div>
 
                 <div class="geo-card">
                   <p class="sensor-label">Location status</p>
-                  <p id="geoStatusText">Geolocation permission has not been requested yet.</p>
+                  <p id="geoStatusText">Geolocation not requested.</p>
                 </div>
 
                 <div class="geo-card">
                   <p class="sensor-label">Godeye map readout</p>
-                  <p id="godeyeWigleStatus">The map will show managed Cybermap observations within 100m of the current fix.</p>
+                  <p id="godeyeWigleStatus">Awaiting current fix.</p>
                   <div id="godeyeWigleList" class="wigle-list"></div>
                 </div>
 
@@ -491,14 +428,14 @@
                   <p class="eyebrow">// GLOBAL //</p>
                   <h3>Global source provenance ledger</h3>
                 </div>
-                <p class="panel-meta">Global context is aggregate evidence, not a local sighting or a provider request.</p>
+                <p class="panel-meta">Aggregate evidence; not a local sighting or provider request.</p>
               </div>
 
               <dl class="godeye-global-legend" aria-label="Global evidence fields">
-                <div><dt>Source class</dt><dd>Evidence policy for the selected layer.</dd></div>
-                <div><dt>Attribution</dt><dd>Provider credit retained with the layer.</dd></div>
-                <div><dt>Freshness</dt><dd>Last successful materialization, never a live claim.</dd></div>
-                <div><dt>Caveat</dt><dd>Coverage or evidence limits that remain visible.</dd></div>
+                <div><dt>Source class</dt><dd>Selected-layer evidence policy.</dd></div>
+                <div><dt>Attribution</dt><dd>Provider credit.</dd></div>
+                <div><dt>Freshness</dt><dd>Last materialization; not live.</dd></div>
+                <div><dt>Caveat</dt><dd>Coverage and evidence limits.</dd></div>
               </dl>
 
               <div class="godeye-global-grid">
@@ -536,11 +473,11 @@
                 <p class="eyebrow">// MOSAIC &amp; MURMURS / PRIVATE ARCHIVE //</p>
                 <h2 id="morningBriefTitle">Morning Field Dossiers</h2>
               </div>
-              <p class="panel-meta">Immutable rendered packets, retained for seven days and verified before they reach this surface.</p>
+              <p class="panel-meta">Verified packets. Retention: seven days.</p>
             </div>
             <div class="morning-brief-toolbar">
-              <button id="briefReturnToConsole" class="btn btn-secondary" type="button">Return to operator console</button>
-              <p id="briefStatus" class="dashboard-status" aria-live="polite">Open the dossier tab to load the sealed archive.</p>
+              <button id="briefReturnToConsole" class="btn btn-secondary" type="button">Return to console</button>
+              <p id="briefStatus" class="dashboard-status" aria-live="polite">Select a dossier to load the archive.</p>
             </div>
             <label class="dashboard-field morning-brief-run-select" for="briefRunSelect">
               <span>Archive date</span>
@@ -559,23 +496,8 @@
                 <p class="eyebrow">// LEXICON //</p>
                 <h2 id="slangDictionaryTitle">Blue Swallow Society slang dictionary</h2>
               </div>
-              <p class="panel-meta">Operator-facing mirror of the house streetslang and console jargon. Seasoning, not wallpaper.</p>
+              <p class="panel-meta">House terms. Use sparingly.</p>
             </div>
-
-            <section class="slang-guidance" aria-label="Dictionary use rules">
-              <article class="slang-rule-card">
-                <span class="metric-label">Use</span>
-                <p>One well-placed term usually beats a full sentence of code-switched jargon.</p>
-              </article>
-              <article class="slang-rule-card">
-                <span class="metric-label">Stance</span>
-                <p>Prefer words that carry praise, insult, intimacy, status, or operational pressure.</p>
-              </article>
-              <article class="slang-rule-card">
-                <span class="metric-label">Mutation</span>
-                <p>Promote invented terms only when they have a repeated referent, speaker group, and retirement trigger.</p>
-              </article>
-            </section>
 
             <section class="slang-section" aria-labelledby="slangCoreTitle">
               <h3 id="slangCoreTitle">Core Pondsmith / Cyberpunk 2077 streetslang</h3>
@@ -651,17 +573,6 @@
               </div>
             </section>
 
-            <section class="slang-section" aria-labelledby="slangUsageTitle">
-              <h3 id="slangUsageTitle">Modern usage notes</h3>
-              <ul class="slang-note-list">
-                <li><strong>Choom, preem, nova, and gonk</strong> are the most legible modern carry-overs for everyday dialogue.</li>
-                <li><strong>Cyberspace, ICE, cyberdeck, and jacking in</strong> read as genre shorthand now, not just period-specific jargon.</li>
-                <li><strong>Simstim</strong> and <strong>console cowboy</strong> lean Sprawl-specific; use when the voice wants Gibson more than generic Night City noise.</li>
-                <li><strong>Meatspace</strong> may read as internet-era slang before Gibson; still useful, but it shifts register.</li>
-                <li>Characters should not sound interchangeable: corpo, fixer, nomad, and decker slang should reveal status and region.</li>
-              </ul>
-            </section>
-
             <section class="slang-section" aria-labelledby="slangNacreTitle">
               <h3 id="slangNacreTitle">Nacre-Moiré operational shorthand</h3>
               <div class="slang-table-wrapper">
@@ -674,11 +585,10 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr><th scope="row">Wire-digest</th><td>One compact, bounded technical summary for the immediately preceding long-work interval; operational telemetry, never chain-of-thought</td><td>Blue Swallow Society / Nacre-Moiré house term, 2026-07-13</td></tr>
+                    <tr><th scope="row">Wire-digest</th><td>Bounded post-interval operations summary; never chain-of-thought</td><td>Blue Swallow Society / Nacre-Moiré house term, 2026-07-13</td></tr>
                   </tbody>
                 </table>
               </div>
-              <p class="slang-footnote">Usage rule: <code>wire-digest</code> replaces phrases like “periodic long-running technical activity summary.” Keep payloads terse: completed/error operation counts, argument-free operation labels, API delta, and iteration state.</p>
             </section>
           </article>
         </section>
@@ -687,7 +597,6 @@
       <footer class="site-footer">
         <div class="container footer-inner">
           <span>Blue Swallow Society</span>
-          <span class="subtle">// Nacre-Moiré operator surface · signal earns glow //</span>
         </div>
       </footer>
     </div>
