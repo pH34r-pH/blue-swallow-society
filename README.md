@@ -1,11 +1,11 @@
-# Personal Site Starter on Azure Static Web Apps + VM Echo Backend
+# Blue Swallow Society on Azure Static Web Apps + Cybermap Backend
 
 This starter repo gives you:
 
 - A **publicly accessible website** on **Azure Static Web Apps**
 - **GitHub Actions CI/CD** for the frontend, managed API, infrastructure, and custom-domain wiring
-- A small **Azure Functions proxy API** exposed as `/api/echo`, `/api/profile`, and `/api/agent`
-- An **Ubuntu VM** currently hosting a simple echo service; the first authenticated/idempotent Cybermap ingest service now exists in source but is not deployed
+- **Azure Functions** for the passcode split, protected operator APIs, and Cybermap proxy routes
+- An **Ubuntu VM API gateway** for the authenticated/idempotent Cybermap ingest service
 - A **Cybermap-first geospatial backend design and P0 ingest implementation** using Azure Database for PostgreSQL Flexible Server B1MS + PostGIS
 - A clean place to add **local model experiments** later on the VM
 - An optional **Azure OpenAI** account, gated by a single Bicep parameter
@@ -20,7 +20,7 @@ Azure Static Web App (public face + protected /operator console)
   ↓
 /api/* (managed Azure Functions proxy)
   ↓
-VM API gateway on Ubuntu (deployed scaffold: echo; source P0: authenticated ingest)
+VM API gateway on Ubuntu (authenticated Cybermap ingest)
   ↓
 Azure Database for PostgreSQL Flexible Server B1MS + PostGIS (target Cybermap store)
 ```
@@ -43,7 +43,6 @@ The audited implementation-versus-design matrix is maintained in [Blue Swallow S
 │       ├── azure-static-web-apps-wonderful-pond-0623ed81e.yml  # disabled legacy workflow; delete after cutover to blue-swallow-swa
 │       └── setup-azure-creds.md
 ├── api/
-│   ├── echo/
 │   ├── profile/
 │   ├── agent/
 │   ├── operator-downloads/
@@ -81,7 +80,7 @@ The audited implementation-versus-design matrix is maintained in [Blue Swallow S
 │   ├── crypto-paper-trading-strategy-research.md
 │   ├── anti-surveillance-style-research.md
 │   ├── tzeentch-paper-api-status.md
-│   └── vm-echo-wiring.md
+│   ├── vm-echo-wiring.md              # historical retired-path record
 ├── config/
 │   └── mosaic-murmurs-paper-ledger.json        # paper-only morning brief books/positions
 ├── infra/
@@ -89,7 +88,7 @@ The audited implementation-versus-design matrix is maintained in [Blue Swallow S
 │   ├── custom-domains.bicep        # custom-domain bindings for the Static Web App
 │   ├── custom-domains-dns.bicep    # Azure DNS records for apex/www
 │   ├── main.parameters.json
-│   ├── vm-echo-lab.bicep           # VM + NSG + cloud-init + auto-shutdown
+│   ├── vm-echo-lab.bicep           # legacy-named VM API gateway + NSG + auto-shutdown
 │   └── modules/
 │       └── openai.bicep            # optional Azure OpenAI account
 ├── scripts/
@@ -124,9 +123,6 @@ The hidden operator half lives under `/operator` and `/agent`:
 - operator data APIs (`/api/wigle`, `/api/agent`, `/api/osint`, `/api/tzeentch`) fail closed inside the Functions layer with `requireOperatorToken`;
 - the Wardriver APK is no longer a public static asset and is served only by `/api/operator-downloads/wardriver/*` after the same operator-token check;
 - Godeye, Tzeentch, WiGLE, and agent surfaces are lazy-loaded from operator assets only.
-
-The Azure Function proxy at `/api/echo` forwards to the VM using the SWA app setting:
-- `BACKEND_ECHO_BASE_URL` → e.g. `http://<vm-public-ip>:8080`
 
 The WiGLE proxy at `/api/wigle` supports:
 - `mode=current` → AR current-state path. Reads the device-local WiGLE database/export through `WIGLE_LOCAL_DB_PATH` or `WIGLE_LOCAL_DB_URL`, filters to recent rows (`maxAgeSeconds`, default 45), and orders candidates by signal strength.
@@ -169,8 +165,8 @@ Follow [.github/workflows/setup-azure-creds.md](.github/workflows/setup-azure-cr
 
 The **Deploy Infra + App** workflow will:
 1. Create the resource group `rg-blue-swallow` if it does not exist.
-2. Run `az deployment group create` against `infra/main.bicep` (SWA resource `blue-swallow-swa` + VM echo lab; OpenAI optional).
-3. Set `BACKEND_ECHO_BASE_URL`, `BLUE_SWALLOW_PASSCODE_SHA256`, and `BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY` from GitHub/Azure secrets on the Static Web App.
+2. Run `az deployment group create` against `infra/main.bicep` (SWA resource `blue-swallow-swa` + VM API gateway; OpenAI optional).
+3. Set the Cybermap backend URL/token configuration plus `BLUE_SWALLOW_PASSCODE_SHA256` and `BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY` on the Static Web App.
 4. Deploy `app/` and `api/` to the Static Web App.
 5. Ensure the Azure DNS zone for `blueswallow.net` exists, then wire the apex `blueswallow.net` and `www.blueswallow.net` hostnames through the custom-domain helper script and Azure DNS in `rg-blue-swallow` (the canonical SWA is `blue-swallow-swa`; legacy SWAs `blue-swallow-society` and `wonderful-pond-0623ed81e` have been deleted after cutover). The helper stages the Azure DNS apex A alias and `www` CNAME even before public delegation is live; final SWA custom-domain binding still requires the domain to be registered and delegated at the registrar to the Azure DNS nameservers.
 
@@ -182,15 +178,15 @@ Set `deployOpenAi` to `true` in [`infra/main.parameters.json`](./infra/main.para
 
 ### 4. (Optional) Tighten access
 
-Replace `"allowedSourceIp": "*"` with your developer IP `/32` to restrict the VM NSG to SSH + 8080 from your address only. The VM auto-shutdown defaults to 02:00 Pacific to cap cost.
+Set `allowedSourceIp` to your developer IP `/32` to restrict SSH access. The VM auto-shutdown defaults to 02:00 Pacific to cap cost.
 
 ## Notes on security
 
 This scaffold is intentionally simple so you can focus on experiments.
 
-For the VM starter, the echo service listens on a public IP and port 8080. That is **good for short experiments**, but not the hardened end state. Hardening steps already supported:
+The VM API gateway exposes HTTPS only; the retired echo service is not deployed or routed. Hardening steps already supported:
 
-- `allowedSourceIp` parameter restricts the NSG to your CIDR (default `*` is open).
+- `allowedSourceIp` parameter restricts SSH to your CIDR.
 - Daily auto-shutdown schedule (DevTestLab) caps idle cost.
 - SWA `globalHeaders` set CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy`.
 - Operator access uses the passcode-issued token, not SWA Easy Auth, for `/api/wigle`, `/api/agent`, `/api/osint`, `/api/tzeentch`, and `/api/operator-downloads/wardriver/*`. `/api/profile` and `/account/*` remain SWA-authenticated.

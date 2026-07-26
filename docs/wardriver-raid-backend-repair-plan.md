@@ -81,7 +81,7 @@ Stubbed or weak pieces:
 - `buildArCandidateBoxes()` renders candidate UI boxes from normalized signal/candidate data; it is not real AR sensor fusion.
 - `buildWigleMapState()` renders local viewport markers but does not read a durable Cybermap backend.
 - Hosted SWA browsers cannot read a phone's `127.0.0.1` bridge or Android app-private sqlite database. Production must go through a server-reachable bridge/backend, not browser-local fantasy wiring.
-- `docs/vm-api.md` and `docs/cybermap-geospatial-backend.md` describe the target Cybermap API/PostGIS design, but the live VM path is still echo-scaffold unless separately deployed.
+- `docs/vm-api.md` preserves the retired echo-lab record; `docs/cybermap-geospatial-backend.md` describes the active Cybermap API/PostGIS design.
 
 Missing pieces:
 
@@ -214,7 +214,7 @@ Goal: create the durable backend the current UI assumes exists.
 
 Backend tasks:
 
-1. Replace echo-only VM with `cybermap-api` on localhost behind Caddy/nginx/Tailscale or HTTPS.
+1. Promote the existing `cybermap-api` backend to the managed VM on localhost behind Caddy/nginx/Tailscale or HTTPS.
 2. Add PostgreSQL Flexible Server/PostGIS migration for the documented core tables:
    - `source_catalog`
    - `sensorium_sessions`

@@ -1,7 +1,7 @@
 # Azure Resources Specification
 
 ## Overview
-This document specifies the Azure infrastructure resources deployed for the Blue Swallow Society project using Bicep templates. The architecture includes Azure Static Web Apps, custom-domain wiring through Azure DNS, explicit shared VNet topology for the VM/API gateway and private PostgreSQL, Ubuntu VM with echo/API scaffold, networking components, and optional Azure OpenAI integration.
+This document specifies the Azure infrastructure resources deployed for the Blue Swallow Society project using Bicep templates. The architecture includes Azure Static Web Apps, custom-domain wiring through Azure DNS, explicit shared VNet topology for the VM/API gateway and private PostgreSQL, an Ubuntu Cybermap API gateway, networking components, and optional Azure OpenAI integration.
 
 ## Resource Groups
 
@@ -40,19 +40,19 @@ This document specifies the Azure infrastructure resources deployed for the Blue
   - `postgresPrivateDnsZoneName`
   - `postgresPrivateDnsZoneVirtualNetworkLinkId`
 
-### 3. Virtual Machine Echo/API Gateway Lab
+### 3. Virtual Machine Cybermap API Gateway
 - **Module**: `vm-echo-lab.bicep`
 - **Components**:
   - **Network Security Group**:
     - SSH access (port 22) from `allowedSourceIp` CIDR
-    - Echo scaffold access (port 8080) from `allowedSourceIp` CIDR until the Cybermap API gateway task moves product ingress to HTTPS/443
+    - HTTP ACME challenge access (port 80) and HTTPS API gateway access (port 443)
     - Default deny all other inbound traffic
   - **Network Interface**: Connects VM to the shared `default` app subnet with NSG and public IP
   - **Virtual Machine**:
     - **Image**: Canonical Ubuntu Server 22.04 LTS Gen2
     - **Size**: Standard_B1ms by default for Cybermap headroom; API-only/lab deployments may explicitly override to Standard_B1s
     - **Authentication**: SSH key only (password disabled)
-    - **Custom Data**: Cloud-init configuration for echo service setup
+    - **Custom Script extension**: Installs the Cybermap API gateway
     - **Admin User**: `azureuser` (configurable)
   - **Auto-Shutdown Schedule**:
     - **Type**: Microsoft.DevTestLab/schedules@2018-09-15
@@ -60,28 +60,8 @@ This document specifies the Azure infrastructure resources deployed for the Blue
     - **Time Zone**: Pacific Standard Time (configurable)
     - **Purpose**: Cost control for non-production experimentation
 
-### 4. Cloud-Init Configuration
-The VM uses cloud-init to automatically configure the echo service:
-- **Package Updates**: Runs `package_update: true` on first boot
-- **Echo Server Python Script**:
-  - **Location**: `/opt/echo/echo_server.py`
-  - **Permissions**: 0755 (executable)
-  - **Functionality**: Simple HTTP server on port 8080
-    - Endpoint: `/echo?msg={message}`
-    - Response: JSON with `ok`, `echo` (original message), `host`, `path`, `query`
-    - Error handling: 404 for non-/echo paths
-  - **Dependencies**: Uses Python standard library only (`http.server`, `json`, `socket`)
-- **Systemd Service**:
-  - **File**: `/etc/systemd/system/echo-server.service`
-  - **Description**: Simple Echo Server
-  - **Type**: simple
-  - **ExecStart**: `/usr/bin/python3 /opt/echo/echo_server.py`
-  - **Restart**: always with 3-second delay
-  - **WantedBy**: multi-user.target
-- **Startup Commands**:
-  - Creates `/opt/echo` directory
-  - Reloads systemd daemon
-  - Enables and starts echo-server.service
+### 4. Cybermap API installation
+The VM Custom Script extension installs `vm/cybermap-api`, configures a loopback-only service, and places an HTTPS gateway in front of it. The retired echo cloud-init service is not provisioned.
 
 ### 5. Optional Azure OpenAI Account
 - **Condition**: Deployed only when `deployOpenAi = true`
@@ -100,15 +80,15 @@ The VM uses cloud-init to automatically configure the echo service:
 | `staticWebAppName` | string | (required) | Unique name for Static Web App |
 | `prefix` | string | 'blue-swallow' | Resource name prefix for VM/networking |
 | `sshPublicKey` | string (secure) | (required) | SSH public key for VM admin user |
-| `allowedSourceIp` | string | '*' | CIDR for SSH/echo access (use specific IP/32 for security) |
+| `allowedSourceIp` | string | '127.0.0.1/32' | CIDR for SSH access (use a specific developer IP/32 when remote administration is required) |
 | `vmSize` | string | 'Standard_B1ms' | VM size for Cybermap; override to Standard_B1s only for explicit API-only/lab deployments |
 | `deployOpenAi` | bool | false | Whether to deploy Azure OpenAI account |
 | `autoShutdownTime` | string | '0200' | Daily VM shutdown time (HHmm format) |
 | `autoShutdownTimeZone` | string | 'Pacific Standard Time' | Time zone for auto-shutdown schedule |
 
 ### Security Considerations
-- **SSH Access**: Restricted to `allowedSourceIp` CIDR (default '*' is open - **not recommended for production**)
-- **Echo Service**: Similarly restricted to `allowedSourceIp` CIDR on port 8080
+- **SSH Access**: Restricted to `allowedSourceIp` CIDR (the checked-in default is deny-by-default)
+- **Cybermap Gateway**: Public ingress is HTTPS on port 443; the API service binds to loopback only
 - **Authentication**: SSH key-based only (no password authentication)
 - **Network Isolation**: VM in private VNet with NSG controlling inbound traffic
 - **Public IP**: Standard SKU static IP (can be replaced with private link in future)
@@ -120,7 +100,7 @@ The VM uses cloud-init to automatically configure the echo service:
 |-------------|------|-------------|
 | `staticWebAppDefaultHostname` | string | URL of the deployed Static Web App |
 | `staticWebAppResourceId` | string | ARM resource ID of the deployed Static Web App |
-| `backendEchoBaseUrl` | string | HTTP URL of the VM echo service (http://`<public-ip>`:8080) |
+| `backendCybermapBaseUrl` | string | HTTPS URL of the VM Cybermap API gateway |
 | `vmPublicIp` | string | Public IP address of the VM |
 | `vnetId` | string | Shared backend VNet ARM ID |
 | `appSubnetId` | string | Shared VM/API gateway subnet ARM ID |
@@ -143,7 +123,7 @@ The VM uses cloud-init to automatically configure the echo service:
    - Auto-shutdown schedule deployed alongside VM
 5. PostgreSQL Flexible Server module (added by the datastore slice) must consume `postgresSubnetId` and `postgresPrivateDnsZoneId`/`postgresPrivateDnsZoneName` from the shared network module; it must not create a hidden second VNet.
 6. Optional OpenAI account deployed conditionally
-7. Static Web App updated with `BACKEND_ECHO_BASE_URL` app setting from VM output
+7. Static Web App updated with Cybermap backend URL/token configuration from VM output and deployment secrets
 8. Custom domains wired after the SWA deployment using the Azure DNS zone:
    - apex `blueswallow.net`
    - `www.blueswallow.net`
@@ -173,7 +153,7 @@ The VM uses cloud-init to automatically configure the echo service:
   - Static web app name: blue-swallow-swa
   - Legacy SWA resources deleted after cutover: blue-swallow-society, wonderful-pond-0623ed81e
   - Prefix: blue-swallow
-  - Allowed source IP: * (open — must be restricted before production)
+  - Allowed source IP: 127.0.0.1/32 (deny-by-default until a developer IP is explicitly supplied)
   - VM size: Standard_B1ms (override to Standard_B1s only for explicit API-only/lab deployments)
   - OpenAI deployment: false
   - Auto-shutdown: 0200 Pacific Standard Time
@@ -190,11 +170,11 @@ The VM uses cloud-init to automatically configure the echo service:
 - Creates/updates `${prefix}-vm-vnet`, the existing VM/API `default` subnet, delegated `postgres-subnet`, PostgreSQL private DNS zone, and VNet link
 - Outputs subnet and DNS IDs consumed by the VM and PostgreSQL modules
 
-### vm-echo-lab.bicep
-- **Encapsulates VM, public IP, NSG, NIC, cloud-init, and auto-shutdown**
+### vm-echo-lab.bicep (legacy filename)
+- **Encapsulates VM, public IP, NSG, NIC, Custom Script extension, and auto-shutdown**
 - Consumes `appSubnetId` from the shared network module; it does not create a private VNet internally
-- Reusable module for the current echo scaffold and later Cybermap API gateway host
-- Handles cloud-init configuration and service setup
+- Reusable module for the Cybermap API gateway host
+- Runs the Cybermap installation extension; it does not provision the retired echo service
 
 ### modules/openai.bicep
 - **Simple OpenAI account deployment**
@@ -239,7 +219,7 @@ For production hardening, consider:
 
 ## Target Cybermap Geospatial Backend
 
-The next infrastructure target makes Cybermap/PostGIS the first-class backend instead of treating the VM as an echo lab.
+Cybermap/PostGIS is the first-class backend; the former public echo lab is retired.
 
 ### Target resources
 
@@ -260,7 +240,7 @@ The next infrastructure target makes Cybermap/PostGIS the first-class backend in
 - PostgreSQL has no public ingress; only the VM reaches it through the VNet/private DNS path.
 - Browser calls go through Static Web App/API proxy to the VM; browsers never receive database credentials.
 - Wardriver/RaID uses per-device tokens and idempotent ingest batches.
-- Port 8080 echo is scaffold-only and should be retired once `/api/v1/*` Cybermap endpoints are live.
+- The retired echo path is not provisioned or routed. HTTPS 443 is the gateway ingress.
 
 Full design: [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md).
 

@@ -78,10 +78,6 @@ Passcode/operator APIs:
 - `/api/agent` (POST): protected agent prompt route; requires operator token.
 - `/api/profile` (GET): protected profile endpoint.
 
-Public API:
-
-- `/api/echo` remains public scaffold/demo plumbing for the VM echo path.
-
 ## Security Considerations
 
 - Public HTML/CSS contains only the Blue Swallow Society passcode split and the standard event-planning branch.

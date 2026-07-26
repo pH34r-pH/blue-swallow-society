@@ -4,6 +4,8 @@
 **Scope:** deployed website, Azure Static Web Apps Functions, Azure VM/infrastructure, Cybermap/PostGIS design, Mosaic & Murmurs automation, and the Blue Swallow Wardriver Android fork  
 **Method:** source review, proposal/spec comparison, local test/build execution, read-only Azure/GitHub inspection, Hermes scheduler inspection, and deployed-host smoke tests
 
+> **Historical audit snapshot:** This document records the deployment state observed on 2026-07-11. Later remediations can supersede its findings; do not use it as current-operation or deployment guidance.
+
 ## Executive verdict
 
 Blue Swallow Society currently has a **working Black ICE entry split, a protected operator dashboard, public-source OSINT/market adapters, a private Wardriver download path, a tested Cybermap SQL schema, and a buildable Android sensor prototype**.
@@ -112,13 +114,13 @@ The implementation therefore has three distinct maturity bands:
 
 ### Material gaps and risks
 
-#### P0 — public echo path reaches a public VM scaffold
+#### P0 — historical public echo path reached a public VM scaffold
 
-`/api/echo` remains anonymous and forwards to a VM base configured as public HTTP port `8080`. Azure currently allows inbound SSH and `8080` from `*`. The VM was deallocated, so the deployed echo request returned `502` or waited on the unavailable upstream.
+At audit time, `/api/echo` was anonymous and forwarded to a VM base configured as public HTTP port `8080`. Azure then allowed inbound SSH and `8080` from `*`. The VM was deallocated, so the deployed echo request returned `502` or waited on the unavailable upstream.
 
-This is the opposite of the intended Black ICE topology even though the current service is only an echo daemon. It exposes the VM address/port design, creates an unauthenticated proxy path, and retains internet ingress that the planned Tailscale/private path was supposed to remove.
+This was the opposite of the intended Black ICE topology even though the audited service was only an echo daemon. It exposed the VM address/port design, created an unauthenticated proxy path, and retained internet ingress that the planned Tailscale/private path was supposed to remove.
 
-**Required repair:** remove `/api/echo` from production or token-gate it; eliminate public `8080`; restrict SSH; deploy the real API behind private/Tailscale/HTTPS reachability; add upstream timeouts and circuit-breaker behavior.
+**Remediation record (2026-07-26):** `/api/echo`, its Function proxy, the VM cloud-init echo service, and active echo deployment wiring were removed. The Static Web App route returns deliberate `404`; this audit section remains only as provenance for the retired finding.
 
 #### P1 — operator JavaScript is discoverable without auth
 
