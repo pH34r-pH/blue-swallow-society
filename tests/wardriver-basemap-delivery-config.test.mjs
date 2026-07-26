@@ -76,6 +76,7 @@ test('manual basemap publication verifies its source and toolchain, emits proven
   assert.match(workflow, /actions\/setup-java@v4/);
   assert.match(workflow, /java-version: '21'/);
   assert.match(workflow, /\$JAVA_HOME\/bin\/java/);
+  assert.match(workflow, /--download/);
   assert.match(workflow, /sha256sum --check/);
   assert.match(workflow, /--auth-mode login/);
   assert.match(workflow, /Storage Blob Data Contributor/);
