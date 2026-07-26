@@ -56,6 +56,14 @@ param paperStateToken string
 @description('Dedicated token for private morning-brief archive reads and writes.')
 param morningBriefToken string
 
+@secure()
+@description('Random loopback-only secret that Caddy injects after successful Wardriver mTLS verification.')
+param mtlsProxySecret string
+
+@secure()
+@description('PEM public certificate used by Caddy to verify the Wardriver client certificate. Never pass a PFX or private key.')
+param wardriverMtlsTrustCertificatePem string
+
 @description('Public repository tarball used by the VM extension to install vm/cybermap-api.')
 param cybermapSourceTarballUrl string = 'https://github.com/pH34r-pH/blue-swallow-society/archive/refs/heads/main.tar.gz'
 
@@ -108,6 +116,19 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2024-01-01' = {
           destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 1010
+          direction: 'Inbound'
+        }
+      }
+      {
+        name: 'allow-wardriver-mtls'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '8443'
+          sourceAddressPrefix: 'Internet'
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1030
           direction: 'Inbound'
         }
       }
@@ -229,7 +250,16 @@ var cybermapInstallScriptWithMorningBriefToken = replace(
   '__MORNING_BRIEF_TOKEN_B64__',
   base64(morningBriefToken)
 )
-var cybermapInstallScript = cybermapInstallScriptWithMorningBriefToken
+var cybermapInstallScriptWithMtlsProxySecret = replace(
+  cybermapInstallScriptWithMorningBriefToken,
+  '__BSS_MTLS_PROXY_SECRET_B64__',
+  base64(mtlsProxySecret)
+)
+var cybermapInstallScript = replace(
+  cybermapInstallScriptWithMtlsProxySecret,
+  '__WARDIVER_MTLS_TRUST_CERT_PEM_B64__',
+  base64(wardriverMtlsTrustCertificatePem)
+)
 
 resource cybermapApiExtension 'Microsoft.Compute/virtualMachines/extensions@2024-03-01' = {
   parent: vm
