@@ -87,7 +87,7 @@ Network rules:
 4. Wardriver/RaID calls the VM API through either:
    - Tailscale/private operator mesh, preferred for field devices; or
    - public HTTPS with per-device token, rate limit, and idempotency keys.
-5. Port 8080 echo is scaffold-only. The target public API is HTTPS 443 on the VM gateway.
+5. The public echo path is retired. The public API gateway is HTTPS 443 on the VM.
 
 ## VM responsibility boundary
 
@@ -289,7 +289,7 @@ P0 should not expose arbitrary SQL-ish filtering. Keep query shapes product-spec
 ## Implementation order
 
 1. Add PostgreSQL Flexible Server B1MS Bicep module with private VNet access and PostGIS bootstrap notes.
-2. Replace echo-lab cloud-init with `cybermap-api` service scaffold, Caddy/nginx, PgBouncer, and `/healthz`/`/readyz`.
+2. Maintain the `cybermap-api` service scaffold, Caddy/nginx, PgBouncer, and `/healthz`/`/readyz` as the VM backend topology.
 3. Add migrations for source catalog, observations, sessions, entities, and cells.
 4. Implement `POST /api/v1/observations/batch` and idempotency tests.
 5. Implement cell materialization worker and `GET /api/v1/cybermap/viewport`.

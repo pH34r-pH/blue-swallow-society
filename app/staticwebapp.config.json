@@ -113,10 +113,7 @@
     },
     {
       "route": "/api/echo",
-      "allowedRoles": [
-        "anonymous",
-        "authenticated"
-      ]
+      "statusCode": 404
     },
     {
       "route": "/agent",

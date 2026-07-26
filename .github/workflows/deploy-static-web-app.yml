@@ -29,7 +29,6 @@ jobs:
   deploy-infra:
     runs-on: ubuntu-latest
     outputs:
-      backendEchoBaseUrl: ${{ steps.deploy.outputs.backendEchoBaseUrl }}
       backendCybermapBaseUrl: ${{ steps.deploy.outputs.backendCybermapBaseUrl }}
       wardriverReleaseStorageAccountName: ${{ steps.deploy.outputs.wardriverReleaseStorageAccountName }}
       wardriverReleaseContainerName: ${{ steps.deploy.outputs.wardriverReleaseContainerName }}
@@ -168,7 +167,7 @@ jobs:
               --query "[?properties.provisioningState=='Failed'].{resource:properties.targetResource.resourceName, type:properties.targetResource.resourceType, status:properties.statusMessage}" \
               -o json || true
             echo "::endgroup::"
-            echo "::group::Failed deployment operations (vm-echo-lab module)"
+            echo "::group::Failed deployment operations (VM API gateway module)"
             az deployment operation group list \
               --resource-group "$RESOURCE_GROUP" \
               --name vm-echo-lab \
@@ -177,7 +176,6 @@ jobs:
             echo "::endgroup::"
             exit $rc
           fi
-          backend=$(echo "$out" | jq -r '.backendEchoBaseUrl.value')
           cybermap_backend=$(echo "$out" | jq -r '.backendCybermapBaseUrl.value')
           release_storage_account=$(echo "$out" | jq -r '.wardriverReleaseStorageAccountName.value')
           release_container=$(echo "$out" | jq -r '.wardriverReleaseContainerName.value')
@@ -185,7 +183,6 @@ jobs:
             echo "::error::Wardriver release storage deployment outputs are missing."
             exit 1
           fi
-          echo "backendEchoBaseUrl=$backend" >> "$GITHUB_OUTPUT"
           echo "backendCybermapBaseUrl=$cybermap_backend" >> "$GITHUB_OUTPUT"
           echo "wardriverReleaseStorageAccountName=$release_storage_account" >> "$GITHUB_OUTPUT"
           echo "wardriverReleaseContainerName=$release_container" >> "$GITHUB_OUTPUT"
@@ -233,7 +230,6 @@ jobs:
             --name "$swa_name" \
             --resource-group "$RESOURCE_GROUP" \
             --setting-names \
-              BACKEND_ECHO_BASE_URL="${{ steps.deploy.outputs.backendEchoBaseUrl }}" \
               BACKEND_CYBERMAP_BASE_URL="${{ steps.deploy.outputs.backendCybermapBaseUrl }}" \
               BACKEND_PAPER_STATE_BASE_URL="${{ steps.deploy.outputs.backendCybermapBaseUrl }}" \
               BACKEND_MORNING_BRIEF_BASE_URL="${{ steps.deploy.outputs.backendCybermapBaseUrl }}" \
@@ -245,6 +241,12 @@ jobs:
               BSS_WARDRIVER_RELEASE_MANIFEST_BLOB="wardriver/releases/latest.json" \
               BLUE_SWALLOW_PASSCODE_SHA256="$passcode_hash" \
               BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY="$signing_key" \
+            --only-show-errors \
+            -o none
+          az staticwebapp appsettings delete \
+            --name "$swa_name" \
+            --resource-group "$RESOURCE_GROUP" \
+            --setting-names BACKEND_ECHO_BASE_URL \
             --only-show-errors \
             -o none
 

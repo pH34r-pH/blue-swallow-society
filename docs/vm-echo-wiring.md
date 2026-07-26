@@ -1,22 +1,9 @@
-# VM echo wiring
+# Historical VM echo wiring (retired)
 
-## VM service
-The VM bootstrap creates a tiny Python HTTP service that responds to:
-- `GET /echo?msg=hello`
+> **Historical record:** This file preserves the pre-Cybermap echo-lab design. The anonymous `/api/echo` route, its Function proxy, and its app setting were retired on 2026-07-26. The deployed route now returns 404.
 
-## Static Web App proxy function
-The repo exposes:
-- `GET /api/echo?msg=hello`
+## Former topology
 
-The function reads:
-- `BACKEND_ECHO_BASE_URL`
+The retired lab used a VM-local Python `GET /echo` service behind an anonymous Static Web App Function. It was a connectivity proof only; it is not a current product, deployment, or supported local-development path.
 
-and forwards to:
-```text
-${BACKEND_ECHO_BASE_URL}/echo?msg=hello
-```
-
-## App setting example
-```text
-BACKEND_ECHO_BASE_URL=http://20.20.20.20:8080
-```
+The VM gateway now installs `vm/cybermap-api` behind HTTPS. See [VM API Specification](./vm-api.md) and [Cybermap Geospatial Backend](./cybermap-geospatial-backend.md) for the active architecture.

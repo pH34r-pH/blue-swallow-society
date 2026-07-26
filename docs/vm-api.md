@@ -1,7 +1,9 @@
-# VM API Specification
+# Historical VM Echo API Specification (retired)
 
-## Overview
-The deployed Blue Swallow Society VM still hosts the echo connectivity proof. The repository now also contains the first executable Cybermap ingest service under `vm/cybermap-api/`: authenticated, strict, idempotent Wardriver observation batches backed by PostgreSQL/PostGIS. That source implementation is not yet promoted to the VM, so the deployed endpoint remains scaffold-only.
+## Historical status
+> **Historical record:** The echo connectivity proof described below was retired on 2026-07-26. The anonymous `/api/echo` Function, its app setting, and its VM cloud-init service are not deployed. The Static Web App deliberately returns 404 for that path.
+
+The repository contains the executable Cybermap ingest service under `vm/cybermap-api/`: authenticated, strict, idempotent Wardriver observation batches backed by PostgreSQL/PostGIS.
 
 The target VM service is the **Cybermap API gateway**: authenticated `/api/v1/*` endpoints for observation ingest, viewport queries, source catalogs, sensorium sessions, direct observation packets, and Mosaic/Murmurs memory sync. The durable datastore is Azure Database for PostgreSQL Flexible Server with PostGIS. See [`docs/cybermap-geospatial-backend.md`](./cybermap-geospatial-backend.md) for the target design and [`vm/cybermap-api/README.md`](../vm/cybermap-api/README.md) for the implemented P0 ingest contract.
 
@@ -35,7 +37,7 @@ P0 endpoints replacing the echo lab:
 | `POST /api/v1/memories/patches` | Evidence-backed memory patch writeback, review-gated unless explicitly auto-mergeable |
 | `POST /api/v1/source-reliability/events` | Source reliability and retrieval degradation events |
 
-The sections below document the deployed echo proof-of-connectivity state.
+## Retired echo proof-of-connectivity record
 
 ### Implemented P0 ingest slice
 

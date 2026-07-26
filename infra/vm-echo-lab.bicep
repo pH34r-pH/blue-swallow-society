@@ -68,64 +68,6 @@ param backendDnsLabel string = toLower('${vmName}-${uniqueString(resourceGroup()
 @description('Opaque value used to force the VM Custom Script extension to re-run on each deployment.')
 param cybermapDeploymentVersion string = utcNow()
 
-var cloudInit = '''#cloud-config
-package_update: true
-write_files:
-  - path: /opt/echo/echo_server.py
-    permissions: '0755'
-    content: |
-      from http.server import BaseHTTPRequestHandler, HTTPServer
-      from urllib.parse import urlparse, parse_qs
-      import json, socket
-
-      class Handler(BaseHTTPRequestHandler):
-          def do_GET(self):
-              parsed = urlparse(self.path)
-              if parsed.path != '/echo':
-                  self.send_response(404)
-                  self.send_header('Content-Type', 'application/json')
-                  self.end_headers()
-                  self.wfile.write(json.dumps({'ok': False, 'error': 'Not found'}).encode())
-                  return
-              query = parse_qs(parsed.query)
-              msg = query.get('msg', [''])[0]
-              body = {
-                  'ok': True,
-                  'echo': msg,
-                  'host': socket.gethostname(),
-                  'path': parsed.path,
-                  'query': query
-              }
-              payload = json.dumps(body).encode()
-              self.send_response(200)
-              self.send_header('Content-Type', 'application/json')
-              self.send_header('Content-Length', str(len(payload)))
-              self.end_headers()
-              self.wfile.write(payload)
-
-      HTTPServer(('0.0.0.0', 8080), Handler).serve_forever()
-  - path: /etc/systemd/system/echo-server.service
-    permissions: '0644'
-    content: |
-      [Unit]
-      Description=Simple Echo Server
-      After=network.target
-
-      [Service]
-      Type=simple
-      ExecStart=/usr/bin/python3 /opt/echo/echo_server.py
-      Restart=always
-      RestartSec=3
-
-      [Install]
-      WantedBy=multi-user.target
-runcmd:
-  - mkdir -p /opt/echo
-  - systemctl daemon-reload
-  - systemctl enable echo-server.service
-  - systemctl start echo-server.service
-'''
-
 resource pip 'Microsoft.Network/publicIPAddresses@2024-01-01' = {
   name: '${vmName}-pip'
   location: location
@@ -212,7 +154,6 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-03-01' = {
     osProfile: {
       computerName: vmName
       adminUsername: adminUsername
-      customData: base64(cloudInit)
       linuxConfiguration: {
         disablePasswordAuthentication: true
         ssh: {
@@ -327,5 +268,4 @@ resource autoShutdown 'Microsoft.DevTestLab/schedules@2018-09-15' = {
 }
 
 output publicIpAddress string = pip.properties.ipAddress
-output backendEchoBaseUrl string = 'https://${backendFqdn}'
 output backendCybermapBaseUrl string = 'https://${backendFqdn}'

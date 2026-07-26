@@ -180,7 +180,6 @@ module wardriverReleaseStorage 'modules/wardriver-release-storage.bicep' = {
 
 output staticWebAppDefaultHostname string = swa.properties.defaultHostname
 output staticWebAppResourceId string = swa.id
-output backendEchoBaseUrl string = vmModule.outputs.backendEchoBaseUrl
 output backendCybermapBaseUrl string = vmModule.outputs.backendCybermapBaseUrl
 output vmPublicIp string = vmModule.outputs.publicIpAddress
 output vnetId string = networkModule.outputs.vnetId
