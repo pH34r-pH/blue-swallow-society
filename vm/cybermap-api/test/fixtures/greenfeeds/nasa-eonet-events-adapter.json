@@ -1,0 +1,47 @@
+{
+  "fixture": {
+    "owner": "Blue Swallow Society",
+    "provenance": "synthetic source-normalization contract fixture",
+    "version": 1
+  },
+  "payload": {
+    "events": [
+      {
+        "id": "EONET_fixture_b",
+        "categories": [
+          { "id": "severeStorms", "title": "Severe Storms" }
+        ],
+        "geometry": [
+          {
+            "date": "2026-07-22T18:10:00.000Z",
+            "type": "Point",
+            "coordinates": [151.201, -33.86]
+          },
+          {
+            "date": "2026-07-22T19:30:00.000Z",
+            "type": "Point",
+            "coordinates": [151.2093, -33.8688]
+          }
+        ]
+      },
+      {
+        "id": "EONET_fixture_a",
+        "categories": [
+          { "id": "wildfires", "title": "Wildfires" }
+        ],
+        "geometry": [
+          {
+            "date": "2026-07-22T17:10:00.000Z",
+            "type": "Point",
+            "coordinates": [-122.42, 37.77]
+          },
+          {
+            "date": "2026-07-22T18:20:00.000Z",
+            "type": "Point",
+            "coordinates": [-122.4194, 37.7749]
+          }
+        ]
+      }
+    ]
+  }
+}

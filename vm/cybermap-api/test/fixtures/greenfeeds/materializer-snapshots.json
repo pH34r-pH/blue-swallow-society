@@ -1,0 +1,88 @@
+{
+  "snapshots": [
+    {
+      "source_id": "source-usgs-earthquakes",
+      "source_class": "green_public",
+      "layer_id": "usgs-earthquakes",
+      "provider_event_id": "us7000test-a",
+      "observed_at": "2026-07-22T19:00:00.000Z",
+      "location": {
+        "latitude": 47.6062,
+        "longitude": -122.3321
+      },
+      "entity_count": 1,
+      "summary": {
+        "classification": "earthquake"
+      },
+      "caveats": [
+        "public_report_not_local_observation"
+      ],
+      "raw_evidence": {
+        "bssid": "00:11:22:33:44:55",
+        "ssid": "Fixture Broadcast Name",
+        "device_id": "fixture-device-01",
+        "person_label": "fixture-person",
+        "raw_frame": "fixture-frame-bytes",
+        "exact_track": [
+          [47.6062, -122.3321]
+        ]
+      }
+    },
+    {
+      "source_id": "source-usgs-earthquakes",
+      "source_class": "green_public",
+      "layer_id": "usgs-earthquakes",
+      "provider_event_id": "us7000test-b",
+      "observed_at": "2026-07-22T19:05:00.000Z",
+      "location": {
+        "latitude": 47.60645,
+        "longitude": -122.33185
+      },
+      "entity_count": 1,
+      "summary": {
+        "classification": "earthquake"
+      },
+      "caveats": [
+        "public_report_not_local_observation"
+      ],
+      "raw_evidence": {
+        "bssid": "66:77:88:99:aa:bb",
+        "ssid": "Second Fixture Broadcast Name",
+        "device_id": "fixture-device-02",
+        "person_label": "fixture-person-two",
+        "raw_frame": "second-fixture-frame-bytes",
+        "exact_track": [
+          [47.60645, -122.33185]
+        ]
+      }
+    },
+    {
+      "source_id": "source-usgs-earthquakes",
+      "source_class": "green_public",
+      "layer_id": "usgs-earthquakes",
+      "provider_event_id": "us7000test-a",
+      "observed_at": "2026-07-22T19:00:00.000Z",
+      "location": {
+        "latitude": 47.6062,
+        "longitude": -122.3321
+      },
+      "entity_count": 1,
+      "summary": {
+        "classification": "earthquake"
+      },
+      "caveats": [
+        "public_report_not_local_observation"
+      ],
+      "raw_evidence": {
+        "bssid": "00:11:22:33:44:55",
+        "ssid": "Fixture Broadcast Name",
+        "device_id": "fixture-device-01",
+        "person_label": "fixture-person",
+        "raw_frame": "fixture-frame-bytes",
+        "exact_track": [
+          [47.6062, -122.3321]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "fixture": {
+    "owner": "Blue Swallow Society",
+    "provenance": "synthetic source-normalization contract fixture",
+    "version": 1
+  },
+  "payload": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "properties": {
+          "eventid": "gdacs-fixture-002",
+          "eventtype": "FL",
+          "alertlevel": "Red",
+          "fromdate": "2026-07-22T18:00:00.000Z"
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [120.9842, 14.5995]
+        }
+      },
+      {
+        "properties": {
+          "eventid": "gdacs-fixture-001",
+          "eventtype": "EQ",
+          "alertlevel": "Orange",
+          "fromdate": "2026-07-22T17:30:00.000Z"
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [12.4964, 41.9028]
+        }
+      }
+    ]
+  }
+}
