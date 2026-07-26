@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "board": {
+    "slug": "godeye-global-map-source-integration",
+    "assignee": "default",
+    "required_model": "openai-codex/gpt-5.6-terra",
+    "workspace": "worktree:/home/ph3/repos/.worktrees/blue-swallow-society/godeye-global-map-source-integration",
+    "branch": "kanban/godeye-global-map-source-integration"
+  },
+  "authority": {
+    "root": "/home/ph3/repos/blue-swallow-society/specs/008-godeye-global-map-source-integration",
+    "status": "proposed; uncommitted in the primary worktree at board creation",
+    "artifacts": {
+      "spec.md": "a766a138fa31854e20c698f785a6320672f7a799e12de01b9b4cc0bcda8808e8",
+            "plan.md": "7eb11df5d519a86c627515c8702c84db5d1d850534a26f699afe8e81a43c167f",
+            "tests.md": "54eb87f09827ae95ad29a91215064f838740414e6dc3b4ed96e88e347f1505b4",
+            "tasks.md": "3a135bf11e77df0192014af0605c76387d009f47d4e8fccc3b73c5457ac202a2",
+            "data-model.md": "d52a24874cb416e1927fa6b1858b87990b7e98e9e02f61ba307daa153f67a601",
+            "research.md": "1383ddc722a11fbdbe4770402429d5a371e7216f69b36c153f17caaaa3a14734",
+            "execution-contract.yaml": "01c993ae6097e76ebb76c50742ee6b1a820de40725d0fa6924c74661ff4c303a"
+    }
+  },
+  "execution_rules": [
+    "Use the shared feature-lane worktree only. The primary repository is dirty and read-only for this board.",
+    "Do not stage, commit, push, merge, rebase, alter provider credentials, add a production schedule, or enable a live source.",
+    "Do not copy World Monitor code or install its dependency tree. Keep the implementation clean-room and BSS-native.",
+    "Run the task's stated verification. For RED cards, a narrowly scoped expected failure is the completion evidence; do not implement the production behavior in a RED-only card.",
+    "Before completion, run git diff --check. Report changed paths, commands, exact result, and any unresolved blocker in the Kanban handoff.",
+    "Read the authority package at its absolute root and verify the relevant artifact SHA-256 before design-sensitive work. The task body is the board snapshot; do not rewrite authority to suit an implementation shortcut."
+  ],
+  "tasks": [
+    {
+      "key": "T000",
+      "title": "T000: Node 24 execution-runtime preflight",
+      "source_task": "Verify a Node 24 runtime in the execution workspace against .nvmrc and vm/cybermap-api/package.json; block if absent without installing or replacing a runtime.",
+      "parents": [],
+      "priority": 110,
+      "scope": ["read-only environment inspection"],
+      "verification": ["node --version", "test \"$(tr -d '\\n' < .nvmrc)\" = 24", "read vm/cybermap-api/package.json engines.node"],
+      "acceptance": "The worker records an executable Node 24 path/version that satisfies >=24.0.0 <25. Any other result is a specific environment block; this card changes no runtime, source, credentials, or workspace files."
+    },
+    {
+      "key": "T001",
+      "title": "T001: RED global viewport contract",
+      "source_task": "Add RED GlobalViewport request/response validation and forbidden raw-field cases for TST-001.",
+      "parents": ["T000"],
+      "priority": 100,
+      "scope": ["vm/cybermap-api/test/global-viewport-contract.test.mjs"],
+      "verification": ["node --test vm/cybermap-api/test/global-viewport-contract.test.mjs (expected RED: missing contract module/behavior)", "git diff --check"],
+      "acceptance": "The new tests cover valid bounds/zoom/layers, malformed and antimeridian-wrapped bounds, unsupported zoom, unknown layer, cell budget, and rejection of raw observation fields. The failure must be caused by the absent global contract, not a test syntax or fixture error."
+    },
+    {
+      "key": "T002",
+      "title": "T002: RED migration guardrails",
+      "source_task": "Add RED disposable-PostGIS migration cases in global-viewport-migration.test.mjs for source policy, H3 resolution, fetch-run immutability, and source-class constraints for TST-008.",
+      "parents": ["T000"],
+      "priority": 90,
+      "scope": ["vm/cybermap-api/test/global-viewport-migration.test.mjs", "vm/cybermap-api/test"],
+      "verification": ["node --test vm/cybermap-api/test/global-viewport-migration.test.mjs without CYBERMAP_TEST_DATABASE_URL (expected named skip)", "document the injected disposable-PostGIS prerequisite for the later executed proof", "git diff --check"],
+      "acceptance": "The test design defines invalid writes for non-Green preload, forbidden H3 resolutions, update/delete of source-fetch receipts, and excluded source classes. It uses CYBERMAP_TEST_DATABASE_URL for an approved ephemeral PostGIS instance; a missing variable name-skips and never produces a false pass."
+    },
+    {
+      "key": "T003",
+      "title": "T003: migration 0004 global cells and sources",
+      "source_task": "Add migration 0004; extend source metadata, protect append-only source_fetch_runs, and permit H3 resolution 5.",
+      "parents": ["T002"],
+      "priority": 80,
+      "scope": ["vm/cybermap-api/db/migrations/0004_godeye_global_cells_and_sources.sql", "vm/cybermap-api/test"],
+      "verification": ["focused TST-008 migration proof", "git diff --check"],
+      "acceptance": "Migration preserves existing local viewport behavior, admits H3 5/7/9/11 only, keeps catalog policy server-enforced, and rejects UPDATE/DELETE of source_fetch_runs. No provider is enabled by the migration."
+    },
+    {
+      "key": "T004",
+      "title": "T004: GlobalViewportRequestV1 contract",
+      "source_task": "Implement strict request parsing and aggregate response shaping in global-viewport-contract.mjs for TST-001.",
+      "parents": ["T001"],
+      "priority": 75,
+      "scope": ["vm/cybermap-api/src/global-viewport-contract.mjs", "vm/cybermap-api/test/global-viewport-contract.test.mjs"],
+      "verification": ["node --test vm/cybermap-api/test/global-viewport-contract.test.mjs", "git diff --check"],
+      "acceptance": "Valid GlobalViewportRequestV1 data has a canonical bounded form. Responses expose aggregate cells and source status only; raw identifiers, device coordinates, packet metadata, and provider credentials cannot enter the response."
+    },
+    {
+      "key": "T005",
+      "title": "T005: RED aggregate PostGIS viewport tests",
+      "source_task": "Add RED source-class and aggregate-only query tests for TST-002.",
+      "parents": ["T003"],
+      "priority": 70,
+      "scope": ["vm/cybermap-api/test/global-viewport-postgres.test.mjs", "vm/cybermap-api/test/fixtures"],
+      "verification": ["node --test vm/cybermap-api/test/global-viewport-postgres.test.mjs (expected RED: no aggregate query)", "git diff --check"],
+      "acceptance": "Seeded sources span all classes. The test asserts that only catalog-approved Green aggregate cells are returned, a result limit exists, and raw observation fields never appear."
+    },
+    {
+      "key": "T006",
+      "title": "T006: bounded aggregate queryGlobalViewport",
+      "source_task": "Add bounded aggregate queryGlobalViewport to Postgres and equivalent behavior to memory-store; preserve queryViewport.",
+      "parents": ["T004", "T005"],
+      "priority": 65,
+      "scope": ["vm/cybermap-api/src/postgres-store.mjs", "vm/cybermap-api/src/memory-store.mjs", "vm/cybermap-api/test/global-viewport-postgres.test.mjs", "vm/cybermap-api/test"],
+      "verification": ["node --test vm/cybermap-api/test/global-viewport-postgres.test.mjs", "node --test vm/cybermap-api/test/http.test.mjs", "git diff --check"],
+      "acceptance": "The query applies bounds, zoom-derived permitted H3 resolution, Green/source-catalog policy, and a hard feature limit. Existing point/radius queryViewport behavior remains unchanged."
+    },
+    {
+      "key": "T007",
+      "title": "T007: RED VM global viewport route tests",
+      "source_task": "Add RED VM authentication/body/bounds/no-network tests for TST-003.",
+      "parents": ["T006"],
+      "priority": 60,
+      "scope": ["vm/cybermap-api/test/global-viewport-http.test.mjs"],
+      "verification": ["node --test vm/cybermap-api/test/global-viewport-http.test.mjs (expected RED: absent route)", "git diff --check"],
+      "acceptance": "The route test covers missing/invalid/valid backend read credentials, malformed body, fixed error mapping, no-store semantics, and proves a request cannot trigger an external provider fetch."
+    },
+    {
+      "key": "T008",
+      "title": "T008: POST VM global viewport route",
+      "source_task": "Add POST /api/v1/cybermap/global-viewport and fixed error mapping in server.mjs for TST-003.",
+      "parents": ["T007"],
+      "priority": 55,
+      "scope": ["vm/cybermap-api/src/server.mjs", "vm/cybermap-api/src/main.mjs", "vm/cybermap-api/test/global-viewport-http.test.mjs"],
+      "verification": ["node --test vm/cybermap-api/test/global-viewport-http.test.mjs", "node --test vm/cybermap-api/test/http.test.mjs", "git diff --check"],
+      "acceptance": "The token-gated POST route accepts only GlobalViewportRequestV1, calls the materialized store only, returns controlled errors/no-store headers, and never performs source I/O."
+    },
+    {
+      "key": "T009",
+      "title": "T009: RED SWA global viewport proxy tests",
+      "source_task": "Add RED SWA proxy authentication/header/no-store/error tests for TST-006.",
+      "parents": ["T008"],
+      "priority": 50,
+      "scope": ["tests/cybermap-global-viewport-api.test.mjs"],
+      "verification": ["node --test tests/cybermap-global-viewport-api.test.mjs (expected RED: absent Function)", "git diff --check"],
+      "acceptance": "Tests require an authenticated operator guard, a fixed backend-read credential only, no-store output, and controlled upstream error mapping."
+    },
+    {
+      "key": "T010",
+      "title": "T010: token-gated SWA global viewport proxy",
+      "source_task": "Add the operator-authenticated Function api/cybermap-global-viewport for TST-006.",
+      "parents": ["T009"],
+      "priority": 45,
+      "scope": ["api/cybermap-global-viewport/index.js", "api/cybermap-global-viewport/function.json", "tests/cybermap-global-viewport-api.test.mjs"],
+      "verification": ["node --test tests/cybermap-global-viewport-api.test.mjs", "node --test tests/cybermap-viewport-api.test.mjs", "git diff --check"],
+      "acceptance": "The Function validates the operator session, forwards only the fixed server-side backend read credential, preserves POST body boundaries, and does not expose backend URLs or credentials to the operator browser."
+    },
+    {
+      "key": "T011",
+      "title": "T011: RED Greenfeed materializer tests",
+      "source_task": "Add RED H3 parent/cell-sanitization/idempotent materialization tests for TST-004.",
+      "parents": ["T003"],
+      "priority": 40,
+      "scope": ["vm/cybermap-api/test/greenfeed-materializer.test.mjs", "vm/cybermap-api/test/fixtures/greenfeeds"],
+      "verification": ["node --test vm/cybermap-api/test/greenfeed-materializer.test.mjs (expected RED: absent materializer)", "git diff --check"],
+      "acceptance": "Fixture-only tests demand deterministic external keys, H3 5/7/9/11 parent aggregation, idempotence, and strict removal of raw evidence fields."
+    },
+    {
+      "key": "T012",
+      "title": "T012: Greenfeed H3 materializer",
+      "source_task": "Implement the materializer from append-only greenfeed_snapshot observations for TST-004.",
+      "parents": ["T011"],
+      "priority": 35,
+      "scope": ["vm/cybermap-api/src/greenfeed-materializer.mjs", "vm/cybermap-api/test/greenfeed-materializer.test.mjs"],
+      "verification": ["node --test vm/cybermap-api/test/greenfeed-materializer.test.mjs", "git diff --check"],
+      "acceptance": "The materializer produces only bounded aggregate payloads, is idempotent, has no network transport, and does not seed sample data when source data is empty."
+    },
+    {
+      "key": "T013",
+      "title": "T013: RED Greenfeed worker safety tests",
+      "source_task": "Add RED worker outcomes, backoff, terms-unreviewed, fixture-only, and credential-redaction tests for TST-005.",
+      "parents": ["T003"],
+      "priority": 30,
+      "scope": ["vm/cybermap-api/test/greenfeed-worker.test.mjs", "vm/cybermap-api/test/fixtures/greenfeeds"],
+      "verification": ["node --test vm/cybermap-api/test/greenfeed-worker.test.mjs (expected RED: absent worker)", "git diff --check"],
+      "acceptance": "Tests cover success, empty, rate-limited, invalid, timeout, and terms-unreviewed outcomes. They prohibit data seeding/enabling on failure and credential or error-body leakage."
+    },
+    {
+      "key": "T014",
+      "title": "T014: bounded Greenfeed worker and fetch receipts",
+      "source_task": "Implement the bounded source worker and source_fetch_runs recorder for TST-005.",
+      "parents": ["T013"],
+      "priority": 25,
+      "scope": ["vm/cybermap-api/src/greenfeed-worker.mjs", "vm/cybermap-api/test/greenfeed-worker.test.mjs"],
+      "verification": ["node --test vm/cybermap-api/test/greenfeed-worker.test.mjs", "git diff --check"],
+      "acceptance": "The worker takes injected transport/config, records append-only bounded state, obeys disabled/terms-unreviewed policy, applies backoff, and never makes source reads on an operator map request."
+    },
+    {
+      "key": "T015",
+      "title": "T015: disabled reviewed Greenfeed adapters",
+      "source_task": "Add fixture-only adapters and normalization tests for USGS, GDACS, and NASA EONET. Do not configure credentials or schedules.",
+      "parents": ["T012", "T014"],
+      "priority": 20,
+      "scope": ["vm/cybermap-api/src/sources", "vm/cybermap-api/test/fixtures/greenfeeds", "vm/cybermap-api/test"],
+      "verification": ["focused source adapter tests", "node --test vm/cybermap-api/test/greenfeed-materializer.test.mjs vm/cybermap-api/test/greenfeed-worker.test.mjs", "git diff --check"],
+      "acceptance": "Each adapter uses only owned fixtures during test, exposes deterministic normalization, remains disabled by default, has explicit attribution/caveat metadata, and contains no credentials or runtime fallback."
+    },
+    {
+      "key": "T016",
+      "title": "T016: RED Godeye Field/Global shell tests",
+      "source_task": "Add RED field/global mode, no-geolocation-global, health-ledger, stale/error/empty, and no-provider-URL tests for TST-007.",
+      "parents": ["T000"],
+      "priority": 15,
+      "scope": ["tests/godeye-global-shell.test.mjs"],
+      "verification": ["node --test tests/godeye-global-shell.test.mjs (expected RED: absent Global mode)", "git diff --check"],
+      "acceptance": "Tests preserve the current 100 m Field flow and demand an explicit Global mode that avoids geolocation and provider URLs while presenting transparent source-health states."
+    },
+    {
+      "key": "T017",
+      "title": "T017: Godeye Global dispatch module",
+      "source_task": "Add godeye-global.mjs and dispatch between retained Field and Global modes for TST-007.",
+      "parents": ["T010", "T016"],
+      "priority": 10,
+      "scope": ["app/operator/godeye-global.mjs", "app/operator/main.js", "tests/godeye-global-shell.test.mjs"],
+      "verification": ["node --test tests/godeye-global-shell.test.mjs", "node --test tests/cybermap-viewport-api.test.mjs", "git diff --check"],
+      "acceptance": "The operator explicitly selects Global. Field remains GPS/local and unchanged. Global calls only the authenticated BSS proxy, supports bounded cancellation/cache behavior, and handles no data/stale/error without synthetic substitutions."
+    },
+    {
+      "key": "T018",
+      "title": "T018: operator Global controls and provenance ledger",
+      "source_task": "Add Global-mode control, layer ledger, attribution, freshness, caveat, and intelligence-gap UI for TST-007.",
+      "parents": ["T017"],
+      "priority": 5,
+      "scope": ["api/_private/operator/shell.html", "app/operator/styles.css", "app/operator/godeye-global.mjs", "tests/godeye-global-shell.test.mjs"],
+      "verification": ["node --test tests/godeye-global-shell.test.mjs", "git diff --check"],
+      "acceptance": "The authenticated operator surface distinguishes unavailable, empty, stale, and error states. Every displayed cell/layer gives source class, attribution, freshness, and caveat. No public cover surface receives Nacre-Moiré branding."
+    },
+    {
+      "key": "T019",
+      "title": "T019: integrated regression and migration proof",
+      "source_task": "Run TST-001–TST-008 plus existing local viewport/repository regressions and scoped secret scan. Record exact results.",
+      "parents": ["T010", "T012", "T014", "T015", "T018"],
+      "priority": 1,
+      "scope": ["scoped verification only; minimal corrective edits are allowed only when a focused suite proves a defect in this feature lane"],
+      "verification": ["TST-001 through TST-008 focused suites", "existing local viewport regression", "repository Node suite", "CYBERMAP_TEST_DATABASE_URL='<ephemeral-postgis-url>' node --test test/global-viewport-migration.test.mjs from vm/cybermap-api", "git diff --check", "scoped secret scan"],
+      "acceptance": "Record every command and pass/fail count. A missing approved disposable PostGIS receipt or a failed non-environmental required check blocks the task; do not mask it by weakening an assertion, fallback data, or skipped test."
+    },
+    {
+      "key": "T020",
+      "title": "T020: USGS terms review and controlled enablement receipt",
+      "source_task": "Obtain documented USGS terms/attribution review, configure USGS only, execute TST-009, and keep GDACS/NASA EONET disabled.",
+      "parents": ["T019"],
+      "priority": 0,
+      "initial_status": "blocked",
+      "scope": ["provider approval record", "server-side source configuration only after explicit approval", "TST-009 receipt"],
+      "verification": ["documented provider terms/attribution approval", "TST-009 with USGS only", "prove GDACS/NASA EONET remain disabled", "git diff --check"],
+      "acceptance": "This card is intentionally blocked until an explicit human/provider-terms approval exists. It must not create credentials, enable a schedule, or perform a live call before that approval is recorded."
+    },
+    {
+      "key": "T021",
+      "title": "T021: Graphify refresh and evidence closeout",
+      "source_task": "Refresh Graphify, inspect scoped diff, update package implementation status, and append verified evidence to the daily log.",
+      "parents": ["T019"],
+      "priority": -1,
+      "scope": ["graphify-out", "specs/008-godeye-global-map-source-integration", "docs/cybermap-geospatial-backend.md", "/home/ph3/repos/blackbox/blackbox/Daily/2026-07-22.md"],
+      "verification": ["graphify update .", "graphify query for the implemented global path", "git diff --check", "scoped diff inspection"],
+      "acceptance": "The task records actual implementation/test evidence and the correct source state. It must state that T020 remains disabled/blocked if no explicit provider approval exists; it must not claim live-source enablement from fixture evidence."
+    }
+  ]
+}

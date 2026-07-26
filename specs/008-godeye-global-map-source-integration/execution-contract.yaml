@@ -1,0 +1,224 @@
+schema_version: 1
+feature: 008-godeye-global-map-source-integration
+status: planned-normal-kanban-dispatch
+purpose: >-
+  Execution projection only. It renders accepted task decomposition, source paths,
+  dependencies, fixed verification commands, and worker boundaries. It adds no
+  product behavior beyond spec.md, plan.md, tests.md, tasks.md, and data-model.md.
+authority:
+  root: /home/ph3/repos/blue-swallow-society/specs/008-godeye-global-map-source-integration
+  git_tracking: untracked-at-projection-time
+  normal_dispatch_only: true
+  task_only_frontier_control_permitted: false
+  sha256:
+    spec.md: a766a138fa31854e20c698f785a6320672f7a799e12de01b9b4cc0bcda8808e8
+    plan.md: 7eb11df5d519a86c627515c8702c84db5d1d850534a26f699afe8e81a43c167f
+    tests.md: 54eb87f09827ae95ad29a91215064f838740414e6dc3b4ed96e88e347f1505b4
+    tasks.md: 3a135bf11e77df0192014af0605c76387d009f47d4e8fccc3b73c5457ac202a2
+    data-model.md: d52a24874cb416e1927fa6b1858b87990b7e98e9e02f61ba307daa153f67a601
+    research.md: 1383ddc722a11fbdbe4770402429d5a371e7216f69b36c153f17caaaa3a14734
+execution:
+  board: godeye-global-map-source-integration
+  assignee: default
+  required_provider: openai-codex
+  required_model: gpt-5.6-terra
+  workspace: /home/ph3/repos/.worktrees/blue-swallow-society/godeye-global-map-source-integration
+  workspace_kind: worktree
+  branch: kanban/godeye-global-map-source-integration
+  concurrency: 1
+  policy:
+    - Read the authority only from authority.root; verify relevant hashes before design-sensitive work.
+    - Do not modify the primary worktree.
+    - Do not stage, commit, push, merge, rebase, enable a source, add a schedule, or create credentials.
+    - Do not copy World Monitor code or install its dependency tree.
+    - A RED-only card completes only after an expected missing-behavior failure, not a syntax/fixture failure.
+    - A missing Node 24 runtime, disposable PostGIS database, or human terms approval is a block, not a reason to weaken a test.
+commands:
+  C000_NODE24_PREFLIGHT:
+    cwd: .
+    argv: [node, --version]
+    expect: node-version-matches-nvmrc-24-and-vm-engine->=24.0.0-<25
+  C001_GLOBAL_CONTRACT:
+    cwd: vm/cybermap-api
+    argv: [node, --test, test/global-viewport-contract.test.mjs]
+  C002_MIGRATION_SKIP:
+    cwd: vm/cybermap-api
+    argv: [node, --test, test/global-viewport-migration.test.mjs]
+    expect: named-skip-when-CYBERMAP_TEST_DATABASE_URL-is-absent
+  C002_MIGRATION_EXECUTED:
+    cwd: vm/cybermap-api
+    argv: [node, --test, test/global-viewport-migration.test.mjs]
+    required_environment: [CYBERMAP_TEST_DATABASE_URL]
+    expect: pass-against-approved-disposable-postgis-only
+  C005_GLOBAL_POSTGRES:
+    cwd: vm/cybermap-api
+    argv: [node, --test, test/global-viewport-postgres.test.mjs]
+  C007_GLOBAL_HTTP:
+    cwd: vm/cybermap-api
+    argv: [node, --test, test/global-viewport-http.test.mjs]
+  C009_SWA_PROXY:
+    cwd: .
+    argv: [node, --test, tests/cybermap-global-viewport-api.test.mjs]
+  C011_MATERIALIZER:
+    cwd: vm/cybermap-api
+    argv: [node, --test, test/greenfeed-materializer.test.mjs]
+  C013_GREENFEED_WORKER:
+    cwd: vm/cybermap-api
+    argv: [node, --test, test/greenfeed-worker.test.mjs]
+  C016_GLOBAL_SHELL:
+    cwd: .
+    argv: [node, --test, tests/godeye-global-shell.test.mjs]
+  C017_LOCAL_VIEWPORT:
+    cwd: vm/cybermap-api
+    argv: [node, --test, test/http.test.mjs]
+  C018_EXISTING_SWA_VIEWPORT:
+    cwd: .
+    argv: [node, --test, tests/cybermap-viewport-api.test.mjs]
+  C019_VM_SUITE:
+    cwd: vm/cybermap-api
+    argv: [npm, test]
+  C019_REPOSITORY_NODE_SUITE:
+    cwd: .
+    argv: [node, --test, tests/*.test.mjs]
+  C019_DIFF_CHECK:
+    cwd: .
+    argv: [git, diff, --check]
+  C021_GRAPHIFY_UPDATE:
+    cwd: .
+    argv: [graphify, update, .]
+  C021_GRAPHIFY_QUERY:
+    cwd: .
+    argv: [graphify, query, 'Godeye GlobalViewport route, aggregate query, Greenfeed materializer, and operator Global mode']
+tasks:
+  T000:
+    parents: []
+    tests: []
+    paths: []
+    commands: [C000_NODE24_PREFLIGHT]
+    expected: Node-24-runtime-proof-or-specific-block
+  T001:
+    parents: [T000]
+    tests: [TST-001]
+    paths: [vm/cybermap-api/test/global-viewport-contract.test.mjs]
+    commands: [C001_GLOBAL_CONTRACT, C019_DIFF_CHECK]
+    expected: RED-only
+  T002:
+    parents: [T000]
+    tests: [TST-008]
+    paths: [vm/cybermap-api/test/global-viewport-migration.test.mjs]
+    commands: [C002_MIGRATION_SKIP, C002_MIGRATION_EXECUTED, C019_DIFF_CHECK]
+    expected: named-skip-without-env; RED-with-approved-disposable-db
+  T003:
+    parents: [T002]
+    tests: [TST-008]
+    paths: [vm/cybermap-api/db/migrations/0004_godeye_global_cells_and_sources.sql]
+    commands: [C002_MIGRATION_EXECUTED, C019_DIFF_CHECK]
+    expected: GREEN-with-approved-disposable-db
+  T004:
+    parents: [T001]
+    tests: [TST-001]
+    paths: [vm/cybermap-api/src/global-viewport-contract.mjs, vm/cybermap-api/test/global-viewport-contract.test.mjs]
+    commands: [C001_GLOBAL_CONTRACT, C019_DIFF_CHECK]
+    expected: GREEN
+  T005:
+    parents: [T003]
+    tests: [TST-002]
+    paths: [vm/cybermap-api/test/global-viewport-postgres.test.mjs]
+    commands: [C005_GLOBAL_POSTGRES, C019_DIFF_CHECK]
+    expected: RED-only
+  T006:
+    parents: [T004, T005]
+    tests: [TST-002]
+    paths: [vm/cybermap-api/src/postgres-store.mjs, vm/cybermap-api/src/memory-store.mjs, vm/cybermap-api/test/global-viewport-postgres.test.mjs]
+    commands: [C005_GLOBAL_POSTGRES, C017_LOCAL_VIEWPORT, C019_DIFF_CHECK]
+    expected: GREEN
+  T007:
+    parents: [T006]
+    tests: [TST-003]
+    paths: [vm/cybermap-api/test/global-viewport-http.test.mjs]
+    commands: [C007_GLOBAL_HTTP, C019_DIFF_CHECK]
+    expected: RED-only
+  T008:
+    parents: [T007]
+    tests: [TST-003]
+    paths: [vm/cybermap-api/src/server.mjs, vm/cybermap-api/src/main.mjs, vm/cybermap-api/test/global-viewport-http.test.mjs]
+    commands: [C007_GLOBAL_HTTP, C017_LOCAL_VIEWPORT, C019_DIFF_CHECK]
+    expected: GREEN
+  T009:
+    parents: [T008]
+    tests: [TST-006]
+    paths: [tests/cybermap-global-viewport-api.test.mjs]
+    commands: [C009_SWA_PROXY, C019_DIFF_CHECK]
+    expected: RED-only
+  T010:
+    parents: [T009]
+    tests: [TST-006]
+    paths: [api/cybermap-global-viewport/index.js, api/cybermap-global-viewport/function.json, tests/cybermap-global-viewport-api.test.mjs]
+    commands: [C009_SWA_PROXY, C018_EXISTING_SWA_VIEWPORT, C019_DIFF_CHECK]
+    expected: GREEN
+  T011:
+    parents: [T003]
+    tests: [TST-004]
+    paths: [vm/cybermap-api/test/greenfeed-materializer.test.mjs, vm/cybermap-api/test/fixtures/greenfeeds]
+    commands: [C011_MATERIALIZER, C019_DIFF_CHECK]
+    expected: RED-only
+  T012:
+    parents: [T011]
+    tests: [TST-004]
+    paths: [vm/cybermap-api/src/greenfeed-materializer.mjs, vm/cybermap-api/test/greenfeed-materializer.test.mjs]
+    commands: [C011_MATERIALIZER, C019_DIFF_CHECK]
+    expected: GREEN
+  T013:
+    parents: [T003]
+    tests: [TST-005]
+    paths: [vm/cybermap-api/test/greenfeed-worker.test.mjs, vm/cybermap-api/test/fixtures/greenfeeds]
+    commands: [C013_GREENFEED_WORKER, C019_DIFF_CHECK]
+    expected: RED-only
+  T014:
+    parents: [T013]
+    tests: [TST-005]
+    paths: [vm/cybermap-api/src/greenfeed-worker.mjs, vm/cybermap-api/test/greenfeed-worker.test.mjs]
+    commands: [C013_GREENFEED_WORKER, C019_DIFF_CHECK]
+    expected: GREEN
+  T015:
+    parents: [T012, T014]
+    tests: [TST-004, TST-005]
+    paths: [vm/cybermap-api/src/sources, vm/cybermap-api/test/fixtures/greenfeeds]
+    commands: [C011_MATERIALIZER, C013_GREENFEED_WORKER, C019_DIFF_CHECK]
+    expected: fixture-only-GREEN; all-adapters-disabled
+  T016:
+    parents: [T000]
+    tests: [TST-007]
+    paths: [tests/godeye-global-shell.test.mjs]
+    commands: [C016_GLOBAL_SHELL, C019_DIFF_CHECK]
+    expected: RED-only
+  T017:
+    parents: [T010, T016]
+    tests: [TST-007]
+    paths: [app/operator/godeye-global.mjs, app/operator/main.js, tests/godeye-global-shell.test.mjs]
+    commands: [C016_GLOBAL_SHELL, C018_EXISTING_SWA_VIEWPORT, C019_DIFF_CHECK]
+    expected: GREEN
+  T018:
+    parents: [T017]
+    tests: [TST-007]
+    paths: [api/_private/operator/shell.html, app/operator/styles.css, app/operator/godeye-global.mjs, tests/godeye-global-shell.test.mjs]
+    commands: [C016_GLOBAL_SHELL, C019_DIFF_CHECK]
+    expected: GREEN
+  T019:
+    parents: [T010, T012, T014, T015, T018]
+    tests: [TST-001, TST-002, TST-003, TST-004, TST-005, TST-006, TST-007, TST-008]
+    paths: [scoped-verification-only]
+    commands: [C001_GLOBAL_CONTRACT, C005_GLOBAL_POSTGRES, C007_GLOBAL_HTTP, C009_SWA_PROXY, C011_MATERIALIZER, C013_GREENFEED_WORKER, C016_GLOBAL_SHELL, C017_LOCAL_VIEWPORT, C018_EXISTING_SWA_VIEWPORT, C019_VM_SUITE, C019_REPOSITORY_NODE_SUITE, C002_MIGRATION_EXECUTED, C019_DIFF_CHECK]
+    expected: all-required-checks-pass; otherwise-block-with-receipt
+  T020:
+    parents: [T019]
+    tests: [TST-009]
+    paths: [provider-approval-record, server-side-source-configuration-only-after-approval]
+    commands: [C019_DIFF_CHECK]
+    expected: initially-blocked-for-explicit-terms-and-attribution-approval
+  T021:
+    parents: [T019]
+    tests: []
+    paths: [graphify-out, specs/008-godeye-global-map-source-integration, docs/cybermap-geospatial-backend.md]
+    commands: [C021_GRAPHIFY_UPDATE, C021_GRAPHIFY_QUERY, C019_DIFF_CHECK]
+    expected: local-graph-refresh-and-evidence-closeout; T020-status-remains-accurate

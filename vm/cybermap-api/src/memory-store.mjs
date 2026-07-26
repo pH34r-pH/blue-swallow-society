@@ -16,6 +16,9 @@ export class MemoryObservationStore {
   #paperState = null;
   #globalCells;
   #globalSources;
+  #deflockCells = new Map();
+  #deflockSources = new Map();
+  #deflockSourceRuns = [];
   #morningBriefs = new Map();
   #now;
   #randomUuid;
@@ -24,6 +27,7 @@ export class MemoryObservationStore {
     credentials = [],
     globalCells = [],
     globalSources = [],
+    deflockSources = [],
     now = () => new Date(),
     randomUuid = randomUUID,
   } = {}) {
@@ -38,6 +42,10 @@ export class MemoryObservationStore {
     }));
     this.#globalCells = globalCells.map((cell) => structuredClone(cell));
     this.#globalSources = globalSources.map((source) => structuredClone(source));
+    this.#deflockSources = new Map(deflockSources.map((source) => {
+      const normalized = normalizeDeflockSource(source);
+      return [normalized.source_id, normalized];
+    }));
     this.#now = now;
     this.#randomUuid = randomUuid;
   }
@@ -264,6 +272,46 @@ export class MemoryObservationStore {
     };
   }
 
+  async getDeflockSource(sourceId = 'deflock-osm-alpr-reports') {
+    const source = this.#deflockSources.get(sourceId);
+    if (!source) throw new IngestError('deflock_source_unknown', 'DeFlock source is not configured.', { statusCode: 422 });
+    return { source_key: source.source_id, enabled: source.enabled, terms_reviewed: source.terms_reviewed };
+  }
+
+  async replaceDeflockSourceCells({ source_id, observed_at, cells } = {}) {
+    const source = this.#deflockSources.get(source_id);
+    if (!source) throw new IngestError('deflock_source_unknown', 'DeFlock source is not configured.', { statusCode: 422 });
+    const observedAt = validDeflockTimestamp(observed_at);
+    if (!Array.isArray(cells)) throw new TypeError('DeFlock source cells must be an array.');
+    this.#deflockCells.set(source_id, cells.map((cell) => normalizeDeflockCell(cell, source_id, observedAt)));
+  }
+
+  async recordDeflockSourceFetchRun(run) {
+    if (!run || typeof run.source_id !== 'string') throw new TypeError('DeFlock source run is required.');
+    this.#deflockSourceRuns.push(structuredClone(run));
+    const source = this.#deflockSources.get(run.source_id);
+    if (!source) return;
+    source.last_outcome = run.outcome;
+    if (run.outcome === 'success') source.last_success_at = validDeflockTimestamp(run.completed_at);
+    else if (run.outcome !== 'disabled') source.last_failure_at = validDeflockTimestamp(run.completed_at);
+  }
+
+  async queryDeflockGlobalViewport({ bbox, resolution, layer_ids, cell_limit } = {}) {
+    const now = this.#now();
+    const sources = [...new Set(Array.isArray(layer_ids) ? layer_ids : [])]
+      .map((sourceId) => this.#deflockSources.get(sourceId))
+      .filter(Boolean)
+      .map((source) => deflockSourceHealth(source, now));
+    const permitted = new Set(sources.filter((source) => source.status === 'fresh' || source.status === 'stale').map((source) => source.source_id));
+    const cells = [...permitted]
+      .flatMap((sourceId) => this.#deflockCells.get(sourceId) ?? [])
+      .filter((cell) => cell.resolution === resolution && deflockCellWithinBBox(cell, bbox))
+      .sort((left, right) => right.report_count - left.report_count || left.h3_cell.localeCompare(right.h3_cell))
+      .slice(0, cell_limit)
+      .map(({ boundary, ...cell }) => structuredClone(cell));
+    return { cells, sources };
+  }
+
   batchCount() {
     return this.#batches.size;
   }
@@ -430,4 +478,63 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
   const a = Math.sin(dLat / 2) ** 2
     + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return 6_371_000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function normalizeDeflockSource(source) {
+  const sourceId = typeof source?.source_key === 'string' ? source.source_key : source?.source_id;
+  if (sourceId !== 'deflock-osm-alpr-reports' || source?.source_class !== 'green_public') throw new TypeError('Unsupported DeFlock source.');
+  return {
+    source_id: sourceId,
+    source_class: 'green_public',
+    enabled: source.enabled === true,
+    allowed_preload: source.allowed_preload === true,
+    terms_reviewed: source.terms_reviewed === true,
+    attribution: typeof source.attribution === 'string' ? source.attribution : '',
+    cache_ttl_seconds: Number.isInteger(source.cache_ttl_seconds) && source.cache_ttl_seconds > 0 ? source.cache_ttl_seconds : 86400,
+    last_success_at: source.last_success_at ?? null,
+    last_failure_at: source.last_failure_at ?? null,
+    last_outcome: source.last_outcome ?? null,
+  };
+}
+
+function normalizeDeflockCell(cell, sourceId, observedAt) {
+  if (!cell || typeof cell !== 'object' || cell.evidence_class !== 'public_reported'
+      || !Array.isArray(cell.source_ids) || cell.source_ids.length !== 1 || cell.source_ids[0] !== sourceId
+      || !Number.isInteger(cell.resolution) || ![2, 4, 5].includes(cell.resolution)
+      || !Number.isInteger(cell.report_count) || cell.report_count < 1) throw new TypeError('DeFlock cell is invalid.');
+  const latitude = Number(cell.centroid?.latitude);
+  const longitude = Number(cell.centroid?.longitude);
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) throw new TypeError('DeFlock cell centroid is invalid.');
+  return {
+    h3_cell: String(cell.h3_cell), resolution: cell.resolution, centroid: { latitude, longitude }, report_count: cell.report_count,
+    first_seen_at: validDeflockTimestamp(cell.first_seen_at ?? observedAt),
+    last_seen_at: validDeflockTimestamp(cell.last_seen_at ?? observedAt),
+    salience: Number(cell.salience), source_ids: [sourceId], source_classes: ['green_public'],
+    evidence_class: 'public_reported', caveats: Array.isArray(cell.caveats) ? [...cell.caveats] : [],
+    ...(Array.isArray(cell.boundary) ? { boundary: structuredClone(cell.boundary) } : {}),
+  };
+}
+
+function deflockSourceHealth(source, now) {
+  let status = 'fresh';
+  if (!source.enabled || !source.allowed_preload) status = 'disabled';
+  else if (!source.last_success_at) status = source.last_outcome === 'network_error' ? 'error' : 'empty';
+  else if (new Date(now).getTime() - Date.parse(source.last_success_at) > source.cache_ttl_seconds * 1000) status = 'stale';
+  return {
+    source_id: source.source_id, source_class: source.source_class, status,
+    allowed_preload: source.allowed_preload, last_success_at: source.last_success_at,
+    attribution: source.attribution,
+    caveats: status === 'disabled' ? ['Source disabled by catalog configuration.'] : ['Public OSM-tagged ALPR reports; not verified or live.'],
+  };
+}
+
+function deflockCellWithinBBox(cell, bbox) {
+  return Boolean(bbox) && cell.centroid.longitude >= bbox.west && cell.centroid.longitude <= bbox.east
+    && cell.centroid.latitude >= bbox.south && cell.centroid.latitude <= bbox.north;
+}
+
+function validDeflockTimestamp(value) {
+  const timestamp = toIsoString(value);
+  if (!timestamp) throw new TypeError('DeFlock timestamp is invalid.');
+  return timestamp;
 }

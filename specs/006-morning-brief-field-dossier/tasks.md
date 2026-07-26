@@ -13,3 +13,6 @@
 - [ ] T011 Update the local Hermes publishing job only after the live archive/proxy probe succeeds; run one fresh valid wake → collect → render → archive → scheduler-managed delivery → UI hash acceptance. Trace: TST-009.
 - [x] T012 [US3] Replace the text-first history pane with a dropdown-selected, authenticated, hash-verified scroll-snap PNG dossier carousel; preserve source artifacts as secondary provenance and allow only local blob image URLs. Trace: TST-008.
 - [x] T013 [US3] Enforce the seven-day archive lifecycle in memory and PostgreSQL stores, deleting artifact children before expired run parents atomically. Trace: TST-010.
+- [x] T014 [US4] Add RED collector and renderer tests for a fixed daily tarot study record, 78-day cycle wrap, Markdown/packet preservation, and `TAROT / DAILY STUDY` page coverage. Trace: TST-011.
+- [x] T015 [US4] Implement the fixed local tarot curriculum and deterministic local-date selection; preserve the record in the collector outputs and Field Dossier renderer without network, profile, or prediction behavior. Trace: TST-011.
+- [x] T016 [US4] Run focused tarot/morning-brief regressions, refresh Graphify, and record the verified local result. Trace: TST-011.

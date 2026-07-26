@@ -8,6 +8,11 @@ import {
   validateGlobalViewportRequest,
   validateGlobalViewportResponse,
 } from './global-viewport-contract.mjs';
+import {
+  DeflockViewportError,
+  buildDeflockViewportResponse,
+  validateDeflockViewportRequest,
+} from './deflock-viewport-contract.mjs';
 
 const MAX_BODY_BYTES = 1_048_576;
 const MAX_MORNING_BRIEF_BODY_BYTES = 32 * 1_024 * 1_024;
@@ -20,6 +25,7 @@ const GLOBAL_VIEWPORT_LAYER_IDS = Object.freeze([
   'gdacs-alerts',
   'nasa-eonet-events',
 ]);
+const DEFLOCK_GLOBAL_VIEWPORT_SCHEMA = 'bss.global_viewport_request.v1';
 const MORNING_BRIEFS_PATH = '/api/v1/morning-briefs';
 const PAPER_LINE_IDS = Object.freeze(['standard', 'aggressive', 'hyper_aggressive']);
 const PAPER_STRATEGY_IDS = Object.freeze([
@@ -130,7 +136,7 @@ export function createRequestHandler({ store, now = Date.now, logger = null, ing
       }
       if (request.method === 'POST' && url.pathname === GLOBAL_VIEWPORT_PATH) {
         requireBackendReadToken(request);
-        const viewport = await handleGlobalViewport(request, { store });
+        const viewport = await handleGlobalViewport(request, { store, now });
         return sendJson(response, 200, viewport);
       }
       if (url.pathname === PAPER_STATE_PATH && (request.method === 'GET' || request.method === 'PUT')) {
@@ -718,16 +724,12 @@ async function handleCybermapViewport(url, { store, now }) {
   return store.queryViewport({ lat, lon, radiusMeters, limit, maxAgeMs, now: new Date(nowMs) });
 }
 
-async function handleGlobalViewport(request, { store }) {
-  if (typeof store.queryGlobalViewport !== 'function') {
-    throw new IngestError('global_viewport_unavailable', 'Global viewport reads are not available.', { statusCode: 503 });
-  }
+async function handleGlobalViewport(request, { store, now }) {
   const contentType = String(request.headers['content-type'] ?? '').toLowerCase();
   if (!contentType.startsWith('application/json')) {
     request.resume();
     throw new IngestError('invalid_global_viewport', 'Content-Type must be application/json.', { statusCode: 400 });
   }
-
   let body;
   try {
     body = JSON.parse(await readBody(request));
@@ -735,17 +737,51 @@ async function handleGlobalViewport(request, { store }) {
     if (error instanceof IngestError) throw error;
     throw new IngestError('invalid_global_viewport', 'Malformed JSON.', { statusCode: 400 });
   }
+  if (body?.schema_version === DEFLOCK_GLOBAL_VIEWPORT_SCHEMA) return handleDeflockGlobalViewport(body, { store, now });
+  return handleLegacyGlobalViewport(body, { store });
+}
+
+async function handleLegacyGlobalViewport(body, { store }) {
+  if (typeof store.queryGlobalViewport !== 'function') {
+    throw new IngestError('global_viewport_unavailable', 'Global viewport reads are not available.', { statusCode: 503 });
+  }
   const globalViewportRequest = validateGlobalViewportRequest(body, {
     supportedLayerIds: GLOBAL_VIEWPORT_LAYER_IDS,
   });
-
   try {
     const viewport = await store.queryGlobalViewport(globalViewportRequest);
-    return validateGlobalViewportResponse(viewport, {
-      supportedLayerIds: GLOBAL_VIEWPORT_LAYER_IDS,
-    });
+    return validateGlobalViewportResponse(viewport, { supportedLayerIds: GLOBAL_VIEWPORT_LAYER_IDS });
   } catch {
     throw new IngestError('global_viewport_unavailable', 'Global viewport read model is unavailable.', { statusCode: 503 });
+  }
+}
+
+async function handleDeflockGlobalViewport(body, { store, now }) {
+  if (typeof store.queryDeflockGlobalViewport !== 'function') {
+    throw new IngestError('deflock_viewport_unavailable', 'DeFlock global viewport reads are not available.', { statusCode: 503 });
+  }
+  let viewportRequest;
+  try {
+    viewportRequest = validateDeflockViewportRequest(body);
+  } catch (error) {
+    if (error instanceof DeflockViewportError) {
+      throw new IngestError(error.code, 'DeFlock viewport request is invalid.', { statusCode: error.statusCode });
+    }
+    throw error;
+  }
+  try {
+    const materialized = await store.queryDeflockGlobalViewport(viewportRequest);
+    return buildDeflockViewportResponse({
+      request: viewportRequest,
+      cells: materialized?.cells ?? [],
+      sources: materialized?.sources ?? [],
+      now: new Date(now()).toISOString(),
+    });
+  } catch (error) {
+    if (error instanceof DeflockViewportError) {
+      throw new IngestError(error.code, 'Stored DeFlock viewport data is invalid.', { statusCode: 503 });
+    }
+    throw error;
   }
 }
 

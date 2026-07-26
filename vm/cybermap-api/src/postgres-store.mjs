@@ -420,6 +420,171 @@ export class PostgresObservationStore {
     };
   }
 
+  async getDeflockSource(sourceKey = 'deflock-osm-alpr-reports') {
+    const result = await this.#pool.query(
+      `SELECT source_key, enabled, terms_reviewed
+       FROM source_catalog
+       WHERE source_key = $1
+         AND source_class = 'green_public'::source_class
+       LIMIT 1`,
+      [sourceKey],
+    );
+    if (result.rows.length !== 1) throw new IngestError('deflock_source_unknown', 'DeFlock source is not configured.', { statusCode: 422 });
+    return {
+      source_key: result.rows[0].source_key,
+      enabled: result.rows[0].enabled === true,
+      terms_reviewed: result.rows[0].terms_reviewed === true,
+    };
+  }
+
+  async queryDeflockGlobalViewport({ bbox, resolution, layer_ids, cell_limit } = {}) {
+    const sourcesResult = await this.#pool.query(
+      `SELECT
+         source_key AS source_id,
+         source_class::text AS source_class,
+         CASE
+           WHEN enabled = false OR allowed_preload = false THEN 'disabled'
+           WHEN last_success_at IS NULL AND last_outcome IN ('network_error', 'http_error', 'timeout', 'rate_limited') THEN 'error'
+           WHEN last_success_at IS NULL THEN 'empty'
+           WHEN last_success_at < clock_timestamp() - make_interval(secs => cache_ttl_seconds) THEN 'stale'
+           ELSE 'fresh'
+         END AS status,
+         allowed_preload,
+         last_success_at,
+         COALESCE(attribution, '') AS attribution
+       FROM source_catalog
+       WHERE source_key = ANY($1::text[])
+       ORDER BY source_key ASC`,
+      [layer_ids],
+    );
+    const sources = sourcesResult.rows.map((row) => ({
+      source_id: row.source_id,
+      source_class: row.source_class,
+      status: row.status,
+      allowed_preload: row.allowed_preload === true,
+      last_success_at: row.last_success_at ? toIsoString(row.last_success_at) : null,
+      attribution: row.attribution,
+      caveats: row.status === 'disabled'
+        ? ['Source disabled by catalog configuration.']
+        : ['Public OSM-tagged ALPR reports; not verified or live.'],
+    }));
+    const cellsResult = await this.#pool.query(
+      `SELECT
+         cell.h3_cell,
+         cell.resolution,
+         ST_Y(cell.centroid)::float8 AS latitude,
+         ST_X(cell.centroid)::float8 AS longitude,
+         cell.report_count,
+         cell.first_seen_at,
+         cell.last_seen_at,
+         cell.salience::float8 AS salience,
+         ARRAY[source.source_key]::text[] AS source_ids,
+         ARRAY[source.source_class::text]::text[] AS source_classes,
+         cell.evidence_class,
+         cell.caveats
+       FROM global_source_cells AS cell
+       JOIN source_catalog AS source ON source.id = cell.source_id
+       WHERE source.source_key = ANY($1::text[])
+         AND source.enabled = true
+         AND source.allowed_preload = true
+         AND cell.resolution = $2
+         AND ST_Intersects(cell.footprint, ST_MakeEnvelope($3, $4, $5, $6, 4326))
+       ORDER BY cell.report_count DESC, cell.h3_cell ASC
+       LIMIT $7`,
+      [layer_ids, resolution, bbox.west, bbox.south, bbox.east, bbox.north, cell_limit],
+    );
+    return {
+      sources,
+      cells: cellsResult.rows.map((row) => ({
+        h3_cell: row.h3_cell,
+        resolution: Number(row.resolution),
+        centroid: { latitude: Number(row.latitude), longitude: Number(row.longitude) },
+        report_count: Number(row.report_count),
+        first_seen_at: toIsoString(row.first_seen_at),
+        last_seen_at: toIsoString(row.last_seen_at),
+        salience: Number(row.salience),
+        source_ids: [...(row.source_ids ?? [])],
+        source_classes: [...(row.source_classes ?? [])],
+        evidence_class: row.evidence_class,
+        caveats: parseJsonArray(row.caveats),
+      })),
+    };
+  }
+
+  async replaceDeflockSourceCells({ source_id, observed_at, cells } = {}) {
+    const client = await this.#pool.connect();
+    let transactionOpen = false;
+    try {
+      await client.query('BEGIN');
+      transactionOpen = true;
+      const sourceResult = await client.query(
+        `SELECT id::text AS id
+         FROM source_catalog
+         WHERE source_key = $1
+           AND source_class = 'green_public'::source_class
+         FOR UPDATE`,
+        [source_id],
+      );
+      if (sourceResult.rows.length !== 1) throw new IngestError('deflock_source_unknown', 'DeFlock source is not configured.', { statusCode: 422 });
+      const sourceId = sourceResult.rows[0].id;
+      const rows = serializeDeflockCells(cells, observed_at);
+      await client.query('DELETE FROM global_source_cells WHERE source_id = $1', [sourceId]);
+      if (rows.length > 0) {
+        await client.query(
+          `INSERT INTO global_source_cells (
+             source_id, h3_cell, resolution, centroid, footprint, evidence_class,
+             report_count, first_seen_at, last_seen_at, salience, caveats, updated_at
+           )
+           SELECT
+             $1, row.h3_cell, row.resolution,
+             ST_SetSRID(ST_MakePoint(row.longitude, row.latitude), 4326),
+             ST_SetSRID(ST_GeomFromGeoJSON(jsonb_build_object('type', 'Polygon', 'coordinates', jsonb_build_array(row.boundary))::text), 4326),
+             'public_reported', row.report_count, row.first_seen_at, row.last_seen_at,
+             row.salience, row.caveats, clock_timestamp()
+           FROM jsonb_to_recordset($2::jsonb) AS row(
+             h3_cell text, resolution smallint, latitude double precision, longitude double precision,
+             boundary jsonb, report_count integer, first_seen_at timestamptz, last_seen_at timestamptz,
+             salience numeric, caveats jsonb
+           )`,
+          [sourceId, JSON.stringify(rows)],
+        );
+      }
+      await client.query('COMMIT');
+      transactionOpen = false;
+    } catch (error) {
+      if (transactionOpen) await client.query('ROLLBACK');
+      throw normalizeDatabaseError(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async recordDeflockSourceFetchRun(run) {
+    const result = await this.#pool.query(
+      `WITH source AS (
+         SELECT id FROM source_catalog WHERE source_key = $1
+       ), inserted AS (
+         INSERT INTO source_fetch_runs (
+           source_id, outcome, started_at, completed_at, http_status, etag,
+           item_count, normalized_count, cell_count
+         )
+         SELECT source.id, $2, $3, $4, $5, $6, $7, $8, $9
+         FROM source
+         RETURNING source_id
+       )
+       UPDATE source_catalog AS catalog
+       SET last_outcome = $2,
+           last_success_at = CASE WHEN $2 = 'success' THEN $4 ELSE catalog.last_success_at END,
+           last_failure_at = CASE WHEN $2 NOT IN ('success', 'disabled') THEN $4 ELSE catalog.last_failure_at END,
+           updated_at = clock_timestamp()
+       FROM inserted
+       WHERE catalog.id = inserted.source_id
+       RETURNING catalog.id::text AS source_id`,
+      [run.source_id, run.outcome, run.started_at, run.completed_at, run.http_status, run.etag, run.item_count, run.normalized_count, run.cell_count],
+    );
+    if (result.rows.length !== 1) throw new IngestError('deflock_source_unknown', 'DeFlock source is not configured.', { statusCode: 422 });
+  }
+
   async putMorningBrief({ idempotencyKey, package: packet }) {
     const client = await this.#pool.connect();
     let transactionOpen = false;
@@ -729,6 +894,42 @@ function finiteInteger(value) {
 
 function stringOrNull(value) {
   return typeof value === 'string' && value ? value : null;
+}
+
+function serializeDeflockCells(cells, observedAt) {
+  if (!Array.isArray(cells)) throw new TypeError('DeFlock source cells must be an array.');
+  const fallbackObservedAt = toIsoString(observedAt);
+  if (!fallbackObservedAt) throw new TypeError('DeFlock observation time is invalid.');
+  return cells.map((cell) => {
+    if (!cell || cell.evidence_class !== 'public_reported' || !Array.isArray(cell.source_ids)
+        || cell.source_ids.length !== 1 || cell.source_ids[0] !== 'deflock-osm-alpr-reports') {
+      throw new TypeError('DeFlock source cell contract is invalid.');
+    }
+    const latitude = Number(cell.centroid?.latitude);
+    const longitude = Number(cell.centroid?.longitude);
+    const boundary = Array.isArray(cell.boundary)
+      ? cell.boundary.map((point) => [Number(point?.longitude), Number(point?.latitude)])
+      : [];
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || boundary.length < 4
+        || boundary.some(([boundaryLongitude, boundaryLatitude]) => !Number.isFinite(boundaryLongitude) || !Number.isFinite(boundaryLatitude))) {
+      throw new TypeError('DeFlock source cell geometry is invalid.');
+    }
+    const [firstLongitude, firstLatitude] = boundary[0];
+    const [lastLongitude, lastLatitude] = boundary.at(-1);
+    if (firstLongitude !== lastLongitude || firstLatitude !== lastLatitude) throw new TypeError('DeFlock source cell boundary is not closed.');
+    if (!Number.isInteger(cell.resolution) || ![2, 4, 5].includes(cell.resolution)
+        || !Number.isInteger(cell.report_count) || cell.report_count < 1) throw new TypeError('DeFlock source cell aggregate is invalid.');
+    const firstSeenAt = toIsoString(cell.first_seen_at ?? fallbackObservedAt);
+    const lastSeenAt = toIsoString(cell.last_seen_at ?? fallbackObservedAt);
+    if (!firstSeenAt || !lastSeenAt) throw new TypeError('DeFlock source cell timestamp is invalid.');
+    const salience = Number(cell.salience);
+    if (!Number.isFinite(salience) || salience < 0 || salience > 1) throw new TypeError('DeFlock source cell salience is invalid.');
+    return {
+      h3_cell: String(cell.h3_cell), resolution: cell.resolution, latitude, longitude, boundary,
+      report_count: cell.report_count, first_seen_at: firstSeenAt, last_seen_at: lastSeenAt,
+      salience, caveats: JSON.stringify(Array.isArray(cell.caveats) ? cell.caveats : []),
+    };
+  });
 }
 
 function toIsoString(value) {

@@ -1,120 +1,122 @@
-# Feature Specification: Godeye Global Map Source Integration
+# Feature Specification: Godeye Global Map + Source Integration
 
-**Feature Branch**: `kanban/godeye-global-map-source-integration`
+**Feature Branch**: `008-godeye-global-map-source-integration`
 **Created**: 2026-07-22
-**Reconciled**: 2026-07-25
-**Status**: Implemented as an operator-only, materialized-data capability. The three provider adapters remain fixture-only and disabled. Live provider enablement is out of scope until its source-specific gates pass.
-**Input**: Add a provenance-first Global Godeye mode and evaluate the initial USGS, GDACS, and NASA EONET source candidates.
+**Status**: Approved for production deployment. `deflock-osm-alpr-reports` is enabled on the BSS VM by this package, with a bounded scheduled worker and an initial post-deploy run.
+**Input**: User description: "Turn the World Monitor assessment into a specific Godeye spec delta and evaluate its datasource breadth and selection." Amended 2026-07-23: "We want to integrate the deflock map as part of Godeye view." Amended 2026-07-26: "Enable DeFlock and deploy the map; it is not gated."
 
-## Current State
+## Current-State Delta
 
-Godeye retains its GPS-centered 100 m Field map. This feature adds a separately labelled Global panel that reads bounded H3 aggregate cells from BSS infrastructure. It does not turn Godeye into a browser-direct intelligence dashboard.
+Godeye is an authenticated, GPS-centered, fixed-zoom OpenStreetMap tile view. `app/operator/main.js` renders a 100 m field radius and raw managed access-point markers. The VM currently exposes only token-gated `GET /api/v1/cybermap/viewport?lat=&lon=&radiusMeters=`; it returns nearby observation rows, not materialized global cells. The schema already reserves `source_catalog`, append-only `observations`, and `cybermap_cells` for the intended model.
 
-The implementation contains three normalizers: `usgs-earthquakes`, `gdacs-alerts`, and `nasa-eonet-events`. Each is a fixture-only adapter. `runGreenfeedWorker` is dependency-injected and has no scheduler, provider fetch implementation, or read-path integration. No browser or Global viewport request contacts a provider.
+This feature adds an operator-only global map mode. It must preserve the local field view as a separate product mode. It does not make Godeye a World Monitor fork or a general-purpose OSINT dashboard.
+
+## Selected source: DeFlock/OSM public reports
+
+`deflock-osm-alpr-reports` is the first implemented global-source adapter. It reads only the fixed, no-account DeFlock GeoJSON endpoint in a bounded worker and treats every source item as a **public report**, not a verified camera, live sighting, or Flock Safety record. The adapter persists H3 aggregate cells and source-run metadata only. It discards raw features, coordinates, OSM IDs, brands, operators, directions, and routing-related properties before durable storage.
+
+The source is enabled by the BSS operator's explicit deployment direction. The catalog records the OpenStreetMap ODbL attribution and the enablement decision; the visible ledger reports the actual fresh, stale, error, disabled, or empty state. The adapter never calls the DeFlock avoidance-route API.
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 — Inspect Global evidence without false precision (Priority: P1)
+### User Story 1 — Inspect a separate global evidence panel without false precision (Priority: P1)
 
-An authenticated operator opens Godeye and can inspect a Global panel independently of the retained Field map. The panel reads aggregate cells and source-health records only.
+An authenticated operator opens Godeye and views a separately labelled Global panel alongside the retained Field map. The panel renders server-materialized cells for enabled green sources. Each cell reports its evidence class, freshness, and caveats without exposing raw device identifiers or implying local observation.
 
-**Why this priority**: A global context view is useful only if it preserves the local Field product and does not expose raw observations or create client-side provider fan-out.
+**Why this priority**: The current 100 m renderer cannot communicate public global context, while direct raw-observation rendering would make a global surface unsafe and slow.
 
-**Independent Test**: Run the Global viewport contract, store, VM HTTP, SWA proxy, and operator UI tests with fixture data.
-
-**Acceptance Scenarios**:
-
-1. **Given** a Global aggregate response with approved cells, **When** an operator opens Global mode, **Then** the renderer displays aggregate evidence and source health without requesting browser geolocation.
-2. **Given** an operator opens Field mode, **When** a GPS fix is available, **Then** the existing 100 m local viewport flow remains independent of the Global endpoint.
-3. **Given** no eligible materialized cells exist, **When** the Global request succeeds, **Then** the UI displays an explicit empty or disabled state and never substitutes sample markers.
-
-### User Story 2 — Enforce source eligibility and provenance (Priority: P1)
-
-An operator can distinguish source class, attribution, freshness, caveats, and disabled status. Only policy-approved materialized sources may appear in Global cells.
-
-**Why this priority**: Provider breadth without a durable eligibility gate would erase the BSS provenance and privacy boundary.
-
-**Independent Test**: Seed green, authorized, and excluded source fixtures; query the aggregate viewport; assert that only eligible green layers return.
+**Independent Test**: Open the authenticated Godeye surface without granting location permission. The Field map stays dormant; the Global panel requests only the bounded aggregate endpoint and displays disabled, empty, stale, or error state.
 
 **Acceptance Scenarios**:
+1. **Given** an operator opens Godeye, **When** a materialized green source has fresh cells in the fixed Global panel viewport, **Then** Godeye renders aggregate cells and a source-health ledger without requesting browser geolocation.
+2. **Given** an operator uses the Field map, **When** a current GPS fix is available, **Then** the existing 100 m nearby-observation flow remains available and does not consume the global cell endpoint.
+3. **Given** no eligible global cell exists, **When** the aggregate request succeeds, **Then** Godeye renders an explicit empty/degraded state and never substitutes sample, simulated, or stale-as-live markers.
 
-1. **Given** a source is disabled or lacks a terms-review timestamp, **When** Global mode reads the ledger, **Then** it reports `disabled` and returns no preloaded cells.
-2. **Given** an enabled, `allowed_preload=true`, reviewed green source, **When** it has materialized cells, **Then** the bounded viewport can return aggregate fields with attribution and caveats.
-3. **Given** a grey, orange, or red source, **When** Global mode loads, **Then** it cannot globally preload regardless of cached rows.
+### User Story 2 — Select sources by evidence class and terms status (Priority: P1)
 
-### User Story 3 — Keep provider operations explicitly bounded (Priority: P2)
+An operator can identify which layers are loaded, stale, disabled, or unavailable, and can distinguish public evidence from owned/local observations and from authorized enrichments.
 
-A future reviewed source run records an immutable result and does not make Global map reads fetch the provider.
+**Why this priority**: World Monitor demonstrates broad useful source coverage, but breadth without source gates would collapse BSS provenance and privacy controls.
 
-**Why this priority**: Provider failure, rate limiting, or policy uncertainty must be visible rather than hidden behind client retries.
-
-**Independent Test**: Exercise the injected worker with successful, empty, rate-limited, malformed, timeout, disabled, and terms-unreviewed fixtures.
+**Independent Test**: Create source catalog rows for green, authorized, and orange sources; materialize cells for each; request a global viewport; assert that only enabled/approved green layers preload and that rejected layers leave an audit-visible status.
 
 **Acceptance Scenarios**:
+1. **Given** a source is disabled, **When** Global mode loads, **Then** it is absent from the cells and appears as `disabled` with a non-secret reason. The DeFlock source is enabled by this package and does not use terms review as a runtime gate.
+2. **Given** a source is `green_authorized`, **When** its authorization reference is valid and its global-preload flag is enabled, **Then** it can appear with an authorization/attribution caveat.
+3. **Given** a grey, orange, or red source, **When** Global mode loads, **Then** the source cannot preload globally regardless of its cache contents.
 
-1. **Given** a provider returns rate limit or transport failure, **When** the worker records the outcome, **Then** it emits a bounded retry time and redacted error class without seeding data.
-2. **Given** provider terms are unreviewed, **When** the worker is invoked, **Then** it records `disabled` before any fetch.
-3. **Given** many operators read the Global panel, **When** the materialized response is served, **Then** the read path makes zero provider requests.
+### User Story 3 — Operate a degraded source fleet honestly (Priority: P2)
+
+An operator can see each requested layer's last successful fetch, freshness state, failure count, and next retry time. Source failure does not cause a client fan-out or conceal the gap.
+
+**Why this priority**: World Monitor's source-health model is valuable; it prevents a dense map from masquerading as complete intelligence.
+
+**Independent Test**: Insert successful, stale, failed, and disabled source-run fixtures; request the viewport; assert deterministic `fresh`, `stale`, `error`, and `disabled` states and no request-time provider fetch.
+
+**Acceptance Scenarios**:
+1. **Given** a source exceeds its freshness ceiling, **When** its cells remain available, **Then** the response marks the layer `stale` and Godeye visually degrades it.
+2. **Given** a worker records a failed provider fetch, **When** an operator opens Global mode, **Then** the response reports `error` with the last successful timestamp if one exists.
+3. **Given** a provider is unavailable, **When** many operators view the map, **Then** the backend performs no provider request on behalf of those map reads.
 
 ### Edge Cases
 
-- Antimeridian-wrapped bounds, unsupported zooms, unknown layer IDs, and requests above the cell budget fail with stable contract errors.
-- A response with raw observation fields is rejected rather than passed through to the renderer.
-- A stale, failed, empty, or disabled layer remains visible as an intelligence gap; it is not relabelled as live.
-- Duplicate provider event identities materialize deterministically and preserve append-only source-run evidence.
-- Missing provider credentials, unavailable terms, or a provider access denial keep the source disabled. They do not justify a browser-side workaround.
+- A viewport crossing the antimeridian is represented as two bounded requests; the client must not send a wrapped bounding box.
+- A requested zoom/layer combination that would exceed the server cell cap returns a structured `viewport_too_large` response rather than truncating silently.
+- A source can have data older than its cache TTL. The UI may show it only as stale context, never as current live sight.
+- A worker may receive duplicate source events. It must use a deterministic source event key and append-only observation semantics.
+- Missing provider credentials, unavailable terms, or a rate-limit response keep the source disabled; they do not enable a mock provider.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: Godeye MUST retain Field mode and expose a separately labelled Global aggregate panel on the authenticated operator surface.
-- **FR-002**: Global mode MUST render without browser geolocation and MUST NOT replace the existing 100 m Field viewport flow.
-- **FR-003**: Global mode MUST use only the same-origin token-gated `POST /api/cybermap/global-viewport` BSS proxy.
-- **FR-004**: The VM Global viewport API MUST return bounded materialized aggregate cells, source health, freshness, provenance, caveats, and explicit empty state; it MUST NOT return raw observations or RF identifiers.
-- **FR-005**: The request contract MUST reject invalid coordinates, antimeridian-wrapped bounds, unsupported zoom, unknown layers, and requests exceeding the cell limit.
-- **FR-006**: A global layer MAY preload only when it is enabled, `allowed_preload=true`, has a non-null `terms_reviewed_at`, is marked global, and has an allowed source class.
-- **FR-007**: `usgs-earthquakes`, `gdacs-alerts`, and `nasa-eonet-events` MUST remain disabled and `allowed_preload=false` until each source independently passes the live-enable tasks in `tasks.md`.
-- **FR-008**: The three initial adapters MUST normalize only source-owned fixtures in this release. They MUST contain no transport implementation, scheduler, credential, or runtime fallback surface.
-- **FR-009**: Source acquisition MUST occur only through a bounded backend worker. A Global viewport read MUST use materialized BSS data and MUST NOT fan out to providers.
-- **FR-010**: Source runs MUST record immutable timestamps, outcome, response class, counts, retry time, and redacted error code.
-- **FR-011**: Materialization MUST aggregate snapshots at H3 resolutions 5, 7, 9, and 11 and MUST omit raw provider records from Global responses.
-- **FR-012**: Global cells and the operator ledger MUST preserve layer ID, source class, attribution, freshness, and caveats.
-- **FR-013**: Grey, orange, and red sources MUST remain globally unavailable even if database rows exist.
-- **FR-014**: Provider credentials, if a later provider contract requires them, MUST remain backend-only and MUST NOT be shipped in operator HTML, JavaScript, fixtures, logs, or source-health responses.
-- **FR-015**: The Global map MUST remain an authenticated operator surface. This feature MUST NOT add a public provider proxy or public Global-map API.
-- **FR-016**: A disabled, empty, stale, or failed source MUST be presented explicitly. The product MUST NOT use demo or fallback provider data.
+- **FR-001**: Godeye MUST retain the current `field` map and expose a separately labelled `global` aggregate panel on the authenticated Godeye surface. The Global panel MUST NOT request browser geolocation to render global cells.
+- **FR-002**: The Field map MUST retain the existing token-gated local-radius observation workflow until a separately accepted Field-map replacement passes its tests.
+- **FR-003**: The Global panel MUST read only from a token-gated BSS cell-viewport API. It MUST NOT fetch providers directly from the browser.
+- **FR-004**: The global cell-viewport API MUST return materialized cells, per-source health, freshness, provenance summaries, caveats, and an explicit empty result. It MUST NOT return raw observation payloads or raw RF identifiers.
+- **FR-005**: The API MUST reject invalid coordinates, wrapped bounding boxes, unknown layer IDs, non-integer zoom values, and requests above the documented cell limit with a stable error code.
+- **FR-006**: Only enabled `green_public`, `green_owned`, and explicitly approved `green_authorized` catalog entries with `allowed_preload=true` MAY preload globally.
+- **FR-007**: The first implemented global source MUST be `deflock-osm-alpr-reports`. Its adapter MUST use the fixed DeFlock GeoJSON HTTPS endpoint only in a bounded worker; it MUST preserve OpenStreetMap and DeFlock attribution, use no account or credential, and deploy with `enabled=true`, `allowed_preload=true`, and `terms_reviewed=true` as the recorded BSS operator enablement decision.
+- **FR-008**: USGS, GDACS, NASA EONET, World Monitor-inspired cyber, network, aviation, maritime, conflict, news, market, economic, and infrastructure sources MUST remain disabled candidates until their individual provider terms, retention, attribution, rate limit, and BSS source class are approved.
+- **FR-009**: Source acquisition MUST occur in bounded worker jobs. A viewport request MUST read materialized BSS data only and MUST NOT trigger provider fan-out.
+- **FR-010**: Every global cell MUST expose the contributing source IDs/classes, newest and oldest evidence timestamps, source freshness state, salience, and human-readable caveats.
+- **FR-011**: The source registry MUST persist an append-only fetch-run record with status, timestamps, HTTP/result classification, item counts, normalized/duplicate/rejected counts, and a redacted error category.
+- **FR-012**: Godeye MUST display an operator-visible layer ledger containing layer name, source class, current health, last successful fetch, freshness age, attribution, and caveat count.
+- **FR-013**: A global cell MUST aggregate evidence at the selected H3 resolution. `deflock-osm-alpr-reports` MUST materialize at resolutions 2, 4, and 5 only. It MUST NOT expose a BSSID, SSID, device identifier, person label, exact device track, raw camera frame, raw point coordinate, OSM identifier, brand, operator, direction, route, or location more precise than the approved global cell boundary.
+- **FR-014**: Grey, orange, and red sources MUST remain globally unavailable even if data already exists in PostgreSQL. Local/owned or explicit authorized-scope gates remain required for their separate read paths.
+- **FR-015**: All source credentials MUST remain worker/backend secrets. They MUST NOT appear in operator HTML, JavaScript, client configuration, map URLs, logs, fixtures, or source-health responses.
+- **FR-016**: If a selected source is stale, failed, disabled, or empty, Godeye MUST make that state visible. It MUST NOT synthesize substitute data, hydrate demo fixtures, or label stale cells as fresh.
+- **FR-017**: The source registry MUST preserve provider terms/attribution provenance separately from evidence provenance. The DeFlock catalog record MUST preserve its OpenStreetMap attribution and the BSS operator enablement decision.
+- **FR-018**: The implementation MUST not copy World Monitor dashboard source. Any new renderer or dependency requires its own license and supply-chain review.
+- **FR-019**: The source adapter layer MUST not bypass provider access controls, anti-bot measures, account boundaries, or rate limits. A blocked provider is a disabled source, not a browser-side workaround.
+- **FR-020**: The global map remains an authenticated operator surface. It MUST NOT add a public map route, public source API, or anonymous provider proxy.
+- **FR-021**: The DeFlock adapter MUST use a fixed allowlisted data URL and MUST NOT call `api.dontgetflocked.com`, accept origin/destination input, calculate a route, or expose avoidance guidance.
+- **FR-022**: The DeFlock adapter MUST bound a source read to 45 seconds, 35 MiB compressed input, and 256 MiB decompressed output. It MUST discard the raw response after aggregate materialization and record only a redacted source-run outcome, ETag, and item-count metadata.
+- **FR-023**: The VM deployment MUST install and enable a bounded DeFlock source service and timer. Deployment MUST start one source run after migrations complete. A source-fetch failure MUST record its bounded outcome without making a viewport request fetch the provider.
 
 ### Key Entities
 
-- **GlobalViewportRequestV1**: A bounded operator request for aggregate cells and selected layer IDs.
-- **GlobalViewportResponseV1**: A token-gated response containing aggregate cells and per-layer health only.
-- **SourceCatalogEntry**: A durable source-policy row with source class, enablement, preload, terms-review, attribution, freshness, and global-layer fields.
-- **GreenfeedSnapshot**: A normalized provider event used only to produce BSS observations and aggregate cells.
-- **SourceFetchRun**: An immutable record of one bounded worker attempt.
-- **CybermapCell**: A materialized H3 aggregate product, not a raw provider point or track.
-
-## Source Candidates and Enablement State
-
-| Layer | Code state | Current policy state | Live transport/scheduler | Account state |
-|---|---|---|---|---|
-| `usgs-earthquakes` | Fixture normalizer implemented | `enabled=false`, `allowed_preload=false`; static review timestamp present | Not implemented | No account or credential configured |
-| `gdacs-alerts` | Fixture normalizer implemented | `enabled=false`, `allowed_preload=false`; `terms_reviewed_at=null` | Not implemented | No account or credential configured |
-| `nasa-eonet-events` | Fixture normalizer implemented | `enabled=false`, `allowed_preload=false`; `terms_reviewed_at=null` | Not implemented | No account or credential configured |
+- **SourceCatalogEntry**: Existing BSS source registry row extended with reviewed terms/attribution, layer policy, and source-health configuration.
+- **DeflockReportedAggregate**: A `deflock-osm-alpr-reports` H3 count cell derived from public OSM-tagged ALPR reports. It has no point feature, OSM ID, device metadata, or routing field.
+- **SourceFetchRun**: Immutable record of one bounded provider acquisition attempt.
+- **GreenfeedObservation**: Normalized, append-only `greenfeed_snapshot` observation with deterministic provider event key and source evidence provenance.
+- **CybermapCell**: Existing materialized H3 map product, extended to carry source-layer counts, freshness, and caveats at an approved resolution.
+- **GlobalViewportRequestV1**: Operator viewport/layer request for aggregated cells.
+- **GlobalViewportResponseV1**: Token-gated response containing bounded cell aggregates and source-health records.
 
 ## Success Criteria *(mandatory)*
 
-- **SC-001**: The current repository suite passes with the Global UI/API tests included and no test failure.
-- **SC-002**: The VM unit suite passes its Global contract, store, worker, materializer, and adapter tests; a missing protected PostGIS URL is a named skip, not a pass for migration proof.
-- **SC-003**: Automated tests prove that disabled, unreviewed, and excluded source rows produce no globally preloaded aggregate cells.
-- **SC-004**: Automated tests prove that Global responses contain no raw observation fields or provider payload fallback.
-- **SC-005**: Automated tests prove that P0 adapters remain fixture-only and the worker performs no fetch when a source is disabled or terms-unreviewed.
-- **SC-006**: Live enablement occurs only after a source-specific policy review, bounded transport/scheduler implementation, disposable-PostGIS receipt, and operator acceptance receipt.
+- **SC-001**: A global viewport with up to 1,000 cells returns from the materialized database path in 1,000 ms or less at p95 under the defined B1MS-compatible test load; it performs zero outbound provider requests.
+- **SC-002**: All enabled global layers have visible source class, provider attribution, terms URL, last-success time, freshness state, and caveat count in the operator UI.
+- **SC-003**: Automated tests prove that grey/orange/red catalog entries and disabled/unreviewed sources produce zero globally preloaded cells.
+- **SC-004**: Automated tests prove that production global responses contain no raw RF identifiers, raw location observations, sample markers, or fixture labels.
+- **SC-005**: A simulated source failure changes only that layer to `error` or `stale`; the Global panel remains usable and exposes the intelligence gap.
+- **SC-006**: The legacy field viewport contract remains token-gated and passes its existing regression test.
 
 ## Assumptions and Explicit Exclusions
 
-- This document is not legal advice. A provider endpoint responding anonymously does not approve ingestion, persistence, redistribution, or display.
-- Provider account, API-key, rate-limit, retention, attribution, and redistribution obligations are not assumed from fixture normalizers. They must be captured in a source-specific approval record before live enablement.
-- No current source is an operational live feed. The implementation does not prove source availability, provider authorization, or a production scheduler.
-- The Global panel is read-only. It does not control devices, probe hosts, calculate routes, or expose a tracking interface.
-- World Monitor source, styling, assets, and provider credentials are excluded.
+- This is a BSS feature specification, not legal advice. A provider's public endpoint does not by itself approve ingestion, redistribution, persistence, or map display.
+- Basemap licensing and renderer-package selection are implementation decisions gated by separate review; this specification does not approve a tile host or dependency.
+- The Global panel is read-only. It does not probe hosts, control devices, make account writes, route autonomous actions, or expose a tracking interface.
+- Prediction-market, social, RSS, and narrative data may remain inputs to Mosaic/Murmurs. They are not factual Godeye map layers by default.
+- Aviation and maritime feeds are not P0. Exact live tracks require a provider-specific authorization, retention, attribution, and safety decision.

@@ -1903,6 +1903,16 @@ strong {
   pointer-events: none;
 }
 
+.deflock-global-surface { display: grid; gap: var(--space-3); margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid rgba(154, 130, 159, 0.2); }
+.deflock-global-heading, .deflock-global-layout { display: grid; gap: var(--space-3); }
+.deflock-global-heading { align-items: start; }
+.deflock-global-heading h3 { margin: 0.2rem 0 0; color: var(--material-pearl); }
+.deflock-global-intent, .deflock-global-meta p { margin: 0; color: var(--text-1); line-height: 1.55; }
+.deflock-global-map { min-height: clamp(20rem, 48vh, 34rem); border-color: rgba(154, 130, 159, 0.32); }
+.deflock-global-cells { position: absolute; inset: 0; pointer-events: none; }
+.deflock-global-cell { position: absolute; display: grid; place-items: center; width: clamp(1.5rem, 4vw, 2.5rem); aspect-ratio: 1; border: 1px solid rgba(154, 130, 159, 0.66); border-radius: 50%; background: rgba(67, 48, 73, 0.72); color: var(--material-pearl); font-size: 0.67rem; font-variant-numeric: tabular-nums; box-shadow: 0 0 0 3px rgba(154, 130, 159, 0.12); transform: translate(-50%, -50%); }
+.deflock-global-meta { display: grid; gap: 0.45rem; padding: var(--space-3); border: 1px solid rgba(154, 130, 159, 0.18); border-radius: var(--radius-md); background: rgba(15, 12, 20, 0.68); }
+
 .map-wigle-marker {
   position: absolute;
   display: grid;

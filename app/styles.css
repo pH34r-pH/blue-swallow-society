@@ -140,6 +140,25 @@ input {
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
 }
 
+.login-controls {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.operator-handoff {
+  margin: 0;
+  padding: 1rem 1.15rem;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 1rem;
+  background: rgba(239, 246, 255, 0.8);
+  color: var(--blue-strong);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
 .terminal-actions {
   display: grid;
   margin-top: 0.25rem;

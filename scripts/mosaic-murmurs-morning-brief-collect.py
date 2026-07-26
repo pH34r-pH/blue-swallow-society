@@ -17,7 +17,7 @@ import os
 import re
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
@@ -48,6 +48,100 @@ DEFAULT_PAPER_STATE = DEFAULT_PAPER_RUNTIME_DIR / "latest_state.json"
 DEFAULT_RUNTIME_DIR = Path.home() / ".hermes" / "mosaic-murmurs" / "morning-brief"
 USER_AGENT = "BlueSwallowMorningBrief/0.1 (https://blueswallow.net; local operator collector)"
 MAX_SUMMARY_CHARS = 360
+TAROT_STUDY_EPOCH = date(2026, 1, 1)
+TAROT_STUDY_SOURCE = "Fixed 78-card tarot study curriculum"
+TAROT_STUDY_DISCLOSURE = "Reflective study only; do not use this card as prediction or instruction."
+
+MAJOR_ARCANA_STUDIES: tuple[dict[str, Any], ...] = (
+    {"card": "The Fool", "arcana": "Major Arcana", "upright_keywords": ["beginning", "openness", "trust"], "reversed_keywords": ["recklessness", "avoidance", "unreadiness"], "symbol_focus": "Horizon, white rose, small companion, and the unmeasured step.", "reading_drill": "Name the question. Read The Fool as a starting condition, then let adjacent cards constrain the next step."},
+    {"card": "The Magician", "arcana": "Major Arcana", "upright_keywords": ["agency", "focus", "skill"], "reversed_keywords": ["misdirection", "scattered effort", "unused capacity"], "symbol_focus": "Raised wand, four tools, and the loop of attention between intention and action.", "reading_drill": "Identify the tool already in reach and the constraint that keeps it from becoming theater."},
+    {"card": "The High Priestess", "arcana": "Major Arcana", "upright_keywords": ["intuition", "privacy", "pattern recognition"], "reversed_keywords": ["withheld context", "projection", "ignored signal"], "symbol_focus": "Veil, columns, water, and the threshold between evidence and interpretation.", "reading_drill": "Separate what is known, sensed, and still hidden before assigning meaning."},
+    {"card": "The Empress", "arcana": "Major Arcana", "upright_keywords": ["nurture", "abundance", "embodiment"], "reversed_keywords": ["overextension", "neglect", "smothering"], "symbol_focus": "Garden, grain, flowing fabric, and the work that makes growth habitable.", "reading_drill": "Ask what needs tending and what boundary lets that care remain sustainable."},
+    {"card": "The Emperor", "arcana": "Major Arcana", "upright_keywords": ["structure", "stewardship", "authority"], "reversed_keywords": ["rigidity", "domination", "fragile control"], "symbol_focus": "Stone seat, ram forms, and a landscape made legible by rules.", "reading_drill": "Name the rule that protects the work, then test whether it serves people or merely itself."},
+    {"card": "The Hierophant", "arcana": "Major Arcana", "upright_keywords": ["tradition", "teaching", "shared practice"], "reversed_keywords": ["empty orthodoxy", "conformity", "unexamined custom"], "symbol_focus": "Ritual gesture, keys, and students receiving a repeatable form.", "reading_drill": "Find the inherited method worth learning, then identify the condition where it must be adapted."},
+    {"card": "The Lovers", "arcana": "Major Arcana", "upright_keywords": ["alignment", "choice", "mutuality"], "reversed_keywords": ["misalignment", "avoidance", "split values"], "symbol_focus": "Two figures, angel, and the vulnerable clarity of a chosen bond.", "reading_drill": "State the values in tension and read the card as a choice with consequences, not a guarantee."},
+    {"card": "The Chariot", "arcana": "Major Arcana", "upright_keywords": ["direction", "discipline", "will"], "reversed_keywords": ["scattered effort", "force", "loss of direction"], "symbol_focus": "Two contrasting creatures, armor, and the star canopy.", "reading_drill": "Separate deliberate direction from control for its own sake."},
+    {"card": "Strength", "arcana": "Major Arcana", "upright_keywords": ["courage", "patience", "gentle force"], "reversed_keywords": ["self-doubt", "coercion", "depletion"], "symbol_focus": "Open hands, lion, and the infinity mark above sustained attention.", "reading_drill": "Ask which response needs steadiness rather than escalation."},
+    {"card": "The Hermit", "arcana": "Major Arcana", "upright_keywords": ["discernment", "solitude", "guidance"], "reversed_keywords": ["isolation", "withdrawal", "refusal of help"], "symbol_focus": "Lantern, staff, and a small circle of light on difficult ground.", "reading_drill": "Identify what quiet observation can clarify, then name when to return the finding to others."},
+    {"card": "Wheel of Fortune", "arcana": "Major Arcana", "upright_keywords": ["change", "cycles", "contingency"], "reversed_keywords": ["resistance", "repetition", "misread timing"], "symbol_focus": "Turning wheel, four witnesses, and movement no single actor controls.", "reading_drill": "Map what is controllable, what is cyclic, and what must be met with readiness."},
+    {"card": "Justice", "arcana": "Major Arcana", "upright_keywords": ["accountability", "balance", "consequence"], "reversed_keywords": ["bias", "avoidance", "unequal measure"], "symbol_focus": "Scales, upright blade, and the visibility of a decision standard.", "reading_drill": "State the evidence, the rule, and who bears the outcome before you judge the situation."},
+    {"card": "The Hanged Man", "arcana": "Major Arcana", "upright_keywords": ["pause", "reframing", "surrender"], "reversed_keywords": ["stalling", "martyrdom", "refusal to shift"], "symbol_focus": "Inverted perspective, halo, and a pause chosen before the next move.", "reading_drill": "Ask what becomes visible only when immediate action is suspended."},
+    {"card": "Death", "arcana": "Major Arcana", "upright_keywords": ["ending", "transition", "release"], "reversed_keywords": ["clinging", "delayed change", "stagnation"], "symbol_focus": "Rider, fallen crown, horizon, and the order of an ending that clears space.", "reading_drill": "Name what has concluded, what is being released, and what should not be prematurely replaced."},
+    {"card": "Temperance", "arcana": "Major Arcana", "upright_keywords": ["integration", "calibration", "patience"], "reversed_keywords": ["excess", "imbalance", "friction"], "symbol_focus": "Two vessels, one foot on land and one in water, and a measured transfer.", "reading_drill": "Look for the smallest adjustment that restores proportion without erasing difference."},
+    {"card": "The Devil", "arcana": "Major Arcana", "upright_keywords": ["attachment", "compulsion", "shadow"], "reversed_keywords": ["release", "awareness", "reclaimed agency"], "symbol_focus": "Loose chains, raised hand, and the distinction between bondage and consent.", "reading_drill": "Identify the bargain, its cost, and the practical condition that would make exit possible."},
+    {"card": "The Tower", "arcana": "Major Arcana", "upright_keywords": ["disruption", "revelation", "collapse of false structure"], "reversed_keywords": ["averted crisis", "internal upheaval", "delayed reckoning"], "symbol_focus": "Lightning, falling crown, and a structure exposed to forces it denied.", "reading_drill": "Ask which assumption failed and what evidence must survive the reset."},
+    {"card": "The Star", "arcana": "Major Arcana", "upright_keywords": ["hope", "renewal", "orientation"], "reversed_keywords": ["discouragement", "disconnection", "dimmed trust"], "symbol_focus": "Open water, distant stars, and care offered without spectacle.", "reading_drill": "Name the small reliable signal that can orient recovery without promising certainty."},
+    {"card": "The Moon", "arcana": "Major Arcana", "upright_keywords": ["ambiguity", "dreams", "uncertainty"], "reversed_keywords": ["clarification", "deception exposed", "anxiety"], "symbol_focus": "Moonlight, two paths, and creatures responding differently to the same unknown.", "reading_drill": "List the interpretations in play and the observation that would distinguish them."},
+    {"card": "The Sun", "arcana": "Major Arcana", "upright_keywords": ["clarity", "vitality", "shared joy"], "reversed_keywords": ["overconfidence", "delay", "muted confidence"], "symbol_focus": "Open field, wall, banner, and illumination that can be checked in public.", "reading_drill": "Ask what is now visible, who can verify it, and where brightness may conceal a boundary."},
+    {"card": "Judgement", "arcana": "Major Arcana", "upright_keywords": ["reckoning", "review", "renewal"], "reversed_keywords": ["self-criticism", "avoidance", "unfinished review"], "symbol_focus": "Call, rising figures, and the moment a record is read back into the present.", "reading_drill": "Review the evidence, name the learning, and distinguish repair from self-punishment."},
+    {"card": "The World", "arcana": "Major Arcana", "upright_keywords": ["completion", "integration", "arrival"], "reversed_keywords": ["incompletion", "loose ends", "delayed closure"], "symbol_focus": "Wreath, four witnesses, and movement held inside a completed frame.", "reading_drill": "Name what is complete, what remains open, and the ritual that closes the cycle responsibly."},
+)
+
+MINOR_SUIT_STUDIES: tuple[tuple[str, str, str, str], ...] = (
+    ("Wands", "will, work, and creative force", "living wood, flame, and the direction of effort", "Ask where energy needs a clear channel rather than a louder signal."),
+    ("Cups", "feeling, relationship, and receptivity", "vessels, water, and the boundary that lets care circulate", "Ask what feeling is present and what relationship condition gives it an honest container."),
+    ("Swords", "thought, conflict, and language", "blade, wind, and the cut that makes a distinction visible", "Ask which story is operating, what it omits, and what statement can be made without cruelty."),
+    ("Pentacles", "body, resources, and material practice", "coin, soil, and the repeated work that turns potential into support", "Ask what can be counted, maintained, or repaired in the material world."),
+)
+
+MINOR_RANK_STUDIES: tuple[tuple[str, tuple[str, str, str], tuple[str, str, str], str], ...] = (
+    ("Ace", ("potential", "opening", "first signal"), ("blocked start", "diffused energy", "fear of beginning"), "Treat the opening as a condition to test, not a promise to inflate."),
+    ("Two", ("choice", "balance", "exchange"), ("stalemate", "avoidance", "uneven terms"), "Name the two forces and the trade-off that a real choice must carry."),
+    ("Three", ("collaboration", "expansion", "early result"), ("misalignment", "delay", "fragile growth"), "Look for the third factor: a collaborator, consequence, or context that changes the pair."),
+    ("Four", ("structure", "rest", "consolidation"), ("stagnation", "guardedness", "rigidity"), "Ask whether the structure restores capacity or merely freezes movement."),
+    ("Five", ("friction", "loss", "adaptation"), ("repair", "recovery", "reframed conflict"), "Identify the cost already paid and the resource that remains usable."),
+    ("Six", ("transition", "reciprocity", "rebalancing"), ("imbalance", "strings attached", "resistance to change"), "Trace what moves between people or states, and who sets the terms."),
+    ("Seven", ("assessment", "strategy", "boundary"), ("wishful thinking", "evasion", "poor timing"), "Pause for a checkpoint: what evidence supports continuing, changing, or stopping?"),
+    ("Eight", ("practice", "movement", "commitment"), ("drift", "avoidance", "misdirected effort"), "Read the repeated action closely: is it building skill, escape, or momentum without direction?"),
+    ("Nine", ("maturity", "resilience", "near completion"), ("fatigue", "isolation", "overextension"), "Name the protection that helped you reach this point and the help needed to finish well."),
+    ("Ten", ("culmination", "legacy", "burden"), ("overload", "instability", "unfinished ending"), "Ask what has reached its limit and what must be redistributed, released, or integrated."),
+    ("Page", ("curiosity", "message", "apprenticeship"), ("immaturity", "missed message", "unfocused study"), "Treat the card as a learner's dispatch: what question deserves direct, humble attention?"),
+    ("Knight", ("pursuit", "movement", "commitment"), ("haste", "stagnation", "misdirected charge"), "Examine speed and direction separately; motion only helps when it serves the actual question."),
+    ("Queen", ("stewardship", "inner authority", "cultivation"), ("withholding", "overcontrol", "neglected needs"), "Ask how mature care or discernment can hold the situation without owning everyone in it."),
+    ("King", ("responsibility", "mastery", "stable leadership"), ("tyranny", "passivity", "misused authority"), "Identify the duty attached to influence and the accountability that keeps it legitimate."),
+)
+
+
+def _minor_arcana_studies() -> tuple[dict[str, Any], ...]:
+    cards: list[dict[str, Any]] = []
+    for suit, theme, symbol, suit_drill in MINOR_SUIT_STUDIES:
+        for rank, upright, reversed_keywords, rank_drill in MINOR_RANK_STUDIES:
+            cards.append(
+                {
+                    "card": f"{rank} of {suit}",
+                    "arcana": f"Minor Arcana / {suit}",
+                    "upright_keywords": list(upright),
+                    "reversed_keywords": list(reversed_keywords),
+                    "symbol_focus": f"Study {symbol}; read the {rank.lower()} through {theme}.",
+                    "reading_drill": f"{suit_drill} {rank_drill}",
+                }
+            )
+    return tuple(cards)
+
+
+TAROT_STUDY_CYCLE = MAJOR_ARCANA_STUDIES + _minor_arcana_studies()
+if len(TAROT_STUDY_CYCLE) != 78:  # Fail closed if an edit corrupts the complete-cycle contract.
+    raise RuntimeError("Tarot study curriculum must contain exactly 78 cards.")
+
+
+def daily_tarot_study(local_date: date) -> dict[str, Any]:
+    """Return the fixed local-date tarot-learning record without personalisation or I/O."""
+    if not isinstance(local_date, date):
+        raise TypeError("local_date must be a datetime.date")
+    cycle_index = (local_date - TAROT_STUDY_EPOCH).days % len(TAROT_STUDY_CYCLE)
+    study = TAROT_STUDY_CYCLE[cycle_index]
+    return {
+        "lesson_id": f"tarot-study-{local_date.isoformat()}",
+        "cycle_day": cycle_index + 1,
+        "card": study["card"],
+        "arcana": study["arcana"],
+        "upright_keywords": list(study["upright_keywords"]),
+        "reversed_keywords": list(study["reversed_keywords"]),
+        "symbol_focus": study["symbol_focus"],
+        "reading_drill": study["reading_drill"],
+        "disclosure": TAROT_STUDY_DISCLOSURE,
+        "source": TAROT_STUDY_SOURCE,
+    }
 
 MATERIALITY_KEYWORDS = {
     "washington": 4,
@@ -985,6 +1079,23 @@ def build_delivery_markdown(manifest: dict[str, Any]) -> str:
     append_lane("Mosaic", list(inputs.get("breaking_reality") or []))
     append_lane("Murmurs / Bridge", list(inputs.get("hype_weather") or []) + list(inputs.get("market_signals") or []))
 
+    lines.extend(["", "## Tarot / Daily Study"])
+    tarot = inputs.get("daily_tarot_study")
+    if not isinstance(tarot, dict):
+        lines.append("- No tarot study record is available for this local calendar day.")
+    else:
+        card = clean_text(tarot.get("card"), 120) or "Unnamed tarot card"
+        arcana = clean_text(tarot.get("arcana"), 100) or "Tarot study"
+        cycle_day = tarot.get("cycle_day")
+        upright = ", ".join(clean_text(keyword, 48) for keyword in tarot.get("upright_keywords") or [] if clean_text(keyword, 48))
+        reversed_keywords = ", ".join(clean_text(keyword, 48) for keyword in tarot.get("reversed_keywords") or [] if clean_text(keyword, 48))
+        lines.append(f"- **{card}** — {arcana}; cycle day {cycle_day}.")
+        lines.append(f"  Upright study: {upright or 'No upright keywords recorded.'}")
+        lines.append(f"  Reversed study: {reversed_keywords or 'No reversed keywords recorded.'}")
+        lines.append(f"  Symbol focus: {clean_text(tarot.get('symbol_focus'), 420) or 'No symbol focus recorded.'}")
+        lines.append(f"  Reading drill: {clean_text(tarot.get('reading_drill'), 420) or 'No reading drill recorded.'}")
+        lines.append(f"  {clean_text(tarot.get('disclosure'), 180) or TAROT_STUDY_DISCLOSURE}")
+
     lines.extend(["", "## Paper matrix"])
     books = list(inputs.get("paper_books") or [])
     if not books:
@@ -1067,6 +1178,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     ledger, ledger_loaded = load_ledger(ledger_path)
     books = summarize_books(ledger, ledger_path, ledger_loaded)
     paper_actions = load_paper_actions(Path(args.paper_state).expanduser())
+    tarot_study = daily_tarot_study(local_generated.date())
 
     run_id = f"morning-brief-{local_generated.strftime('%Y-%m-%d')}"
     manifest = {
@@ -1090,6 +1202,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "market_signals": [compact_item(item) for item in market_items[: args.market_limit]],
             "paper_books": books,
             "paper_action_candidates": paper_actions,
+            "daily_tarot_study": tarot_study,
         },
         "raw_item_count": len(items),
         "all_items": [compact_item(item) for item in sorted(items, key=lambda entry: entry.get("score", 0), reverse=True)],
@@ -1140,6 +1253,7 @@ def cron_packet(manifest: dict[str, Any]) -> dict[str, Any]:
         "market_signals": inputs["market_signals"],
         "paper_books": inputs["paper_books"],
         "paper_action_candidates": inputs["paper_action_candidates"],
+        "daily_tarot_study": inputs["daily_tarot_study"],
         "governance": manifest["governance"],
     }
 
