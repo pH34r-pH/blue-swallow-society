@@ -73,6 +73,36 @@ export class PostgresObservationStore {
     });
   }
 
+  async authenticateMtls({ deviceId, certificateFingerprint, requiredScope }) {
+    const result = await this.#pool.query(
+      `SELECT
+         credential.id AS credential_id,
+         credential.device_id,
+         credential.source_id::text AS source_id,
+         source.source_class::text AS source_class,
+         credential.scopes
+       FROM device_ingest_credentials AS credential
+       JOIN source_catalog AS source ON source.id = credential.source_id
+       WHERE credential.device_id = $1
+         AND lower(coalesce(credential.metadata ->> 'mtls_certificate_fingerprint', '')) = lower($2)
+         AND $3 = ANY(credential.scopes)
+         AND credential.enabled = true
+         AND (credential.expires_at IS NULL OR credential.expires_at > now())
+         AND source.enabled = true
+       LIMIT 1`,
+      [deviceId, certificateFingerprint, requiredScope],
+    );
+    if (result.rows.length !== 1) throw forbidden();
+    const row = result.rows[0];
+    return Object.freeze({
+      credential_id: row.credential_id,
+      device_id: row.device_id,
+      source_id: row.source_id,
+      source_class: row.source_class,
+      scopes: Object.freeze([...(row.scopes ?? [])]),
+    });
+  }
+
   async applyBatch({ credential, batch }) {
     if (!credential || credential.device_id !== batch.device_id) throw forbidden();
     const client = await this.#pool.connect();

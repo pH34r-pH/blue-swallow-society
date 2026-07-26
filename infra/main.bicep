@@ -68,6 +68,17 @@ param paperStateToken string
 @description('Dedicated token used by the private morning-brief archive path between the scheduler, SWA, and VM API.')
 param morningBriefToken string
 
+@secure()
+@description('Random loopback-only secret injected by Caddy after Wardriver mTLS verification.')
+param mtlsProxySecret string
+
+@secure()
+@description('Public PEM trust certificate for Wardriver mTLS. A PFX or private key is forbidden.')
+param wardriverMtlsTrustCertificatePem string
+
+@description('Name of the RBAC-enabled, purge-protected Key Vault that holds the Wardriver client certificate.')
+param wardriverMtlsVaultName string = 'bsswdmtls3f85618'
+
 @description('Public repository tarball used by the VM extension to install vm/cybermap-api.')
 param cybermapSourceTarballUrl string = 'https://github.com/pH34r-pH/blue-swallow-society/archive/refs/heads/main.tar.gz'
 
@@ -87,6 +98,26 @@ resource swa 'Microsoft.Web/staticSites@2023-01-01' = {
   properties: {}
   tags: {
     project: 'blue-swallow-society'
+  }
+}
+
+resource wardriverMtlsVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  name: wardriverMtlsVaultName
+  location: location
+  properties: {
+    tenantId: subscription().tenantId
+    sku: {
+      family: 'A'
+      name: 'standard'
+    }
+    enableRbacAuthorization: true
+    enablePurgeProtection: true
+    softDeleteRetentionInDays: 90
+    accessPolicies: []
+  }
+  tags: {
+    project: 'blue-swallow-society'
+    purpose: 'wardriver-mtls'
   }
 }
 
@@ -149,6 +180,8 @@ module vmModule 'vm-echo-lab.bicep' = {
     cybermapReadToken: cybermapReadToken
     paperStateToken: paperStateToken
     morningBriefToken: morningBriefToken
+    mtlsProxySecret: mtlsProxySecret
+    wardriverMtlsTrustCertificatePem: wardriverMtlsTrustCertificatePem
     cybermapSourceTarballUrl: cybermapSourceTarballUrl
     cybermapDeploymentVersion: cybermapDeploymentVersion
   }
@@ -179,6 +212,7 @@ module wardriverReleaseStorage 'modules/wardriver-release-storage.bicep' = {
 }
 
 output staticWebAppDefaultHostname string = swa.properties.defaultHostname
+output wardriverMtlsVaultUri string = wardriverMtlsVault.properties.vaultUri
 output staticWebAppResourceId string = swa.id
 output backendCybermapBaseUrl string = vmModule.outputs.backendCybermapBaseUrl
 output vmPublicIp string = vmModule.outputs.publicIpAddress

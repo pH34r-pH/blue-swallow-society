@@ -36,6 +36,7 @@ export class MemoryObservationStore {
       source_id: credential.source_id,
       source_class: credential.source_class,
       token_sha256: credential.token_sha256,
+      mtls_certificate_fingerprint: credential.mtls_certificate_fingerprint ?? null,
       scopes: [...(credential.scopes ?? [])],
       enabled: credential.enabled === true,
       expires_at: credential.expires_at ?? null,
@@ -58,6 +59,21 @@ export class MemoryObservationStore {
     const credential = this.#credentials.find((candidate) => candidate.device_id === deviceId);
     const now = this.#now();
     if (!credential || !credential.enabled || !tokenDigestMatches(token, credential.token_sha256)) throw forbidden();
+    if (credential.expires_at && new Date(credential.expires_at) <= now) throw forbidden();
+    if (!credential.scopes.includes(requiredScope)) throw forbidden();
+    return Object.freeze({
+      device_id: credential.device_id,
+      source_id: credential.source_id,
+      source_class: credential.source_class,
+      scopes: Object.freeze([...credential.scopes]),
+    });
+  }
+
+  async authenticateMtls({ deviceId, certificateFingerprint, requiredScope }) {
+    const credential = this.#credentials.find((candidate) => candidate.device_id === deviceId);
+    const now = this.#now();
+    if (!credential || !credential.enabled
+        || String(credential.mtls_certificate_fingerprint || '').toLowerCase() !== String(certificateFingerprint || '').toLowerCase()) throw forbidden();
     if (credential.expires_at && new Date(credential.expires_at) <= now) throw forbidden();
     if (!credential.scopes.includes(requiredScope)) throw forbidden();
     return Object.freeze({

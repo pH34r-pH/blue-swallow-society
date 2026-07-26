@@ -6,6 +6,7 @@ POSTGRES_PASSWORD="$(printf '%s' '__POSTGRES_PASSWORD_B64__' | base64 -d)"
 CYBERMAP_READ_TOKEN="$(printf '%s' '__CYBERMAP_READ_TOKEN_B64__' | base64 -d)"
 PAPER_STATE_TOKEN="$(printf '%s' '__PAPER_STATE_TOKEN_B64__' | base64 -d)"
 MORNING_BRIEF_TOKEN="$(printf '%s' '__MORNING_BRIEF_TOKEN_B64__' | base64 -d)"
+BSS_MTLS_PROXY_SECRET="$(printf '%s' '__BSS_MTLS_PROXY_SECRET_B64__' | base64 -d)"
 if [ -z "$POSTGRES_PASSWORD" ]; then
   echo "PostgreSQL password is empty" >&2
   exit 1
@@ -20,6 +21,10 @@ if [ -z "$PAPER_STATE_TOKEN" ]; then
 fi
 if [ -z "$MORNING_BRIEF_TOKEN" ]; then
   echo "Morning brief token is empty" >&2
+  exit 1
+fi
+if [ -z "$BSS_MTLS_PROXY_SECRET" ]; then
+  echo "mTLS proxy secret is empty" >&2
   exit 1
 fi
 
@@ -51,6 +56,12 @@ cd /opt/bss/cybermap-api
 npm ci --omit=dev
 
 install -d -m 0750 -o root -g root /etc/bss
+printf '%s' '__WARDIVER_MTLS_TRUST_CERT_PEM_B64__' | base64 -d > /etc/bss/wardriver-mtls-trust.pem
+chmod 0644 /etc/bss/wardriver-mtls-trust.pem
+if ! grep -q -- 'BEGIN CERTIFICATE' /etc/bss/wardriver-mtls-trust.pem; then
+  echo "Wardriver mTLS trust certificate is invalid" >&2
+  exit 1
+fi
 cat > /etc/bss/cybermap-api.env <<ENV
 PGHOST=__POSTGRES_SERVER_FQDN__
 PGPORT=5432
@@ -65,6 +76,7 @@ BSS_CYBERMAP_DB_POOL_MAX=4
 BSS_CYBERMAP_READ_TOKEN=$CYBERMAP_READ_TOKEN
 BSS_PAPER_STATE_TOKEN=$PAPER_STATE_TOKEN
 BSS_MORNING_BRIEF_TOKEN=$MORNING_BRIEF_TOKEN
+BSS_MTLS_PROXY_SECRET=$BSS_MTLS_PROXY_SECRET
 
 ENV
 chmod 0600 /etc/bss/cybermap-api.env
@@ -159,7 +171,27 @@ __BACKEND_FQDN__ {
   encode zstd gzip
   reverse_proxy 127.0.0.1:__CYBERMAP_API_PORT__
 }
+
+__BACKEND_FQDN__:8443 {
+  tls {
+    client_auth {
+      mode require_and_verify
+      trust_pool file /etc/bss/wardriver-mtls-trust.pem
+    }
+  }
+  @wardriver_mtls path /api/v1/cybermap/viewport /api/v1/observations/batch
+  handle @wardriver_mtls {
+    reverse_proxy 127.0.0.1:__CYBERMAP_API_PORT__ {
+      header_up -X-Blue-Swallow-Mtls-Proxy-Secret
+      header_up -X-Blue-Swallow-Mtls-Client-Fingerprint
+      header_up X-Blue-Swallow-Mtls-Proxy-Secret {env.BSS_MTLS_PROXY_SECRET}
+      header_up X-Blue-Swallow-Mtls-Client-Fingerprint {tls_client_fingerprint}
+    }
+  }
+  respond "not_found" 404
+}
 CADDY
+caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
 systemctl daemon-reload
 systemctl disable --now echo-server.service || true
