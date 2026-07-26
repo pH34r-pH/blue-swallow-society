@@ -776,3 +776,49 @@ test('keeps legacy echo probe alive on the Cybermap API port during migration', 
     });
   });
 });
+
+test('green-cell tile read rejects invalid requests before store access and returns an MVT binary only to the backend reader', async () => {
+  const previousToken = process.env.BSS_CYBERMAP_READ_TOKEN;
+  process.env.BSS_CYBERMAP_READ_TOKEN = 'test-cybermap-read-token-32-byte-minimum';
+  const calls = [];
+  const tile = Buffer.from([0x1a, 0x00]);
+  const store = {
+    async ready() { return { ok: true, database: 'ready', migrations: 'ready' }; },
+    async queryVectorTile(args) {
+      calls.push(args);
+      return tile;
+    },
+  };
+  const server = createCybermapApiServer({ store, now: () => PAPER_NOW_MS });
+  try {
+    await withServer(server, async (baseUrl) => {
+      const anonymous = await fetch(`${baseUrl}/api/v1/cybermap/tiles/8/41/92`);
+      assert.equal(anonymous.status, 403);
+      assert.equal(calls.length, 0);
+
+      const invalid = await fetch(`${baseUrl}/api/v1/cybermap/tiles/13/1/1`, {
+        headers: { 'x-blue-swallow-cybermap-read-token': process.env.BSS_CYBERMAP_READ_TOKEN },
+      });
+      assert.equal(invalid.status, 400);
+      assert.equal(calls.length, 0);
+
+      const queryBearing = await fetch(`${baseUrl}/api/v1/cybermap/tiles/8/41/92?layer=green-cells`, {
+        headers: { 'x-blue-swallow-cybermap-read-token': process.env.BSS_CYBERMAP_READ_TOKEN },
+      });
+      assert.equal(queryBearing.status, 400);
+      assert.equal(calls.length, 0);
+
+      const response = await fetch(`${baseUrl}/api/v1/cybermap/tiles/8/41/92`, {
+        headers: { 'x-blue-swallow-cybermap-read-token': process.env.BSS_CYBERMAP_READ_TOKEN },
+      });
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('content-type'), 'application/vnd.mapbox-vector-tile');
+      assert.equal(response.headers.get('cache-control'), 'no-store');
+      assert.deepEqual(Buffer.from(await response.arrayBuffer()), tile);
+      assert.deepEqual(calls, [{ z: 8, x: 41, y: 92 }]);
+    });
+  } finally {
+    if (previousToken === undefined) delete process.env.BSS_CYBERMAP_READ_TOKEN;
+    else process.env.BSS_CYBERMAP_READ_TOKEN = previousToken;
+  }
+});

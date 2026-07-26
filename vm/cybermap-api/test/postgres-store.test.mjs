@@ -354,3 +354,31 @@ test('Postgres applyBatch fails fast instead of blocking indefinitely on an in-f
     (error) => error.code === 'batch_in_progress' && error.statusCode === 409,
   );
 });
+
+test('Postgres vector tiles query only green materialized cells with summary-safe MVT fields', async () => {
+  const calls = [];
+  const tile = Buffer.from([0x1a, 0x00]);
+  const pool = {
+    async query(sql, values) {
+      calls.push({ sql, values });
+      return { rows: [{ tile }] };
+    },
+    async connect() {
+      throw new Error('vector tile query must not open a write transaction');
+    },
+  };
+
+  const result = await new PostgresObservationStore({ pool }).queryVectorTile({ z: 8, x: 41, y: 92 });
+  assert.deepEqual(result, tile);
+  assert.equal(calls.length, 1);
+  const [{ sql, values }] = calls;
+  assert.match(sql, /FROM cybermap_cells/i);
+  assert.match(sql, /ST_TileEnvelope/i);
+  assert.match(sql, /ST_AsMVTGeom/i);
+  assert.match(sql, /ST_AsMVT/i);
+  assert.match(sql, /source_classes\s*<@/i);
+  assert.match(sql, /cardinality\((?:cell\.)?source_classes\)\s*>\s*0/i);
+  assert.doesNotMatch(sql, /FROM observations/i);
+  assert.doesNotMatch(sql, /bssid|ssid|external_observation_key|payload|provenance/i);
+  assert.deepEqual(values, [8, 41, 92, ['green_public', 'green_owned', 'green_authorized']]);
+});

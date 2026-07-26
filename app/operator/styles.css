@@ -3140,3 +3140,110 @@ strong {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Godeye policy-bound workbench: operator-only; MapLibre assets are self-hosted. */
+.godeye-workbench {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.godeye-workbench .map-panel {
+  min-width: 0;
+}
+
+.godeye-ledger,
+.godeye-inspector {
+  align-self: stretch;
+}
+
+.godeye-map-canvas {
+  position: absolute;
+  inset: 0;
+  min-height: inherit;
+  background: #111217;
+}
+
+.godeye-map-canvas .maplibregl-map {
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+}
+
+.godeye-map-canvas[data-map-state="unavailable"]::before {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  content: "Managed map renderer unavailable";
+  color: var(--text-1);
+  text-align: center;
+  background: rgba(5, 8, 16, 0.9);
+}
+
+.godeye-workbench .map-label {
+  z-index: 5;
+  pointer-events: none;
+}
+
+.godeye-layer-ledger,
+.godeye-timeline {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.godeye-layer-entry {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: start;
+  padding: 0.7rem;
+  border: 1px solid rgba(121, 170, 166, 0.14);
+  border-radius: 0.8rem;
+  background: rgba(5, 8, 16, 0.58);
+  cursor: pointer;
+}
+
+.godeye-layer-entry input {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.18rem;
+  accent-color: var(--oxidized-patina);
+}
+
+.godeye-layer-entry span {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.godeye-layer-entry strong {
+  color: var(--material-pearl);
+  font-size: 0.86rem;
+}
+
+.godeye-layer-entry small,
+.godeye-timeline {
+  color: var(--text-2);
+  font-size: 0.77rem;
+  line-height: 1.45;
+}
+
+.godeye-timeline {
+  padding-left: 1.2rem;
+}
+
+.godeye-timeline li::marker {
+  color: var(--oxidized-patina);
+}
+
+@media (min-width: 1120px) {
+  .godeye-workbench {
+    grid-template-columns: minmax(14rem, 0.42fr) minmax(0, 1.2fr) minmax(16rem, 0.5fr);
+  }
+
+  .godeye-workbench .map-viewport {
+    min-height: min(68vh, 48rem);
+  }
+}

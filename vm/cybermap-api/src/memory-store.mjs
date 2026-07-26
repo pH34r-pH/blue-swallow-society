@@ -159,6 +159,12 @@ export class MemoryObservationStore {
     };
   }
 
+  async queryVectorTile() {
+    // The in-memory contract store has no cell materialization. An empty MVT is
+    // a valid no-data response and proves that synthetic RF data is never seeded.
+    return Buffer.alloc(0);
+  }
+
   batchCount() {
     return this.#batches.size;
   }

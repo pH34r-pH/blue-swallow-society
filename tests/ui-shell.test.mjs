@@ -219,6 +219,15 @@ test('operator shell exposes the slang dictionary as a top-level tab', () => {
   assert.ok(!indexHtml.includes('Blue Swallow Society slang dictionary'));
 });
 
+test('Godeye is a fixed-route workbench rather than an arbitrary endpoint loader', () => {
+  ['godeyeLayerLedger', 'godeyeSourceHealth', 'godeyeSelectedCell', 'godeyeTimeline', 'godeyeMapCanvas'].forEach((id) => {
+    assert.ok(operatorShell.includes(`id="${id}"`), id);
+  });
+  assert.ok(!operatorShell.includes('wigleEndpointInput'));
+  assert.ok(!operatorShell.includes('wigleConnectBtn'));
+  assert.ok(operatorShell.includes('/api/cybermap/viewport'));
+});
+
 test('Wardriver APK links are only operator-token API links', () => {
   assert.ok(!indexHtml.includes('/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk'));
   assert.ok(!indexHtml.includes('/downloads/blue-swallow-wardriver.json'));

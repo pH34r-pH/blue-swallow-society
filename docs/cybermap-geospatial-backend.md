@@ -225,12 +225,19 @@ Ingest observation batch
 Viewport read path:
 
 ```text
-Godeye requests bbox + zoom + layers
-  -> API maps zoom to H3 resolution
-  -> query cybermap_cells intersecting bbox
-  -> attach sparse entity summaries for selected cells
-  -> return provenance + freshness + caveats
+Godeye sends current latitude/longitude in a POST body
+  -> policy-gated viewport API bounds the local detail response
+  -> return authorized current context only
 ```
+
+### Implemented operator-map delta (2026-07-26)
+
+The authenticated Godeye surface now uses two deliberately separate map transports:
+
+1. `GET /api/v1/cybermap/tiles/{z}/{x}/{y}` returns an MVT tile for z0–z12. It is function-gated by the operator token and VM-gated by the Cybermap read token. Its PostGIS query reads only `cybermap_cells` whose **entire** `source_classes` array is Green (`green_public`, `green_owned`, or `green_authorized`). It projects only cell ID, resolution, counts, salience, source-class summary, freshness state, and caveat presence. An empty materialization returns an empty valid tile; it never creates demo RF state.
+2. `POST /api/v1/cybermap/viewport` retains exact current-fix context. Latitude and longitude stay in the body; owned/local detail does not enter the MVT contract or URL state.
+
+The browser uses a self-hosted MapLibre runtime. It receives the MVT through same-origin `/api/cybermap/tiles/{z}/{x}/{y}` and the current context through the POST proxy. There is no browser-to-PostgreSQL connection, remote source URL loader, plugin runtime, generic project state, or persistent browser map cache.
 
 RaID read path:
 
@@ -250,7 +257,8 @@ P0 endpoints:
 | `GET /healthz` | VM/API health, no secrets |
 | `GET /readyz` | DB connectivity and migration state |
 | `POST /api/v1/observations/batch` | Wardriver/RaID/Greenfeed batch ingest with idempotency |
-| `GET /api/v1/cybermap/viewport?bbox=&zoom=&layers=&since=` | Godeye map viewport query |
+| `POST /api/v1/cybermap/viewport` | Bounded current-fix context; coordinate values are request-body fields |
+| `GET /api/v1/cybermap/tiles/{z}/{x}/{y}` | Green-only summary MVT materialization for authenticated Godeye rendering |
 | `GET /api/v1/cybermap/cells/{h3Cell}` | Cell detail/provenance drilldown |
 | `GET /api/v1/entities/{id}` | Entity summary and observation links |
 | `GET /api/v1/sources?bbox=&class=` | Greenfeed/source catalog lookup |
@@ -301,4 +309,5 @@ P0 should not expose arbitrary SQL-ish filtering. Keep query shapes product-spec
 - Greenfeed preload is allowed only for Green/public-owned-authorized sources.
 - Grey/orange/red enrichment is locally/owned-triggered and provenance-marked.
 - Every map cell exposes source class, freshness, confidence/salience, and caveats.
+- MVT map tiles contain no raw observation payload, BSSID, SSID, external key, or provenance object; exact context remains in the authorized POST response.
 - No private PII, credentials, camera frames, or active/probe packet captures are retained or published by default; passively broadcast RF identifiers and management-frame metadata require explicit source/retention tags.

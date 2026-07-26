@@ -166,12 +166,13 @@ test('operator bearer tokens are signed with an independent server-side secret',
   assert.ok(!operatorAuth.includes('signPayload(encodedPayload, digest)'));
 });
 
-test('device-local endpoints stay same-origin under the production CSP', () => {
+test('device-local endpoints stay same-origin while the map permits only reviewed OSM raster egress', () => {
   const csp = staticWebApp.globalHeaders['Content-Security-Policy'];
-  assert.match(csp, /connect-src 'self'(?:;|$)/);
+  assert.match(csp, /connect-src 'self' https:\/\/tile\.openstreetmap\.org https:\/\/\*\.tile\.openstreetmap\.org/);
+  assert.doesNotMatch(csp, /connect-src[^;]*(?:unpkg|jsdelivr|maplibre\.org)/i);
   assert.ok(!indexHtml.includes('http://device.local'));
   assert.ok(!indexHtml.includes('placeholder="/api/ar-detections"'));
-  assert.ok(operatorShell.includes('placeholder="/api/cybermap/viewport"'));
+  assert.ok(operatorShell.includes('POST /api/cybermap/viewport'));
 });
 
 test('OSINT, Cybermap coordinates, and agent prompts are sent via POST bodies, not URLs or persistent storage', () => {
@@ -259,7 +260,7 @@ test('local dev server returns JSON 501 for unmounted API routes instead of SPA 
 test('Godeye runtime exposes only real Cybermap viewport paths, not sample/demo WiGLE state', () => {
   const runtimeSources = [operatorMainJs, operatorShell].join('\n');
   assert.ok(operatorMainJs.includes("'/api/cybermap/viewport'"));
-  assert.ok(operatorShell.includes('placeholder="/api/cybermap/viewport"'));
+  assert.ok(operatorShell.includes('POST /api/cybermap/viewport'));
   assert.ok(!runtimeSources.includes('Sample/demo WiGLE dataset loaded'));
   assert.ok(!runtimeSources.includes('Load sample data'));
   assert.ok(!runtimeSources.includes('wigleSampleBtn'));
@@ -270,4 +271,28 @@ test('stale shell CSS selectors are pruned', () => {
   ['.terminal-badge', '.terminal-error', '.tzeentch-surface-tabs', '.tzeentch-surface-tab'].forEach((selector) => {
     assert.ok(!styles.includes(selector), `${selector} should be removed`);
   });
+});
+
+test('Godeye MVT remains a same-origin, operator-token-gated green-cell transport with no persistence or source escape hatch', () => {
+  const tileApiUrl = new URL('../api/cybermap-tiles/index.js', import.meta.url);
+  const registryUrl = new URL('../app/operator/godeye-layers.mjs', import.meta.url);
+  const mapUrl = new URL('../app/operator/godeye-map.mjs', import.meta.url);
+  assert.equal(existsSync(tileApiUrl), true);
+  const tileApi = existsSync(tileApiUrl) ? readFileSync(tileApiUrl, 'utf8') : '';
+  const mapSources = [
+    operatorMainJs,
+    existsSync(registryUrl) ? readFileSync(registryUrl, 'utf8') : '',
+    existsSync(mapUrl) ? readFileSync(mapUrl, 'utf8') : '',
+  ].join('\n');
+  const csp = staticWebApp.globalHeaders['Content-Security-Policy'];
+
+  assert.deepEqual(routeConfig('/api/cybermap/tiles/*')?.allowedRoles, ['anonymous', 'authenticated']);
+  assert.match(tileApi, /requireOperatorToken/);
+  assert.match(tileApi, /application\/vnd\.mapbox-vector-tile/);
+  assert.match(tileApi, /url\.search/);
+  assert.match(csp, /worker-src 'self' blob:/);
+  assert.match(csp, /connect-src[^;]*https:\/\/tile\.openstreetmap\.org/);
+  assert.doesNotMatch(csp, /unpkg|jsdelivr|maplibre\.org/i);
+  assert.doesNotMatch(mapSources, /localStorage|indexedDB|caches\.open|wigleEndpointInput|http:\/\//i);
+  assert.doesNotMatch(mapSources, /searchParams\.set\(['"](?:lat|lon|latitude|longitude|center|zoom)/i);
 });

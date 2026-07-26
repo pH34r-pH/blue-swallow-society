@@ -1,13 +1,21 @@
 import {
-  buildTileGrid,
   clamp,
   formatCoordinatePair,
-  metersPerPixel,
 } from './map-math.mjs';
+import { createGodeyeMapController } from './godeye-map.mjs';
+import {
+  GODEYE_LAYER_SPECS,
+  defaultGodeyeLayerState,
+  parseGodeyeLayerSearch,
+  serializeGodeyeLayerSearch,
+} from './godeye-layers.mjs';
+import {
+  clearGodeyeSessionAnalysis,
+  deriveGodeyeSessionAnalysis,
+} from './godeye-session-analysis.mjs';
 import { initTzeentchDashboard, stopTzeentchDashboard } from './tzeentch.mjs';
 import {
   buildArCandidateBoxes,
-  buildWigleMapState,
   filterWigleRecordsByRadius,
   isLiveWigleSnapshot,
   mergeWigleRecords,
@@ -19,8 +27,6 @@ import {
   parseVisionPayload,
 } from './vision.mjs';
 
-const TILE_BASE_URL = 'https://tile.openstreetmap.org';
-const MAP_ZOOM = 15;
 const GEO_OPTIONS = {
   enableHighAccuracy: true,
   maximumAge: 5000,
@@ -64,15 +70,6 @@ function buildOperatorHeaders(headers = {}) {
     : { ...headers };
 }
 
-function sameOriginPath(endpoint, pathname) {
-  try {
-    const url = new URL(endpoint, window.location.origin);
-    return url.origin === window.location.origin && url.pathname === pathname;
-  } catch {
-    return false;
-  }
-}
-
 const state = {
   authenticated: false,
   activeTab: 'landing',
@@ -105,6 +102,11 @@ const state = {
   godeyeRenderFrame: 0,
   godeyeResizeObserver: null,
   godeyeResizeBound: false,
+  godeyeMapController: null,
+  godeyeLayerState: parseGodeyeLayerSearch(window.location.search),
+  godeyeSelection: null,
+  godeyeSessionAnalysis: clearGodeyeSessionAnalysis(),
+  godeyeRequestGeneration: 0,
   wigleBound: false,
   wigleRenderFrame: 0,
   wigleData: emptyWigleDataset(),
@@ -113,7 +115,6 @@ const state = {
   wigleLiveStatus: 'Godeye Cybermap viewport is not connected yet.',
   wigleLiveSourceLabel: 'cybermap-postgis',
   wigleLivePollId: 0,
-  wigleEndpoint: GODEYE_VIEWPORT_ENDPOINT,
   wigleStatus: 'Godeye Cybermap viewport is not connected yet.',
   wigleSourceLabel: 'cybermap-postgis',
   visionBound: false,
@@ -284,7 +285,6 @@ function resetConsoleToLogin() {
   state.wigleLiveReady = false;
   state.wigleLiveStatus = 'Godeye Cybermap viewport is not connected yet.';
   state.wigleLiveSourceLabel = 'cybermap-postgis';
-  state.wigleEndpoint = GODEYE_VIEWPORT_ENDPOINT;
   state.wigleStatus = 'Godeye Cybermap viewport is not connected yet.';
   state.wigleSourceLabel = 'cybermap-postgis';
   state.visionData = { frame: null, detections: [] };
@@ -293,10 +293,7 @@ function resetConsoleToLogin() {
   state.visionSourceLabel = 'live';
   state.arEnabled = false;
   state.arFullscreen = false;
-  const endpointInput = $('wigleEndpointInput');
-  if (endpointInput) {
-    endpointInput.value = GODEYE_VIEWPORT_ENDPOINT;
-  }
+
   const visionEndpointInput = $('visionEndpointInput');
   if (visionEndpointInput) {
     visionEndpointInput.value = '/api/ar-detections';
@@ -312,7 +309,6 @@ function resetConsoleToLogin() {
   syncArFeedToggle();
   renderArHud();
   renderGodeyeFields();
-  renderGodeyeMap();
   renderWigleViews();
   updateArFullscreenState(false);
   try {
@@ -738,18 +734,9 @@ function stopWigleLivePolling() {
 }
 
 async function refreshLiveWigleFeed({ quiet = false } = {}) {
-  const endpointInput = $('wigleEndpointInput');
-  const target = (endpointInput?.value.trim() || state.wigleEndpoint || GODEYE_VIEWPORT_ENDPOINT).trim();
+  const target = GODEYE_VIEWPORT_ENDPOINT;
   const location = state.currentLocation || state.wigleData?.location;
-
-  if (!target) {
-    setLiveWigleStatus('Godeye Cybermap viewport endpoint is not configured.');
-    setWigleStatus('Godeye Cybermap viewport endpoint is not configured.');
-    state.wigleLiveReady = false;
-    state.wigleLiveData = null;
-    renderArCandidateLayer();
-    return false;
-  }
+  const requestGeneration = state.godeyeRequestGeneration;
 
   if (!location) {
     const message = 'Godeye Cybermap viewport needs a current GPS fix before querying managed PostGIS.';
@@ -761,10 +748,9 @@ async function refreshLiveWigleFeed({ quiet = false } = {}) {
     return false;
   }
 
-  state.wigleEndpoint = target;
   if (!quiet) {
-    setLiveWigleStatus(`Checking Godeye Cybermap viewport from ${target}…`);
-    setWigleStatus(`Checking Godeye Cybermap viewport from ${target}…`);
+    setLiveWigleStatus('Checking the managed Cybermap viewport…');
+    setWigleStatus('Checking the managed Cybermap viewport…');
   }
 
   try {
@@ -776,19 +762,12 @@ async function refreshLiveWigleFeed({ quiet = false } = {}) {
       maxAgeMs: 45_000,
     });
 
-    const endpointUrl = new URL(target, window.location.origin).toString();
-    const sameOriginGodeye = sameOriginPath(target, GODEYE_VIEWPORT_ENDPOINT);
-    const response = await fetch(endpointUrl, {
+    const response = await fetch(target, {
       method: 'POST',
-      headers: sameOriginGodeye
-        ? buildOperatorHeaders({
-            Accept: 'application/json, text/plain, */*',
-            'Content-Type': 'application/json',
-          })
-        : {
-            Accept: 'application/json, text/plain, */*',
-            'Content-Type': 'application/json',
-          },
+      headers: buildOperatorHeaders({
+        Accept: 'application/json, text/plain, */*',
+        'Content-Type': 'application/json',
+      }),
       body: JSON.stringify(requestPayload),
     });
 
@@ -811,6 +790,7 @@ async function refreshLiveWigleFeed({ quiet = false } = {}) {
 
     const current = payload?.live === true || isLiveWigleSnapshot(payload);
     const parsed = parseWiglePayload(payload, { source: 'cybermap-postgis' });
+    if (requestGeneration !== state.godeyeRequestGeneration) return false;
     const sourceLabel = parsed.source || payload?.source || 'cybermap-postgis';
     const message = current
       ? `Godeye Cybermap viewport connected from ${sourceLabel}.`
@@ -1516,7 +1496,7 @@ function initGodeyeTab() {
       locationBtn.addEventListener('click', startGodeyeFeed);
     }
 
-    bindWigleControls();
+    bindGodeyeControls();
 
     if (!state.godeyeResizeBound) {
       window.addEventListener('resize', scheduleGodeyeRender);
@@ -1534,7 +1514,6 @@ function initGodeyeTab() {
 
   renderGodeyeFields();
   renderWigleViews();
-  renderGodeyeMap();
 }
 
 async function startGodeyeFeed() {
@@ -1565,37 +1544,19 @@ async function startGodeyeFeed() {
   }
 }
 
-function bindWigleControls() {
+function bindGodeyeControls() {
   if (state.wigleBound) {
     return;
   }
 
-  const endpointInput = $('wigleEndpointInput');
-  const connectBtn = $('wigleConnectBtn');
-
-  if (endpointInput) {
-    endpointInput.value = state.wigleEndpoint || endpointInput.value || GODEYE_VIEWPORT_ENDPOINT;
-    endpointInput.addEventListener('change', () => {
-      state.wigleEndpoint = endpointInput.value.trim();
+  const refreshBtn = $('godeyeRefreshBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      void refreshLiveWigleFeed({ quiet: false });
     });
   }
-
-  if (connectBtn) {
-    connectBtn.addEventListener('click', () => {
-      const endpoint = endpointInput?.value.trim() || state.wigleEndpoint || GODEYE_VIEWPORT_ENDPOINT;
-      loadWigleEndpoint(endpoint);
-    });
-  }
-
 
   state.wigleBound = true;
-}
-
-async function loadWigleEndpoint(endpoint) {
-  const target = (endpoint || '').trim() || GODEYE_VIEWPORT_ENDPOINT;
-  state.wigleEndpoint = target;
-  setLiveWigleStatus(`Connecting to ${target}…`);
-  return refreshLiveWigleFeed({ quiet: false });
 }
 
 function applyWigleDataset(payload, { sourceLabel = 'cybermap-postgis', message = '', merge = true, target = 'local', live = target === 'live' } = {}) {
@@ -1654,9 +1615,89 @@ function setLiveWigleStatus(message) {
   setText('arWigleStatusText', message);
 }
 
+function setGodeyeLayerState(visibleLayerIds) {
+  state.godeyeLayerState = { visibleLayerIds };
+  const query = serializeGodeyeLayerSearch(state.godeyeLayerState);
+  window.history.replaceState({}, '', `${window.location.pathname}${query}${window.location.hash}`);
+  state.godeyeMapController?.setLayerState(state.godeyeLayerState);
+  renderGodeyeWorkbench();
+}
+
+function renderGodeyeWorkbench() {
+  const layerLedger = $('godeyeLayerLedger');
+  if (layerLedger) {
+    const fragment = document.createDocumentFragment();
+    for (const layer of GODEYE_LAYER_SPECS) {
+      const label = document.createElement('label');
+      label.className = 'godeye-layer-entry';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = state.godeyeLayerState.visibleLayerIds.includes(layer.id);
+      input.addEventListener('change', () => {
+        const next = new Set(state.godeyeLayerState.visibleLayerIds);
+        if (input.checked) next.add(layer.id);
+        else next.delete(layer.id);
+        setGodeyeLayerState([...next]);
+      });
+      const copy = document.createElement('span');
+      const title = document.createElement('strong');
+      title.textContent = layer.title;
+      const detail = document.createElement('small');
+      detail.textContent = layer.legend;
+      copy.append(title, detail);
+      label.append(input, copy);
+      fragment.appendChild(label);
+    }
+    layerLedger.replaceChildren(fragment);
+  }
+
+  const health = $('godeyeSourceHealth');
+  if (health) {
+    const counts = Object.entries(state.godeyeSessionAnalysis.sourceClassCounts);
+    health.textContent = counts.length
+      ? `${state.godeyeSessionAnalysis.totalRecords} authorized records · ${counts.map(([sourceClass, count]) => `${sourceClass}: ${count}`).join(' · ')}`
+      : 'No current-session records. Green cell tiles remain policy-filtered.';
+  }
+
+  const timeline = $('godeyeTimeline');
+  if (timeline) {
+    const entries = state.godeyeSessionAnalysis.timeline;
+    if (!entries.length) {
+      timeline.replaceChildren(Object.assign(document.createElement('p'), { className: 'dashboard-empty-state', textContent: 'No current-session events.' }));
+    } else {
+      const fragment = document.createDocumentFragment();
+      entries.forEach((entry) => {
+        const item = document.createElement('li');
+        item.textContent = `${entry.kind} · ${entry.sourceClass} · ${new Date(entry.observedAt).toLocaleTimeString()}`;
+        fragment.appendChild(item);
+      });
+      timeline.replaceChildren(fragment);
+    }
+  }
+
+  const inspector = $('godeyeSelectedCell');
+  if (inspector) {
+    const selection = state.godeyeSelection;
+    if (!selection?.h3Cell) {
+      inspector.textContent = 'Select a green cell to inspect its summary-safe materialization.';
+    } else {
+      inspector.textContent = [
+        `cell ${selection.h3Cell}`,
+        `resolution ${selection.resolution ?? '—'}`,
+        `observations ${selection.observationCount ?? '—'}`,
+        `entities ${selection.entityCount ?? '—'}`,
+        `source ${selection.sourceClassSummary ?? '—'}`,
+        `freshness ${selection.freshnessStatus ?? '—'}`,
+        `caveats ${selection.caveatStatus ?? '—'}`,
+      ].join(' · ');
+    }
+  }
+}
 
 function renderWigleViews() {
-  renderGodeyeMap();
+  if (state.activeTab === 'godeye') {
+    renderGodeyeMap();
+  }
   renderGodeyeWigleList();
   renderArCandidateLayer();
 }
@@ -1767,9 +1808,13 @@ function stopGodeyeFeed() {
     state.geolocationWatchId = null;
   }
 
-  if (!state.authenticated) {
-    state.currentLocation = null;
-  }
+  state.godeyeRequestGeneration += 1;
+  state.currentLocation = null;
+  state.wigleData = emptyWigleDataset();
+  state.godeyeSessionAnalysis = clearGodeyeSessionAnalysis();
+  state.godeyeSelection = null;
+  state.godeyeMapController?.destroy();
+  state.godeyeMapController = null;
 
   if (state.godeyeRenderFrame) {
     cancelAnimationFrame(state.godeyeRenderFrame);
@@ -1777,7 +1822,7 @@ function stopGodeyeFeed() {
   }
 
   renderGodeyeFields();
-  renderWigleViews();
+  renderArCandidateLayer();
 }
 
 function scheduleGodeyeRender() {
@@ -1788,6 +1833,7 @@ function scheduleGodeyeRender() {
   state.godeyeRenderFrame = requestAnimationFrame(() => {
     state.godeyeRenderFrame = 0;
     renderGodeyeMap();
+    state.godeyeMapController?.resize();
   });
 }
 
@@ -1813,130 +1859,29 @@ function renderGodeyeFields() {
 }
 
 function renderGodeyeMap() {
-  const viewport = $('godeyeMap');
-  const tilesLayer = $('godeyeTiles');
-  const marker = $('godeyeMarker');
-  const wigleMarkers = $('godeyeWigleMarkers');
-  const accuracy = $('godeyeAccuracy');
+  const viewport = $('godeyeMapCanvas');
   const location = state.currentLocation || state.wigleData?.location || null;
+  state.godeyeSessionAnalysis = deriveGodeyeSessionAnalysis({ accessPoints: state.wigleData?.accessPoints || [] });
+  renderGodeyeWorkbench();
+  if (!viewport) return;
 
-  if (!viewport || !tilesLayer || !marker || !accuracy || !wigleMarkers) {
-    return;
+  if (!state.godeyeMapController) {
+    state.godeyeMapController = createGodeyeMapController({
+      container: viewport,
+      getHeaders: () => buildOperatorHeaders(),
+      onCellSelect: (selection) => {
+        state.godeyeSelection = selection;
+        renderGodeyeWorkbench();
+      },
+      onStatus: (message) => setWigleStatus(message),
+    });
   }
 
-  if (!location) {
-    tilesLayer.replaceChildren();
-    wigleMarkers.replaceChildren();
-    viewport.classList.remove('has-fix');
-    marker.style.opacity = '0';
-    accuracy.style.opacity = '0';
-    const coords = $('godeyeCoords');
-    if (coords) {
-      coords.textContent = 'No GPS fix yet · tap enable to query managed Cybermap data';
-    }
-    const status = $('godeyeWigleStatus');
-    if (status) {
-      status.textContent = state.wigleStatus;
-    }
-    return;
-  }
-
-  const width = viewport.clientWidth;
-  const height = viewport.clientHeight;
-
-  if (!width || !height) {
-    return;
-  }
-
-  const tilePlan = buildTileGrid({
-    lat: location.lat,
-    lon: location.lon,
-    zoom: MAP_ZOOM,
-    width,
-    height,
-    tileSize: 256,
-    tileBaseUrl: TILE_BASE_URL,
-  });
-
-  const fragment = document.createDocumentFragment();
-  tilePlan.forEach((tile) => {
-    const image = document.createElement('img');
-    image.className = 'map-tile';
-    image.alt = '';
-    image.src = tile.url;
-    image.decoding = 'async';
-    image.loading = 'eager';
-    image.width = tile.width;
-    image.height = tile.height;
-    image.style.left = `${tile.left}px`;
-    image.style.top = `${tile.top}px`;
-    fragment.appendChild(image);
-  });
-
-  tilesLayer.replaceChildren(fragment);
-  viewport.classList.add('has-fix');
-
-  marker.style.opacity = '1';
-  marker.style.left = '50%';
-  marker.style.top = '50%';
-  marker.style.setProperty('--heading', `${numberOrZero(location.heading)}deg`);
-
-  const accuracyRadius = clamp((location.accuracy || 24) / metersPerPixel(location.lat, MAP_ZOOM, 256), 24, Math.max(width, height) * 0.95);
-  accuracy.style.opacity = '1';
-  accuracy.style.left = '50%';
-  accuracy.style.top = '50%';
-  accuracy.style.width = `${accuracyRadius * 2}px`;
-  accuracy.style.height = `${accuracyRadius * 2}px`;
-
-  const mapState = buildWigleMapState({
+  void state.godeyeMapController.setContext({
     location,
     accessPoints: state.wigleData?.accessPoints || [],
-    viewportWidth: width,
-    viewportHeight: height,
-    zoom: MAP_ZOOM,
-    radiusMeters: 100,
-  });
-
-  const markerFragment = document.createDocumentFragment();
-  mapState.markers.forEach((ap) => {
-    const network = document.createElement('article');
-    network.className = `map-wigle-marker map-wigle-marker-${ap.signalBand || 'unknown'}`;
-    network.style.left = `${ap.left}px`;
-    network.style.top = `${ap.top}px`;
-    network.style.width = `${clamp(ap.rangeRadiusPx, 120, 240)}px`;
-
-    const title = document.createElement('strong');
-    title.textContent = ap.label;
-    network.appendChild(title);
-
-    const meta = document.createElement('div');
-    meta.className = 'marker-meta';
-    meta.textContent = `${ap.signalDbm ?? '—'} dBm · ${ap.signalBand || 'unknown'} · ${ap.source || 'live'}`;
-    network.appendChild(meta);
-
-    const detail = document.createElement('span');
-    detail.textContent = `${ap.detail || 'Cybermap observation'}${Number.isFinite(ap.distanceMeters) ? ` · ${Math.round(ap.distanceMeters)} m away` : ''}${ap.bearing !== null && ap.bearing !== undefined ? ` · ${Math.round(ap.bearing)}°` : ''}`;
-    network.appendChild(detail);
-
-    markerFragment.appendChild(network);
-  });
-
-  wigleMarkers.replaceChildren(markerFragment);
-
-  const coords = $('godeyeCoords');
-  if (coords) {
-    coords.textContent = state.currentLocation
-      ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy)}m`
-      : `${formatCoordinatePair(location.lat, location.lon)} · Cybermap overlay active`;
-  }
-
-  const status = $('godeyeWigleStatus');
-  if (status) {
-    const strongest = mapState.stats.strongest;
-    status.textContent = strongest
-      ? `${state.wigleStatus} · ${mapState.stats.total} managed Cybermap observation${mapState.stats.total === 1 ? '' : 's'} within 100m · strongest ${strongest.ssid} ${strongest.signalDbm} dBm · ${strongest.signalBand}`
-      : `${state.wigleStatus} · No managed Cybermap observations within 100m of this fix.`;
-  }
+    layerState: state.godeyeLayerState || defaultGodeyeLayerState(),
+  }).catch((error) => console.error('Failed to render Godeye MapLibre view', error));
 }
 
 function updateGodeyeStatus(message) {

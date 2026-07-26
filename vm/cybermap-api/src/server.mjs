@@ -7,6 +7,8 @@ import { ContractError, validateObservationBatch } from './contracts.mjs';
 const MAX_BODY_BYTES = 1_048_576;
 const INGEST_PATH = '/api/v1/observations/batch';
 const VIEWPORT_PATH = '/api/v1/cybermap/viewport';
+const TILE_PATH_RE = /^\/api\/v1\/cybermap\/tiles\/(\d+)\/(\d+)\/(\d+)$/;
+const TILE_MAX_ZOOM = 12;
 const PAPER_STATE_PATH = '/api/v1/paper/state';
 const PAPER_LINE_IDS = Object.freeze(['standard', 'aggressive', 'hyper_aggressive']);
 const PAPER_STRATEGY_IDS = Object.freeze([
@@ -110,6 +112,11 @@ export function createRequestHandler({ store, now = Date.now, logger = null, ing
         requireBackendReadToken(request);
         const viewport = await handleCybermapViewport(url, { store, now });
         return sendJson(response, 200, viewport);
+      }
+      if (request.method === 'GET' && url.pathname.startsWith('/api/v1/cybermap/tiles/')) {
+        requireBackendReadToken(request);
+        const tile = await handleCybermapTile(url, { store });
+        return sendBinary(response, 200, tile, 'application/vnd.mapbox-vector-tile');
       }
       if (url.pathname === PAPER_STATE_PATH && (request.method === 'GET' || request.method === 'PUT')) {
         requirePaperStateToken(request);
@@ -551,6 +558,31 @@ async function handleCybermapViewport(url, { store, now }) {
   return store.queryViewport({ lat, lon, radiusMeters, limit, maxAgeMs, now: new Date(nowMs) });
 }
 
+async function handleCybermapTile(url, { store }) {
+  if (typeof store.queryVectorTile !== 'function') {
+    throw new IngestError('tile_unavailable', 'Cybermap tile reads are not available.', { statusCode: 503 });
+  }
+  if (url.search) {
+    throw new IngestError('invalid_tile', 'Cybermap tile requests do not accept query parameters.', { statusCode: 400 });
+  }
+  const match = TILE_PATH_RE.exec(url.pathname);
+  if (!match) {
+    throw new IngestError('invalid_tile', 'Tile path must contain numeric z, x, and y values.', { statusCode: 400 });
+  }
+  const [z, x, y] = match.slice(1).map(Number);
+  const width = 2 ** z;
+  if (!Number.isSafeInteger(z) || z > TILE_MAX_ZOOM
+      || !Number.isSafeInteger(x) || !Number.isSafeInteger(y)
+      || x >= width || y >= width) {
+    throw new IngestError('invalid_tile', 'Tile coordinates are outside the supported Cybermap range.', { statusCode: 400 });
+  }
+  const tile = await store.queryVectorTile({ z, x, y });
+  if (!Buffer.isBuffer(tile) && !(tile instanceof Uint8Array)) {
+    throw new IngestError('tile_unavailable', 'Cybermap tile store returned an invalid payload.', { statusCode: 503 });
+  }
+  return Buffer.from(tile);
+}
+
 function requirePaperStateToken(request) {
   const expected = String(process.env.BSS_PAPER_STATE_TOKEN || '').trim();
   if (!PAPER_TOKEN_RE.test(expected)) {
@@ -660,4 +692,16 @@ function sendJson(response, statusCode, body, extraHeaders = {}) {
     ...extraHeaders,
   });
   response.end(payload);
+}
+
+function sendBinary(response, statusCode, payload, contentType) {
+  if (response.writableEnded) return;
+  const body = Buffer.from(payload);
+  response.writeHead(statusCode, {
+    'Content-Type': contentType,
+    'Content-Length': body.length,
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  response.end(body);
 }

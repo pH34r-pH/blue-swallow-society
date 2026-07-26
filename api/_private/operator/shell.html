@@ -367,21 +367,34 @@
                 <p class="eyebrow">// GODEYE //</p>
                 <h2>Hosted viewer</h2>
               </div>
-              <p class="panel-meta">Hosted OpenStreetMap viewer for managed Cybermap observations, aircraft-track scaffolds, and non-camera overlays.</p>
+              <p class="panel-meta">Policy-bound MapLibre workbench for managed Cybermap materializations, transient current context, and provenance-safe inspection.</p>
             </div>
 
-            <div class="godeye-layout">
-              <div class="map-panel">
-                <div id="godeyeMap" class="map-viewport" aria-label="OpenStreetMap current location map">
-                  <div id="godeyeTiles" class="map-tiles" aria-hidden="true"></div>
-                  <div class="map-grid" aria-hidden="true"></div>
-                  <div class="map-reticle" aria-hidden="true"></div>
-                  <div id="godeyeAccuracy" class="map-accuracy" aria-hidden="true"></div>
-                  <div id="godeyeMarker" class="map-marker" aria-hidden="true">
-                    <span class="map-marker-core"></span>
-                    <span class="map-marker-head"></span>
+            <div class="godeye-layout godeye-workbench">
+              <aside class="geo-panel godeye-ledger">
+                <div class="geo-card">
+                  <p class="sensor-label">Layer ledger</p>
+                  <div id="godeyeLayerLedger" class="godeye-layer-ledger"></div>
+                </div>
+
+                <div class="geo-card">
+                  <p class="sensor-label">Source health</p>
+                  <p id="godeyeSourceHealth">No current-session records. Green cell tiles remain policy-filtered.</p>
+                </div>
+
+                <div class="geo-card">
+                  <p class="sensor-label">Fixed source</p>
+                  <p>Same-origin Cybermap gateway only: <code>POST /api/cybermap/viewport</code>. No URL loader, plugin host, or saved project state.</p>
+                  <div class="wigle-action-row">
+                    <button id="godeyeRefreshBtn" class="btn btn-secondary sensor-action" type="button">Refresh managed viewport</button>
                   </div>
-                  <div id="godeyeWigleMarkers" class="map-wigle-markers" aria-hidden="true"></div>
+                  <p id="wigleStatusText">Godeye Cybermap viewport is not connected yet.</p>
+                </div>
+              </aside>
+
+              <div class="map-panel">
+                <div id="godeyeMap" class="map-viewport" aria-label="Policy-bound Godeye operator map">
+                  <div id="godeyeMapCanvas" class="godeye-map-canvas"></div>
                   <div class="map-label">
                     <span class="map-label-title">Current fix</span>
                     <span id="godeyeCoords">Awaiting geolocation permission.</span>
@@ -389,42 +402,17 @@
                 </div>
               </div>
 
-              <aside class="geo-panel">
+              <aside class="geo-panel godeye-analyst godeye-inspector">
                 <button id="locationBtn" class="btn btn-primary sensor-action" type="button">Enable location</button>
 
                 <div class="geo-card">
-                  <p class="sensor-label">Map stack</p>
-                  <p>The map uses OpenStreetMap tiles for now; MapLibre is the likely swap if the overlay stack needs more control later.</p>
+                  <p class="sensor-label">Selection inspector</p>
+                  <p id="godeyeSelectedCell">Select a green cell to inspect its summary-safe materialization.</p>
                 </div>
 
                 <div class="geo-card">
-                  <p class="sensor-label">Overlay slots</p>
-                  <p>FlightRadar24 and other live tracks can be layered here without bringing the camera/AR client back into the hosted shell.</p>
-                  <div class="overlay-slot-list">
-                    <span class="source-chip source-chip-live">Cybermap radius</span>
-                    <span class="source-chip">FlightRadar24 scaffold</span>
-                    <span class="source-chip">MapLibre-ready</span>
-                  </div>
-                </div>
-
-                <div class="geo-card">
-                  <p class="sensor-label">Cybermap source</p>
-                  <label class="wigle-field" for="wigleEndpointInput">
-                    <span>Godeye viewport API</span>
-                    <input
-                      id="wigleEndpointInput"
-                      class="input dashboard-input"
-                      type="url"
-                      placeholder="/api/cybermap/viewport"
-                      autocomplete="off"
-                      autocapitalize="none"
-                      spellcheck="false"
-                    />
-                  </label>
-                  <div class="wigle-action-row">
-                    <button id="wigleConnectBtn" class="btn btn-secondary sensor-action" type="button">Connect Cybermap viewport</button>
-                  </div>
-                  <p id="wigleStatusText">Godeye Cybermap viewport is not connected yet.</p>
+                  <p class="sensor-label">Session timeline</p>
+                  <ol id="godeyeTimeline" class="godeye-timeline"></ol>
                 </div>
 
                 <div class="geo-card">
@@ -433,7 +421,7 @@
                 </div>
 
                 <div class="geo-card">
-                  <p class="sensor-label">Godeye map readout</p>
+                  <p class="sensor-label">Current authorized context</p>
                   <p id="godeyeWigleStatus">The map will show managed Cybermap observations within 100m of the current fix.</p>
                   <div id="godeyeWigleList" class="wigle-list"></div>
                 </div>
