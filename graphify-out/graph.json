@@ -782,7 +782,7 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "api_lib_operator_auth_createoperatortoken",
-      "community": 37,
+      "community": 117,
       "norm_label": "createoperatortoken()"
     },
     {
@@ -2012,7 +2012,7 @@
       "source_location": "L322",
       "_origin": "ast",
       "id": "api_private_operator_assets_godeye_global_creategodeyeglobalrenderer",
-      "community": 17,
+      "community": 68,
       "norm_label": "creategodeyeglobalrenderer()"
     },
     {
@@ -2092,7 +2092,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_basemap_planetiler_source_api_private_operator_assets_main",
-      "community": 20,
+      "community": 38,
       "norm_label": "$()"
     },
     {
@@ -2312,7 +2312,7 @@
       "source_location": "L447",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_bindtabsystem",
-      "community": 95,
+      "community": 17,
       "norm_label": "bindtabsystem()"
     },
     {
@@ -2322,7 +2322,7 @@
       "source_location": "L469",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_inittabdefaults",
-      "community": 38,
+      "community": 20,
       "norm_label": "inittabdefaults()"
     },
     {
@@ -2332,7 +2332,7 @@
       "source_location": "L478",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_initmorningbrieftab",
-      "community": 95,
+      "community": 17,
       "norm_label": "initmorningbrieftab()"
     },
     {
@@ -2342,7 +2342,7 @@
       "source_location": "L493",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_handlelogout",
-      "community": 95,
+      "community": 17,
       "norm_label": "handlelogout()"
     },
     {
@@ -2352,7 +2352,7 @@
       "source_location": "L508",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_clearoperatorsession",
-      "community": 95,
+      "community": 17,
       "norm_label": "clearoperatorsession()"
     },
     {
@@ -2362,7 +2362,7 @@
       "source_location": "L516",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_gettabbuttons",
-      "community": 95,
+      "community": 17,
       "norm_label": "gettabbuttons()"
     },
     {
@@ -2372,7 +2372,7 @@
       "source_location": "L520",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_gettabpanels",
-      "community": 95,
+      "community": 17,
       "norm_label": "gettabpanels()"
     },
     {
@@ -2382,7 +2382,7 @@
       "source_location": "L524",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_resettabselection",
-      "community": 95,
+      "community": 17,
       "norm_label": "resettabselection()"
     },
     {
@@ -2392,7 +2392,7 @@
       "source_location": "L530",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_activatetab",
-      "community": 95,
+      "community": 17,
       "norm_label": "activatetab()"
     },
     {
@@ -2402,7 +2402,7 @@
       "source_location": "L542",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_activatetabbyindex",
-      "community": 95,
+      "community": 17,
       "norm_label": "activatetabbyindex()"
     },
     {
@@ -2412,7 +2412,7 @@
       "source_location": "L591",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_settabaria",
-      "community": 95,
+      "community": 17,
       "norm_label": "settabaria()"
     },
     {
@@ -2422,7 +2422,7 @@
       "source_location": "L605",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_handletabkeydown",
-      "community": 95,
+      "community": 17,
       "norm_label": "handletabkeydown()"
     },
     {
@@ -2482,7 +2482,7 @@
       "source_location": "L756",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_startwiglelivepolling",
-      "community": 38,
+      "community": 17,
       "norm_label": "startwiglelivepolling()"
     },
     {
@@ -2492,7 +2492,7 @@
       "source_location": "L771",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_stopwiglelivepolling",
-      "community": 38,
+      "community": 17,
       "norm_label": "stopwiglelivepolling()"
     },
     {
@@ -2572,7 +2572,7 @@
       "source_location": "L983",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_getarvideoscale",
-      "community": 17,
+      "community": 9,
       "norm_label": "getarvideoscale()"
     },
     {
@@ -2592,7 +2592,7 @@
       "source_location": "L1001",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_ensurecamerastream",
-      "community": 20,
+      "community": 38,
       "norm_label": "ensurecamerastream()"
     },
     {
@@ -2662,7 +2662,7 @@
       "source_location": "L1299",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_bindvisioncontrols",
-      "community": 17,
+      "community": 149,
       "norm_label": "bindvisioncontrols()"
     },
     {
@@ -2672,7 +2672,7 @@
       "source_location": "L1329",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_loadvisionendpoint",
-      "community": 17,
+      "community": 149,
       "norm_label": "loadvisionendpoint()"
     },
     {
@@ -2682,7 +2682,7 @@
       "source_location": "L1360",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_handlevisionfilechange",
-      "community": 17,
+      "community": 149,
       "norm_label": "handlevisionfilechange()"
     },
     {
@@ -2692,7 +2692,7 @@
       "source_location": "L1382",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_applyvisiondataset",
-      "community": 17,
+      "community": 149,
       "norm_label": "applyvisiondataset()"
     },
     {
@@ -2702,7 +2702,7 @@
       "source_location": "L1398",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_setvisionstatus",
-      "community": 17,
+      "community": 149,
       "norm_label": "setvisionstatus()"
     },
     {
@@ -2712,7 +2712,7 @@
       "source_location": "L1403",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_rendervisionviews",
-      "community": 17,
+      "community": 149,
       "norm_label": "rendervisionviews()"
     },
     {
@@ -2762,7 +2762,7 @@
       "source_location": "L1579",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_bindgodeyemodecontrols",
-      "community": 17,
+      "community": 20,
       "norm_label": "bindgodeyemodecontrols()"
     },
     {
@@ -2772,7 +2772,7 @@
       "source_location": "L1594",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_syncgodeyemodecontrols",
-      "community": 17,
+      "community": 20,
       "norm_label": "syncgodeyemodecontrols()"
     },
     {
@@ -2782,7 +2782,7 @@
       "source_location": "L1602",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_activategodeyemode",
-      "community": 17,
+      "community": 20,
       "norm_label": "activategodeyemode()"
     },
     {
@@ -2792,7 +2792,7 @@
       "source_location": "L1621",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_loadgodeyeglobalviewport",
-      "community": 17,
+      "community": 68,
       "norm_label": "loadgodeyeglobalviewport()"
     },
     {
@@ -2912,7 +2912,7 @@
       "source_location": "L1830",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_renderwigleviews",
-      "community": 38,
+      "community": 20,
       "norm_label": "renderwigleviews()"
     },
     {
@@ -2982,7 +2982,7 @@
       "source_location": "L1936",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_stopgodeyefeed",
-      "community": 95,
+      "community": 17,
       "norm_label": "stopgodeyefeed()"
     },
     {
@@ -3012,7 +3012,7 @@
       "source_location": "L1987",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_rendergodeyemap",
-      "community": 38,
+      "community": 20,
       "norm_label": "rendergodeyemap()"
     },
     {
@@ -3032,7 +3032,7 @@
       "source_location": "L2118",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_showterminalerror",
-      "community": 20,
+      "community": 17,
       "norm_label": "showterminalerror()"
     },
     {
@@ -3042,7 +3042,7 @@
       "source_location": "L2132",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_hideterminalerror",
-      "community": 20,
+      "community": 17,
       "norm_label": "hideterminalerror()"
     },
     {
@@ -3082,7 +3082,7 @@
       "source_location": "L2165",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_numberorzero",
-      "community": 38,
+      "community": 20,
       "norm_label": "numberorzero()"
     },
     {
@@ -3142,7 +3142,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "api_private_operator_assets_map_math_metersperpixel",
-      "community": 119,
+      "community": 9,
       "norm_label": "metersperpixel()"
     },
     {
@@ -5622,7 +5622,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_cybermap_global_viewport_index",
-      "community": 136,
+      "community": 144,
       "norm_label": "index.js"
     },
     {
@@ -5632,7 +5632,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_cybermap_global_viewport_index_requireoperatortoken",
-      "community": 136,
+      "community": 144,
       "norm_label": "{ requireoperatortoken }"
     },
     {
@@ -5642,7 +5642,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "api_cybermap_global_viewport_index_sendjson",
-      "community": 136,
+      "community": 144,
       "norm_label": "sendjson()"
     },
     {
@@ -5652,7 +5652,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "api_cybermap_global_viewport_index_unavailable",
-      "community": 136,
+      "community": 144,
       "norm_label": "unavailable()"
     },
     {
@@ -5662,7 +5662,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "api_cybermap_global_viewport_index_backendurl",
-      "community": 136,
+      "community": 144,
       "norm_label": "backendurl()"
     },
     {
@@ -5672,7 +5672,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "api_cybermap_global_viewport_index_requestbody",
-      "community": 136,
+      "community": 144,
       "norm_label": "requestbody()"
     },
     {
@@ -5682,7 +5682,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "api_cybermap_global_viewport_index_fetchglobalviewport",
-      "community": 136,
+      "community": 144,
       "norm_label": "fetchglobalviewport()"
     },
     {
@@ -11709,8 +11709,8 @@
       "source_file": "scripts/render-wardriver-basemap-style.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_scripts_render_wardriver_basemap_style_py",
-      "community": 188,
+      "id": "scripts_render_wardriver_basemap_style",
+      "community": 170,
       "norm_label": "render-wardriver-basemap-style.py"
     },
     {
@@ -11719,8 +11719,8 @@
       "source_file": "scripts/render-wardriver-basemap-style.py",
       "source_location": "L12",
       "_origin": "ast",
-      "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_scripts_render_wardriver_basemap_style_parse_args",
-      "community": 188,
+      "id": "scripts_render_wardriver_basemap_style_parse_args",
+      "community": 170,
       "norm_label": "parse_args()"
     },
     {
@@ -11729,8 +11729,8 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_scripts_render_wardriver_basemap_style_py_namespace",
-      "community": 246,
+      "id": "scripts_render_wardriver_basemap_style_py_namespace",
+      "community": 170,
       "norm_label": "namespace"
     },
     {
@@ -11739,8 +11739,8 @@
       "source_file": "scripts/render-wardriver-basemap-style.py",
       "source_location": "L20",
       "_origin": "ast",
-      "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_scripts_render_wardriver_basemap_style_validate_tile_base_url",
-      "community": 188,
+      "id": "scripts_render_wardriver_basemap_style_validate_tile_base_url",
+      "community": 170,
       "norm_label": "validate_tile_base_url()"
     },
     {
@@ -11749,8 +11749,8 @@
       "source_file": "scripts/render-wardriver-basemap-style.py",
       "source_location": "L32",
       "_origin": "ast",
-      "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_scripts_render_wardriver_basemap_style_main",
-      "community": 188,
+      "id": "scripts_render_wardriver_basemap_style_main",
+      "community": 170,
       "norm_label": "main()"
     },
     {
@@ -12980,7 +12980,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_fixtures_wigle_sample_data",
-      "community": 213,
+      "community": 9,
       "norm_label": "wigle-sample-data.mjs"
     },
     {
@@ -12990,7 +12990,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_fixtures_wigle_sample_data_fixture_location",
-      "community": 213,
+      "community": 9,
       "norm_label": "fixture_location"
     },
     {
@@ -13000,7 +13000,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "tests_fixtures_wigle_sample_data_fixture_access_points",
-      "community": 213,
+      "community": 9,
       "norm_label": "fixture_access_points"
     },
     {
@@ -13010,7 +13010,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "tests_fixtures_wigle_sample_data_createwiglesamplefixture",
-      "community": 213,
+      "community": 9,
       "norm_label": "createwiglesamplefixture()"
     },
     {
@@ -13290,7 +13290,7 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "tests_morning_brief_api_test_operatorheaders",
-      "community": 83,
+      "community": 117,
       "norm_label": "operatorheaders()"
     },
     {
@@ -15934,6 +15934,46 @@
       "norm_label": "parsejson()"
     },
     {
+      "label": "wardriver-basemap-style-render.test.mjs",
+      "file_type": "code",
+      "source_file": "tests/wardriver-basemap-style-render.test.mjs",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "tests_wardriver_basemap_style_render_test",
+      "community": 188,
+      "norm_label": "wardriver-basemap-style-render.test.mjs"
+    },
+    {
+      "label": "root",
+      "file_type": "code",
+      "source_file": "tests/wardriver-basemap-style-render.test.mjs",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "tests_wardriver_basemap_style_render_test_root",
+      "community": 188,
+      "norm_label": "root"
+    },
+    {
+      "label": "renderer",
+      "file_type": "code",
+      "source_file": "tests/wardriver-basemap-style-render.test.mjs",
+      "source_location": "L10",
+      "_origin": "ast",
+      "id": "tests_wardriver_basemap_style_render_test_renderer",
+      "community": 188,
+      "norm_label": "renderer"
+    },
+    {
+      "label": "template",
+      "file_type": "code",
+      "source_file": "tests/wardriver-basemap-style-render.test.mjs",
+      "source_location": "L11",
+      "_origin": "ast",
+      "id": "tests_wardriver_basemap_style_render_test_template",
+      "community": 188,
+      "norm_label": "template"
+    },
+    {
       "label": "wardriver-release-current-api.test.mjs",
       "file_type": "code",
       "source_file": "tests/wardriver-release-current-api.test.mjs",
@@ -16470,7 +16510,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief",
-      "community": 10,
+      "community": 136,
       "norm_label": "run-morning-brief.mjs"
     },
     {
@@ -16480,7 +16520,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_execfileasync",
-      "community": 10,
+      "community": 136,
       "norm_label": "execfileasync"
     },
     {
@@ -16490,7 +16530,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_main",
-      "community": 10,
+      "community": 136,
       "norm_label": "main()"
     },
     {
@@ -16500,7 +16540,7 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_validatecanonicalstate",
-      "community": 10,
+      "community": 136,
       "norm_label": "validatecanonicalstate()"
     },
     {
@@ -16510,7 +16550,7 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_buildbrief",
-      "community": 10,
+      "community": 136,
       "norm_label": "buildbrief()"
     },
     {
@@ -16520,7 +16560,7 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_artifact",
-      "community": 10,
+      "community": 136,
       "norm_label": "artifact()"
     },
     {
@@ -16530,7 +16570,7 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_dispatchdiscord",
-      "community": 10,
+      "community": 136,
       "norm_label": "dispatchdiscord()"
     },
     {
@@ -16540,7 +16580,7 @@
       "source_location": "L158",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_requestjson",
-      "community": 10,
+      "community": 136,
       "norm_label": "requestjson()"
     },
     {
@@ -16550,7 +16590,7 @@
       "source_location": "L177",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_rendersvg",
-      "community": 10,
+      "community": 136,
       "norm_label": "rendersvg()"
     },
     {
@@ -16560,7 +16600,7 @@
       "source_location": "L186",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_renderhtml",
-      "community": 10,
+      "community": 136,
       "norm_label": "renderhtml()"
     },
     {
@@ -16570,7 +16610,7 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_stablejson",
-      "community": 10,
+      "community": 136,
       "norm_label": "stablejson()"
     },
     {
@@ -16580,7 +16620,7 @@
       "source_location": "L196",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_sha256",
-      "community": 10,
+      "community": 136,
       "norm_label": "sha256()"
     },
     {
@@ -16590,7 +16630,7 @@
       "source_location": "L197",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_formatmoney",
-      "community": 10,
+      "community": 136,
       "norm_label": "formatmoney()"
     },
     {
@@ -16600,7 +16640,7 @@
       "source_location": "L198",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_escapehtml",
-      "community": 10,
+      "community": 136,
       "norm_label": "escapehtml()"
     },
     {
@@ -16610,7 +16650,7 @@
       "source_location": "L199",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_escapexml",
-      "community": 10,
+      "community": 136,
       "norm_label": "escapexml()"
     },
     {
@@ -16620,7 +16660,7 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_validtimestamp",
-      "community": 10,
+      "community": 136,
       "norm_label": "validtimestamp()"
     },
     {
@@ -16630,7 +16670,7 @@
       "source_location": "L201",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_positiveinteger",
-      "community": 10,
+      "community": 136,
       "norm_label": "positiveinteger()"
     },
     {
@@ -16640,7 +16680,7 @@
       "source_location": "L202",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_requiredtoken",
-      "community": 10,
+      "community": 136,
       "norm_label": "requiredtoken()"
     },
     {
@@ -16650,7 +16690,7 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_requiredhttpsurl",
-      "community": 10,
+      "community": 136,
       "norm_label": "requiredhttpsurl()"
     },
     {
@@ -16660,7 +16700,7 @@
       "source_location": "L204",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_readjsonifpresent",
-      "community": 10,
+      "community": 136,
       "norm_label": "readjsonifpresent()"
     },
     {
@@ -16670,7 +16710,7 @@
       "source_location": "L205",
       "_origin": "ast",
       "id": "vm_cybermap_api_scripts_run_morning_brief_atomicjson",
-      "community": 10,
+      "community": 136,
       "norm_label": "atomicjson()"
     },
     {
@@ -16680,7 +16720,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_auth",
-      "community": 65,
+      "community": 28,
       "norm_label": "auth.mjs"
     },
     {
@@ -16710,7 +16750,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_auth_hashtoken",
-      "community": 65,
+      "community": 28,
       "norm_label": "hashtoken()"
     },
     {
@@ -16720,7 +16760,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_auth_tokendigestmatches",
-      "community": 65,
+      "community": 28,
       "norm_label": "tokendigestmatches()"
     },
     {
@@ -16730,7 +16770,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_auth_forbidden",
-      "community": 65,
+      "community": 16,
       "norm_label": "forbidden()"
     },
     {
@@ -16810,7 +16850,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_contracts_contracterror",
-      "community": 28,
+      "community": 52,
       "norm_label": "contracterror"
     },
     {
@@ -16820,7 +16860,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_contracts_contracterror_constructor",
-      "community": 28,
+      "community": 52,
       "norm_label": ".constructor()"
     },
     {
@@ -16840,7 +16880,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_contracts_hashcanonicaljson",
-      "community": 149,
+      "community": 52,
       "norm_label": "hashcanonicaljson()"
     },
     {
@@ -16850,7 +16890,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_contracts_hashpersistedobservation",
-      "community": 149,
+      "community": 52,
       "norm_label": "hashpersistedobservation()"
     },
     {
@@ -18110,7 +18150,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_memory_store_memoryobservationstore_authenticate",
-      "community": 65,
+      "community": 16,
       "norm_label": ".authenticate()"
     },
     {
@@ -18120,7 +18160,7 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_memory_store_memoryobservationstore_authenticatemtls",
-      "community": 65,
+      "community": 16,
       "norm_label": ".authenticatemtls()"
     },
     {
@@ -18130,7 +18170,7 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_memory_store_memoryobservationstore_applybatch",
-      "community": 149,
+      "community": 52,
       "norm_label": ".applybatch()"
     },
     {
@@ -18570,7 +18610,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_postgres_store_postgresobservationstore_authenticate",
-      "community": 65,
+      "community": 16,
       "norm_label": ".authenticate()"
     },
     {
@@ -18580,7 +18620,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_postgres_store_postgresobservationstore_authenticatemtls",
-      "community": 65,
+      "community": 16,
       "norm_label": ".authenticatemtls()"
     },
     {
@@ -18590,7 +18630,7 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_postgres_store_postgresobservationstore_applybatch",
-      "community": 149,
+      "community": 16,
       "norm_label": ".applybatch()"
     },
     {
@@ -18880,7 +18920,7 @@
       "source_location": "L971",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_postgres_store_insertobservations",
-      "community": 149,
+      "community": 16,
       "norm_label": "insertobservations()"
     },
     {
@@ -18890,7 +18930,7 @@
       "source_location": "L1037",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_postgres_store_touchcredential",
-      "community": 149,
+      "community": 16,
       "norm_label": "touchcredential()"
     },
     {
@@ -19210,7 +19250,7 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_paper_action_values",
-      "community": 29,
+      "community": 61,
       "norm_label": "paper_action_values"
     },
     {
@@ -19220,7 +19260,7 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_createcybermapapiserver",
-      "community": 137,
+      "community": 28,
       "norm_label": "createcybermapapiserver()"
     },
     {
@@ -19230,7 +19270,7 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_createrequesthandler",
-      "community": 29,
+      "community": 10,
       "norm_label": "createrequesthandler()"
     },
     {
@@ -19240,7 +19280,7 @@
       "source_location": "L190",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_handleobservationbatch",
-      "community": 29,
+      "community": 10,
       "norm_label": "handleobservationbatch()"
     },
     {
@@ -19250,7 +19290,7 @@
       "source_location": "L242",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_handlepaperstatewrite",
-      "community": 29,
+      "community": 10,
       "norm_label": "handlepaperstatewrite()"
     },
     {
@@ -19260,7 +19300,7 @@
       "source_location": "L272",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_handlepaperstateread",
-      "community": 29,
+      "community": 10,
       "norm_label": "handlepaperstateread()"
     },
     {
@@ -19270,7 +19310,7 @@
       "source_location": "L295",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_handlemorningbriefrequest",
-      "community": 29,
+      "community": 10,
       "norm_label": "handlemorningbriefrequest()"
     },
     {
@@ -19280,7 +19320,7 @@
       "source_location": "L340",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_handlemorningbriefwrite",
-      "community": 29,
+      "community": 10,
       "norm_label": "handlemorningbriefwrite()"
     },
     {
@@ -19350,7 +19390,7 @@
       "source_location": "L581",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_hasuniquestringfield",
-      "community": 29,
+      "community": 61,
       "norm_label": "hasuniquestringfield()"
     },
     {
@@ -19490,7 +19530,7 @@
       "source_location": "L729",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_buildechopayload",
-      "community": 29,
+      "community": 10,
       "norm_label": "buildechopayload()"
     },
     {
@@ -19500,7 +19540,7 @@
       "source_location": "L742",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_handlemtlsviewport",
-      "community": 170,
+      "community": 29,
       "norm_label": "handlemtlsviewport()"
     },
     {
@@ -19510,7 +19550,7 @@
       "source_location": "L776",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_toaggregateviewportresponse",
-      "community": 29,
+      "community": 10,
       "norm_label": "toaggregateviewportresponse()"
     },
     {
@@ -19520,7 +19560,7 @@
       "source_location": "L788",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_handlecybermapviewport",
-      "community": 170,
+      "community": 29,
       "norm_label": "handlecybermapviewport()"
     },
     {
@@ -19530,7 +19570,7 @@
       "source_location": "L810",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_handleglobalviewport",
-      "community": 29,
+      "community": 10,
       "norm_label": "handleglobalviewport()"
     },
     {
@@ -19560,7 +19600,7 @@
       "source_location": "L871",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_requiremtlsproxyassertion",
-      "community": 29,
+      "community": 10,
       "norm_label": "requiremtlsproxyassertion()"
     },
     {
@@ -19570,7 +19610,7 @@
       "source_location": "L877",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_mtlsproxyassertionifpresent",
-      "community": 29,
+      "community": 10,
       "norm_label": "mtlsproxyassertionifpresent()"
     },
     {
@@ -19580,7 +19620,7 @@
       "source_location": "L889",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_isloopbackaddress",
-      "community": 29,
+      "community": 10,
       "norm_label": "isloopbackaddress()"
     },
     {
@@ -19590,7 +19630,7 @@
       "source_location": "L893",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_requirepaperstatetoken",
-      "community": 29,
+      "community": 10,
       "norm_label": "requirepaperstatetoken()"
     },
     {
@@ -19600,7 +19640,7 @@
       "source_location": "L904",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_requiremorningbrieftoken",
-      "community": 29,
+      "community": 10,
       "norm_label": "requiremorningbrieftoken()"
     },
     {
@@ -19610,7 +19650,7 @@
       "source_location": "L915",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_requirebackendreadtoken",
-      "community": 29,
+      "community": 10,
       "norm_label": "requirebackendreadtoken()"
     },
     {
@@ -19620,7 +19660,7 @@
       "source_location": "L926",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_parsefinitenumber",
-      "community": 170,
+      "community": 29,
       "norm_label": "parsefinitenumber()"
     },
     {
@@ -19630,7 +19670,7 @@
       "source_location": "L932",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_parsetimestampms",
-      "community": 170,
+      "community": 29,
       "norm_label": "parsetimestampms()"
     },
     {
@@ -19640,7 +19680,7 @@
       "source_location": "L940",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_clampfinitenumber",
-      "community": 170,
+      "community": 29,
       "norm_label": "clampfinitenumber()"
     },
     {
@@ -19650,7 +19690,7 @@
       "source_location": "L946",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_safeequalstring",
-      "community": 29,
+      "community": 10,
       "norm_label": "safeequalstring()"
     },
     {
@@ -19660,7 +19700,7 @@
       "source_location": "L953",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_singleheader",
-      "community": 29,
+      "community": 10,
       "norm_label": "singleheader()"
     },
     {
@@ -19670,7 +19710,7 @@
       "source_location": "L959",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_withingestdeadline",
-      "community": 29,
+      "community": 10,
       "norm_label": "withingestdeadline()"
     },
     {
@@ -19680,7 +19720,7 @@
       "source_location": "L970",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_readbody",
-      "community": 29,
+      "community": 10,
       "norm_label": "readbody()"
     },
     {
@@ -19690,7 +19730,7 @@
       "source_location": "L989",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_senderror",
-      "community": 29,
+      "community": 10,
       "norm_label": "senderror()"
     },
     {
@@ -19700,7 +19740,7 @@
       "source_location": "L1002",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_sendjson",
-      "community": 29,
+      "community": 10,
       "norm_label": "sendjson()"
     },
     {
@@ -19710,7 +19750,7 @@
       "source_location": "L1015",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_server_sendbinary",
-      "community": 29,
+      "community": 10,
       "norm_label": "sendbinary()"
     },
     {
@@ -20000,7 +20040,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_contracts_test",
-      "community": 28,
+      "community": 52,
       "norm_label": "contracts.test.mjs"
     },
     {
@@ -20010,7 +20050,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_contracts_test_now",
-      "community": 28,
+      "community": 52,
       "norm_label": "now"
     },
     {
@@ -20350,7 +20390,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_global_viewport_http_test",
-      "community": 138,
+      "community": 28,
       "norm_label": "global-viewport-http.test.mjs"
     },
     {
@@ -20360,7 +20400,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_global_viewport_http_test_valid_request",
-      "community": 138,
+      "community": 28,
       "norm_label": "valid_request"
     },
     {
@@ -20370,7 +20410,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_global_viewport_http_test_valid_response",
-      "community": 138,
+      "community": 28,
       "norm_label": "valid_response"
     },
     {
@@ -20380,7 +20420,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_global_viewport_http_test_globalviewportstore",
-      "community": 138,
+      "community": 28,
       "norm_label": "globalviewportstore"
     },
     {
@@ -20390,7 +20430,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_global_viewport_http_test_globalviewportstore_queryglobalviewport",
-      "community": 138,
+      "community": 28,
       "norm_label": ".queryglobalviewport()"
     },
     {
@@ -20400,7 +20440,7 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_global_viewport_http_test_withglobalreadtoken",
-      "community": 138,
+      "community": 28,
       "norm_label": "withglobalreadtoken()"
     },
     {
@@ -20410,7 +20450,7 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_global_viewport_http_test_postglobalviewport",
-      "community": 138,
+      "community": 28,
       "norm_label": "postglobalviewport()"
     },
     {
@@ -21050,7 +21090,7 @@
       "source_location": "L243",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_http_test_makeserver",
-      "community": 65,
+      "community": 28,
       "norm_label": "makeserver()"
     },
     {
@@ -21110,7 +21150,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_memory_store_test_createstore",
-      "community": 65,
+      "community": 28,
       "norm_label": "createstore()"
     },
     {
@@ -21120,7 +21160,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_morning_brief_runner_test",
-      "community": 10,
+      "community": 136,
       "norm_label": "morning-brief-runner.test.mjs"
     },
     {
@@ -21130,7 +21170,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_morning_brief_runner_test_canonicalstate",
-      "community": 10,
+      "community": 136,
       "norm_label": "canonicalstate()"
     },
     {
@@ -21140,7 +21180,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_morning_brief_test",
-      "community": 137,
+      "community": 138,
       "norm_label": "morning-brief.test.mjs"
     },
     {
@@ -21150,7 +21190,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_morning_brief_test_now",
-      "community": 137,
+      "community": 138,
       "norm_label": "now"
     },
     {
@@ -21160,7 +21200,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_morning_brief_test_hash",
-      "community": 137,
+      "community": 138,
       "norm_label": "hash()"
     },
     {
@@ -21170,7 +21210,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_morning_brief_test_stablejson",
-      "community": 137,
+      "community": 138,
       "norm_label": "stablejson()"
     },
     {
@@ -21180,7 +21220,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_morning_brief_test_packagehash",
-      "community": 137,
+      "community": 138,
       "norm_label": "packagehash()"
     },
     {
@@ -21190,7 +21230,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_morning_brief_test_validpackage",
-      "community": 137,
+      "community": 138,
       "norm_label": "validpackage()"
     },
     {
@@ -21200,7 +21240,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_morning_brief_test_asstoredpackage",
-      "community": 137,
+      "community": 138,
       "norm_label": "asstoredpackage()"
     },
     {
@@ -21210,7 +21250,7 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_morning_brief_test_withserver",
-      "community": 137,
+      "community": 28,
       "norm_label": "withserver()"
     },
     {
@@ -21220,7 +21260,7 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_morning_brief_test_headers",
-      "community": 137,
+      "community": 138,
       "norm_label": "headers()"
     },
     {
@@ -21250,7 +21290,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_mtls_direct_api_test_makeserver",
-      "community": 137,
+      "community": 28,
       "norm_label": "makeserver()"
     },
     {
@@ -24580,7 +24620,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_architecture_md",
-      "community": 144,
+      "community": 75,
       "norm_label": "architecture.md"
     },
     {
@@ -24590,7 +24630,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_architecture_architecture_decisions",
-      "community": 144,
+      "community": 75,
       "norm_label": "architecture decisions"
     },
     {
@@ -24600,7 +24640,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_architecture_product_architecture",
-      "community": 144,
+      "community": 75,
       "norm_label": "product architecture"
     },
     {
@@ -24610,7 +24650,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_architecture_target_data_flow",
-      "community": 144,
+      "community": 75,
       "norm_label": "target data flow"
     },
     {
@@ -24620,7 +24660,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_architecture_core_decision",
-      "community": 144,
+      "community": 75,
       "norm_label": "core decision"
     },
     {
@@ -24630,7 +24670,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_architecture_non_goals",
-      "community": 144,
+      "community": 75,
       "norm_label": "non-goals"
     },
     {
@@ -26250,7 +26290,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_consolidation_proposal_core_model",
-      "community": 183,
+      "community": 55,
       "norm_label": "core model"
     },
     {
@@ -26260,7 +26300,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_consolidation_proposal_mosaic_lane",
-      "community": 183,
+      "community": 55,
       "norm_label": "mosaic lane"
     },
     {
@@ -26270,7 +26310,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_consolidation_proposal_murmurs_lane",
-      "community": 183,
+      "community": 55,
       "norm_label": "murmurs lane"
     },
     {
@@ -26280,7 +26320,7 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_consolidation_proposal_bridge_lane",
-      "community": 183,
+      "community": 55,
       "norm_label": "bridge lane"
     },
     {
@@ -26360,7 +26400,7 @@
       "source_location": "L241",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_consolidation_proposal_implementation_plan",
-      "community": 55,
+      "community": 157,
       "norm_label": "implementation plan"
     },
     {
@@ -26370,7 +26410,7 @@
       "source_location": "L243",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_consolidation_proposal_p0_manual_procedural_dream_cycle",
-      "community": 55,
+      "community": 157,
       "norm_label": "p0 \u2014 manual/procedural dream cycle"
     },
     {
@@ -26380,7 +26420,7 @@
       "source_location": "L250",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_consolidation_proposal_p1_local_scheduled_cycle",
-      "community": 55,
+      "community": 157,
       "norm_label": "p1 \u2014 local scheduled cycle"
     },
     {
@@ -26390,7 +26430,7 @@
       "source_location": "L258",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_consolidation_proposal_p2_integrated_mosaic_murmurs_memory_loop",
-      "community": 55,
+      "community": 157,
       "norm_label": "p2 \u2014 integrated mosaic/murmurs memory loop"
     },
     {
@@ -26400,7 +26440,7 @@
       "source_location": "L265",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_consolidation_proposal_p3_dream_to_proposal_automation",
-      "community": 55,
+      "community": 157,
       "norm_label": "p3 \u2014 dream-to-proposal automation"
     },
     {
@@ -26960,7 +27000,7 @@
       "source_location": "L261",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_morning_brief_proposal_implementation_plan",
-      "community": 154,
+      "community": 49,
       "norm_label": "implementation plan"
     },
     {
@@ -26970,7 +27010,7 @@
       "source_location": "L263",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_morning_brief_proposal_p0_manual_morning_markdown",
-      "community": 154,
+      "community": 49,
       "norm_label": "p0 \u2014 manual morning markdown"
     },
     {
@@ -26980,7 +27020,7 @@
       "source_location": "L270",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_morning_brief_proposal_p1_scheduled_local_brief",
-      "community": 154,
+      "community": 49,
       "norm_label": "p1 \u2014 scheduled local brief"
     },
     {
@@ -26990,7 +27030,7 @@
       "source_location": "L277",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_morning_brief_proposal_p2_integrated_adapters",
-      "community": 154,
+      "community": 49,
       "norm_label": "p2 \u2014 integrated adapters"
     },
     {
@@ -27000,7 +27040,7 @@
       "source_location": "L284",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_morning_brief_proposal_p3_calibration_and_feedback",
-      "community": 154,
+      "community": 49,
       "norm_label": "p3 \u2014 calibration and feedback"
     },
     {
@@ -27540,7 +27580,7 @@
       "source_location": "L158",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_vm_api_contract_extensions",
-      "community": 62,
+      "community": 158,
       "norm_label": "vm api contract extensions"
     },
     {
@@ -27550,7 +27590,7 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_loop_runs",
-      "community": 62,
+      "community": 158,
       "norm_label": "loop runs"
     },
     {
@@ -27560,7 +27600,7 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_narrative",
-      "community": 62,
+      "community": 158,
       "norm_label": "narrative"
     },
     {
@@ -27570,7 +27610,7 @@
       "source_location": "L179",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_paper_loop",
-      "community": 62,
+      "community": 158,
       "norm_label": "paper loop"
     },
     {
@@ -27580,7 +27620,7 @@
       "source_location": "L188",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_memory_sync",
-      "community": 62,
+      "community": 158,
       "norm_label": "memory sync"
     },
     {
@@ -27630,7 +27670,7 @@
       "source_location": "L324",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_implementation_plan",
-      "community": 62,
+      "community": 154,
       "norm_label": "implementation plan"
     },
     {
@@ -27640,7 +27680,7 @@
       "source_location": "L326",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_p0_contract_and_local_fixtures",
-      "community": 62,
+      "community": 154,
       "norm_label": "p0 \u2014 contract and local fixtures"
     },
     {
@@ -27650,7 +27690,7 @@
       "source_location": "L332",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_p1_vm_api_write_read_skeleton",
-      "community": 62,
+      "community": 154,
       "norm_label": "p1 \u2014 vm api write/read skeleton"
     },
     {
@@ -27660,7 +27700,7 @@
       "source_location": "L338",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_p2_dashboard_narrative_stream",
-      "community": 62,
+      "community": 154,
       "norm_label": "p2 \u2014 dashboard narrative stream"
     },
     {
@@ -27670,7 +27710,7 @@
       "source_location": "L344",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_p3_local_jetson_scheduler",
-      "community": 62,
+      "community": 154,
       "norm_label": "p3 \u2014 local jetson scheduler"
     },
     {
@@ -27680,7 +27720,7 @@
       "source_location": "L350",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_p4_postgres_materialization",
-      "community": 62,
+      "community": 154,
       "norm_label": "p4 \u2014 postgres materialization"
     },
     {
@@ -27740,7 +27780,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_s0_sensorium_proposal_proposal",
-      "community": 157,
+      "community": 50,
       "norm_label": "proposal"
     },
     {
@@ -27750,7 +27790,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_s0_sensorium_proposal_1_default_state_dream_suspension",
-      "community": 157,
+      "community": 50,
       "norm_label": "1. default state: dream suspension"
     },
     {
@@ -27760,7 +27800,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_s0_sensorium_proposal_2_raid_sight_episodic_physical_presence",
-      "community": 157,
+      "community": 50,
       "norm_label": "2. raid sight: episodic physical presence"
     },
     {
@@ -27770,7 +27810,7 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_s0_sensorium_proposal_3_greenfeed_jack_in_public_authorized_wakefulness",
-      "community": 157,
+      "community": 50,
       "norm_label": "3. greenfeed jack-in: public/authorized wakefulness"
     },
     {
@@ -27780,7 +27820,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_s0_sensorium_proposal_4_direct_observations_must_feed_predictions",
-      "community": 157,
+      "community": 50,
       "norm_label": "4. direct observations must feed predictions"
     },
     {
@@ -27860,7 +27900,7 @@
       "source_location": "L215",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_s0_sensorium_proposal_implementation_plan",
-      "community": 158,
+      "community": 50,
       "norm_label": "implementation plan"
     },
     {
@@ -27870,7 +27910,7 @@
       "source_location": "L217",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_s0_sensorium_proposal_p0_doctrine_and_schema",
-      "community": 158,
+      "community": 50,
       "norm_label": "p0 \u2014 doctrine and schema"
     },
     {
@@ -27880,7 +27920,7 @@
       "source_location": "L224",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_s0_sensorium_proposal_p1_greenfeed_catalog",
-      "community": 158,
+      "community": 50,
       "norm_label": "p1 \u2014 greenfeed catalog"
     },
     {
@@ -27890,7 +27930,7 @@
       "source_location": "L230",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_s0_sensorium_proposal_p2_raid_session_bridge",
-      "community": 158,
+      "community": 50,
       "norm_label": "p2 \u2014 raid session bridge"
     },
     {
@@ -27900,7 +27940,7 @@
       "source_location": "L236",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_s0_sensorium_proposal_p3_prediction_integration",
-      "community": 158,
+      "community": 50,
       "norm_label": "p3 \u2014 prediction integration"
     },
     {
@@ -29170,7 +29210,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_md",
-      "community": 75,
+      "community": 95,
       "norm_label": "vm-api.md"
     },
     {
@@ -29350,7 +29390,7 @@
       "source_location": "L274",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_security_considerations",
-      "community": 4,
+      "community": 183,
       "norm_label": "security considerations"
     },
     {
@@ -29360,7 +29400,7 @@
       "source_location": "L276",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_network_security",
-      "community": 4,
+      "community": 183,
       "norm_label": "network security"
     },
     {
@@ -29370,7 +29410,7 @@
       "source_location": "L281",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_service_security",
-      "community": 4,
+      "community": 183,
       "norm_label": "service security"
     },
     {
@@ -29380,7 +29420,7 @@
       "source_location": "L287",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_authentication_authorization",
-      "community": 4,
+      "community": 183,
       "norm_label": "authentication & authorization"
     },
     {
@@ -29390,7 +29430,7 @@
       "source_location": "L293",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_reliability_features",
-      "community": 212,
+      "community": 4,
       "norm_label": "reliability features"
     },
     {
@@ -29400,7 +29440,7 @@
       "source_location": "L295",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_process_management",
-      "community": 212,
+      "community": 4,
       "norm_label": "process management"
     },
     {
@@ -29410,7 +29450,7 @@
       "source_location": "L300",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_error_handling",
-      "community": 212,
+      "community": 4,
       "norm_label": "error handling"
     },
     {
@@ -29420,7 +29460,7 @@
       "source_location": "L305",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_resource_usage",
-      "community": 212,
+      "community": 4,
       "norm_label": "resource usage"
     },
     {
@@ -29600,7 +29640,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_echo_wiring_md",
-      "community": 75,
+      "community": 95,
       "norm_label": "vm-echo-wiring.md"
     },
     {
@@ -29610,7 +29650,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_echo_wiring_historical_vm_echo_wiring_retired",
-      "community": 75,
+      "community": 95,
       "norm_label": "historical vm echo wiring (retired)"
     },
     {
@@ -29620,7 +29660,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_echo_wiring_former_topology",
-      "community": 75,
+      "community": 95,
       "norm_label": "former topology"
     },
     {
@@ -34030,7 +34070,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_vm_cybermap_api_readme_md",
-      "community": 84,
+      "community": 95,
       "norm_label": "readme.md"
     },
     {
@@ -34120,7 +34160,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_vm_cybermap_api_db_readme_md",
-      "community": 84,
+      "community": 95,
       "norm_label": "readme.md"
     },
     {
@@ -34130,7 +34170,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_vm_cybermap_api_db_readme_cybermap_database_migrations",
-      "community": 84,
+      "community": 95,
       "norm_label": "cybermap database migrations"
     },
     {
@@ -34140,7 +34180,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_vm_cybermap_api_db_readme_apply_locally",
-      "community": 84,
+      "community": 95,
       "norm_label": "apply locally"
     },
     {
@@ -34150,7 +34190,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_vm_cybermap_api_db_readme_migration_contract",
-      "community": 84,
+      "community": 95,
       "norm_label": "migration contract"
     }
   ],
@@ -64140,8 +64180,8 @@
       "source_file": "scripts/render-wardriver-basemap-style.py",
       "source_location": "L32",
       "weight": 1.0,
-      "source": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_scripts_render_wardriver_basemap_style_py",
-      "target": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_scripts_render_wardriver_basemap_style_main",
+      "source": "scripts_render_wardriver_basemap_style",
+      "target": "scripts_render_wardriver_basemap_style_main",
       "confidence_score": 1.0
     },
     {
@@ -64150,8 +64190,8 @@
       "source_file": "scripts/render-wardriver-basemap-style.py",
       "source_location": "L12",
       "weight": 1.0,
-      "source": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_scripts_render_wardriver_basemap_style_py",
-      "target": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_scripts_render_wardriver_basemap_style_parse_args",
+      "source": "scripts_render_wardriver_basemap_style",
+      "target": "scripts_render_wardriver_basemap_style_parse_args",
       "confidence_score": 1.0
     },
     {
@@ -64160,8 +64200,8 @@
       "source_file": "scripts/render-wardriver-basemap-style.py",
       "source_location": "L20",
       "weight": 1.0,
-      "source": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_scripts_render_wardriver_basemap_style_py",
-      "target": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_scripts_render_wardriver_basemap_style_validate_tile_base_url",
+      "source": "scripts_render_wardriver_basemap_style",
+      "target": "scripts_render_wardriver_basemap_style_validate_tile_base_url",
       "confidence_score": 1.0
     },
     {
@@ -64171,8 +64211,19 @@
       "source_file": "scripts/render-wardriver-basemap-style.py",
       "source_location": "L33",
       "weight": 1.0,
-      "source": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_scripts_render_wardriver_basemap_style_main",
-      "target": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_scripts_render_wardriver_basemap_style_parse_args",
+      "source": "scripts_render_wardriver_basemap_style_main",
+      "target": "scripts_render_wardriver_basemap_style_parse_args",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "scripts/render-wardriver-basemap-style.py",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "scripts_render_wardriver_basemap_style_parse_args",
+      "target": "scripts_render_wardriver_basemap_style_py_namespace",
       "confidence_score": 1.0
     },
     {
@@ -64182,8 +64233,8 @@
       "source_file": "scripts/render-wardriver-basemap-style.py",
       "source_location": "L34",
       "weight": 1.0,
-      "source": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_scripts_render_wardriver_basemap_style_main",
-      "target": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_scripts_render_wardriver_basemap_style_validate_tile_base_url",
+      "source": "scripts_render_wardriver_basemap_style_main",
+      "target": "scripts_render_wardriver_basemap_style_validate_tile_base_url",
       "confidence_score": 1.0
     },
     {
@@ -69721,6 +69772,36 @@
       "weight": 1.0,
       "source": "tests_wardriver_basemap_delivery_config_test_parsejson",
       "target": "tests_wardriver_basemap_delivery_config_test_read",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/wardriver-basemap-style-render.test.mjs",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "tests_wardriver_basemap_style_render_test",
+      "target": "tests_wardriver_basemap_style_render_test_renderer",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/wardriver-basemap-style-render.test.mjs",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "tests_wardriver_basemap_style_render_test",
+      "target": "tests_wardriver_basemap_style_render_test_root",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/wardriver-basemap-style-render.test.mjs",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "tests_wardriver_basemap_style_render_test",
+      "target": "tests_wardriver_basemap_style_render_test_template",
       "confidence_score": 1.0
     },
     {
@@ -92991,5 +93072,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "9e46897dc47da5f55e8a8f226367099963321303"
+  "built_at_commit": "7fca7d85203aae6f7edb5b73ecaaf11505fc29a4"
 }

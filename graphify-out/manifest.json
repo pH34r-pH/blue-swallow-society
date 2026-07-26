@@ -335,8 +335,8 @@
     "semantic_hash": ""
   },
   "scripts/render-wardriver-basemap-style.py": {
-    "mtime": 1785098988.5225499,
-    "ast_hash": "99f6252107fa04907c40bcda59c42397",
+    "mtime": 1785099720.300095,
+    "ast_hash": "81539df58b3af11c895e6b62e20fe4cf",
     "semantic_hash": ""
   },
   "scripts/wigle-local-bridge.py": {
@@ -1522,6 +1522,11 @@
   "api/_private/operator/assets/nacre-moire-mark.svg": {
     "mtime": 1785098988.1385403,
     "ast_hash": "b55d199a6b24a0ce7ca4ac46ad86d2bb",
+    "semantic_hash": ""
+  },
+  "tests/wardriver-basemap-style-render.test.mjs": {
+    "mtime": 1785099705.0237389,
+    "ast_hash": "477da70e7d40be034705eda87651ca12",
     "semantic_hash": ""
   }
 }
