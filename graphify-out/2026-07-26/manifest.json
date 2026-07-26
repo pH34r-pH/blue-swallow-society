@@ -255,8 +255,8 @@
     "semantic_hash": ""
   },
   "basemap/style.template.json": {
-    "mtime": 1785098988.166541,
-    "ast_hash": "c5eefd4159bf77dbc88015337789abff",
+    "mtime": 1785100746.6896083,
+    "ast_hash": "810dffe31bc0b12a84e222eebf2c4209",
     "semantic_hash": ""
   },
   "config/mosaic-murmurs-paper-ledger.json": {
@@ -555,8 +555,8 @@
     "semantic_hash": ""
   },
   "tests/wardriver-basemap-delivery-config.test.mjs": {
-    "mtime": 1785099001.5188751,
-    "ast_hash": "5b1c366c5d5ab1db023b0ebfae156679",
+    "mtime": 1785102244.2142005,
+    "ast_hash": "6cb14627d4d7847418f488a7e0baa061",
     "semantic_hash": ""
   },
   "tests/wardriver-release-current-api.test.mjs": {
@@ -920,8 +920,8 @@
     "semantic_hash": ""
   },
   ".github/workflows/publish-wardriver-basemap.yml": {
-    "mtime": 1785099020.0593379,
-    "ast_hash": "1264f50bcce03fac83d91c593c5efb64",
+    "mtime": 1785102239.4940815,
+    "ast_hash": "f4749988b5ae38a16129e78197c4e5be",
     "semantic_hash": ""
   },
   ".github/workflows/setup-azure-creds.md": {
@@ -1375,8 +1375,8 @@
     "semantic_hash": ""
   },
   "specs/009-wardriver-maplibre-basemap/plan.md": {
-    "mtime": 1785098988.554551,
-    "ast_hash": "2fc1721f79e0a51b7154e7e04fe6724e",
+    "mtime": 1785102239.2620757,
+    "ast_hash": "c0e41a2ed3a245f26e6b01b770f11c24",
     "semantic_hash": ""
   },
   "specs/009-wardriver-maplibre-basemap/spec.md": {

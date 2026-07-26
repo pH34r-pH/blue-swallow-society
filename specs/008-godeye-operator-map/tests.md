@@ -61,3 +61,7 @@
 - Focused VM contract coverage: 28/28 passed. Full VM suite: `npm test` passed 41/41.
 - Rendered local harness: CDP emulation set exact 390×844, 768×1024, and 1440×900 viewports. Each DOM receipt reported `map=true` and `overflow=false` at its target width; the desktop and narrow renders showed the ledger, map, health, inspector, and timeline without overlap. The harness and captures are temporary local validation material, not product fixtures.
 - Graphify: local `graphify update .` completed and `graphify-out/graph.json` parsed. The final incremental pass reported no code-graph topology delta. Semantic document extraction was not run because no approved local semantic backend was configured.
+- Rebase integration: the feature was rebased onto `origin/main`, retaining the existing Field/Global separation and moving the new MapLibre modules, distribution, and styles behind `api/operator-assets` so the authenticated private-asset boundary remains authoritative.
+- Rebased root regression: after `npm ci` in `api/`, `node --test tests/*.test.mjs` passed 202/202. The Function package reports the expected local Node 24 versus declared Node 22 engine warning; the deployment workflow uses its pinned supported runtime.
+- Rebased VM regression: `npm test` passed 109/109 with two disposable-PostGIS proofs skipped because `CYBERMAP_TEST_DATABASE_URL` was not configured.
+- Rebased Graphify: `graphify update .` rebuilt 5,631 nodes and 12,014 edges; `graphify-out/graph.json` parsed. It did not run semantic extraction because no approved local backend is configured.

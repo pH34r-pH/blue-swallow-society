@@ -175,7 +175,7 @@ test('public cover and private console put controls before explanatory copy', ()
     'data-operator-download="apk"',
     'data-operator-release="sha256"',
     'id="tzeentchStatus"',
-    'id="godeyeWigleStatus"',
+    'id="godeyeSourceHealth"',
     'aria-label="Global source provenance ledger"',
     'id="briefStatus"',
     'aria-live="polite"',
@@ -187,7 +187,7 @@ test('public cover and private console put controls before explanatory copy', ()
     'Verify the release record before install. Captures stay local.',
     'Enter a target.',
     'Method &amp; privacy',
-    'Managed Cybermap observations. No camera overlays.',
+    'Managed Cybermap observations. Fixed POST /api/cybermap/viewport; no arbitrary endpoint.',
     'Verified packets. Retention: seven days.',
     'House terms. Use sparingly.',
   ]) {

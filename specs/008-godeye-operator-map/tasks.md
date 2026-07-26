@@ -42,6 +42,10 @@
 - [x] T022 [US3] [TST-009] CDP-emulated 390×844, 768×1024, and 1440×900 MapLibre captures each initialized the map and reported exact `overflow=false` at the target viewport width.
 - [x] T023 [US1] Root `node --test tests/*.test.mjs` passed 151/151; `git diff --check` and source-policy scans passed.
 - [x] T024 [US1] `graphify update .` completed; `graphify-out/graph.json` parsed successfully. The local code graph reported no final topology delta; document-semantic extraction was not run because no approved local semantic backend was configured.
+- [x] T025 [US1] Rebase the feature onto `origin/main`; preserve the current private operator asset boundary and the separate Godeye Global surface while moving the workbench and MapLibre distribution behind the operator-asset manifest.
+- [x] T026 [US1] Rebased full root regression passed 202/202 after installing the checked-in Function dependencies with `npm ci` in `api/`.
+- [x] T027 [US2] Rebased VM suite passed 109/109; two protected disposable-PostGIS proofs were explicitly skipped because `CYBERMAP_TEST_DATABASE_URL` was not configured.
+- [x] T028 [US1] Rebased `graphify update .` rebuilt the local graph (5,631 nodes, 12,014 edges); `graphify-out/graph.json` parsed. Semantic extraction remains disabled without an approved local backend.
 
 ## Dependencies
 

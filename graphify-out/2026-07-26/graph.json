@@ -862,7 +862,7 @@
       "source_location": "L226",
       "_origin": "ast",
       "id": "api_lib_operator_auth_buildoperatorsessioncookie",
-      "community": 79,
+      "community": 37,
       "norm_label": "buildoperatorsessioncookie()"
     },
     {
@@ -2082,7 +2082,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_emptywigledataset",
-      "community": 17,
+      "community": 38,
       "norm_label": "emptywigledataset()"
     },
     {
@@ -2322,7 +2322,7 @@
       "source_location": "L469",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_inittabdefaults",
-      "community": 20,
+      "community": 38,
       "norm_label": "inittabdefaults()"
     },
     {
@@ -2482,7 +2482,7 @@
       "source_location": "L756",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_startwiglelivepolling",
-      "community": 17,
+      "community": 38,
       "norm_label": "startwiglelivepolling()"
     },
     {
@@ -2492,7 +2492,7 @@
       "source_location": "L771",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_stopwiglelivepolling",
-      "community": 17,
+      "community": 38,
       "norm_label": "stopwiglelivepolling()"
     },
     {
@@ -2652,7 +2652,7 @@
       "source_location": "L1213",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_renderarcandidatelayer",
-      "community": 20,
+      "community": 38,
       "norm_label": "renderarcandidatelayer()"
     },
     {
@@ -2912,7 +2912,7 @@
       "source_location": "L1830",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_renderwigleviews",
-      "community": 20,
+      "community": 38,
       "norm_label": "renderwigleviews()"
     },
     {
@@ -2922,7 +2922,7 @@
       "source_location": "L1836",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_renderwiglelist",
-      "community": 20,
+      "community": 38,
       "norm_label": "renderwiglelist()"
     },
     {
@@ -2932,7 +2932,7 @@
       "source_location": "L1887",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_rendergodeyewiglelist",
-      "community": 20,
+      "community": 38,
       "norm_label": "rendergodeyewiglelist()"
     },
     {
@@ -3012,7 +3012,7 @@
       "source_location": "L1987",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_rendergodeyemap",
-      "community": 20,
+      "community": 38,
       "norm_label": "rendergodeyemap()"
     },
     {
@@ -3032,7 +3032,7 @@
       "source_location": "L2118",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_showterminalerror",
-      "community": 17,
+      "community": 38,
       "norm_label": "showterminalerror()"
     },
     {
@@ -3042,7 +3042,7 @@
       "source_location": "L2132",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_hideterminalerror",
-      "community": 17,
+      "community": 38,
       "norm_label": "hideterminalerror()"
     },
     {
@@ -3082,7 +3082,7 @@
       "source_location": "L2165",
       "_origin": "ast",
       "id": "api_private_operator_assets_main_numberorzero",
-      "community": 20,
+      "community": 38,
       "norm_label": "numberorzero()"
     },
     {
@@ -3162,7 +3162,7 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "api_private_operator_assets_map_math_formatcoordinatepair",
-      "community": 20,
+      "community": 38,
       "norm_label": "formatcoordinatepair()"
     },
     {
@@ -13220,7 +13220,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_morning_brief_api_test",
-      "community": 83,
+      "community": 117,
       "norm_label": "morning-brief-api.test.mjs"
     },
     {
@@ -13230,7 +13230,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "tests_morning_brief_api_test_require",
-      "community": 83,
+      "community": 117,
       "norm_label": "require"
     },
     {
@@ -13240,7 +13240,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "tests_morning_brief_api_test_handler",
-      "community": 83,
+      "community": 117,
       "norm_label": "handler"
     },
     {
@@ -13250,7 +13250,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "tests_morning_brief_api_test_createoperatortoken",
-      "community": 83,
+      "community": 117,
       "norm_label": "{ createoperatortoken }"
     },
     {
@@ -13260,7 +13260,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "tests_morning_brief_api_test_makecontext",
-      "community": 83,
+      "community": 117,
       "norm_label": "makecontext()"
     },
     {
@@ -13270,7 +13270,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "tests_morning_brief_api_test_invoke",
-      "community": 83,
+      "community": 117,
       "norm_label": "invoke()"
     },
     {
@@ -13280,7 +13280,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "tests_morning_brief_api_test_withenvironment",
-      "community": 83,
+      "community": 117,
       "norm_label": "withenvironment()"
     },
     {
@@ -14290,7 +14290,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_tests_paper_engine_test_py",
-      "community": 24,
+      "community": 92,
       "norm_label": "paper_engine_test.py"
     },
     {
@@ -16720,7 +16720,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_auth",
-      "community": 28,
+      "community": 65,
       "norm_label": "auth.mjs"
     },
     {
@@ -16730,7 +16730,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_auth_ingesterror",
-      "community": 13,
+      "community": 65,
       "norm_label": "ingesterror"
     },
     {
@@ -16740,7 +16740,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_auth_ingesterror_constructor",
-      "community": 13,
+      "community": 65,
       "norm_label": ".constructor()"
     },
     {
@@ -16750,7 +16750,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_auth_hashtoken",
-      "community": 28,
+      "community": 65,
       "norm_label": "hashtoken()"
     },
     {
@@ -16760,7 +16760,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_auth_tokendigestmatches",
-      "community": 28,
+      "community": 65,
       "norm_label": "tokendigestmatches()"
     },
     {
@@ -16770,7 +16770,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_auth_forbidden",
-      "community": 16,
+      "community": 65,
       "norm_label": "forbidden()"
     },
     {
@@ -17040,7 +17040,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_deflock_materializer",
-      "community": 8,
+      "community": 145,
       "norm_label": "deflock-materializer.mjs"
     },
     {
@@ -17050,7 +17050,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_deflock_materializer_deflock_h3_resolutions",
-      "community": 8,
+      "community": 145,
       "norm_label": "deflock_h3_resolutions"
     },
     {
@@ -17060,7 +17060,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_deflock_materializer_materializedeflockreports",
-      "community": 8,
+      "community": 145,
       "norm_label": "materializedeflockreports()"
     },
     {
@@ -17070,7 +17070,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_deflock_materializer_closeboundary",
-      "community": 8,
+      "community": 145,
       "norm_label": "closeboundary()"
     },
     {
@@ -17080,7 +17080,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_deflock_materializer_normalizepoint",
-      "community": 8,
+      "community": 145,
       "norm_label": "normalizepoint()"
     },
     {
@@ -17090,7 +17090,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_deflock_materializer_validtimestamp",
-      "community": 8,
+      "community": 145,
       "norm_label": "validtimestamp()"
     },
     {
@@ -17100,7 +17100,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_deflock_source_job",
-      "community": 8,
+      "community": 177,
       "norm_label": "deflock-source-job.mjs"
     },
     {
@@ -17110,7 +17110,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_deflock_source_job_rundeflocksourceprocess",
-      "community": 8,
+      "community": 177,
       "norm_label": "rundeflocksourceprocess()"
     },
     {
@@ -17120,7 +17120,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_deflock_source_job_main",
-      "community": 8,
+      "community": 177,
       "norm_label": "main()"
     },
     {
@@ -18020,7 +18020,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_main",
-      "community": 137,
+      "community": 28,
       "norm_label": "main.mjs"
     },
     {
@@ -18030,7 +18030,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_main_port",
-      "community": 137,
+      "community": 28,
       "norm_label": "port"
     },
     {
@@ -18040,7 +18040,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_main_pool",
-      "community": 137,
+      "community": 28,
       "norm_label": "pool"
     },
     {
@@ -18050,7 +18050,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_main_store",
-      "community": 137,
+      "community": 28,
       "norm_label": "store"
     },
     {
@@ -18060,7 +18060,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_main_server",
-      "community": 137,
+      "community": 28,
       "norm_label": "server"
     },
     {
@@ -18070,7 +18070,7 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_main_shutdown",
-      "community": 137,
+      "community": 28,
       "norm_label": "shutdown()"
     },
     {
@@ -18080,7 +18080,7 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_main_parseport",
-      "community": 137,
+      "community": 28,
       "norm_label": "parseport()"
     },
     {
@@ -18090,7 +18090,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_main_parsepositiveinteger",
-      "community": 137,
+      "community": 28,
       "norm_label": "parsepositiveinteger()"
     },
     {
@@ -18150,7 +18150,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_memory_store_memoryobservationstore_authenticate",
-      "community": 16,
+      "community": 65,
       "norm_label": ".authenticate()"
     },
     {
@@ -18160,7 +18160,7 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_memory_store_memoryobservationstore_authenticatemtls",
-      "community": 16,
+      "community": 65,
       "norm_label": ".authenticatemtls()"
     },
     {
@@ -18180,7 +18180,7 @@
       "source_location": "L141",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_memory_store_memoryobservationstore_putpaperstate",
-      "community": 13,
+      "community": 52,
       "norm_label": ".putpaperstate()"
     },
     {
@@ -18610,7 +18610,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_postgres_store_postgresobservationstore_authenticate",
-      "community": 16,
+      "community": 65,
       "norm_label": ".authenticate()"
     },
     {
@@ -18620,7 +18620,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_postgres_store_postgresobservationstore_authenticatemtls",
-      "community": 16,
+      "community": 65,
       "norm_label": ".authenticatemtls()"
     },
     {
@@ -18630,7 +18630,7 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_postgres_store_postgresobservationstore_applybatch",
-      "community": 16,
+      "community": 52,
       "norm_label": ".applybatch()"
     },
     {
@@ -18920,7 +18920,7 @@
       "source_location": "L971",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_postgres_store_insertobservations",
-      "community": 16,
+      "community": 52,
       "norm_label": "insertobservations()"
     },
     {
@@ -18930,7 +18930,7 @@
       "source_location": "L1037",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_postgres_store_touchcredential",
-      "community": 16,
+      "community": 52,
       "norm_label": "touchcredential()"
     },
     {
@@ -19950,7 +19950,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_sources_gdacs_alerts_gdacs_alerts_adapter",
-      "community": 25,
+      "community": 137,
       "norm_label": "gdacs_alerts_adapter"
     },
     {
@@ -19980,7 +19980,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_sources_nasa_eonet_events_nasa_eonet_events_adapter",
-      "community": 25,
+      "community": 137,
       "norm_label": "nasa_eonet_events_adapter"
     },
     {
@@ -20030,7 +20030,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "vm_cybermap_api_src_sources_usgs_earthquakes_usgs_earthquakes_adapter",
-      "community": 25,
+      "community": 137,
       "norm_label": "usgs_earthquakes_adapter"
     },
     {
@@ -20060,7 +20060,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_deflock_materializer_test",
-      "community": 8,
+      "community": 145,
       "norm_label": "deflock-materializer.test.mjs"
     },
     {
@@ -20070,7 +20070,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_deflock_materializer_test_reports",
-      "community": 8,
+      "community": 145,
       "norm_label": "reports"
     },
     {
@@ -20080,7 +20080,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_deflock_source_job_test",
-      "community": 8,
+      "community": 177,
       "norm_label": "deflock-source-job.test.mjs"
     },
     {
@@ -20090,7 +20090,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_deflock_source_job_test_getdeflocksource",
-      "community": 8,
+      "community": 177,
       "norm_label": "getdeflocksource()"
     },
     {
@@ -20190,7 +20190,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_deflock_worker_test",
-      "community": 8,
+      "community": 157,
       "norm_label": "deflock-worker.test.mjs"
     },
     {
@@ -20200,7 +20200,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_deflock_worker_test_synthetic_deflock_fixture",
-      "community": 8,
+      "community": 157,
       "norm_label": "synthetic_deflock_fixture"
     },
     {
@@ -20210,7 +20210,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_deflock_worker_test_source",
-      "community": 8,
+      "community": 157,
       "norm_label": "source()"
     },
     {
@@ -20220,7 +20220,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_deflock_worker_test_responsefor",
-      "community": 8,
+      "community": 157,
       "norm_label": "responsefor()"
     },
     {
@@ -20230,7 +20230,7 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_deflock_worker_test_recorddeflocksourcefetchrun",
-      "community": 8,
+      "community": 157,
       "norm_label": "recorddeflocksourcefetchrun()"
     },
     {
@@ -20240,7 +20240,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_deflock_worker_test_replacedeflocksourcecells",
-      "community": 8,
+      "community": 157,
       "norm_label": "replacedeflocksourcecells()"
     },
     {
@@ -20800,7 +20800,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_source_adapters_test",
-      "community": 25,
+      "community": 137,
       "norm_label": "greenfeed-source-adapters.test.mjs"
     },
     {
@@ -20810,7 +20810,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_source_adapters_test_fixture_directory",
-      "community": 25,
+      "community": 137,
       "norm_label": "fixture_directory"
     },
     {
@@ -20820,7 +20820,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_source_adapters_test_adapters",
-      "community": 25,
+      "community": 137,
       "norm_label": "adapters"
     },
     {
@@ -20830,7 +20830,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_source_adapters_test_loadfixture",
-      "community": 25,
+      "community": 137,
       "norm_label": "loadfixture()"
     },
     {
@@ -20840,7 +20840,7 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_source_adapters_test_sourcefor",
-      "community": 25,
+      "community": 137,
       "norm_label": "sourcefor()"
     },
     {
@@ -20850,7 +20850,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_source_adapters_test_reverseproviderrecords",
-      "community": 25,
+      "community": 137,
       "norm_label": "reverseproviderrecords()"
     },
     {
@@ -20860,7 +20860,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_worker_test",
-      "community": 8,
+      "community": 95,
       "norm_label": "greenfeed-worker.test.mjs"
     },
     {
@@ -20870,7 +20870,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_worker_test_readfixture",
-      "community": 8,
+      "community": 95,
       "norm_label": "readfixture()"
     },
     {
@@ -20880,7 +20880,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_worker_test_reviewedsource",
-      "community": 8,
+      "community": 95,
       "norm_label": "reviewedsource()"
     },
     {
@@ -20890,7 +20890,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_worker_test_expectedrun",
-      "community": 8,
+      "community": 95,
       "norm_label": "expectedrun()"
     },
     {
@@ -20900,7 +20900,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_worker_test_response",
-      "community": 8,
+      "community": 95,
       "norm_label": "response()"
     },
     {
@@ -20910,7 +20910,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_worker_test_normalizefixturepayload",
-      "community": 8,
+      "community": 95,
       "norm_label": "normalizefixturepayload()"
     },
     {
@@ -20920,7 +20920,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_worker_test_createharness",
-      "community": 8,
+      "community": 95,
       "norm_label": "createharness()"
     },
     {
@@ -20930,7 +20930,7 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_worker_test_run",
-      "community": 8,
+      "community": 95,
       "norm_label": "run()"
     },
     {
@@ -20940,7 +20940,7 @@
       "source_location": "L133",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_worker_test_assertnoseedorenable",
-      "community": 8,
+      "community": 95,
       "norm_label": "assertnoseedorenable()"
     },
     {
@@ -20950,7 +20950,7 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "vm_cybermap_api_test_greenfeed_worker_test_assertnosensitiveoutput",
-      "community": 8,
+      "community": 95,
       "norm_label": "assertnosensitiveoutput()"
     },
     {
@@ -24620,7 +24620,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_architecture_md",
-      "community": 75,
+      "community": 152,
       "norm_label": "architecture.md"
     },
     {
@@ -24630,7 +24630,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_architecture_architecture_decisions",
-      "community": 75,
+      "community": 152,
       "norm_label": "architecture decisions"
     },
     {
@@ -24640,7 +24640,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_architecture_product_architecture",
-      "community": 75,
+      "community": 152,
       "norm_label": "product architecture"
     },
     {
@@ -24650,7 +24650,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_architecture_target_data_flow",
-      "community": 75,
+      "community": 152,
       "norm_label": "target data flow"
     },
     {
@@ -24660,7 +24660,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_architecture_core_decision",
-      "community": 75,
+      "community": 152,
       "norm_label": "core decision"
     },
     {
@@ -24670,7 +24670,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_architecture_non_goals",
-      "community": 75,
+      "community": 152,
       "norm_label": "non-goals"
     },
     {
@@ -25760,7 +25760,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_cybermap_usgs_terms_approval_2026_07_22_md",
-      "community": 145,
+      "community": 75,
       "norm_label": "cybermap-usgs-terms-approval-2026-07-22.md"
     },
     {
@@ -25770,7 +25770,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_cybermap_usgs_terms_approval_2026_07_22_usgs_earthquake_hazards_terms_review_and_controlled_enablement_receipt",
-      "community": 145,
+      "community": 75,
       "norm_label": "usgs earthquake hazards terms review and controlled enablement receipt"
     },
     {
@@ -25780,7 +25780,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_cybermap_usgs_terms_approval_2026_07_22_approved_scope",
-      "community": 145,
+      "community": 75,
       "norm_label": "approved scope"
     },
     {
@@ -25790,7 +25790,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_cybermap_usgs_terms_approval_2026_07_22_provider_review",
-      "community": 145,
+      "community": 75,
       "norm_label": "provider review"
     },
     {
@@ -25800,7 +25800,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_cybermap_usgs_terms_approval_2026_07_22_server_side_configuration",
-      "community": 145,
+      "community": 75,
       "norm_label": "server-side configuration"
     },
     {
@@ -25810,7 +25810,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_cybermap_usgs_terms_approval_2026_07_22_tst_009_controlled_validation",
-      "community": 145,
+      "community": 75,
       "norm_label": "tst-009 controlled validation"
     },
     {
@@ -26400,7 +26400,7 @@
       "source_location": "L241",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_consolidation_proposal_implementation_plan",
-      "community": 157,
+      "community": 55,
       "norm_label": "implementation plan"
     },
     {
@@ -26410,7 +26410,7 @@
       "source_location": "L243",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_consolidation_proposal_p0_manual_procedural_dream_cycle",
-      "community": 157,
+      "community": 55,
       "norm_label": "p0 \u2014 manual/procedural dream cycle"
     },
     {
@@ -26420,7 +26420,7 @@
       "source_location": "L250",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_consolidation_proposal_p1_local_scheduled_cycle",
-      "community": 157,
+      "community": 55,
       "norm_label": "p1 \u2014 local scheduled cycle"
     },
     {
@@ -26430,7 +26430,7 @@
       "source_location": "L258",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_consolidation_proposal_p2_integrated_mosaic_murmurs_memory_loop",
-      "community": 157,
+      "community": 55,
       "norm_label": "p2 \u2014 integrated mosaic/murmurs memory loop"
     },
     {
@@ -26440,7 +26440,7 @@
       "source_location": "L265",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_consolidation_proposal_p3_dream_to_proposal_automation",
-      "community": 157,
+      "community": 55,
       "norm_label": "p3 \u2014 dream-to-proposal automation"
     },
     {
@@ -26560,7 +26560,7 @@
       "source_location": "L136",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_design_cyber_augmentation_proposal_sensor_apparatus_options",
-      "community": 152,
+      "community": 44,
       "norm_label": "sensor apparatus options"
     },
     {
@@ -26570,7 +26570,7 @@
       "source_location": "L138",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_design_cyber_augmentation_proposal_binocular_cameras",
-      "community": 152,
+      "community": 44,
       "norm_label": "binocular cameras"
     },
     {
@@ -26580,7 +26580,7 @@
       "source_location": "L146",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_design_cyber_augmentation_proposal_ultrasonic_time_of_flight_sensors",
-      "community": 152,
+      "community": 44,
       "norm_label": "ultrasonic / time-of-flight sensors"
     },
     {
@@ -26590,7 +26590,7 @@
       "source_location": "L154",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_design_cyber_augmentation_proposal_imu_compass_pose",
-      "community": 152,
+      "community": 44,
       "norm_label": "imu / compass / pose"
     },
     {
@@ -26600,7 +26600,7 @@
       "source_location": "L161",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_dream_design_cyber_augmentation_proposal_directional_antennas",
-      "community": 152,
+      "community": 44,
       "norm_label": "directional antennas"
     },
     {
@@ -27580,7 +27580,7 @@
       "source_location": "L158",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_vm_api_contract_extensions",
-      "community": 158,
+      "community": 62,
       "norm_label": "vm api contract extensions"
     },
     {
@@ -27590,7 +27590,7 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_loop_runs",
-      "community": 158,
+      "community": 62,
       "norm_label": "loop runs"
     },
     {
@@ -27600,7 +27600,7 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_narrative",
-      "community": 158,
+      "community": 62,
       "norm_label": "narrative"
     },
     {
@@ -27610,7 +27610,7 @@
       "source_location": "L179",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_paper_loop",
-      "community": 158,
+      "community": 62,
       "norm_label": "paper loop"
     },
     {
@@ -27620,7 +27620,7 @@
       "source_location": "L188",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_paper_memory_loop_memory_sync",
-      "community": 158,
+      "community": 62,
       "norm_label": "memory sync"
     },
     {
@@ -27900,7 +27900,7 @@
       "source_location": "L215",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_s0_sensorium_proposal_implementation_plan",
-      "community": 50,
+      "community": 158,
       "norm_label": "implementation plan"
     },
     {
@@ -27910,7 +27910,7 @@
       "source_location": "L217",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_s0_sensorium_proposal_p0_doctrine_and_schema",
-      "community": 50,
+      "community": 158,
       "norm_label": "p0 \u2014 doctrine and schema"
     },
     {
@@ -27920,7 +27920,7 @@
       "source_location": "L224",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_s0_sensorium_proposal_p1_greenfeed_catalog",
-      "community": 50,
+      "community": 158,
       "norm_label": "p1 \u2014 greenfeed catalog"
     },
     {
@@ -27930,7 +27930,7 @@
       "source_location": "L230",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_s0_sensorium_proposal_p2_raid_session_bridge",
-      "community": 50,
+      "community": 158,
       "norm_label": "p2 \u2014 raid session bridge"
     },
     {
@@ -27940,7 +27940,7 @@
       "source_location": "L236",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_mosaic_and_murmurs_s0_sensorium_proposal_p3_prediction_integration",
-      "community": 50,
+      "community": 158,
       "norm_label": "p3 \u2014 prediction integration"
     },
     {
@@ -29210,7 +29210,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_md",
-      "community": 95,
+      "community": 75,
       "norm_label": "vm-api.md"
     },
     {
@@ -29300,7 +29300,7 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_api_endpoints",
-      "community": 214,
+      "community": 4,
       "norm_label": "api endpoints"
     },
     {
@@ -29310,7 +29310,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_primary_endpoint_echo",
-      "community": 214,
+      "community": 4,
       "norm_label": "primary endpoint: `/echo`"
     },
     {
@@ -29320,7 +29320,7 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_example_requests",
-      "community": 214,
+      "community": 4,
       "norm_label": "example requests"
     },
     {
@@ -29330,7 +29330,7 @@
       "source_location": "L150",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_implementation_details",
-      "community": 185,
+      "community": 4,
       "norm_label": "implementation details"
     },
     {
@@ -29340,7 +29340,7 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_echo_server_py",
-      "community": 185,
+      "community": 4,
       "norm_label": "echo_server.py"
     },
     {
@@ -29350,7 +29350,7 @@
       "source_location": "L189",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_systemd_service_configuration",
-      "community": 185,
+      "community": 4,
       "norm_label": "systemd service configuration"
     },
     {
@@ -29360,7 +29360,7 @@
       "source_location": "L207",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_cloud_init_provisioning",
-      "community": 185,
+      "community": 4,
       "norm_label": "cloud-init provisioning"
     },
     {
@@ -29390,7 +29390,7 @@
       "source_location": "L274",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_security_considerations",
-      "community": 183,
+      "community": 4,
       "norm_label": "security considerations"
     },
     {
@@ -29400,7 +29400,7 @@
       "source_location": "L276",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_network_security",
-      "community": 183,
+      "community": 4,
       "norm_label": "network security"
     },
     {
@@ -29410,7 +29410,7 @@
       "source_location": "L281",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_service_security",
-      "community": 183,
+      "community": 4,
       "norm_label": "service security"
     },
     {
@@ -29420,7 +29420,7 @@
       "source_location": "L287",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_authentication_authorization",
-      "community": 183,
+      "community": 4,
       "norm_label": "authentication & authorization"
     },
     {
@@ -29470,7 +29470,7 @@
       "source_location": "L310",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_deployment_configuration",
-      "community": 190,
+      "community": 4,
       "norm_label": "deployment & configuration"
     },
     {
@@ -29480,7 +29480,7 @@
       "source_location": "L312",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_provisioning_process",
-      "community": 190,
+      "community": 4,
       "norm_label": "provisioning process"
     },
     {
@@ -29490,7 +29490,7 @@
       "source_location": "L318",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_configuration_points",
-      "community": 190,
+      "community": 4,
       "norm_label": "configuration points"
     },
     {
@@ -29500,7 +29500,7 @@
       "source_location": "L325",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_scaling_considerations",
-      "community": 190,
+      "community": 4,
       "norm_label": "scaling considerations"
     },
     {
@@ -29510,7 +29510,7 @@
       "source_location": "L331",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_current_limitations",
-      "community": 192,
+      "community": 4,
       "norm_label": "current limitations"
     },
     {
@@ -29520,7 +29520,7 @@
       "source_location": "L333",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_functional_limitations",
-      "community": 192,
+      "community": 4,
       "norm_label": "functional limitations"
     },
     {
@@ -29530,7 +29530,7 @@
       "source_location": "L340",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_operational_limitations",
-      "community": 192,
+      "community": 4,
       "norm_label": "operational limitations"
     },
     {
@@ -29540,7 +29540,7 @@
       "source_location": "L346",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_security_limitations",
-      "community": 192,
+      "community": 4,
       "norm_label": "security limitations"
     },
     {
@@ -29550,7 +29550,7 @@
       "source_location": "L352",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_enhancement_opportunities",
-      "community": 159,
+      "community": 4,
       "norm_label": "enhancement opportunities"
     },
     {
@@ -29560,7 +29560,7 @@
       "source_location": "L354",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_functional_enhancements",
-      "community": 159,
+      "community": 4,
       "norm_label": "functional enhancements"
     },
     {
@@ -29570,7 +29570,7 @@
       "source_location": "L361",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_operational_enhancements",
-      "community": 159,
+      "community": 4,
       "norm_label": "operational enhancements"
     },
     {
@@ -29580,7 +29580,7 @@
       "source_location": "L368",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_security_enhancements",
-      "community": 159,
+      "community": 4,
       "norm_label": "security enhancements"
     },
     {
@@ -29590,7 +29590,7 @@
       "source_location": "L375",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_api_deployment_enhancements",
-      "community": 159,
+      "community": 4,
       "norm_label": "deployment enhancements"
     },
     {
@@ -29640,7 +29640,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_echo_wiring_md",
-      "community": 95,
+      "community": 75,
       "norm_label": "vm-echo-wiring.md"
     },
     {
@@ -29650,7 +29650,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_echo_wiring_historical_vm_echo_wiring_retired",
-      "community": 95,
+      "community": 75,
       "norm_label": "historical vm echo wiring (retired)"
     },
     {
@@ -29660,7 +29660,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_docs_vm_echo_wiring_former_topology",
-      "community": 95,
+      "community": 75,
       "norm_label": "former topology"
     },
     {
@@ -33739,8 +33739,8 @@
       "source_file": "specs/009-wardriver-maplibre-basemap/plan.md",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_specs_009_wardriver_maplibre_basemap_plan_md",
-      "community": 177,
+      "id": "specs_009_wardriver_maplibre_basemap_plan",
+      "community": 159,
       "norm_label": "plan.md"
     },
     {
@@ -33749,8 +33749,8 @@
       "source_file": "specs/009-wardriver-maplibre-basemap/plan.md",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_specs_009_wardriver_maplibre_basemap_plan_plan_wardriver_maplibre_basemap",
-      "community": 177,
+      "id": "specs_009_wardriver_maplibre_basemap_plan_plan_wardriver_maplibre_basemap",
+      "community": 159,
       "norm_label": "plan: wardriver maplibre basemap"
     },
     {
@@ -33759,8 +33759,8 @@
       "source_file": "specs/009-wardriver-maplibre-basemap/plan.md",
       "source_location": "L3",
       "_origin": "ast",
-      "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_specs_009_wardriver_maplibre_basemap_plan_implementation_approach",
-      "community": 177,
+      "id": "specs_009_wardriver_maplibre_basemap_plan_implementation_approach",
+      "community": 159,
       "norm_label": "implementation approach"
     },
     {
@@ -33769,8 +33769,8 @@
       "source_file": "specs/009-wardriver-maplibre-basemap/plan.md",
       "source_location": "L11",
       "_origin": "ast",
-      "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_specs_009_wardriver_maplibre_basemap_plan_storage_and_cache_contract",
-      "community": 177,
+      "id": "specs_009_wardriver_maplibre_basemap_plan_storage_and_cache_contract",
+      "community": 159,
       "norm_label": "storage and cache contract"
     },
     {
@@ -33779,8 +33779,8 @@
       "source_file": "specs/009-wardriver-maplibre-basemap/plan.md",
       "source_location": "L25",
       "_origin": "ast",
-      "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_specs_009_wardriver_maplibre_basemap_plan_rollout_sequence",
-      "community": 177,
+      "id": "specs_009_wardriver_maplibre_basemap_plan_rollout_sequence",
+      "community": 159,
       "norm_label": "rollout sequence"
     },
     {
@@ -34070,7 +34070,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_vm_cybermap_api_readme_md",
-      "community": 95,
+      "community": 84,
       "norm_label": "readme.md"
     },
     {
@@ -34160,7 +34160,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_vm_cybermap_api_db_readme_md",
-      "community": 95,
+      "community": 84,
       "norm_label": "readme.md"
     },
     {
@@ -34170,7 +34170,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_vm_cybermap_api_db_readme_cybermap_database_migrations",
-      "community": 95,
+      "community": 84,
       "norm_label": "cybermap database migrations"
     },
     {
@@ -34180,7 +34180,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_vm_cybermap_api_db_readme_apply_locally",
-      "community": 95,
+      "community": 84,
       "norm_label": "apply locally"
     },
     {
@@ -34190,7 +34190,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_vm_cybermap_api_db_readme_migration_contract",
-      "community": 95,
+      "community": 84,
       "norm_label": "migration contract"
     }
   ],
@@ -92706,8 +92706,8 @@
       "source_file": "specs/009-wardriver-maplibre-basemap/plan.md",
       "source_location": "L1",
       "weight": 1.0,
-      "source": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_specs_009_wardriver_maplibre_basemap_plan_md",
-      "target": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_specs_009_wardriver_maplibre_basemap_plan_plan_wardriver_maplibre_basemap",
+      "source": "specs_009_wardriver_maplibre_basemap_plan",
+      "target": "specs_009_wardriver_maplibre_basemap_plan_plan_wardriver_maplibre_basemap",
       "confidence_score": 1.0
     },
     {
@@ -92716,8 +92716,8 @@
       "source_file": "specs/009-wardriver-maplibre-basemap/plan.md",
       "source_location": "L3",
       "weight": 1.0,
-      "source": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_specs_009_wardriver_maplibre_basemap_plan_plan_wardriver_maplibre_basemap",
-      "target": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_specs_009_wardriver_maplibre_basemap_plan_implementation_approach",
+      "source": "specs_009_wardriver_maplibre_basemap_plan_plan_wardriver_maplibre_basemap",
+      "target": "specs_009_wardriver_maplibre_basemap_plan_implementation_approach",
       "confidence_score": 1.0
     },
     {
@@ -92726,8 +92726,8 @@
       "source_file": "specs/009-wardriver-maplibre-basemap/plan.md",
       "source_location": "L25",
       "weight": 1.0,
-      "source": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_specs_009_wardriver_maplibre_basemap_plan_plan_wardriver_maplibre_basemap",
-      "target": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_specs_009_wardriver_maplibre_basemap_plan_rollout_sequence",
+      "source": "specs_009_wardriver_maplibre_basemap_plan_plan_wardriver_maplibre_basemap",
+      "target": "specs_009_wardriver_maplibre_basemap_plan_rollout_sequence",
       "confidence_score": 1.0
     },
     {
@@ -92736,8 +92736,8 @@
       "source_file": "specs/009-wardriver-maplibre-basemap/plan.md",
       "source_location": "L11",
       "weight": 1.0,
-      "source": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_specs_009_wardriver_maplibre_basemap_plan_plan_wardriver_maplibre_basemap",
-      "target": "home_ph3_repos_worktrees_blue_swallow_society_release_deflock_field_dossier_operator_specs_009_wardriver_maplibre_basemap_plan_storage_and_cache_contract",
+      "source": "specs_009_wardriver_maplibre_basemap_plan_plan_wardriver_maplibre_basemap",
+      "target": "specs_009_wardriver_maplibre_basemap_plan_storage_and_cache_contract",
       "confidence_score": 1.0
     },
     {
@@ -93072,5 +93072,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "7fca7d85203aae6f7edb5b73ecaaf11505fc29a4"
+  "built_at_commit": "58bb0eca7ef6bc0578eeb08315d8b0f63e7fa30a"
 }
