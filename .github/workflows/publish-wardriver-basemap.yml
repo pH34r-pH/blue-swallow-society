@@ -1,0 +1,233 @@
+name: Publish BSS Wardriver basemap
+
+on:
+  workflow_dispatch:
+    inputs:
+      coverage:
+        description: Initial approved field coverage. The workflow has no arbitrary remote-URL input.
+        required: true
+        default: washington
+        type: choice
+        options:
+          - washington
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: wardriver-basemap-publication
+  cancel-in-progress: false
+
+env:
+  RESOURCE_GROUP: rg-blue-swallow
+  PLANETILER_VERSION: v0.10.2
+  # The published endpoint is https://<account>.blob.core.windows.net/wardriver-basemap/v1/style.json.
+  STYLE_BLOB_PATH: v1/style.json
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: wardriver-basemap-publication
+    steps:
+      - uses: actions/checkout@v4
+
+      # Planetiler v0.10.2 bytecode requires Java 21; pin it rather than using runner defaults.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve the deployed public basemap contract
+        id: basemap
+        run: |
+          set -euo pipefail
+          outputs=$(az deployment group show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name main \
+            --query properties.outputs \
+            -o json)
+          account=$(jq -r '.wardriverReleaseStorageAccountName.value' <<<"$outputs")
+          container=$(jq -r '.wardriverBasemapContainerName.value' <<<"$outputs")
+          style_url=$(jq -r '.wardriverBasemapStyleUrl.value' <<<"$outputs")
+          expected_style_url="https://${account}.blob.core.windows.net/${container}/${STYLE_BLOB_PATH}"
+          if ! [[ "$account" =~ ^[a-z0-9]{3,24}$ ]] || [ "$container" != 'wardriver-basemap' ] || [ "$style_url" != "$expected_style_url" ]; then
+            echo '::error::Deployed Wardriver basemap outputs are absent or violate the public-style contract.'
+            exit 1
+          fi
+          echo 'This workflow requires Storage Blob Data Contributor on the Wardriver storage account only.'
+          echo "account=$account" >> "$GITHUB_OUTPUT"
+          echo "container=$container" >> "$GITHUB_OUTPUT"
+          echo "style_url=$style_url" >> "$GITHUB_OUTPUT"
+
+      - name: Verify OIDC Blob data-plane access
+        env:
+          ACCOUNT: ${{ steps.basemap.outputs.account }}
+          CONTAINER: ${{ steps.basemap.outputs.container }}
+        run: |
+          set -euo pipefail
+          # Control-plane Contributor is insufficient for --auth-mode login uploads.
+          # The publication environment's OIDC principal must hold Storage Blob Data Contributor
+          # on this storage account; fail before downloading or rendering a large tile generation.
+          az storage container show --auth-mode login \
+            --account-name "$ACCOUNT" \
+            --name "$CONTAINER" \
+            --only-show-errors -o none
+
+      - name: Fetch and verify bounded OpenStreetMap input and Planetiler
+        id: inputs
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/wardriver-basemap"
+          mkdir -p "$work"
+          cd "$work"
+          source_url='https://download.geofabrik.de/north-america/us/washington-latest.osm.pbf'
+          curl --fail --location --retry 3 --retry-all-errors --output washington-latest.osm.pbf "$source_url"
+          curl --fail --location --retry 3 --retry-all-errors --output washington-latest.osm.pbf.sha256 "$source_url.sha256"
+          sha256sum --check washington-latest.osm.pbf.sha256
+          curl --fail --location --retry 3 --retry-all-errors --output planetiler.jar \
+            "https://github.com/onthegomap/planetiler/releases/download/${PLANETILER_VERSION}/planetiler.jar"
+          curl --fail --location --retry 3 --retry-all-errors --output planetiler.jar.sha256 \
+            "https://github.com/onthegomap/planetiler/releases/download/${PLANETILER_VERSION}/planetiler.jar.sha256"
+          sha256sum --check planetiler.jar.sha256
+          echo "source_url=$source_url" >> "$GITHUB_OUTPUT"
+          echo "source_sha256=$(sha256sum washington-latest.osm.pbf | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          echo "planetiler_sha256=$(sha256sum planetiler.jar | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          echo "work=$work" >> "$GITHUB_OUTPUT"
+
+      - name: Generate and validate BSS vector tiles
+        id: tiles
+        env:
+          WORK: ${{ steps.inputs.outputs.work }}
+        run: |
+          set -euo pipefail
+          "$JAVA_HOME/bin/java" -Xmx6g -jar "$WORK/planetiler.jar" \
+            --osm-path="$WORK/washington-latest.osm.pbf" \
+            --output="$WORK/washington.mbtiles"
+          python3 scripts/extract-mbtiles-tiles.py \
+            "$WORK/washington.mbtiles" \
+            "$WORK/tiles" \
+            --receipt "$WORK/tiles-receipt.json"
+          echo "tile_count=$(jq -r .tileCount "$WORK/tiles-receipt.json")" >> "$GITHUB_OUTPUT"
+          echo "sample_tile=$(jq -c .sampleTile "$WORK/tiles-receipt.json")" >> "$GITHUB_OUTPUT"
+
+      - name: Render style and provenance
+        id: render
+        env:
+          WORK: ${{ steps.inputs.outputs.work }}
+          ACCOUNT: ${{ steps.basemap.outputs.account }}
+          CONTAINER: ${{ steps.basemap.outputs.container }}
+          SOURCE_URL: ${{ steps.inputs.outputs.source_url }}
+          SOURCE_SHA256: ${{ steps.inputs.outputs.source_sha256 }}
+          PLANETILER_SHA256: ${{ steps.inputs.outputs.planetiler_sha256 }}
+          TILE_COUNT: ${{ steps.tiles.outputs.tile_count }}
+        run: |
+          set -euo pipefail
+          generation="v1/generations/${SOURCE_SHA256:0:16}-${PLANETILER_SHA256:0:16}-${GITHUB_SHA:0:12}"
+          public_root="https://${ACCOUNT}.blob.core.windows.net/${CONTAINER}"
+          tile_base_url="${public_root}/${generation}/tiles"
+          python3 scripts/render-wardriver-basemap-style.py \
+            --template basemap/style.template.json \
+            --tile-base-url "$tile_base_url" \
+            --output "$WORK/style.json"
+          style_sha256=$(sha256sum "$WORK/style.json" | awk '{print $1}')
+          export generation public_root tile_base_url style_sha256
+          node <<'NODE'
+          const fs = require('node:fs');
+          const receipt = JSON.parse(fs.readFileSync(`${process.env.WORK}/tiles-receipt.json`, 'utf8'));
+          const provenance = {
+            schemaVersion: 1,
+            coverage: 'washington',
+            source: {
+              name: 'Geofabrik Washington OpenStreetMap extract',
+              url: process.env.SOURCE_URL,
+              sha256: process.env.SOURCE_SHA256,
+              license: 'ODbL-1.0',
+              attribution: '© OpenStreetMap contributors',
+            },
+            generator: {
+              name: 'Planetiler',
+              version: process.env.PLANETILER_VERSION,
+              sha256: process.env.PLANETILER_SHA256,
+            },
+            tileGeneration: process.env.generation,
+            tileBaseUrl: process.env.tile_base_url,
+            tileCount: Number(process.env.TILE_COUNT),
+            tileReceipt: receipt,
+            styleSha256: process.env.style_sha256,
+            sourceCommit: process.env.GITHUB_SHA,
+            buildRunId: `${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`,
+            generatedAt: new Date().toISOString(),
+          };
+          fs.writeFileSync(`${process.env.WORK}/basemap-provenance.json`, `${JSON.stringify(provenance, null, 2)}\n`, { mode: 0o600 });
+          NODE
+          echo "generation=$generation" >> "$GITHUB_OUTPUT"
+          echo "tile_base_url=$tile_base_url" >> "$GITHUB_OUTPUT"
+          echo "style_sha256=$style_sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Publish immutable generation and current style pointer
+        env:
+          ACCOUNT: ${{ steps.basemap.outputs.account }}
+          CONTAINER: ${{ steps.basemap.outputs.container }}
+          WORK: ${{ steps.inputs.outputs.work }}
+          GENERATION: ${{ steps.render.outputs.generation }}
+        run: |
+          set -euo pipefail
+          az storage blob upload-batch --auth-mode login \
+            --account-name "$ACCOUNT" \
+            --destination "$CONTAINER" \
+            --destination-path "$GENERATION/tiles" \
+            --source "$WORK/tiles" \
+            --pattern '*.pbf' \
+            --overwrite false \
+            --content-type application/vnd.mapbox-vector-tile \
+            --content-encoding gzip \
+            --content-cache-control 'public, max-age=31536000, immutable' \
+            --only-show-errors -o none
+          az storage blob upload --auth-mode login \
+            --account-name "$ACCOUNT" \
+            --container-name "$CONTAINER" \
+            --name "$GENERATION/basemap-provenance.json" \
+            --file "$WORK/basemap-provenance.json" \
+            --if-none-match '*' \
+            --content-type application/json \
+            --content-cache-control 'public, max-age=31536000, immutable' \
+            --only-show-errors -o none
+          az storage blob upload --auth-mode login \
+            --account-name "$ACCOUNT" \
+            --container-name "$CONTAINER" \
+            --name "$STYLE_BLOB_PATH" \
+            --file "$WORK/style.json" \
+            --overwrite true \
+            --content-type application/json \
+            --content-cache-control 'no-store' \
+            --only-show-errors -o none
+          az storage blob upload --auth-mode login \
+            --account-name "$ACCOUNT" \
+            --container-name "$CONTAINER" \
+            --name v1/basemap-provenance.json \
+            --file "$WORK/basemap-provenance.json" \
+            --overwrite true \
+            --content-type application/json \
+            --content-cache-control 'no-store' \
+            --only-show-errors -o none
+
+      - name: Verify public named-object delivery without a Blob listing
+        env:
+          STYLE_URL: ${{ steps.basemap.outputs.style_url }}
+          TILE_BASE_URL: ${{ steps.render.outputs.tile_base_url }}
+          SAMPLE_TILE: ${{ steps.tiles.outputs.sample_tile }}
+        run: |
+          set -euo pipefail
+          z=$(jq -r .z <<<"$SAMPLE_TILE")
+          x=$(jq -r .x <<<"$SAMPLE_TILE")
+          y=$(jq -r .y <<<"$SAMPLE_TILE")
+          curl --fail --show-error --location --retry 3 "$STYLE_URL" -o /dev/null
+          curl --fail --show-error --location --retry 3 "$TILE_BASE_URL/$z/$x/$y.pbf" -o /dev/null

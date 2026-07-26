@@ -1,0 +1,29 @@
+# Plan: Wardriver MapLibre Basemap
+
+## Implementation approach
+
+1. Extend the existing dedicated Wardriver Blob account with a second container, `wardriver-basemap`. Keep the release container private; allow only named Blob reads for basemap content.
+2. Produce a MapLibre v8 style from `basemap/style.template.json`. The checked-in template has no remote tile origin. Publication renders a generation-specific BSS Blob tile base into the style.
+3. On protected manual dispatch, prove the OIDC principal can read the scoped basemap container before any expensive work; then download the bounded Washington Geofabrik PBF and its checksum, download Planetiler `v0.10.2` and its checksum, render vector MBTiles on Java 21, extract gzip XYZ PBF objects, and publish provenance plus immutable tiles.
+4. Compile signed Wardriver `bss.15+` with `WIGLE_BSS_FORCE_MAPLIBRE=true` and the BSS Blob style endpoint. Ignore old renderer/style preferences on all MapLibre surfaces.
+5. Deploy the BSS infrastructure and publish the first source generation before creating a device candidate. Do not publish an APK or mutable release manifest before physical acceptance.
+
+## Storage and cache contract
+
+| Object | Access | Mutability | Cache |
+|---|---|---|---|
+| `wardriver-releases/*` | authenticated/SAS | immutable release objects | existing release policy |
+| `wardriver-basemap/v1/generations/<id>/tiles/*` | public named Blob | immutable | `public, max-age=31536000, immutable` |
+| `wardriver-basemap/v1/generations/<id>/basemap-provenance.json` | public named Blob | immutable | `public, max-age=31536000, immutable` |
+| `wardriver-basemap/v1/style.json` | public named Blob | versioned current pointer | `no-store` |
+| `wardriver-basemap/v1/basemap-provenance.json` | public named Blob | versioned current pointer | `no-store` |
+
+No Function handles a tile request. This prevents application-level location logging and a hot tile proxy. Azure platform access behavior remains subject to the deployed platform account policy.
+
+## Rollout sequence
+
+1. Merge infrastructure/style/publisher source after review.
+2. Deploy BSS infrastructure. Verify `style.json` is absent until a signed publication intentionally creates it.
+3. Run one protected Washington basemap publication. Verify public style and sample tile headers, provenance, attribution, and no anonymous release-object access.
+4. Merge the Android policy. Build a signed `bss.15+` candidate after the BSS style exists.
+5. Perform physical Android acceptance. Only then create the immutable tag, SHA-256 receipt, and current-release promotion.
