@@ -7,8 +7,8 @@ param location string
 @description('Private Blob container containing immutable Wardriver APKs and manifests.')
 param containerName string = 'wardriver-releases'
 
-@description('Public Blob container containing only the BSS-hosted Wardriver basemap style and vector tiles.')
-param basemapContainerName string = 'wardriver-basemap'
+@description('The system $web container. It exposes only static website paths; ordinary Blob containers remain private.')
+param basemapContainerName string = '$web'
 
 var storageAccountName = toLower('bsswd${uniqueString(subscription().id, resourceGroup().id, prefix)}')
 
@@ -21,9 +21,9 @@ resource releaseStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
   properties: {
     accessTier: 'Hot'
-    // The release container stays private. This account also has one blob-read-only basemap
-    // container so MapLibre can request public style and tile bytes without a client secret.
-    allowBlobPublicAccess: true
+    // Azure Policy forbids ordinary anonymous Blob access. $web remains the one public,
+    // read-only static-website surface; every normal Blob container stays private.
+    allowBlobPublicAccess: false
     allowCrossTenantReplication: false
     allowSharedKeyAccess: true
     defaultToOAuthAuthentication: true
@@ -77,6 +77,17 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01'
   }
 }
 
+// Microsoft documents $web as anonymously readable even when ordinary Blob anonymous
+// access is disabled. It is the only public delivery surface in this account.
+resource basemapStaticWebsite 'Microsoft.Storage/storageAccounts/staticWebsite@2023-05-01' = {
+  parent: releaseStorage
+  name: 'default'
+  properties: {
+    indexDocument: 'index.html'
+    error404Document: '404.html'
+  }
+}
+
 resource releaseContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
   parent: blobService
   name: containerName
@@ -85,16 +96,9 @@ resource releaseContainer 'Microsoft.Storage/storageAccounts/blobServices/contai
   }
 }
 
-// `Blob` permits anonymous reads of named style/tile objects but not container listing.
-resource wardriverBasemapContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
-  parent: blobService
-  name: basemapContainerName
-  properties: {
-    publicAccess: 'Blob'
-  }
-}
+// `$web` is created by the staticWebsite setting. Do not declare it with Blob public access.
 
 output storageAccountName string = releaseStorage.name
 output releaseContainerName string = releaseContainer.name
-output basemapContainerName string = wardriverBasemapContainer.name
-output wardriverBasemapStyleUrl string = 'https://${releaseStorage.name}.blob.${environment().suffixes.storage}/${wardriverBasemapContainer.name}/v1/style.json'
+output basemapContainerName string = basemapContainerName
+output wardriverBasemapStyleUrl string = '${releaseStorage.properties.primaryEndpoints.web}wardriver-basemap/v1/style.json'

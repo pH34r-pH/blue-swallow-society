@@ -12,15 +12,18 @@ function parseJson(path) {
   return JSON.parse(read(path));
 }
 
-test('Bicep separates public BSS basemap blobs from the private immutable release container', () => {
+test('Bicep keeps release blobs private and serves basemap objects only from the storage static-website endpoint', () => {
   assert.equal(existsSync(storageModule), true);
   const storage = read('infra/modules/wardriver-release-storage.bicep');
   const main = read('infra/main.bicep');
 
-  assert.match(storage, /allowBlobPublicAccess:\s*true/);
+  assert.match(storage, /allowBlobPublicAccess:\s*false/);
+  assert.match(storage, /resource basemapStaticWebsite 'Microsoft\.Storage\/storageAccounts\/staticWebsite@2023-05-01'/);
+  assert.match(storage, /indexDocument: 'index\.html'/);
   assert.match(storage, /resource releaseContainer[\s\S]*?publicAccess:\s*'None'/);
-  assert.match(storage, /resource wardriverBasemapContainer[\s\S]*?publicAccess:\s*'Blob'/);
-  assert.match(storage, /corsRules/);
+  assert.doesNotMatch(storage, /publicAccess:\s*'Blob'/);
+  assert.match(storage, /basemapContainerName string = '\$web'/);
+  assert.match(storage, /primaryEndpoints\.web/);
   assert.match(storage, /wardriverBasemapStyleUrl/);
   assert.match(main, /wardriverBasemapStyleUrl/);
 });
@@ -56,11 +59,14 @@ test('manual basemap publication verifies its source and toolchain, emits proven
   assert.match(workflow, /Storage Blob Data Contributor/);
   assert.match(workflow, /Verify OIDC Blob data-plane access/);
   assert.match(workflow, /az storage container show --auth-mode login/);
+  assert.ok(workflow.includes('web\\.core\\.windows\\.net'));
+  assert.match(workflow, /PUBLIC_PREFIX: wardriver-basemap/);
+  assert.match(workflow, /container" != '\$web'/);
   assert.ok(
     workflow.indexOf('Verify OIDC Blob data-plane access') < workflow.indexOf('Fetch and verify bounded OpenStreetMap input'),
     'data-plane RBAC must fail before the expensive map build',
   );
-  assert.match(workflow, /wardriver-basemap\/v1\/style\.json/);
+  assert.match(workflow, /STYLE_OBJECT_PATH: v1\/style\.json/);
   assert.match(workflow, /basemap-provenance\.json/);
   assert.match(workflow, /content-cache-control 'public, max-age=31536000, immutable'/);
   assert.doesNotMatch(workflow, /--account-key/);
