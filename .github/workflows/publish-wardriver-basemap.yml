@@ -57,23 +57,25 @@ jobs:
             -o json)
           account=$(jq -r '.wardriverReleaseStorageAccountName.value' <<<"$outputs")
           container=$(jq -r '.wardriverBasemapContainerName.value' <<<"$outputs")
-          if ! [[ "$account" =~ ^[a-z0-9]{3,24}$ ]] || [ "$container" != '$web' ]; then
-            echo '::error::Deployed Wardriver basemap storage outputs are absent or violate the private-Blob contract.'
+          release_container=$(jq -r '.wardriverReleaseContainerName.value' <<<"$outputs")
+          if ! [[ "$account" =~ ^[a-z0-9]{3,24}$ ]] || [ "$container" != '$web' ] || [ "$release_container" != 'wardriver-releases' ]; then
+            echo '::error::Deployed Wardriver storage outputs are absent or violate the private-Blob contract.'
             exit 1
           fi
           echo 'This workflow requires Storage Blob Data Contributor on the Wardriver storage account only.'
           echo "account=$account" >> "$GITHUB_OUTPUT"
           echo "container=$container" >> "$GITHUB_OUTPUT"
+          echo "release_container=$release_container" >> "$GITHUB_OUTPUT"
 
       - name: Verify OIDC Blob data-plane access
         env:
           ACCOUNT: ${{ steps.basemap.outputs.account }}
-          CONTAINER: ${{ steps.basemap.outputs.container }}
+          CONTAINER: ${{ steps.basemap.outputs.release_container }}
         run: |
           set -euo pipefail
-          # Control-plane Contributor is insufficient for --auth-mode login uploads.
-          # The publication environment's OIDC principal must hold Storage Blob Data Contributor
-          # on this storage account; fail before downloading or rendering a large tile generation.
+          # $web does not exist until static-website enablement. Use the existing private
+          # release container to prove the scoped OIDC principal has Blob data-plane access
+          # before creating the public path or downloading/rendering a large tile generation.
           az storage container show --auth-mode login \
             --account-name "$ACCOUNT" \
             --name "$CONTAINER" \
