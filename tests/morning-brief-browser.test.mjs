@@ -41,6 +41,7 @@ const brief = {
 };
 
 test('Obscura renders the Morning dossier inside the protected operator console and returns to landing', async () => {
+  const authenticatedAssetFetches = new Set();
   const server = createServer((request, response) => {
     const url = new URL(request.url || '/', 'http://127.0.0.1');
     if (url.pathname === '/api/operator-shell') {
@@ -50,14 +51,18 @@ test('Obscura renders the Morning dossier inside the protected operator console 
       }
       response.writeHead(200, {
         'Content-Type': 'text/html; charset=utf-8',
-        'Set-Cookie': 'bss_operator_asset_grant=fixture; Path=/api/operator-assets; HttpOnly; SameSite=Strict',
+        'Set-Cookie': 'bss_operator_session=fixture; Path=/; HttpOnly; SameSite=Strict',
       });
       response.end(operatorShell);
       return;
     }
     if (url.pathname.startsWith('/api/operator-assets/')) {
       const assetName = url.pathname.slice('/api/operator-assets/'.length);
-      const assetPath = normalize(join(privateAssetRoot, assetName));
+      if (request.headers['x-blue-swallow-operator-token'] === 'browser-token') {
+        authenticatedAssetFetches.add(assetName);
+      }
+      const sourceName = assetName === 'operator-mark.svg' ? 'nacre-moire-mark.svg' : assetName;
+      const assetPath = normalize(join(privateAssetRoot, sourceName));
       if (!assetPath.startsWith(privateAssetRoot) || !assetName) {
         response.writeHead(403).end('forbidden');
         return;
@@ -102,6 +107,16 @@ test('Obscura renders the Morning dossier inside the protected operator console 
       return;
     }
 
+    if (url.pathname === '/operator/loader.js') {
+      const loader = readFileSync(join(appRoot, 'operator/loader.js'), 'utf8').replace(
+        /function createPrivateObjectUrl\(assetName, source, type\) \{\n  const url = URL\.createObjectURL\(new Blob\(\[source\], \{ type \}\)\);\n  activeObjectUrls\.push\(url\);\n  return url;\n\}/u,
+        'function createPrivateObjectUrl(assetName, source, type) { return `/api/operator-assets/${assetName}`; }',
+      );
+      response.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
+      response.end(loader);
+      return;
+    }
+
     const pathname = ['/operator', '/operator/morning-brief.html'].includes(url.pathname)
       ? '/operator/index.html'
       : (url.pathname === '/' ? '/index.html' : url.pathname);
@@ -130,7 +145,7 @@ test('Obscura renders the Morning dossier inside the protected operator console 
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
   try {
-    const { stdout } = await execFileAsync('obscura', [
+    const { stdout, stderr } = await execFileAsync('obscura', [
       'fetch',
       `http://127.0.0.1:${port}/operator/morning-brief.html`,
       '--allow-private-network',
@@ -139,7 +154,8 @@ test('Obscura renders the Morning dossier inside the protected operator console 
       '--dump', 'text',
     ], { encoding: 'utf8', timeout: 45000, maxBuffer: 1024 * 1024 });
 
-    const rendered = parseObscuraJson(stdout);
+    const rendered = parseObscuraJson(`${stdout}\n${stderr}`);
+    assert.ok(['main.js', 'styles.css', 'maplibre-gl.mjs'].every((asset) => authenticatedAssetFetches.has(asset)));
     assert.equal(rendered.evalError, undefined, JSON.stringify(rendered));
     assert.deepEqual(rendered.errors, [], JSON.stringify(rendered));
     assert.deepEqual(rendered.tabLabels, ['Landing', 'Tzeentch', 'Godeye', 'Morning dossier', 'Slang']);

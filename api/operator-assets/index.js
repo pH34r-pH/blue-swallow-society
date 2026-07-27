@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { verifyOperatorAssetGrant } = require('../_lib/operator-auth');
+const { verifyOperatorRequest } = require('../_lib/operator-auth');
 
 const PRIVATE_ASSET_DIR = path.join(__dirname, '..', '_private', 'operator', 'assets');
 const ASSET_MANIFEST = Object.freeze({
@@ -25,7 +25,7 @@ const ASSET_MANIFEST = Object.freeze({
   'osint-applications.mjs': { file: 'osint-applications.mjs', contentType: 'application/javascript; charset=utf-8' },
   'styles.css': { file: 'styles.css', contentType: 'text/css; charset=utf-8' },
   'theme.css': { file: 'theme.css', contentType: 'text/css; charset=utf-8' },
-  'nacre-moire-mark.svg': { file: 'nacre-moire-mark.svg', contentType: 'image/svg+xml' },
+  'operator-mark.svg': { file: 'nacre-moire-mark.svg', contentType: 'image/svg+xml' },
 });
 
 function noStoreHeaders(extra = {}) {
@@ -71,8 +71,8 @@ function createOperatorAssetHandler({ readFileSync = fs.readFileSync, now = () =
       return;
     }
 
-    const grant = verifyOperatorAssetGrant(req, { now: now() });
-    if (!grant.ok) {
+    const auth = verifyOperatorRequest(req, { now: now() });
+    if (!auth.ok) {
       deny(context);
       return;
     }

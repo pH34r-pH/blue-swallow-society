@@ -1,10 +1,8 @@
 const crypto = require('node:crypto');
 
 const DEFAULT_TOKEN_TTL_MS = 8 * 60 * 60 * 1000;
-const DEFAULT_ASSET_GRANT_TTL_MS = 5 * 60 * 1000;
 const TOKEN_VERSION = 1;
 const OPERATOR_SESSION_COOKIE = 'bss_operator_session';
-const OPERATOR_ASSET_GRANT_COOKIE = 'bss_operator_asset_grant';
 
 function getConfiguredDigest() {
   const digest = (process.env.BLUE_SWALLOW_PASSCODE_SHA256 || '').trim().toLowerCase();
@@ -70,36 +68,6 @@ function createOperatorToken({ now = Date.now(), ttlMs = getTokenTtlMs(), operat
   };
 }
 
-function createOperatorAssetGrant({ now = Date.now(), ttlMs = DEFAULT_ASSET_GRANT_TTL_MS, operatorId = getOperatorId() } = {}) {
-  const signingKey = getOperatorTokenSigningKey();
-  if (!signingKey) {
-    const error = new Error('Operator asset grant signing is not configured.');
-    error.statusCode = 503;
-    throw error;
-  }
-
-  const boundedTtlMs = Math.min(DEFAULT_ASSET_GRANT_TTL_MS, Math.max(0, Number(ttlMs) || 0));
-  const issuedAt = Math.floor(now / 1000);
-  const expiresAt = Math.floor((now + boundedTtlMs) / 1000);
-  const payload = {
-    v: TOKEN_VERSION,
-    sub: 'operator-assets',
-    aud: 'operator-assets',
-    operatorId: normalizeOperatorId(operatorId),
-    iat: issuedAt,
-    exp: expiresAt,
-    nonce: crypto.randomBytes(12).toString('hex'),
-  };
-  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
-  const signature = signPayload(encodedPayload, signingKey);
-
-  return {
-    token: `${encodedPayload}.${signature}`,
-    expiresAt: new Date(expiresAt * 1000).toISOString(),
-    ttlSeconds: Math.max(0, expiresAt - issuedAt),
-  };
-}
-
 function requireOperatorToken(context, req) {
   const result = verifyOperatorRequest(req);
   if (result.ok) {
@@ -143,20 +111,6 @@ function verifyOperatorRequest(req, { now = Date.now() } = {}) {
   return failure;
 }
 
-function verifyOperatorAssetGrant(req, { now = Date.now() } = {}) {
-  const token = extractCookieValue(toHeader(req, 'cookie'), OPERATOR_ASSET_GRANT_COOKIE);
-  if (!token) {
-    return { ok: false, status: 403, error: 'Operator asset grant required.' };
-  }
-
-  const signingKey = getOperatorTokenSigningKey();
-  if (!signingKey) {
-    return { ok: false, status: 503, error: 'Operator asset grant signing is not configured.' };
-  }
-
-  return verifyOperatorAssetGrantToken(token, signingKey, now);
-}
-
 function verifyOperatorToken(token, signingKey, now) {
   const [encodedPayload, signature, extra] = String(token).split('.');
   if (!encodedPayload || !signature || extra !== undefined) {
@@ -186,137 +140,12 @@ function verifyOperatorToken(token, signingKey, now) {
   return { ok: true, token: payload, rawToken: token };
 }
 
-function verifyOperatorAssetGrantToken(token, signingKey, now) {
-  const [encodedPayload, signature, extra] = String(token).split('.');
-  if (!encodedPayload || !signature || extra !== undefined) {
-    return { ok: false, status: 403, error: 'Invalid operator asset grant.' };
-  }
-
-  const expected = signPayload(encodedPayload, signingKey);
-  if (!safeEqual(signature, expected)) {
-    return { ok: false, status: 403, error: 'Invalid operator asset grant.' };
-  }
-
-  let payload;
-  try {
-    payload = JSON.parse(base64UrlDecode(encodedPayload));
-  } catch {
-    return { ok: false, status: 403, error: 'Invalid operator asset grant.' };
-  }
-
-  if (payload?.v !== TOKEN_VERSION || payload.sub !== 'operator-assets' || payload.aud !== 'operator-assets') {
-    return { ok: false, status: 403, error: 'Invalid operator asset grant.' };
-  }
-
-  if (!Number.isFinite(payload.exp) || payload.exp * 1000 <= now) {
-    return { ok: false, status: 403, error: 'Operator asset grant expired.' };
-  }
-
-  return { ok: true, token: payload, rawToken: token };
-}
-
 function extractOperatorTokens(req) {
   const explicitOperatorToken = toHeader(req, 'x-blue-swallow-operator-token').trim();
   const cookieToken = extractCookieValue(toHeader(req, 'cookie'), OPERATOR_SESSION_COOKIE);
   const authorization = toHeader(req, 'authorization');
   const authorizationToken = authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() || '';
   return [...new Set([explicitOperatorToken, cookieToken, authorizationToken].filter(Boolean))];
-}
-
-function buildOperatorSessionCookie(session) {
-  const token = typeof session?.token === 'string' ? session.token : '';
-  const ttlSeconds = Number.isFinite(session?.ttlSeconds) ? Math.max(0, Math.floor(session.ttlSeconds)) : 0;
-  if (!token || ttlSeconds <= 0) {
-    return buildClearOperatorSessionCookie();
-  }
-
-  return [
-    `${OPERATOR_SESSION_COOKIE}=${encodeURIComponent(token)}`,
-    'Path=/',
-    `Max-Age=${ttlSeconds}`,
-    'HttpOnly',
-    'Secure',
-    'SameSite=Strict',
-  ].join('; ');
-}
-
-function buildOperatorSessionCookieOptions(session) {
-  const token = typeof session?.token === 'string' ? session.token : '';
-  const ttlSeconds = Number.isFinite(session?.ttlSeconds) ? Math.max(0, Math.floor(session.ttlSeconds)) : 0;
-  if (!token || ttlSeconds <= 0) {
-    return buildClearOperatorSessionCookieOptions();
-  }
-
-  return {
-    name: OPERATOR_SESSION_COOKIE,
-    value: token,
-    path: '/',
-    maxAge: ttlSeconds,
-    httpOnly: true,
-    secure: true,
-    sameSite: 'Strict',
-  };
-}
-
-function buildOperatorAssetGrantCookie(grant) {
-  const token = typeof grant?.token === 'string' ? grant.token : '';
-  const ttlSeconds = Number.isFinite(grant?.ttlSeconds) ? Math.max(0, Math.floor(grant.ttlSeconds)) : 0;
-  if (!token || ttlSeconds <= 0) {
-    return [
-      `${OPERATOR_ASSET_GRANT_COOKIE}=`,
-      'Path=/api/operator-assets',
-      'Max-Age=0',
-      'HttpOnly',
-      'Secure',
-      'SameSite=Strict',
-    ].join('; ');
-  }
-
-  return [
-    `${OPERATOR_ASSET_GRANT_COOKIE}=${encodeURIComponent(token)}`,
-    'Path=/api/operator-assets',
-    `Max-Age=${ttlSeconds}`,
-    'HttpOnly',
-    'Secure',
-    'SameSite=Strict',
-  ].join('; ');
-}
-
-function buildOperatorAssetGrantCookieOptions(grant) {
-  const token = typeof grant?.token === 'string' ? grant.token : '';
-  const ttlSeconds = Number.isFinite(grant?.ttlSeconds) ? Math.max(0, Math.floor(grant.ttlSeconds)) : 0;
-  return {
-    name: OPERATOR_ASSET_GRANT_COOKIE,
-    value: token,
-    path: '/api/operator-assets',
-    maxAge: token && ttlSeconds > 0 ? ttlSeconds : 0,
-    httpOnly: true,
-    secure: true,
-    sameSite: 'Strict',
-  };
-}
-
-function buildClearOperatorSessionCookie() {
-  return [
-    `${OPERATOR_SESSION_COOKIE}=`,
-    'Path=/',
-    'Max-Age=0',
-    'HttpOnly',
-    'Secure',
-    'SameSite=Strict',
-  ].join('; ');
-}
-
-function buildClearOperatorSessionCookieOptions() {
-  return {
-    name: OPERATOR_SESSION_COOKIE,
-    value: '',
-    path: '/',
-    maxAge: 0,
-    httpOnly: true,
-    secure: true,
-    sameSite: 'Strict',
-  };
 }
 
 function extractCookieValue(cookieHeader, name) {
@@ -431,18 +260,10 @@ function base64UrlDecode(value) {
 }
 
 module.exports = {
-  buildOperatorAssetGrantCookie,
-  buildOperatorAssetGrantCookieOptions,
-  buildClearOperatorSessionCookie,
-  buildClearOperatorSessionCookieOptions,
-  buildOperatorSessionCookie,
-  buildOperatorSessionCookieOptions,
-  createOperatorAssetGrant,
   createOperatorToken,
   getConfiguredDigest,
   getOperatorTokenSigningKey,
   requireOperatorToken,
-  verifyOperatorAssetGrant,
   verifyOperatorRequest,
   verifyPasscode,
 };

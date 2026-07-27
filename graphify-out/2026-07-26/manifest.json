@@ -65,8 +65,8 @@
     "semantic_hash": ""
   },
   "api/_lib/operator-auth.js": {
-    "mtime": 1785107372.0907357,
-    "ast_hash": "ea243408b5e84b101a25637268d61a4d",
+    "mtime": 1785109973.5557256,
+    "ast_hash": "42dc7666278aacef58bee6361d2619f7",
     "semantic_hash": ""
   },
   "api/_lib/wardriver-release-store.js": {
@@ -125,8 +125,8 @@
     "semantic_hash": ""
   },
   "api/operator-downloads/index.js": {
-    "mtime": 1785107371.4307215,
-    "ast_hash": "3c272b5aafef549654c419813e21dab4",
+    "mtime": 1785110056.005795,
+    "ast_hash": "8059a37f2b773c5487459cbeede192a6",
     "semantic_hash": ""
   },
   "api/operator-logout/function.json": {
@@ -135,8 +135,8 @@
     "semantic_hash": ""
   },
   "api/operator-logout/index.js": {
-    "mtime": 1785107371.4307215,
-    "ast_hash": "4444ce6c4d7b4fc1f3f572f12207f279",
+    "mtime": 1785110026.1770477,
+    "ast_hash": "dddfe18e75c016d62cd2fda6a7c70062",
     "semantic_hash": ""
   },
   "api/operator-shell/function.json": {
@@ -145,8 +145,8 @@
     "semantic_hash": ""
   },
   "api/operator-shell/index.js": {
-    "mtime": 1785107372.106736,
-    "ast_hash": "cad2b0d30edecd78b8a532496d77c500",
+    "mtime": 1785110008.5926065,
+    "ast_hash": "a84240e281b6096a1b2dced9361f77a4",
     "semantic_hash": ""
   },
   "api/osint/classifier.js": {
@@ -210,8 +210,8 @@
     "semantic_hash": ""
   },
   "api/validate-passcode/index.js": {
-    "mtime": 1785107371.4347217,
-    "ast_hash": "d2586470b5692803d30966357d3e9a28",
+    "mtime": 1785109991.0441656,
+    "ast_hash": "4853244838e78c56e66153b1e66dba0b",
     "semantic_hash": ""
   },
   "api/wardriver-release-current/function.json": {
@@ -450,13 +450,13 @@
     "semantic_hash": ""
   },
   "tests/operator-downloads-api.test.mjs": {
-    "mtime": 1785107371.5547242,
-    "ast_hash": "98e094cd2bca7afa0afebf203f2c4a66",
+    "mtime": 1785110101.586934,
+    "ast_hash": "a21ace29326e8f4ffc4a8f2901067457",
     "semantic_hash": ""
   },
   "tests/operator-shell-api.test.mjs": {
-    "mtime": 1785107372.4147425,
-    "ast_hash": "64b25b839dde06c5dbe7938f31a20d7f",
+    "mtime": 1785110082.9544687,
+    "ast_hash": "71713d194fd188f23840a10e5b9211aa",
     "semantic_hash": ""
   },
   "tests/operator-shell-download.test.mjs": {
@@ -500,8 +500,8 @@
     "semantic_hash": ""
   },
   "tests/passcode-api.test.mjs": {
-    "mtime": 1785107371.5547242,
-    "ast_hash": "6f9d475432d675cc82dd6af02fa3779d",
+    "mtime": 1785110067.8140905,
+    "ast_hash": "c5aa8c3df1b0e18c09c41f2377051d0d",
     "semantic_hash": ""
   },
   "tests/public-events.test.mjs": {
@@ -545,8 +545,8 @@
     "semantic_hash": ""
   },
   "tests/ui-shell.test.mjs": {
-    "mtime": 1785107373.9827762,
-    "ast_hash": "b3e654c27bc0e5886745d6720907082a",
+    "mtime": 1785108618.328153,
+    "ast_hash": "bd8ad7b9f26050d33d5108b9184b2406",
     "semantic_hash": ""
   },
   "tests/vision.test.mjs": {
@@ -1610,13 +1610,13 @@
     "semantic_hash": ""
   },
   "specs/008-godeye-operator-map/tasks.md": {
-    "mtime": 1785108471.6385555,
-    "ast_hash": "28ba3bdb12d9ecb931aeea88b4642be7",
+    "mtime": 1785108661.2537813,
+    "ast_hash": "9e1176763956b94bec78fbff5f087133",
     "semantic_hash": ""
   },
   "specs/008-godeye-operator-map/tests.md": {
-    "mtime": 1785107373.9827762,
-    "ast_hash": "0421dce4c3d9fbf6b495f5fd7934cd4b",
+    "mtime": 1785108673.2342272,
+    "ast_hash": "53248a10a281c7dea827ec0ce3ac8157",
     "semantic_hash": ""
   }
 }

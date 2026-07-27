@@ -100,7 +100,12 @@ test('operator entrypoint is separate from the root face, unlinked, and client-g
   assert.ok(!operatorHtml.includes('/api/operator-downloads/wardriver/apk'));
   assert.ok(operatorLoaderJs.includes("fetch('/api/operator-shell'"));
   assert.ok(operatorLoaderJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
-  assert.ok(operatorLoaderJs.includes("import('/api/operator-assets/main.js')"));
+  assert.ok(operatorLoaderJs.includes('await fetchPrivateAsset(assetName, session)'));
+  assert.ok(operatorLoaderJs.includes("await import(assetUrls['main.js'])"));
+  assert.ok(operatorLoaderJs.includes('URL.revokeObjectURL(url)'));
+  assert.ok(!operatorLoaderJs.includes('bss_operator_asset_grant'));
+  assert.ok(!operatorLoaderJs.includes('localStorage'));
+  assert.ok(!operatorLoaderJs.includes('indexedDB'));
   assert.ok(operatorShell.includes('terminalScreen'));
   assert.ok(operatorShell.includes('mainInterface'));
   assert.ok(!indexHtml.includes('operator/index.html'));
@@ -164,6 +169,8 @@ test('device-local endpoints stay same-origin while the map permits only reviewe
   const csp = staticWebApp.globalHeaders['Content-Security-Policy'];
   assert.match(csp, /connect-src 'self' https:\/\/tile\.openstreetmap\.org https:\/\/\*\.tile\.openstreetmap\.org/);
   assert.doesNotMatch(csp, /connect-src[^;]*(?:unpkg|jsdelivr|maplibre\.org)/i);
+  assert.match(csp, /script-src 'self' blob:/);
+  assert.match(csp, /worker-src 'self' blob:/);
   assert.ok(!indexHtml.includes('http://device.local'));
   assert.ok(!indexHtml.includes('placeholder="/api/ar-detections"'));
   assert.ok(operatorShell.includes('POST /api/cybermap/viewport'));

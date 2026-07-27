@@ -146,7 +146,7 @@ test('operator APK request issues a bounded HTTPS redirect without buffering APK
   });
 });
 
-test('verified metadata refreshes the navigation cookie from a bearer session', async () => {
+test('verified metadata keeps the caller session in the header-only lifecycle', async () => {
   await withSigningKey(async () => {
     const session = createOperatorToken();
     const metadata = await invoke('metadata', {
@@ -159,18 +159,10 @@ test('verified metadata refreshes the navigation cookie from a bearer session', 
 
     assert.equal(metadata.status, 200);
     assert.equal(metadata.headers['Set-Cookie'], undefined);
-    const [sessionCookie] = metadata.cookies;
-    assert.equal(sessionCookie.name, 'bss_operator_session');
-    assert.equal(sessionCookie.value, session.token);
-    assert.equal(sessionCookie.path, '/');
-    assert.equal(sessionCookie.httpOnly, true);
-    assert.equal(sessionCookie.secure, true);
-    assert.equal(sessionCookie.sameSite, 'Strict');
-    assert.ok(sessionCookie.maxAge > 0);
+    assert.equal(metadata.cookies, undefined);
 
-    const navigationCookie = `${sessionCookie.name}=${encodeURIComponent(sessionCookie.value)}`;
     const download = await invoke('apk', {
-      headers: { cookie: navigationCookie },
+      headers: { 'x-blue-swallow-operator-token': session.token },
       dependencies: fakeReleaseStore(),
     });
     assert.equal(download.status, 302);

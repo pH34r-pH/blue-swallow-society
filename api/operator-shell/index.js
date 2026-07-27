@@ -1,10 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const {
-  buildOperatorAssetGrantCookieOptions,
-  createOperatorAssetGrant,
-  requireOperatorToken,
-} = require('../_lib/operator-auth');
+const { requireOperatorToken } = require('../_lib/operator-auth');
 
 const PRIVATE_OPERATOR_DIR = path.join(__dirname, '..', '_private', 'operator');
 const SHELL_PATH = path.join(PRIVATE_OPERATOR_DIR, 'shell.html');
@@ -48,23 +44,6 @@ module.exports = async function (context, req) {
     return;
   }
 
-  const assetGrant = createOperatorAssetGrant({
-    operatorId: auth.token.operatorId,
-    ttlMs: Math.max(0, auth.token.exp * 1000 - Date.now()),
-  });
-  if (assetGrant.ttlSeconds <= 0) {
-    context.res = {
-      status: 403,
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'private, no-store',
-        'X-Content-Type-Options': 'nosniff',
-      },
-      body: { ok: false, error: 'Operator asset grant unavailable.' },
-    };
-    return;
-  }
-
   context.res = {
     status: 200,
     headers: {
@@ -72,7 +51,6 @@ module.exports = async function (context, req) {
       'Cache-Control': 'private, no-store',
       'X-Content-Type-Options': 'nosniff',
     },
-    cookies: [buildOperatorAssetGrantCookieOptions(assetGrant)],
     body: renderPrivateOperatorShell(),
   };
 };

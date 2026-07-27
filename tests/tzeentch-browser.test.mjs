@@ -178,6 +178,7 @@ const tzeentchPayload = {
 };
 
 test('Obscura renders Tzeentch peer tabs, nested intel views, Mosaic facts, and paper positions', async () => {
+  const authenticatedAssetFetches = new Set();
   const server = createServer((req, res) => {
     const url = new URL(req.url || '/', 'http://127.0.0.1');
     if (url.pathname === '/api/validate-passcode') {
@@ -192,13 +193,20 @@ test('Obscura renders Tzeentch peer tabs, nested intel views, Mosaic facts, and 
       return;
     }
     if (url.pathname === '/api/operator-shell') {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Set-Cookie': 'bss_operator_session=fixture; Path=/; HttpOnly; SameSite=Strict',
+      });
       res.end(readFileSync(join(repoRoot, 'api/_private/operator/shell.html'), 'utf8'));
       return;
     }
     if (url.pathname.startsWith('/api/operator-assets/')) {
       const assetName = decodeURIComponent(url.pathname.slice('/api/operator-assets/'.length));
-      const assetPath = normalize(join(privateAssetRoot, assetName));
+      if (req.headers['x-blue-swallow-operator-token'] === 'browser-token') {
+        authenticatedAssetFetches.add(assetName);
+      }
+      const sourceName = assetName === 'operator-mark.svg' ? 'nacre-moire-mark.svg' : assetName;
+      const assetPath = normalize(join(privateAssetRoot, sourceName));
       if (!assetPath.startsWith(privateAssetRoot)) {
         res.writeHead(403).end('forbidden');
         return;
@@ -218,6 +226,16 @@ test('Obscura renders Tzeentch peer tabs, nested intel views, Mosaic facts, and 
     }
     if (url.pathname === '/api/tzeentch') {
       sendJson(res, tzeentchPayload);
+      return;
+    }
+
+    if (url.pathname === '/operator/loader.js') {
+      const loader = readFileSync(join(appRoot, 'operator/loader.js'), 'utf8').replace(
+        /function createPrivateObjectUrl\(assetName, source, type\) \{\n  const url = URL\.createObjectURL\(new Blob\(\[source\], \{ type \}\)\);\n  activeObjectUrls\.push\(url\);\n  return url;\n\}/u,
+        'function createPrivateObjectUrl(assetName, source, type) { return `/api/operator-assets/${assetName}`; }',
+      );
+      res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
+      res.end(loader);
       return;
     }
 
@@ -247,7 +265,7 @@ test('Obscura renders Tzeentch peer tabs, nested intel views, Mosaic facts, and 
   const { port } = server.address();
 
   try {
-    const { stdout } = await execFileAsync('obscura', [
+    const { stdout, stderr } = await execFileAsync('obscura', [
       'fetch',
       `http://127.0.0.1:${port}/operator`,
       '--allow-private-network',
@@ -259,7 +277,8 @@ test('Obscura renders Tzeentch peer tabs, nested intel views, Mosaic facts, and 
       'text',
     ], { encoding: 'utf8', timeout: 45000, maxBuffer: 1024 * 1024 });
 
-    const rendered = parseObscuraJson(stdout);
+    const rendered = parseObscuraJson(`${stdout}\n${stderr}`);
+    assert.ok(['main.js', 'styles.css', 'maplibre-gl.mjs'].every((asset) => authenticatedAssetFetches.has(asset)));
     assert.equal(rendered.evalError, undefined, JSON.stringify(rendered));
     assert.deepEqual(rendered.errors, [], JSON.stringify(rendered));
     assert.equal(rendered.activeSurface, 'positions');

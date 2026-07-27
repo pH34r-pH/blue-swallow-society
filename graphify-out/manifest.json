@@ -65,8 +65,8 @@
     "semantic_hash": ""
   },
   "api/_lib/operator-auth.js": {
-    "mtime": 1785109973.5557256,
-    "ast_hash": "42dc7666278aacef58bee6361d2619f7",
+    "mtime": 1785113071.7227292,
+    "ast_hash": "9c2942171fba5b6e5dc03da68039a2e1",
     "semantic_hash": ""
   },
   "api/_lib/wardriver-release-store.js": {
@@ -125,8 +125,8 @@
     "semantic_hash": ""
   },
   "api/operator-downloads/index.js": {
-    "mtime": 1785110056.005795,
-    "ast_hash": "8059a37f2b773c5487459cbeede192a6",
+    "mtime": 1785113027.6700337,
+    "ast_hash": "9a7bc49b516b359fe62c0632a698b138",
     "semantic_hash": ""
   },
   "api/operator-logout/function.json": {
@@ -135,8 +135,8 @@
     "semantic_hash": ""
   },
   "api/operator-logout/index.js": {
-    "mtime": 1785110026.1770477,
-    "ast_hash": "dddfe18e75c016d62cd2fda6a7c70062",
+    "mtime": 1785113002.5296476,
+    "ast_hash": "31797c27cddfaca6032e0306cdb35c86",
     "semantic_hash": ""
   },
   "api/operator-shell/function.json": {
@@ -145,8 +145,8 @@
     "semantic_hash": ""
   },
   "api/operator-shell/index.js": {
-    "mtime": 1785110008.5926065,
-    "ast_hash": "a84240e281b6096a1b2dced9361f77a4",
+    "mtime": 1785111417.4973109,
+    "ast_hash": "372204547cbc083cfef82f38edcb8eb6",
     "semantic_hash": ""
   },
   "api/osint/classifier.js": {
@@ -210,8 +210,8 @@
     "semantic_hash": ""
   },
   "api/validate-passcode/index.js": {
-    "mtime": 1785109991.0441656,
-    "ast_hash": "4853244838e78c56e66153b1e66dba0b",
+    "mtime": 1785112967.2371194,
+    "ast_hash": "8e88af3bfd3606a75468564528281112",
     "semantic_hash": ""
   },
   "api/wardriver-release-current/function.json": {
@@ -240,8 +240,8 @@
     "semantic_hash": ""
   },
   "app/operator/loader.js": {
-    "mtime": 1785107372.1107361,
-    "ast_hash": "7d473f499ee424143678aea6c2420f20",
+    "mtime": 1785113315.1789262,
+    "ast_hash": "545120a1b1c43bf3241644c616cf34e9",
     "semantic_hash": ""
   },
   "app/public-events.mjs": {
@@ -250,8 +250,8 @@
     "semantic_hash": ""
   },
   "app/staticwebapp.config.json": {
-    "mtime": 1785107762.8311472,
-    "ast_hash": "6826f2e5469ebe974c920ab7f47c5c55",
+    "mtime": 1785111449.4300528,
+    "ast_hash": "a4657d869583d10a2e144459ed32626a",
     "semantic_hash": ""
   },
   "basemap/style.template.json": {
@@ -425,8 +425,8 @@
     "semantic_hash": ""
   },
   "tests/morning-brief-browser.test.mjs": {
-    "mtime": 1785107372.4067423,
-    "ast_hash": "0304efc85bbda58839845afecce9a2b2",
+    "mtime": 1785113391.640342,
+    "ast_hash": "8436f3267656eff4864716dfbf8b3fb8",
     "semantic_hash": ""
   },
   "tests/morning-brief-ui.test.mjs": {
@@ -450,13 +450,13 @@
     "semantic_hash": ""
   },
   "tests/operator-downloads-api.test.mjs": {
-    "mtime": 1785110101.586934,
-    "ast_hash": "a21ace29326e8f4ffc4a8f2901067457",
+    "mtime": 1785113137.055801,
+    "ast_hash": "54322c30812610ca0493151d76b1e0f9",
     "semantic_hash": ""
   },
   "tests/operator-shell-api.test.mjs": {
-    "mtime": 1785110082.9544687,
-    "ast_hash": "71713d194fd188f23840a10e5b9211aa",
+    "mtime": 1785113454.3015292,
+    "ast_hash": "01a777b6ab7086b8c1cf60552048a5ef",
     "semantic_hash": ""
   },
   "tests/operator-shell-download.test.mjs": {
@@ -500,8 +500,8 @@
     "semantic_hash": ""
   },
   "tests/passcode-api.test.mjs": {
-    "mtime": 1785110067.8140905,
-    "ast_hash": "c5aa8c3df1b0e18c09c41f2377051d0d",
+    "mtime": 1785113099.5391798,
+    "ast_hash": "a0c86463d7e16a08f3f5bd009860dbfc",
     "semantic_hash": ""
   },
   "tests/public-events.test.mjs": {
@@ -520,8 +520,8 @@
     "semantic_hash": ""
   },
   "tests/security-review.test.mjs": {
-    "mtime": 1785108353.3839781,
-    "ast_hash": "78bb6d6e266c4019609943c2f585d4d1",
+    "mtime": 1785111561.1806567,
+    "ast_hash": "62b21c1521b3eab7cb5e8b46540ccede",
     "semantic_hash": ""
   },
   "tests/strategy_synthesis_test.py": {
@@ -530,8 +530,8 @@
     "semantic_hash": ""
   },
   "tests/tzeentch-browser.test.mjs": {
-    "mtime": 1785107372.4147425,
-    "ast_hash": "eab8678498b585bce387fdbd0e57cb9a",
+    "mtime": 1785113412.6087368,
+    "ast_hash": "80355934b17231078176ecee081fc767",
     "semantic_hash": ""
   },
   "tests/tzeentch-dashboard.test.mjs": {
@@ -545,8 +545,8 @@
     "semantic_hash": ""
   },
   "tests/ui-shell.test.mjs": {
-    "mtime": 1785108618.328153,
-    "ast_hash": "bd8ad7b9f26050d33d5108b9184b2406",
+    "mtime": 1785113374.6120234,
+    "ast_hash": "7494265e45127e4aa35442b9dd3b905c",
     "semantic_hash": ""
   },
   "tests/vision.test.mjs": {
@@ -1030,8 +1030,8 @@
     "semantic_hash": ""
   },
   "api/_private/operator/shell.html": {
-    "mtime": 1785108358.6800935,
-    "ast_hash": "9b3ec95b47b92c38a991403ebfbb9b3f",
+    "mtime": 1785113296.0665786,
+    "ast_hash": "633ecabbebcab9534b99c8a921c17246",
     "semantic_hash": ""
   },
   "app/index.html": {
@@ -1500,8 +1500,8 @@
     "semantic_hash": ""
   },
   "api/operator-assets/index.js": {
-    "mtime": 1785107755.990999,
-    "ast_hash": "c398f153b260d16462cc100f1d65ee5d",
+    "mtime": 1785113285.6143897,
+    "ast_hash": "1d01a6a9b9f1ce1aab4309e2ab671308",
     "semantic_hash": ""
   },
   "tests/fixtures/vision-sample-data.mjs": {

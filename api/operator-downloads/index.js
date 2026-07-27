@@ -1,6 +1,6 @@
 'use strict';
 
-const { buildOperatorSessionCookieOptions, requireOperatorToken } = require('../_lib/operator-auth');
+const { requireOperatorToken } = require('../_lib/operator-auth');
 const { createReleaseStore, toOperatorMetadata } = require('../_lib/wardriver-release-store');
 
 async function handler(context, req) {
@@ -75,7 +75,6 @@ function normalizeArtifact(value) {
 }
 
 function metadataResponse(req, release, auth) {
-  const sessionCookie = refreshOperatorSessionCookie(auth);
   return {
     status: 200,
     headers: {
@@ -83,19 +82,11 @@ function metadataResponse(req, release, auth) {
       'Cache-Control': 'private, no-store',
       'X-Content-Type-Options': 'nosniff',
     },
-    ...(sessionCookie ? { cookies: [sessionCookie] } : {}),
     body: req.method === 'HEAD' ? undefined : {
       ok: true,
       artifact: toOperatorMetadata(release),
     },
   };
-}
-
-function refreshOperatorSessionCookie(auth) {
-  const token = typeof auth?.rawToken === 'string' ? auth.rawToken : '';
-  const expiresAt = Number(auth?.token?.exp);
-  const ttlSeconds = Number.isFinite(expiresAt) ? expiresAt - Math.floor(Date.now() / 1000) : 0;
-  return token && ttlSeconds > 0 ? buildOperatorSessionCookieOptions({ token, ttlSeconds }) : null;
 }
 
 function isHttpsBlobUrl(value) {
