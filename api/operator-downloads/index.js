@@ -1,6 +1,6 @@
 'use strict';
 
-const { buildOperatorSessionCookie, requireOperatorToken } = require('../_lib/operator-auth');
+const { buildOperatorSessionCookieOptions, requireOperatorToken } = require('../_lib/operator-auth');
 const { createReleaseStore, toOperatorMetadata } = require('../_lib/wardriver-release-store');
 
 async function handler(context, req) {
@@ -82,8 +82,8 @@ function metadataResponse(req, release, auth) {
       'Content-Type': 'application/json; charset=utf-8',
       'Cache-Control': 'private, no-store',
       'X-Content-Type-Options': 'nosniff',
-      ...(sessionCookie ? { 'Set-Cookie': sessionCookie } : {}),
     },
+    ...(sessionCookie ? { cookies: [sessionCookie] } : {}),
     body: req.method === 'HEAD' ? undefined : {
       ok: true,
       artifact: toOperatorMetadata(release),
@@ -95,7 +95,7 @@ function refreshOperatorSessionCookie(auth) {
   const token = typeof auth?.rawToken === 'string' ? auth.rawToken : '';
   const expiresAt = Number(auth?.token?.exp);
   const ttlSeconds = Number.isFinite(expiresAt) ? expiresAt - Math.floor(Date.now() / 1000) : 0;
-  return token && ttlSeconds > 0 ? buildOperatorSessionCookie({ token, ttlSeconds }) : '';
+  return token && ttlSeconds > 0 ? buildOperatorSessionCookieOptions({ token, ttlSeconds }) : null;
 }
 
 function isHttpsBlobUrl(value) {

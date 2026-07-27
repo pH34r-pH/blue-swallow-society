@@ -240,6 +240,24 @@ function buildOperatorSessionCookie(session) {
   ].join('; ');
 }
 
+function buildOperatorSessionCookieOptions(session) {
+  const token = typeof session?.token === 'string' ? session.token : '';
+  const ttlSeconds = Number.isFinite(session?.ttlSeconds) ? Math.max(0, Math.floor(session.ttlSeconds)) : 0;
+  if (!token || ttlSeconds <= 0) {
+    return buildClearOperatorSessionCookieOptions();
+  }
+
+  return {
+    name: OPERATOR_SESSION_COOKIE,
+    value: token,
+    path: '/',
+    maxAge: ttlSeconds,
+    httpOnly: true,
+    secure: true,
+    sameSite: 'Strict',
+  };
+}
+
 function buildOperatorAssetGrantCookie(grant) {
   const token = typeof grant?.token === 'string' ? grant.token : '';
   const ttlSeconds = Number.isFinite(grant?.ttlSeconds) ? Math.max(0, Math.floor(grant.ttlSeconds)) : 0;
@@ -264,6 +282,20 @@ function buildOperatorAssetGrantCookie(grant) {
   ].join('; ');
 }
 
+function buildOperatorAssetGrantCookieOptions(grant) {
+  const token = typeof grant?.token === 'string' ? grant.token : '';
+  const ttlSeconds = Number.isFinite(grant?.ttlSeconds) ? Math.max(0, Math.floor(grant.ttlSeconds)) : 0;
+  return {
+    name: OPERATOR_ASSET_GRANT_COOKIE,
+    value: token,
+    path: '/api/operator-assets',
+    maxAge: token && ttlSeconds > 0 ? ttlSeconds : 0,
+    httpOnly: true,
+    secure: true,
+    sameSite: 'Strict',
+  };
+}
+
 function buildClearOperatorSessionCookie() {
   return [
     `${OPERATOR_SESSION_COOKIE}=`,
@@ -273,6 +305,18 @@ function buildClearOperatorSessionCookie() {
     'Secure',
     'SameSite=Strict',
   ].join('; ');
+}
+
+function buildClearOperatorSessionCookieOptions() {
+  return {
+    name: OPERATOR_SESSION_COOKIE,
+    value: '',
+    path: '/',
+    maxAge: 0,
+    httpOnly: true,
+    secure: true,
+    sameSite: 'Strict',
+  };
 }
 
 function extractCookieValue(cookieHeader, name) {
@@ -388,8 +432,11 @@ function base64UrlDecode(value) {
 
 module.exports = {
   buildOperatorAssetGrantCookie,
+  buildOperatorAssetGrantCookieOptions,
   buildClearOperatorSessionCookie,
+  buildClearOperatorSessionCookieOptions,
   buildOperatorSessionCookie,
+  buildOperatorSessionCookieOptions,
   createOperatorAssetGrant,
   createOperatorToken,
   getConfiguredDigest,

@@ -1,5 +1,5 @@
 const {
-  buildOperatorSessionCookie,
+  buildOperatorSessionCookieOptions,
   createOperatorToken,
   getConfiguredDigest,
   getOperatorTokenSigningKey,
@@ -47,12 +47,13 @@ module.exports = async function (context, req) {
   if (ok) {
     failuresByCaller.delete(callerKey);
     const session = createOperatorToken();
-    context.res = jsonResponse(200, {
-      ok: true,
-      operatorSession: session,
-    }, {
-      'Set-Cookie': buildOperatorSessionCookie(session),
-    });
+    context.res = {
+      ...jsonResponse(200, {
+        ok: true,
+        operatorSession: session,
+      }),
+      cookies: [buildOperatorSessionCookieOptions(session)],
+    };
     return;
   }
 

@@ -1,4 +1,4 @@
-const { buildClearOperatorSessionCookie } = require('../_lib/operator-auth');
+const { buildClearOperatorSessionCookieOptions } = require('../_lib/operator-auth');
 
 module.exports = async function (context) {
   context.res = {
@@ -6,8 +6,8 @@ module.exports = async function (context) {
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       'Cache-Control': 'no-store',
-      'Set-Cookie': buildClearOperatorSessionCookie(),
     },
+    cookies: [buildClearOperatorSessionCookieOptions()],
     body: {
       ok: true,
     },

@@ -90,10 +90,23 @@ test('operator shell serves composed private identity only with custom operator 
     const response = await invoke(headers);
     assert.equal(response.status, 200);
     assert.equal(response.headers['Content-Type'], 'text/html; charset=utf-8');
-    const assetCookie = response.headers['Set-Cookie'];
-    const assetTtl = assetCookie.match(/; Max-Age=(\d+);/)?.[1];
-    assert.match(assetCookie, /^bss_operator_asset_grant=[^;]+; Path=\/api\/operator-assets; Max-Age=\d+; HttpOnly; Secure; SameSite=Strict$/);
-    assert.ok(Number(assetTtl) > 0 && Number(assetTtl) <= 300);
+    const assetCookie = response.cookies?.[0];
+    assert.equal(response.headers['Set-Cookie'], undefined);
+    assert.deepEqual(assetCookie && {
+      name: assetCookie.name,
+      path: assetCookie.path,
+      httpOnly: assetCookie.httpOnly,
+      secure: assetCookie.secure,
+      sameSite: assetCookie.sameSite,
+    }, {
+      name: 'bss_operator_asset_grant',
+      path: '/api/operator-assets',
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Strict',
+    });
+    assert.ok(assetCookie.value);
+    assert.ok(Number(assetCookie.maxAge) > 0 && Number(assetCookie.maxAge) <= 300);
     assert.doesNotMatch(response.body, /id="nacre-moire-operator-style"/);
     assert.match(response.body, /src="\/api\/operator-assets\/nacre-moire-mark\.svg"/);
     assert.match(response.body, /id="mainInterface"/);

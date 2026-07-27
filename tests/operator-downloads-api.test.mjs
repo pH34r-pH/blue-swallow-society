@@ -158,9 +158,17 @@ test('verified metadata refreshes the navigation cookie from a bearer session', 
     });
 
     assert.equal(metadata.status, 200);
-    assert.match(metadata.headers['Set-Cookie'], new RegExp(`^bss_operator_session=${encodeURIComponent(session.token)};`));
+    assert.equal(metadata.headers['Set-Cookie'], undefined);
+    const [sessionCookie] = metadata.cookies;
+    assert.equal(sessionCookie.name, 'bss_operator_session');
+    assert.equal(sessionCookie.value, session.token);
+    assert.equal(sessionCookie.path, '/');
+    assert.equal(sessionCookie.httpOnly, true);
+    assert.equal(sessionCookie.secure, true);
+    assert.equal(sessionCookie.sameSite, 'Strict');
+    assert.ok(sessionCookie.maxAge > 0);
 
-    const navigationCookie = metadata.headers['Set-Cookie'].split(';', 1)[0];
+    const navigationCookie = `${sessionCookie.name}=${encodeURIComponent(sessionCookie.value)}`;
     const download = await invoke('apk', {
       headers: { cookie: navigationCookie },
       dependencies: fakeReleaseStore(),

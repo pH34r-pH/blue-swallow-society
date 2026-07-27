@@ -74,14 +74,20 @@ test('validate-passcode accepts SHA-256 configured passcodes and rejects wrong g
     assert.match(accepted.body.operatorSession.token, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
     assert.match(accepted.body.operatorSession.expiresAt, /^\d{4}-\d{2}-\d{2}T/);
     assert.equal(accepted.headers['Cache-Control'], 'no-store');
-    assert.match(accepted.headers['Set-Cookie'], /^bss_operator_session=/);
-    assert.match(accepted.headers['Set-Cookie'], /HttpOnly/);
-    assert.match(accepted.headers['Set-Cookie'], /Secure/);
-    assert.match(accepted.headers['Set-Cookie'], /SameSite=Strict/);
+    assert.equal(accepted.headers['Set-Cookie'], undefined);
+    assert.equal(accepted.cookies.length, 1);
+    const [sessionCookie] = accepted.cookies;
+    assert.equal(sessionCookie.name, 'bss_operator_session');
+    assert.equal(sessionCookie.value, accepted.body.operatorSession.token);
+    assert.equal(sessionCookie.path, '/');
+    assert.equal(sessionCookie.httpOnly, true);
+    assert.equal(sessionCookie.secure, true);
+    assert.equal(sessionCookie.sameSite, 'Strict');
+    assert.ok(sessionCookie.maxAge > 0);
 
     const verifiedCookie = verifyOperatorRequest({
       headers: {
-        cookie: accepted.headers['Set-Cookie'].split(';')[0],
+        cookie: `${sessionCookie.name}=${encodeURIComponent(sessionCookie.value)}`,
       },
     });
     assert.equal(verifiedCookie.ok, true);

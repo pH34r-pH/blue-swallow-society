@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const {
-  buildOperatorAssetGrantCookie,
+  buildOperatorAssetGrantCookieOptions,
   createOperatorAssetGrant,
   requireOperatorToken,
 } = require('../_lib/operator-auth');
@@ -71,8 +71,8 @@ module.exports = async function (context, req) {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'private, no-store',
       'X-Content-Type-Options': 'nosniff',
-      'Set-Cookie': buildOperatorAssetGrantCookie(assetGrant),
     },
+    cookies: [buildOperatorAssetGrantCookieOptions(assetGrant)],
     body: renderPrivateOperatorShell(),
   };
 };
