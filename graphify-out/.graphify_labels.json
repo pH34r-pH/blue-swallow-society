@@ -184,14 +184,14 @@
   "182": "Audit boundaries and provenance",
   "183": "Mosaic & Murmurs proposal delta",
   "184": "Verification results",
-  "185": "Backing VM API and infrastructure review",
+  "185": "Test Design: Adversarial Review Repairs",
   "186": "implement.md",
   "187": "0001_cybermap_core.sql",
   "188": "Microsoft Entra External ID setup checklist",
   "189": "CustomDomainScriptTests",
   "190": "0002_device_ingest_contract.sql",
   "191": "MAPLIBRE-VENDOR.md",
-  "192": "node-runtime-policy.md",
+  "192": "_queryCellCircle",
   "193": "print-next-steps.sh",
   "194": "wireup-backend-url.sh",
   "195": "check-prerequisites.sh",
@@ -208,5 +208,7 @@
   "206": "check-prerequisites.ps1",
   "207": "setup-plan.ps1",
   "208": "setup-tasks.ps1",
-  "209": "0003_paper_state.sql"
+  "209": "0003_paper_state.sql",
+  "210": "toString",
+  "211": "backend-boundary.test.mjs"
 }

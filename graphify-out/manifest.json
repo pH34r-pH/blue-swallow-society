@@ -65,8 +65,8 @@
     "semantic_hash": ""
   },
   "api/_lib/operator-auth.js": {
-    "mtime": 1784672951.5707147,
-    "ast_hash": "2614d53e2ce62ceb6805eb0fe80695c2",
+    "mtime": 1785263475.6812267,
+    "ast_hash": "986aeb8c14e6e617d609b244eef0c106",
     "semantic_hash": ""
   },
   "api/_lib/wardriver-release-store.js": {
@@ -110,8 +110,8 @@
     "semantic_hash": ""
   },
   "api/cybermap-viewport/index.js": {
-    "mtime": 1784582361.216832,
-    "ast_hash": "47bea4ba548baf8380ba165a57453034",
+    "mtime": 1785262690.9749725,
+    "ast_hash": "cd707ab76f4d1a276b00df487ee3da4c",
     "semantic_hash": ""
   },
   "api/echo/function.json": {
@@ -180,8 +180,8 @@
     "semantic_hash": ""
   },
   "api/package.json": {
-    "mtime": 1784582677.248558,
-    "ast_hash": "654c3f3698eb9f4aed973a7e23e039ce",
+    "mtime": 1785262982.525772,
+    "ast_hash": "0bf9b033070064b0880ce01c59c00dbf",
     "semantic_hash": ""
   },
   "api/paper-state/function.json": {
@@ -220,8 +220,8 @@
     "semantic_hash": ""
   },
   "api/validate-passcode/index.js": {
-    "mtime": 1784582361.220832,
-    "ast_hash": "d2586470b5692803d30966357d3e9a28",
+    "mtime": 1785265046.6733928,
+    "ast_hash": "6e96067278ef3300ed26ef1c464c0287",
     "semantic_hash": ""
   },
   "api/wardriver-release-current/function.json": {
@@ -240,23 +240,23 @@
     "semantic_hash": ""
   },
   "api/wigle/index.js": {
-    "mtime": 1784582361.220832,
-    "ast_hash": "e5a799077f18a28c39ef67b914aca6f4",
+    "mtime": 1785265279.2987983,
+    "ast_hash": "d2f6e2075463a4daa79eaf139be3dc6f",
     "semantic_hash": ""
   },
   "app/main.js": {
-    "mtime": 1784582361.220832,
-    "ast_hash": "6f0c6396646a0daaea89d3878c00ac91",
+    "mtime": 1785263558.7870996,
+    "ast_hash": "3ba45406396ddc40ebcc4b651a6d2cc6",
     "semantic_hash": ""
   },
   "app/operator/agent-loader.js": {
-    "mtime": 1784582361.220832,
-    "ast_hash": "b5f6651f7d986bd50ecf182a2ba8a2cf",
+    "mtime": 1785263567.431295,
+    "ast_hash": "9aef8f3833ddb08f6946b539536e1592",
     "semantic_hash": ""
   },
   "app/operator/agent.js": {
-    "mtime": 1784582361.220832,
-    "ast_hash": "2c73bd10bce70ffcdc21c6e2cce23540",
+    "mtime": 1785263707.7864792,
+    "ast_hash": "b10b80769889c2a93a416ba52c95a005",
     "semantic_hash": ""
   },
   "app/operator/chained-daemon.mjs": {
@@ -280,13 +280,13 @@
     "semantic_hash": ""
   },
   "app/operator/loader.js": {
-    "mtime": 1784582361.2248323,
-    "ast_hash": "5f56d1181489ffb280dacd9d8a3d61d0",
+    "mtime": 1785263571.995398,
+    "ast_hash": "9aef8f3833ddb08f6946b539536e1592",
     "semantic_hash": ""
   },
   "app/operator/main.js": {
-    "mtime": 1785105793.5215902,
-    "ast_hash": "f401953dcda965ea012a72c19b50eac7",
+    "mtime": 1785264430.5031002,
+    "ast_hash": "d81f79868adc2409f849c05911c14272",
     "semantic_hash": ""
   },
   "app/operator/map-math.mjs": {
@@ -305,8 +305,8 @@
     "semantic_hash": ""
   },
   "app/operator/tzeentch.mjs": {
-    "mtime": 1784582361.2248323,
-    "ast_hash": "3b2ac58600a16043529fe37b97ca27e5",
+    "mtime": 1785263741.091238,
+    "ast_hash": "c6f071af768ccf0e47f6b8258ede4005",
     "semantic_hash": ""
   },
   "app/operator/vendor/maplibre-gl-shared.mjs": {
@@ -320,8 +320,8 @@
     "semantic_hash": ""
   },
   "app/operator/vendor/maplibre-gl.mjs": {
-    "mtime": 1785105027.5106654,
-    "ast_hash": "d3168a0aedfa1399288a2f00ed5614df",
+    "mtime": 1785107337.3579934,
+    "ast_hash": "82ddf2a056280491518b9ae166e35c5a",
     "semantic_hash": ""
   },
   "app/operator/vision.mjs": {
@@ -330,7 +330,7 @@
     "semantic_hash": ""
   },
   "app/operator/wigle.mjs": {
-    "mtime": 1784582361.2248323,
+    "mtime": 1785265554.621194,
     "ast_hash": "3f262e980f1ee00b84a5ae2d23e6245c",
     "semantic_hash": ""
   },
@@ -340,8 +340,8 @@
     "semantic_hash": ""
   },
   "app/staticwebapp.config.json": {
-    "mtime": 1785104919.1569178,
-    "ast_hash": "22202ba2c6f0ff94c6b0b7cdf3b70604",
+    "mtime": 1785264487.0604093,
+    "ast_hash": "ff0650ae9e30aa194843f65a928175ed",
     "semantic_hash": ""
   },
   "config/mosaic-murmurs-paper-ledger.json": {
@@ -355,8 +355,8 @@
     "semantic_hash": ""
   },
   "infra/scripts/install-cybermap-api.sh": {
-    "mtime": 1784582361.2328324,
-    "ast_hash": "cab6c235f8268879f5961d526d5b4e48",
+    "mtime": 1785264914.4463217,
+    "ast_hash": "e23e5639ae7623e4a82e41b242d2af21",
     "semantic_hash": ""
   },
   "local-server.js": {
@@ -445,8 +445,8 @@
     "semantic_hash": ""
   },
   "tests/cybermap-viewport-api.test.mjs": {
-    "mtime": 1784582361.2408326,
-    "ast_hash": "297ab61b7d0c8ddf7d80df1442dfe935",
+    "mtime": 1785262447.1732957,
+    "ast_hash": "61cf3cf6b6ff44ce913ed527285b7879",
     "semantic_hash": ""
   },
   "tests/execution_costs_test.py": {
@@ -540,8 +540,8 @@
     "semantic_hash": ""
   },
   "tests/passcode-api.test.mjs": {
-    "mtime": 1784582361.2408326,
-    "ast_hash": "6f9d475432d675cc82dd6af02fa3779d",
+    "mtime": 1785263128.393177,
+    "ast_hash": "5ae3ff3eaf054f9e7e4a3a5d5477e52d",
     "semantic_hash": ""
   },
   "tests/public-events.test.mjs": {
@@ -555,8 +555,8 @@
     "semantic_hash": ""
   },
   "tests/security-review.test.mjs": {
-    "mtime": 1785105589.149328,
-    "ast_hash": "9dcac600bd5be97dc520d24a93c62b7c",
+    "mtime": 1785264609.2072394,
+    "ast_hash": "bf3e8f685646a96a6d56620c069f99cd",
     "semantic_hash": ""
   },
   "tests/strategy_synthesis_test.py": {
@@ -565,8 +565,8 @@
     "semantic_hash": ""
   },
   "tests/tzeentch-browser.test.mjs": {
-    "mtime": 1784582361.2408326,
-    "ast_hash": "d2273e49b356171511dd273b20ae22a9",
+    "mtime": 1785265511.6401968,
+    "ast_hash": "a1041b950f68ac8a27e74ed407fd17cc",
     "semantic_hash": ""
   },
   "tests/tzeentch-dashboard.test.mjs": {
@@ -580,8 +580,8 @@
     "semantic_hash": ""
   },
   "tests/ui-shell.test.mjs": {
-    "mtime": 1785104741.954422,
-    "ast_hash": "d63aa9aa7ac95747c28113e6e45b3dd4",
+    "mtime": 1785265470.4352412,
+    "ast_hash": "ce515139ff8454a59aea3cef2b9d243c",
     "semantic_hash": ""
   },
   "tests/vision.test.mjs": {
@@ -600,8 +600,8 @@
     "semantic_hash": ""
   },
   "tests/wigle-api.test.mjs": {
-    "mtime": 1784582361.2448328,
-    "ast_hash": "c7d17093dd241f19318fa93495c655b7",
+    "mtime": 1785265279.4628022,
+    "ast_hash": "8a9f7bc0d58bfceccfcacc36bb7ad963",
     "semantic_hash": ""
   },
   "tests/wigle.test.mjs": {
@@ -660,8 +660,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/server.mjs": {
-    "mtime": 1785104906.404722,
-    "ast_hash": "54d611e77de7dc1ab5b36defd0453a6d",
+    "mtime": 1785264990.768094,
+    "ast_hash": "ca3787fbf25a6abf25bfc2b0c82e88fa",
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/contracts.test.mjs": {
@@ -675,8 +675,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/http.test.mjs": {
-    "mtime": 1785104724.3342037,
-    "ast_hash": "d80d58e1378a0429e00871a1a1b5430f",
+    "mtime": 1785264994.6601846,
+    "ast_hash": "0eecf98692433b49c451e4f1733cdc09",
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/memory-store.test.mjs": {
@@ -745,13 +745,13 @@
     "semantic_hash": ""
   },
   ".github/workflows/deploy-static-web-app.yml": {
-    "mtime": 1784582677.2645583,
-    "ast_hash": "c74347cbe72cc0e2c4c42c78d264cb4e",
+    "mtime": 1785264966.435529,
+    "ast_hash": "e03c7deb905ca2225d94e0cabf288716",
     "semantic_hash": ""
   },
   ".github/workflows/infra-whatif.yml": {
-    "mtime": 1784582360.6088183,
-    "ast_hash": "13819a8b8d1b0693c3d18e88f975c938",
+    "mtime": 1785264890.3577623,
+    "ast_hash": "f59bf44769f69c739c51a57398b7b46f",
     "semantic_hash": ""
   },
   ".github/workflows/setup-azure-creds.md": {
@@ -850,8 +850,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1784582360.6168184,
-    "ast_hash": "207fa569fd047c1fb47f2158a05039dc",
+    "mtime": 1785259097.4305499,
+    "ast_hash": "439ceff90f6c0db6e7ba1ca69395538e",
     "semantic_hash": ""
   },
   "api/_private/operator/agent.html": {
@@ -860,8 +860,8 @@
     "semantic_hash": ""
   },
   "api/_private/operator/shell.html": {
-    "mtime": 1785105583.9172208,
-    "ast_hash": "cfd945def04b42be07d8f721a245b874",
+    "mtime": 1785264541.4896703,
+    "ast_hash": "a6d7248343a37d755c9a5a19a046d100",
     "semantic_hash": ""
   },
   "app/index.html": {
@@ -900,18 +900,18 @@
     "semantic_hash": ""
   },
   "docs/architecture.md": {
-    "mtime": 1784582361.2288322,
-    "ast_hash": "79bd58cb87bdc5d089e9658d8ab49973",
+    "mtime": 1785265250.5581305,
+    "ast_hash": "17afc60bec3dbe80b5b94fefc6aaa076",
     "semantic_hash": ""
   },
   "docs/azure-resources.md": {
-    "mtime": 1784582361.2288322,
-    "ast_hash": "3510a0c45e7c6a352b962eb2c6904b28",
+    "mtime": 1785257530.6216276,
+    "ast_hash": "ccd764770020bf7e8151c26c062a18ae",
     "semantic_hash": ""
   },
   "docs/blue-swallow-system-implementation-delta.md": {
-    "mtime": 1784582361.2288322,
-    "ast_hash": "eb95bbdbf74e24ec025c5e3d720ef402",
+    "mtime": 1785258318.432301,
+    "ast_hash": "9fa87a3304a0d9db543c908eab25dbd5",
     "semantic_hash": ""
   },
   "docs/crypto-paper-trading-strategy-research.md": {
@@ -920,8 +920,8 @@
     "semantic_hash": ""
   },
   "docs/cybermap-geospatial-backend.md": {
-    "mtime": 1785105680.6592207,
-    "ast_hash": "ea6fc6111017879b10855bf037690860",
+    "mtime": 1785265194.900837,
+    "ast_hash": "7a03493dde0b6bc47402e10e0c824788",
     "semantic_hash": ""
   },
   "docs/external-id-setup-checklist.md": {
@@ -1005,8 +1005,8 @@
     "semantic_hash": ""
   },
   "docs/static-web-app-functionality.md": {
-    "mtime": 1784582361.2328324,
-    "ast_hash": "cb84154ce101c61c8bb0ad142f99ed69",
+    "mtime": 1785265195.244845,
+    "ast_hash": "eb899d7b779c8f93d4d56047965335a9",
     "semantic_hash": ""
   },
   "docs/static-web-app-styling.md": {
@@ -1015,18 +1015,18 @@
     "semantic_hash": ""
   },
   "docs/tzeentch-paper-api-status.md": {
-    "mtime": 1784582361.2328324,
-    "ast_hash": "c3833b32cf5c4e0331f8b56372b90e03",
+    "mtime": 1785257795.1319468,
+    "ast_hash": "c4c572f414aa44b3d02fe0c267e05d15",
     "semantic_hash": ""
   },
   "docs/vm-api.md": {
-    "mtime": 1784582361.2328324,
-    "ast_hash": "311a48f96d12f47a610d20196a9e535c",
+    "mtime": 1785265194.5168278,
+    "ast_hash": "4049728ed2fa5e0673d12ed787eb64ea",
     "semantic_hash": ""
   },
   "docs/vm-echo-wiring.md": {
-    "mtime": 1784582361.2328324,
-    "ast_hash": "eb1d807a203c99315de855cd9c8481fe",
+    "mtime": 1785258215.7618868,
+    "ast_hash": "16cfa53fa4224efc3fe185851e5abce3",
     "semantic_hash": ""
   },
   "docs/wardriver-raid-backend-repair-plan.md": {
@@ -1130,28 +1130,28 @@
     "semantic_hash": ""
   },
   "specs/008-godeye-operator-map/plan.md": {
-    "mtime": 1785106228.3949637,
-    "ast_hash": "4ac5c4f1a0f7d88a0ba37bf47f7f8a75",
+    "mtime": 1785107342.6621068,
+    "ast_hash": "5153212b0232fbb2c57c7475941dc53d",
     "semantic_hash": ""
   },
   "specs/008-godeye-operator-map/spec.md": {
-    "mtime": 1785106228.3829637,
-    "ast_hash": "313fdc4d2f57b766c898729514b510e0",
+    "mtime": 1785107342.9301124,
+    "ast_hash": "7873c5639234b46dcc313f4ac52aa8d4",
     "semantic_hash": ""
   },
   "specs/008-godeye-operator-map/tasks.md": {
-    "mtime": 1785106525.477255,
-    "ast_hash": "80907bc87c3627480715acdb53540388",
+    "mtime": 1785107343.194118,
+    "ast_hash": "d8223ad1e8c82906e58c3d7674166315",
     "semantic_hash": ""
   },
   "specs/008-godeye-operator-map/tests.md": {
-    "mtime": 1785106525.7092595,
-    "ast_hash": "0c91dd81c0c079dea781ca2154178da6",
+    "mtime": 1785106586.0944386,
+    "ast_hash": "0421dce4c3d9fbf6b495f5fd7934cd4b",
     "semantic_hash": ""
   },
   "vm/cybermap-api/README.md": {
-    "mtime": 1784582361.2448328,
-    "ast_hash": "bbb011951bae57a48e1e9730bd09ab88",
+    "mtime": 1785257530.597627,
+    "ast_hash": "db94ad9e1efd246030379a2cd1133ff4",
     "semantic_hash": ""
   },
   "vm/cybermap-api/db/README.md": {
@@ -1162,6 +1162,116 @@
   "api/_private/operator/nacre-moire-mark.svg": {
     "mtime": 1784582361.216832,
     "ast_hash": "b55d199a6b24a0ce7ca4ac46ad86d2bb",
+    "semantic_hash": ""
+  },
+  "api/_lib/cybermap-backend.js": {
+    "mtime": 1785262569.8681512,
+    "ast_hash": "977d06722562945f4b3335bd6bd15926",
+    "semantic_hash": ""
+  },
+  "api/_lib/passcode-rate-limit.js": {
+    "mtime": 1785263058.959556,
+    "ast_hash": "28c90b79d49d5f417000349c8ecf8a04",
+    "semantic_hash": ""
+  },
+  "api/operator-signals/function.json": {
+    "mtime": 1785264345.301129,
+    "ast_hash": "55b750f89759901194094908fde1f139",
+    "semantic_hash": ""
+  },
+  "api/operator-signals/index.js": {
+    "mtime": 1785264345.3171294,
+    "ast_hash": "95bfa05bbe4812b06712638a8095951f",
+    "semantic_hash": ""
+  },
+  "app/operator/operator-session.mjs": {
+    "mtime": 1785263644.5770426,
+    "ast_hash": "2915750ad1be1d8e1b97e89efe916849",
+    "semantic_hash": ""
+  },
+  "app/operator/operator-signal-client.mjs": {
+    "mtime": 1785264345.3171294,
+    "ast_hash": "a0e6ec7e6c47681f103585370c59b693",
+    "semantic_hash": ""
+  },
+  "shared/contracts/bss.observation_batch.v1.wardriver-golden.json": {
+    "mtime": 1785265110.5308764,
+    "ast_hash": "8da8442425192eee868df01961831dca",
+    "semantic_hash": ""
+  },
+  "shared/legacy-wigle-parser.mjs": {
+    "mtime": 1785264101.6555052,
+    "ast_hash": "3f262e980f1ee00b84a5ae2d23e6245c",
+    "semantic_hash": ""
+  },
+  "shared/map-math.mjs": {
+    "mtime": 1785264457.1237164,
+    "ast_hash": "74511070d1f9fe0ee5a25a7038d51e6f",
+    "semantic_hash": ""
+  },
+  "tests/adversarial-repair-config.test.mjs": {
+    "mtime": 1785265569.3815365,
+    "ast_hash": "e37a7be3e9c319cd6e868f7479584ed2",
+    "semantic_hash": ""
+  },
+  "tests/backend-boundary.test.mjs": {
+    "mtime": 1785265278.8147871,
+    "ast_hash": "81cf78381c9d3eaa3a20110537d943a3",
+    "semantic_hash": ""
+  },
+  "tests/operator-session-boundary.test.mjs": {
+    "mtime": 1785263783.0121944,
+    "ast_hash": "4d20384ea0f8fce3b69debcaae616851",
+    "semantic_hash": ""
+  },
+  "tests/operator-signals-api.test.mjs": {
+    "mtime": 1785264406.6265476,
+    "ast_hash": "ca4ecf906e5261ce54e3ad2b82784766",
+    "semantic_hash": ""
+  },
+  "tests/operator-token-revocation.test.mjs": {
+    "mtime": 1785265369.7249005,
+    "ast_hash": "efcdc14e1692f77730a733c57e156944",
+    "semantic_hash": ""
+  },
+  "tests/passcode-rate-limit.test.mjs": {
+    "mtime": 1785265024.472877,
+    "ast_hash": "15888db17eeae87bad666e1d0e79242a",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/src/viewport.mjs": {
+    "mtime": 1785264994.6641846,
+    "ast_hash": "db5f2130b3f05c6913acf85f7623ef52",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/test/wardriver-contract-conformance.test.mjs": {
+    "mtime": 1785265110.5468767,
+    "ast_hash": "66ed9bfb04bfc0d7e21d4b57578e0fdc",
+    "semantic_hash": ""
+  },
+  "docs/adversarial-review-repair-guidance.md": {
+    "mtime": 1785265320.8237636,
+    "ast_hash": "dbfcc0e16572515dfde9cde67e06278e",
+    "semantic_hash": ""
+  },
+  "specs/009-adversarial-review-repairs/plan.md": {
+    "mtime": 1785262409.4484184,
+    "ast_hash": "ad1b86863eecf6d1f64ece8cb2a9b09d",
+    "semantic_hash": ""
+  },
+  "specs/009-adversarial-review-repairs/spec.md": {
+    "mtime": 1785262409.4164178,
+    "ast_hash": "6382c15819eae7bc7156d958e043a671",
+    "semantic_hash": ""
+  },
+  "specs/009-adversarial-review-repairs/tasks.md": {
+    "mtime": 1785262409.428418,
+    "ast_hash": "162b6e57ac6208b3d78ea247db111015",
+    "semantic_hash": ""
+  },
+  "specs/009-adversarial-review-repairs/tests.md": {
+    "mtime": 1785262409.432418,
+    "ast_hash": "22d62999685c752e09f55a37a25c5543",
     "semantic_hash": ""
   }
 }
