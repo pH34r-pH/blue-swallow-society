@@ -61,7 +61,7 @@ The installer verifies the digest before extraction and writes a root-readable d
 1. Add `cybermapSourceRevision` and secure `cybermapSourceSha256` parameters to `infra/vm-echo-lab.bicep`; replace the mutable-branch default with an explicit required deployment input.
 2. Add placeholders for both values to `infra/scripts/install-cybermap-api.sh`. After download, use `sha256sum --check` or a constant-time equivalent. Abort before `tar -xzf` on mismatch.
 3. In the GitHub Actions workflow, obtain the archive for `${GITHUB_SHA}`, calculate its SHA-256 once, and pass URL, revision, digest, and deployment version into Bicep. Do not print the digest alongside secret-bearing command lines.
-4. Write `/opt/bss/cybermap-api-release.json` mode `0644` containing only public provenance. Preserve `/etc/bss/cybermap-api.env` mode `0600` for secrets.
+4. Write `/etc/bss/cybermap-api-release.json` mode `0644` containing only public provenance. Preserve `/etc/bss/cybermap-api.env` mode `0600` for secrets.
 5. Add static tests that reject a branch-head URL and require a checksum verification before extraction.
 6. Add deployment acceptance: the service reports healthy, the receipt revision matches the workflow SHA, and the recorded digest matches the release artifact digest.
 
@@ -179,7 +179,7 @@ Keep event binding ownership explicit. A controller receives dependencies rather
 
 ## Source implementation ledger
 
-- **R1:** Bicep accepts a required full commit, archive URL, and SHA-256. The installer checks revision/URL agreement and digest before extraction, migration, or service replacement, then writes a public `/opt/bss/cybermap-api-release.json` receipt.
+- **R1:** Bicep accepts a required full commit, archive URL, and SHA-256. The installer checks revision/URL agreement and digest before extraction, migration, or service replacement, then writes a public `/etc/bss/cybermap-api-release.json` receipt.
 - **R2:** Function-to-VM viewport and operator-signal reads are authenticated JSON `POST`s. The VM query-form viewport route is retired.
 - **R3:** The selected feasible pattern is a five-minute in-memory bearer. `operator-session.mjs` owns it; direct reloads require the root passcode flow. `BLUE_SWALLOW_OPERATOR_TOKEN_VERSION` is a global emergency-revocation setting and deployment automation does not reset it.
 - **R4:** A dedicated Azure Table account/table stores hashed caller failure windows. Counter configuration or store failure returns `503` from the passcode route; the public cover remains available. Source tests exercise two independent limiter instances over one table client.
