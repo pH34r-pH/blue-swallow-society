@@ -79,8 +79,14 @@ param wardriverMtlsTrustCertificatePem string
 @description('Name of the RBAC-enabled, purge-protected Key Vault that holds the Wardriver client certificate.')
 param wardriverMtlsVaultName string = 'bsswdmtls3f85618'
 
-@description('Public repository tarball used by the VM extension to install vm/cybermap-api.')
-param cybermapSourceTarballUrl string = 'https://github.com/pH34r-pH/blue-swallow-society/archive/refs/heads/main.tar.gz'
+@description('Full immutable Git commit that identifies the Cybermap VM source archive.')
+param cybermapSourceRevision string
+
+@description('Immutable full-commit GitHub archive used by the VM extension to install vm/cybermap-api.')
+param cybermapSourceTarballUrl string
+
+@description('SHA-256 digest of the exact Cybermap archive. The VM verifies it before extraction or migration.')
+param cybermapSourceTarballSha256 string
 
 @description('Opaque value used to force the VM Custom Script extension to re-run on each deployment.')
 param cybermapDeploymentVersion string = utcNow()
@@ -182,7 +188,9 @@ module vmModule 'vm-echo-lab.bicep' = {
     morningBriefToken: morningBriefToken
     mtlsProxySecret: mtlsProxySecret
     wardriverMtlsTrustCertificatePem: wardriverMtlsTrustCertificatePem
+    cybermapSourceRevision: cybermapSourceRevision
     cybermapSourceTarballUrl: cybermapSourceTarballUrl
+    cybermapSourceTarballSha256: cybermapSourceTarballSha256
     cybermapDeploymentVersion: cybermapDeploymentVersion
   }
 }
@@ -205,6 +213,14 @@ module openAiModule 'modules/openai.bicep' = if (deployOpenAi) {
  */
 module wardriverReleaseStorage 'modules/wardriver-release-storage.bicep' = {
   name: 'wardriver-release-storage'
+  params: {
+    prefix: prefix
+    location: location
+  }
+}
+
+module passcodeRateLimitStorage 'modules/passcode-rate-limit-storage.bicep' = {
+  name: 'passcode-rate-limit-storage'
   params: {
     prefix: prefix
     location: location
@@ -234,6 +250,8 @@ output wardriverReleaseContainerName string = wardriverReleaseStorage.outputs.re
 output wardriverBasemapToolchainContainerName string = wardriverReleaseStorage.outputs.basemapToolchainContainerName
 output wardriverBasemapInputContainerName string = wardriverReleaseStorage.outputs.basemapInputContainerName
 output wardriverBasemapContainerName string = wardriverReleaseStorage.outputs.basemapContainerName
+output passcodeRateLimitStorageAccountName string = passcodeRateLimitStorage.outputs.storageAccountName
+output passcodeRateLimitTableName string = passcodeRateLimitStorage.outputs.tableName
 output postgresHighAvailabilityMode string = postgresModule.outputs.highAvailabilityMode
 output openAiDeployed bool = deployOpenAi
 output openAiEndpoint string = deployOpenAi ? openAiModule!.outputs.endpoint : ''

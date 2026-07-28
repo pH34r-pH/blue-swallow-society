@@ -445,11 +445,13 @@ test('serves token-gated Cybermap viewport reads from ingested real observations
         body: JSON.stringify(batch),
       });
 
-      const anonymous = await fetch(`${baseUrl}/api/v1/cybermap/viewport?lat=47.6062&lon=-122.3321`);
+      const anonymous = await fetch(`${baseUrl}/api/v1/cybermap/viewport`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ lat: 47.6062, lon: -122.3321 }) });
       assert.equal(anonymous.status, 403);
 
-      const response = await fetch(`${baseUrl}/api/v1/cybermap/viewport?lat=47.6062&lon=-122.3321&radiusMeters=100&limit=10`, {
-        headers: { 'x-blue-swallow-cybermap-read-token': process.env.BSS_CYBERMAP_READ_TOKEN },
+      const response = await fetch(`${baseUrl}/api/v1/cybermap/viewport`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-blue-swallow-cybermap-read-token': process.env.BSS_CYBERMAP_READ_TOKEN },
+        body: JSON.stringify({ lat: 47.6062, lon: -122.3321, radiusMeters: 100, limit: 10 }),
       });
       assert.equal(response.status, 200);
       const body = await response.json();

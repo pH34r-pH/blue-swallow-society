@@ -46,6 +46,10 @@ jobs:
           morning_brief_token=$(printf '%s' "$BSS_MORNING_BRIEF_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           mtls_proxy_secret=$(printf '%s' "$BSS_MTLS_PROXY_SECRET" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           mtls_trust_pem=$(printf '%s' "$BSS_WARDRIVER_MTLS_TRUST_PEM" | tr -d '\r')
+          cybermap_source_url="https://github.com/${GITHUB_REPOSITORY}/archive/${GITHUB_SHA}.tar.gz"
+          curl --fail --location --silent --show-error "$cybermap_source_url" -o cybermap-source.tar.gz
+          cybermap_source_sha256="$(sha256sum cybermap-source.tar.gz | awk '{print $1}')"
+          rm -f cybermap-source.tar.gz
           az deployment group what-if \
             --resource-group "$RESOURCE_GROUP" \
             --template-file infra/main.bicep \
@@ -56,4 +60,7 @@ jobs:
             --parameters paperStateToken="$paper_state_token" \
             --parameters morningBriefToken="$morning_brief_token" \
             --parameters mtlsProxySecret="$mtls_proxy_secret" \
-            --parameters wardriverMtlsTrustCertificatePem="$mtls_trust_pem"
+            --parameters wardriverMtlsTrustCertificatePem="$mtls_trust_pem" \
+            --parameters cybermapSourceRevision="$GITHUB_SHA" \
+            --parameters cybermapSourceTarballUrl="$cybermap_source_url" \
+            --parameters cybermapSourceTarballSha256="$cybermap_source_sha256"

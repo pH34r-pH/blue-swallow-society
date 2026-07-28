@@ -3,6 +3,7 @@ import http from 'node:http';
 
 import { IngestError } from './auth.mjs';
 import { ContractError, validateObservationBatch } from './contracts.mjs';
+import { readOperatorSignalSnapshotFromBody, readViewportFromBody } from './viewport.mjs';
 import {
   GlobalViewportContractError,
   validateGlobalViewportRequest,
@@ -18,6 +19,7 @@ const MAX_BODY_BYTES = 1_048_576;
 const MAX_MORNING_BRIEF_BODY_BYTES = 32 * 1_024 * 1_024;
 const INGEST_PATH = '/api/v1/observations/batch';
 const VIEWPORT_PATH = '/api/v1/cybermap/viewport';
+const OPERATOR_SIGNALS_PATH = '/api/v1/cybermap/operator-signals';
 const TILE_PATH_RE = /^\/api\/v1\/cybermap\/tiles\/(\d+)\/(\d+)\/(\d+)$/;
 const TILE_MAX_ZOOM = 12;
 const GLOBAL_VIEWPORT_PATH = '/api/v1/cybermap/global-viewport';
@@ -145,20 +147,26 @@ export function createRequestHandler({
         const readiness = await store.ready();
         return sendJson(response, readiness.ok ? 200 : 503, readiness);
       }
-      if (request.method === 'POST' && url.pathname === VIEWPORT_PATH) {
-        const mtlsAssertion = requireMtlsProxyAssertion(request, mtlsProxySecret);
-        const viewport = await handleMtlsViewport(request, {
-          store,
-          now,
-          mtlsAssertion,
-          deviceId: singleHeader(request, 'x-blue-swallow-device-id'),
-        });
-        return sendJson(response, 200, toAggregateViewportResponse(viewport));
-      }
-      if (request.method === 'GET' && url.pathname === VIEWPORT_PATH) {
+      if (request.method === 'POST' && url.pathname === OPERATOR_SIGNALS_PATH) {
         requireBackendReadToken(request);
-        const viewport = await handleCybermapViewport(url, { store, now });
-        return sendJson(response, 200, viewport);
+        if (url.search) {
+          request.resume();
+          throw new IngestError('invalid_operator_signals', 'Operator signal requests must not use URL query parameters.', { statusCode: 400 });
+        }
+        return sendJson(response, 200, await handleOperatorSignalSnapshotPost(request, { store, now }));
+      }
+      if (request.method === 'POST' && url.pathname === VIEWPORT_PATH) {
+        if (singleHeader(request, 'x-blue-swallow-mtls-proxy-secret')) {
+          const mtlsAssertion = requireMtlsProxyAssertion(request, mtlsProxySecret);
+          const viewport = await handleMtlsViewport(request, { store, now, mtlsAssertion, deviceId: singleHeader(request, 'x-blue-swallow-device-id') });
+          return sendJson(response, 200, toAggregateViewportResponse(viewport));
+        }
+        requireBackendReadToken(request);
+        if (url.search) {
+          request.resume();
+          throw new IngestError('invalid_viewport', 'Viewport requests must not use URL query parameters.', { statusCode: 400 });
+        }
+        return sendJson(response, 200, await handleCybermapViewportPost(request, { store, now }));
       }
       if (request.method === 'GET' && url.pathname.startsWith('/api/v1/cybermap/tiles/')) {
         requireBackendReadToken(request);
@@ -820,26 +828,26 @@ function toAggregateViewportResponse(viewport) {
   };
 }
 
-async function handleCybermapViewport(url, { store, now }) {
-  if (typeof store.queryViewport !== 'function') {
-    throw new IngestError('viewport_unavailable', 'Cybermap viewport reads are not available.', { statusCode: 503 });
+async function handleOperatorSignalSnapshotPost(request, { store, now }) {
+  return readOperatorSignalSnapshotFromBody(await readJsonRequestBody(request), { store, now });
+}
+
+async function handleCybermapViewportPost(request, { store, now }) {
+  return readViewportFromBody(await readJsonRequestBody(request), { store, now });
+}
+
+async function readJsonRequestBody(request) {
+  const contentType = String(request.headers['content-type'] ?? '').toLowerCase();
+  if (!contentType.startsWith('application/json')) {
+    request.resume();
+    throw new IngestError('unsupported_media_type', 'Content-Type must be application/json.', { statusCode: 415 });
   }
-
-  const lat = parseFiniteNumber(url.searchParams.get('lat') ?? url.searchParams.get('latitude'));
-  const lon = parseFiniteNumber(url.searchParams.get('lon') ?? url.searchParams.get('longitude'));
-  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-    throw new IngestError('invalid_viewport', 'lat and lon query parameters are required.', { statusCode: 400 });
+  try {
+    return JSON.parse(await readBody(request));
+  } catch (error) {
+    if (error instanceof IngestError) throw error;
+    throw new IngestError('invalid_json', 'Request body must contain valid JSON.', { statusCode: 400 });
   }
-
-  const radiusMeters = clampFiniteNumber(url.searchParams.get('radiusMeters'), 25, 5_000, 100);
-  const limit = Math.trunc(clampFiniteNumber(url.searchParams.get('limit'), 1, 500, 100));
-  const maxAgeMs = url.searchParams.has('maxAgeMs')
-    ? clampFiniteNumber(url.searchParams.get('maxAgeMs'), 1_000, 86_400_000, 45_000)
-    : null;
-  const clock = parseTimestampMs(url.searchParams.get('now'));
-  const nowMs = Number.isFinite(clock) ? clock : now();
-
-  return store.queryViewport({ lat, lon, radiusMeters, limit, maxAgeMs, now: new Date(nowMs) });
 }
 
 async function handleCybermapTile(url, { store }) {

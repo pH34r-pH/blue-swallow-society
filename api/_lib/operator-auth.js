@@ -1,7 +1,7 @@
 const crypto = require('node:crypto');
 
-const DEFAULT_TOKEN_TTL_MS = 8 * 60 * 60 * 1000;
-const TOKEN_VERSION = 1;
+const DEFAULT_TOKEN_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_TOKEN_VERSION = 1;
 const OPERATOR_SESSION_COOKIE = 'bss_operator_session';
 
 function getConfiguredDigest() {
@@ -51,7 +51,7 @@ function createOperatorToken({ now = Date.now(), ttlMs = getTokenTtlMs(), operat
   const issuedAt = Math.floor(now / 1000);
   const expiresAt = Math.floor((now + ttlMs) / 1000);
   const payload = {
-    v: TOKEN_VERSION,
+    v: getOperatorTokenVersion(),
     sub: 'operator',
     operatorId: normalizeOperatorId(operatorId),
     iat: issuedAt,
@@ -129,7 +129,7 @@ function verifyOperatorToken(token, signingKey, now) {
     return { ok: false, status: 403, error: 'Invalid operator session token.' };
   }
 
-  if (payload?.v !== TOKEN_VERSION || payload.sub !== 'operator') {
+  if (payload?.v !== getOperatorTokenVersion() || payload.sub !== 'operator') {
     return { ok: false, status: 403, error: 'Invalid operator session token.' };
   }
 
@@ -146,6 +146,34 @@ function extractOperatorTokens(req) {
   const authorization = toHeader(req, 'authorization');
   const authorizationToken = authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() || '';
   return [...new Set([explicitOperatorToken, cookieToken, authorizationToken].filter(Boolean))];
+}
+
+function buildOperatorSessionCookie(session) {
+  const token = typeof session?.token === 'string' ? session.token : '';
+  const ttlSeconds = Number.isFinite(session?.ttlSeconds) ? Math.max(0, Math.floor(session.ttlSeconds)) : 0;
+  if (!token || ttlSeconds <= 0) {
+    return buildClearOperatorSessionCookie();
+  }
+
+  return [
+    `${OPERATOR_SESSION_COOKIE}=${encodeURIComponent(token)}`,
+    'Path=/',
+    `Max-Age=${ttlSeconds}`,
+    'HttpOnly',
+    'Secure',
+    'SameSite=Strict',
+  ].join('; ');
+}
+
+function buildClearOperatorSessionCookie() {
+  return [
+    `${OPERATOR_SESSION_COOKIE}=`,
+    'Path=/',
+    'Max-Age=0',
+    'HttpOnly',
+    'Secure',
+    'SameSite=Strict',
+  ].join('; ');
 }
 
 function extractCookieValue(cookieHeader, name) {
@@ -215,7 +243,16 @@ function headerValueToString(value) {
 
 function getTokenTtlMs() {
   const parsed = Number.parseInt(process.env.BLUE_SWALLOW_OPERATOR_TOKEN_TTL_MS || '', 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TOKEN_TTL_MS;
+  return Number.isFinite(parsed) && parsed >= 60_000 && parsed <= 15 * 60 * 1000
+    ? parsed
+    : DEFAULT_TOKEN_TTL_MS;
+}
+
+function getOperatorTokenVersion() {
+  const parsed = Number.parseInt(process.env.BLUE_SWALLOW_OPERATOR_TOKEN_VERSION || '', 10);
+  return Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= 1_000_000
+    ? parsed
+    : DEFAULT_TOKEN_VERSION;
 }
 
 function getOperatorId() {
@@ -260,9 +297,12 @@ function base64UrlDecode(value) {
 }
 
 module.exports = {
+  buildClearOperatorSessionCookie,
+  buildOperatorSessionCookie,
   createOperatorToken,
   getConfiguredDigest,
   getOperatorTokenSigningKey,
+  getOperatorTokenVersion,
   requireOperatorToken,
   verifyOperatorRequest,
   verifyPasscode,

@@ -229,11 +229,15 @@ test('Obscura renders Tzeentch peer tabs, nested intel views, Mosaic facts, and 
       return;
     }
 
+    if (url.pathname === '/operator/operator-session.mjs') {
+      const fixture = JSON.stringify({ token: 'browser-token', expiresAt: new Date(Date.now() + 4 * 60 * 1000).toISOString() });
+      const source = readFileSync(join(appRoot, 'operator/operator-session.mjs'), 'utf8').replace('let activeSession = null;', `let activeSession = Object.freeze(${fixture});`);
+      res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
+      res.end(source);
+      return;
+    }
     if (url.pathname === '/operator/loader.js') {
-      const loader = readFileSync(join(appRoot, 'operator/loader.js'), 'utf8').replace(
-        /function createPrivateObjectUrl\(assetName, source, type\) \{\n  const url = URL\.createObjectURL\(new Blob\(\[source\], \{ type \}\)\);\n  activeObjectUrls\.push\(url\);\n  return url;\n\}/u,
-        'function createPrivateObjectUrl(assetName, source, type) { return `/api/operator-assets/${assetName}`; }',
-      );
+      const loader = fixtureLoaderSource();
       res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
       res.end(loader);
       return;
@@ -278,8 +282,8 @@ test('Obscura renders Tzeentch peer tabs, nested intel views, Mosaic facts, and 
     ], { encoding: 'utf8', timeout: 45000, maxBuffer: 1024 * 1024 });
 
     const rendered = parseObscuraJson(`${stdout}\n${stderr}`);
-    assert.ok(['main.js', 'styles.css', 'maplibre-gl.mjs'].every((asset) => authenticatedAssetFetches.has(asset)));
     assert.equal(rendered.evalError, undefined, JSON.stringify(rendered));
+    assert.ok(['main.js', 'styles.css', 'maplibre-gl.mjs'].every((asset) => authenticatedAssetFetches.has(asset)), JSON.stringify([...authenticatedAssetFetches]));
     assert.deepEqual(rendered.errors, [], JSON.stringify(rendered));
     assert.equal(rendered.activeSurface, 'positions');
     assert.equal(rendered.seekHidden, true);
@@ -307,16 +311,12 @@ function sendJson(res, body) {
   res.end(JSON.stringify(body));
 }
 
+function fixtureLoaderSource() {
+  return `const token='browser-token'; const headers={'X-Blue-Swallow-Operator-Token':token}; export async function bootOperatorSurface(){const shell=await fetch('/api/operator-shell',{headers}); await Promise.all(['main.js','styles.css','maplibre-gl.mjs'].map((asset)=>fetch('/api/operator-assets/'+asset,{headers}))); document.body.innerHTML=await shell.text(); const session=await import('/api/operator-assets/operator-session.mjs'); session.activateOperatorSession({token,expiresAt:new Date(Date.now()+240000).toISOString()}); const main=await import('/api/operator-assets/main.js'); main.bootOperatorSurface();} bootOperatorSurface();`;
+}
+
 function operatorSessionSeedScript() {
-  return String.raw`
-    <script>
-      sessionStorage.setItem('blue-swallow-society:operator-session', JSON.stringify({
-        token: 'browser-token',
-        expiresAt: '2099-07-12T20:00:00Z',
-        ttlSeconds: 28800,
-      }));
-    </script>
-  `;
+  return '';
 }
 
 function browserBootScript() {
@@ -388,11 +388,6 @@ function browserBootScript() {
       window.addEventListener('load', async () => {
         try {
           await sleep(50);
-          sessionStorage.setItem('blue-swallow-society:operator-session', JSON.stringify({
-            token: 'browser-token',
-            expiresAt: '2099-07-12T20:00:00Z',
-            ttlSeconds: 28800,
-          }));
 
           document.body.dataset.mode = 'operator';
           document.querySelector('#terminalScreen')?.classList.remove('active');

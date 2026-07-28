@@ -31,13 +31,18 @@ import {
   deriveGodeyeSessionAnalysis,
 } from './godeye-session-analysis.mjs';
 
+import {
+  clearOperatorSession,
+  getActiveOperatorSession,
+  operatorRequestHeaders,
+} from './operator-session.mjs';
+
 const GEO_OPTIONS = {
   enableHighAccuracy: true,
   maximumAge: 5000,
   timeout: 10000,
 };
-const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
-const GODEYE_VIEWPORT_ENDPOINT = '/api/cybermap/viewport';
+const GODEYE_VIEWPORT_ENDPOINT = '/api/operator-signals';
 const godeyeController = createGodeyeController();
 const visionController = createVisionController();
 const GODEYE_GLOBAL_VIEWPORT_ENDPOINT = '/api/cybermap/global-viewport';
@@ -53,24 +58,11 @@ const $ = (id) => document.getElementById(id);
 const $$ = (selector) => document.querySelectorAll(selector);
 
 function getOperatorSession() {
-  try {
-    const raw = sessionStorage.getItem(OPERATOR_SESSION_KEY);
-    const session = raw ? JSON.parse(raw) : null;
-    return session && typeof session.token === 'string' && session.token ? session : null;
-  } catch {
-    return null;
-  }
+  return getActiveOperatorSession();
 }
 
 function buildOperatorHeaders(headers = {}) {
-  const session = getOperatorSession();
-  return session?.token
-    ? {
-      ...headers,
-      Authorization: `Bearer ${session.token}`,
-      'X-Blue-Swallow-Operator-Token': session.token,
-    }
-    : { ...headers };
+  return operatorRequestHeaders(headers);
 }
 
 const state = {
@@ -139,18 +131,12 @@ function init() {
   bindMorningBriefReturn();
   bindOperatorDownloads();
 
-  if (isOperatorEntrypoint()) {
-    if (!getOperatorSession()) {
-      window.location.replace('/');
-      return;
-    }
-
-    unlockConsole();
+  if (!getOperatorSession()) {
+    window.location.replace('/');
     return;
   }
 
-  bindLoginFlow();
-  resetConsoleToLogin();
+  unlockConsole();
 }
 
 function isOperatorEntrypoint() {
@@ -171,82 +157,6 @@ function bindMorningBriefReturn() {
 function returnToOperatorConsole() {
   history.replaceState(null, '', '/operator');
   activateTab('landing', { focus: true });
-}
-
-function bindLoginFlow() {
-  const loginBtn = $('loginBtn');
-  const passcodeInput = $('passcodeInput');
-
-  if (loginBtn) {
-    loginBtn.addEventListener('click', handleLogin);
-  }
-
-  if (passcodeInput) {
-    passcodeInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        handleLogin();
-      }
-    });
-  }
-}
-
-async function handleLogin() {
-  const passcodeInput = $('passcodeInput');
-  const loginBtn = $('loginBtn');
-  const passcode = passcodeInput ? passcodeInput.value.trim() : '';
-
-  if (!passcode) {
-    return;
-  }
-
-  if (loginBtn) {
-    loginBtn.disabled = true;
-  }
-
-  try {
-    const session = await validatePasscode(passcode);
-    if (!session) {
-      return;
-    }
-
-    persistOperatorSession(session);
-    unlockConsole();
-  } catch (error) {
-    console.error('Login failed', error);
-  } finally {
-    if (loginBtn) {
-      loginBtn.disabled = false;
-    }
-  }
-}
-
-async function validatePasscode(passcode) {
-  const response = await fetch('/api/validate-passcode', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ passcode }),
-  });
-
-  if (!response.ok) {
-    return false;
-  }
-
-  const data = await response.json();
-  if (data?.ok === true && data.operatorSession?.token) {
-    return data.operatorSession;
-  }
-
-  return null;
-}
-
-function persistOperatorSession(session) {
-  try {
-    sessionStorage.setItem(OPERATOR_SESSION_KEY, JSON.stringify(session));
-  } catch {
-    // Session storage is best-effort; API calls will fail closed without a bearer token.
-  }
 }
 
 function unlockConsole() {
@@ -341,11 +251,7 @@ function resetConsoleToLogin() {
   renderGodeyeMap();
   renderWigleViews();
   updateArFullscreenState(false);
-  try {
-    sessionStorage.removeItem(OPERATOR_SESSION_KEY);
-  } catch {
-    // no-op
-  }
+  clearOperatorSession();
   resetTabSelection();
 }
 
@@ -533,18 +439,10 @@ async function handleLogout() {
   try {
     await fetch('/api/operator-logout', { method: 'POST' });
   } catch {
-    // The session storage token is already gone; the HttpOnly cookie will expire by TTL if this fails.
+    // The in-memory bearer is already cleared; any legacy server session expires by TTL.
   }
 
   window.location.replace('/');
-}
-
-function clearOperatorSession() {
-  try {
-    sessionStorage.removeItem(OPERATOR_SESSION_KEY);
-  } catch {
-    // no-op
-  }
 }
 
 function getTabButtons() {
@@ -2147,8 +2045,10 @@ function numberOrZero(value) {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-if (document.readyState === 'loading') {
-  window.addEventListener('DOMContentLoaded', init, { once: true });
-} else {
-  init();
+export function bootOperatorSurface() {
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 }

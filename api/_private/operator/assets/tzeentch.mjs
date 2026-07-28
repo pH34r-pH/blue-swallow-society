@@ -1,7 +1,7 @@
+import { operatorRequestHeaders } from './operator-session.mjs';
 import { buildTzeentchDashboardModel, formatRelativeTime, formatTokenPrice } from './tzeentch-dashboard.mjs';
 
 const STORAGE_KEY = 'blue-swallow-society:tzeentch:recent-queries';
-const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
 const MAX_RECENT = 6;
 const TZEENTCH_SOURCE_FAMILIES = ['NWS Alerts', 'CISA KEV', 'USGS Earthquakes', 'Hacker News', 'Reddit', 'CoinGecko', 'Polymarket Gamma'];
 
@@ -703,24 +703,8 @@ function getTzeentchMarketModel() {
   return state.marketModel;
 }
 
-function readOperatorSession() {
-  try {
-    const raw = sessionStorage.getItem(OPERATOR_SESSION_KEY);
-    const session = raw ? JSON.parse(raw) : null;
-    return typeof session?.token === 'string' && session.token ? session : null;
-  } catch {
-    return null;
-  }
-}
-
 function buildOperatorHeaders() {
-  const session = readOperatorSession();
-  return session?.token
-    ? {
-        Authorization: `Bearer ${session.token}`,
-        'X-Blue-Swallow-Operator-Token': session.token,
-      }
-    : {};
+  return operatorRequestHeaders();
 }
 
 async function loadTzeentchMarketFeed({ refresh = false } = {}) {

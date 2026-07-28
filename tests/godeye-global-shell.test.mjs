@@ -84,7 +84,7 @@ test('Godeye dispatches future explicit Field and Global controls while retainin
     'main controller must dispatch explicit Godeye modes when authenticated controls exist',
   );
   assert.match(operatorMain, /godeye-global\.mjs/);
-  assert.match(operatorMain, /GODEYE_VIEWPORT_ENDPOINT\s*=\s*['"]\/api\/cybermap\/viewport['"]/);
+  assert.match(operatorMain, /GODEYE_VIEWPORT_ENDPOINT\s*=\s*['"]\/api\/operator-signals['"]/);
   assert.match(operatorMain, /radiusMeters:\s*100/);
   assert.match(operatorMain, /startGodeyeFeed/);
 });

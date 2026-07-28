@@ -17,7 +17,7 @@ const config = readFileSync(configUrl, 'utf8');
 
 test('morning brief operator surface is session-gated and does not put protected artifact URLs in anchors', () => {
   assert.match(html, /id="operatorLoader"/);
-  assert.match(source, /if \(!operatorSession\(\)\) \{\s*redirectToLogin\(\);/);
+  assert.match(source, /if \(!getActiveOperatorSession\(\)\) \{\s*redirectToLogin\(\);/);
   assert.match(source, /headers: operatorHeaders\(\)/);
   assert.match(source, /fetchArtifact\(brief\.run_id, artifact\)/);
   assert.doesNotMatch(source, /link\.href\s*=\s*artifactHref/);

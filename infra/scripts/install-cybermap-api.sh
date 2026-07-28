@@ -48,7 +48,15 @@ fi
 
 rm -rf /tmp/bss-source /tmp/bss.tar.gz
 mkdir -p /tmp/bss-source /opt/bss
-curl -fsSL '__CYBERMAP_SOURCE_TARBALL_URL__' -o /tmp/bss.tar.gz
+CYBERMAP_SOURCE_REVISION='__CYBERMAP_SOURCE_REVISION__'
+CYBERMAP_SOURCE_TARBALL_URL='__CYBERMAP_SOURCE_TARBALL_URL__'
+CYBERMAP_SOURCE_TARBALL_SHA256='__CYBERMAP_SOURCE_TARBALL_SHA256__'
+if ! printf '%s' "$CYBERMAP_SOURCE_REVISION" | grep -Eq '^[a-f0-9]{40}$' || ! printf '%s' "$CYBERMAP_SOURCE_TARBALL_URL" | grep -Fq "/archive/${CYBERMAP_SOURCE_REVISION}.tar.gz" || ! printf '%s' "$CYBERMAP_SOURCE_TARBALL_SHA256" | grep -Eq '^[a-f0-9]{64}$'; then
+  echo "Cybermap source provenance is invalid" >&2
+  exit 1
+fi
+curl -fsSL "$CYBERMAP_SOURCE_TARBALL_URL" -o /tmp/bss.tar.gz
+printf '%s  %s\n' "$CYBERMAP_SOURCE_TARBALL_SHA256" /tmp/bss.tar.gz | sha256sum --check --status
 tar -xzf /tmp/bss.tar.gz -C /tmp/bss-source --strip-components=1
 rm -rf /opt/bss/cybermap-api
 cp -a /tmp/bss-source/vm/cybermap-api /opt/bss/cybermap-api
@@ -123,6 +131,8 @@ run_migration() {
 run_migration 0001_cybermap_core db/migrations/0001_cybermap_core.sql
 run_migration 0002_device_ingest_contract db/migrations/0002_device_ingest_contract.sql
 run_migration 0003_paper_state db/migrations/0003_paper_state.sql
+printf '{"revision":"%s","archive_sha256":"%s","installed_at":"%s"}\n' "$CYBERMAP_SOURCE_REVISION" "$CYBERMAP_SOURCE_TARBALL_SHA256" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /etc/bss/cybermap-api-release.json
+chmod 0644 /etc/bss/cybermap-api-release.json
 run_migration 0004_godeye_global_cells_and_sources db/migrations/0004_godeye_global_cells_and_sources.sql
 run_migration 0004_morning_brief_archive db/migrations/0004_morning_brief_archive.sql
 psql -v ON_ERROR_STOP=1 -c "UPDATE source_catalog SET enabled = true, allowed_preload = true, terms_reviewed = true, updated_at = clock_timestamp() WHERE source_key = 'deflock-osm-alpr-reports'"

@@ -107,11 +107,16 @@ test('Obscura renders the Morning dossier inside the protected operator console 
       return;
     }
 
+    if (url.pathname === '/operator/operator-session.mjs') {
+      const fixture = JSON.stringify({ token: 'browser-token', expiresAt: new Date(Date.now() + 4 * 60 * 1000).toISOString() });
+      const source = readFileSync(join(appRoot, 'operator/operator-session.mjs'), 'utf8').replace('let activeSession = null;', `let activeSession = Object.freeze(${fixture});`);
+      response.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
+      response.end(source);
+      return;
+    }
+
     if (url.pathname === '/operator/loader.js') {
-      const loader = readFileSync(join(appRoot, 'operator/loader.js'), 'utf8').replace(
-        /function createPrivateObjectUrl\(assetName, source, type\) \{\n  const url = URL\.createObjectURL\(new Blob\(\[source\], \{ type \}\)\);\n  activeObjectUrls\.push\(url\);\n  return url;\n\}/u,
-        'function createPrivateObjectUrl(assetName, source, type) { return `/api/operator-assets/${assetName}`; }',
-      );
+      const loader = fixtureLoaderSource();
       response.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
       response.end(loader);
       return;
@@ -155,8 +160,8 @@ test('Obscura renders the Morning dossier inside the protected operator console 
     ], { encoding: 'utf8', timeout: 45000, maxBuffer: 1024 * 1024 });
 
     const rendered = parseObscuraJson(`${stdout}\n${stderr}`);
-    assert.ok(['main.js', 'styles.css', 'maplibre-gl.mjs'].every((asset) => authenticatedAssetFetches.has(asset)));
     assert.equal(rendered.evalError, undefined, JSON.stringify(rendered));
+    assert.ok(['main.js', 'styles.css', 'maplibre-gl.mjs'].every((asset) => authenticatedAssetFetches.has(asset)), JSON.stringify([...authenticatedAssetFetches]));
     assert.deepEqual(rendered.errors, [], JSON.stringify(rendered));
     assert.deepEqual(rendered.tabLabels, ['Landing', 'Tzeentch', 'Godeye', 'Morning dossier', 'Slang']);
     assert.equal(rendered.initial.activeTab, 'morning-brief');
@@ -184,16 +189,12 @@ function sendJson(response, body) {
   response.end(JSON.stringify(body));
 }
 
+function fixtureLoaderSource() {
+  return `const token='browser-token'; const headers={'X-Blue-Swallow-Operator-Token':token}; export async function bootOperatorSurface(){const shell=await fetch('/api/operator-shell',{headers}); await Promise.all(['main.js','styles.css','maplibre-gl.mjs'].map((asset)=>fetch('/api/operator-assets/'+asset,{headers}))); document.body.innerHTML=await shell.text(); const session=await import('/api/operator-assets/operator-session.mjs'); session.activateOperatorSession({token,expiresAt:new Date(Date.now()+240000).toISOString()}); const main=await import('/api/operator-assets/main.js'); main.bootOperatorSurface();} bootOperatorSurface();`;
+}
+
 function operatorSessionSeedScript() {
-  return String.raw`
-    <script>
-      sessionStorage.setItem('blue-swallow-society:operator-session', JSON.stringify({
-        token: 'browser-token',
-        expiresAt: '2099-07-21T20:00:00Z',
-        ttlSeconds: 28800,
-      }));
-    </script>
-  `;
+  return '';
 }
 
 function browserBootScript() {
@@ -262,12 +263,18 @@ function browserBootScript() {
           returned: window.__returnedSnapshot,
           reopened: window.__reopenedSnapshot,
           errors: window.__bssErrors || [],
+          status: document.querySelector('#briefStatus')?.textContent || '',
+          detail: document.querySelector('#briefDetail')?.textContent || '',
         };
       };
 
       window.addEventListener('load', async () => {
         try {
           await waitFor(() => document.querySelector('#morning-brief-tab.active'), 'deep-linked morning dossier tab');
+          document.querySelector('#tab-landing')?.click();
+          await waitFor(() => document.querySelector('#landing-tab.active'), 'operator landing tab');
+          document.querySelector('#tab-morning-brief')?.click();
+          await waitFor(() => document.querySelector('#morning-brief-tab.active'), 'reopened morning dossier tab');
           await waitFor(() => document.querySelectorAll('.brief-page img').length === 2, 'verified dossier pages');
           window.__initialSnapshot = activeSnapshot();
           document.querySelector('#briefReturnToConsole')?.click();
