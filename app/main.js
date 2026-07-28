@@ -8,7 +8,11 @@ import {
   releaseSupplyItem,
 } from './public-events.mjs';
 
-const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
+import {
+  activateOperatorSession,
+} from './operator/operator-session.mjs';
+import { bootOperatorSurface } from './operator/loader.js';
+
 const CLAIM_NAME_KEY = 'blue-swallow-society:event-claim-name';
 const SUPPLY_CLAIMS_KEY = 'blue-swallow-society:event-supply-claims';
 let operatorHandoffStarted = false;
@@ -58,10 +62,8 @@ async function handleLogin() {
 
   try {
     const session = await requestOperatorSession(passcode);
-    if (session?.token) {
-      persistOperatorSession(session);
-      showOperatorHandoff();
-      window.location.assign('/operator');
+    if (session && activateOperatorSession(session)) {
+      await bootOperatorSurface();
       return;
     }
 
@@ -96,16 +98,7 @@ async function requestOperatorSession(passcode) {
   return data?.ok === true && data.operatorSession?.token ? data.operatorSession : null;
 }
 
-function persistOperatorSession(session) {
-  try {
-    sessionStorage.setItem(OPERATOR_SESSION_KEY, JSON.stringify(session));
-  } catch {
-    // Session storage is best-effort; the server-side cookie is the download fallback.
-  }
-}
-
 function showOperatorHandoff() {
-  operatorHandoffStarted = true;
   document.body.dataset.mode = 'operator-handoff';
 
   const loginControls = $('loginControls');

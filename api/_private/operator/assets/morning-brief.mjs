@@ -1,4 +1,9 @@
-const SESSION_KEY = 'blue-swallow-society:operator-session';
+import {
+  clearOperatorSession,
+  getActiveOperatorSession,
+  operatorRequestHeaders,
+} from './operator-session.mjs';
+
 const status = document.getElementById('briefStatus');
 const runSelect = document.getElementById('briefRunSelect');
 const detailNode = document.getElementById('briefDetail');
@@ -6,26 +11,12 @@ let selectionNonce = 0;
 let initialized = false;
 const activeObjectUrls = new Set();
 
-function operatorSession() {
-  try {
-    const session = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
-    if (!session?.token || !session?.expiresAt || Date.parse(session.expiresAt) <= Date.now()) return null;
-    return session;
-  } catch {
-    return null;
-  }
-}
-
 function operatorHeaders() {
-  const session = operatorSession();
-  return session ? {
-    Authorization: `Bearer ${session.token}`,
-    'X-Blue-Swallow-Operator-Token': session.token,
-  } : {};
+  return operatorRequestHeaders();
 }
 
 function redirectToLogin() {
-  try { sessionStorage.removeItem(SESSION_KEY); } catch { /* no-op */ }
+  clearOperatorSession();
   window.location.replace('/');
 }
 
@@ -307,7 +298,7 @@ function populateRunSelect(runs) {
 }
 
 async function main() {
-  if (!operatorSession()) {
+  if (!getActiveOperatorSession()) {
     redirectToLogin();
     return;
   }

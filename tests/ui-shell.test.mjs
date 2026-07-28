@@ -45,9 +45,9 @@ test('successful root authentication replaces passcode entry with a sealed hando
   assert.match(indexHtml, /id="operatorHandoff"/);
   assert.match(indexHtml, /id="operatorHandoff"[^>]*role="status"/);
   assert.match(rootMainJs, /function showOperatorHandoff\(\)/);
-  assert.match(rootMainJs, /operatorHandoffStarted\s*=\s*true/);
-  assert.match(rootMainJs, /persistOperatorSession\(session\);\s*showOperatorHandoff\(\);\s*window\.location\.assign\('\/operator'\)/);
-  assert.match(rootMainJs, /if \(loginBtn && !operatorHandoffStarted\)/);
+  assert.match(rootMainJs, /activateOperatorSession\(session\)/);
+  assert.match(rootMainJs, /await bootOperatorSurface\(\)/);
+  assert.doesNotMatch(rootMainJs, /sessionStorage|window\.location\.assign\('\/operator'\)/);
 });
 
 test('successful root authentication replaces passcode entry with a sealed handoff before navigation', () => {
@@ -55,9 +55,9 @@ test('successful root authentication replaces passcode entry with a sealed hando
   assert.match(indexHtml, /id="operatorHandoff"/);
   assert.match(indexHtml, /id="operatorHandoff"[^>]*role="status"/);
   assert.match(rootMainJs, /function showOperatorHandoff\(\)/);
-  assert.match(rootMainJs, /operatorHandoffStarted\s*=\s*true/);
-  assert.match(rootMainJs, /persistOperatorSession\(session\);\s*showOperatorHandoff\(\);\s*window\.location\.assign\('\/operator'\)/);
-  assert.match(rootMainJs, /if \(loginBtn && !operatorHandoffStarted\)/);
+  assert.match(rootMainJs, /activateOperatorSession\(session\)/);
+  assert.match(rootMainJs, /await bootOperatorSurface\(\)/);
+  assert.doesNotMatch(rootMainJs, /sessionStorage|window\.location\.assign\('\/operator'\)/);
 });
 
 test('root login and standard public branch use the restored white/blue theme, not the operator dark shell', () => {
@@ -92,8 +92,9 @@ test('root login and anonymous operator handoff use one public-safe loader style
 test('root login branches server-side: operator token opens /operator, every non-token response opens the standard site', () => {
   assert.match(rootMainJs, /fetch\('\/api\/validate-passcode'/);
   assert.match(rootMainJs, /operatorSession\?\.token/);
-  assert.match(rootMainJs, /sessionStorage\.setItem\(OPERATOR_SESSION_KEY/);
-  assert.match(rootMainJs, /window\.location\.assign\('\/operator'\)/);
+  assert.match(rootMainJs, /activateOperatorSession\(session\)/);
+  assert.match(rootMainJs, /await bootOperatorSurface\(\)/);
+  assert.doesNotMatch(rootMainJs, /sessionStorage|window\.location\.assign\('\/operator'\)/);
   assert.match(rootMainJs, /showStandardSite\(\)/);
   assert.doesNotMatch(rootMainJs, /tzeentch/i);
   assert.doesNotMatch(rootMainJs, /ea7b2d9f4b6ba94bf277201956fa74b88597188eaa065bb12c57421d86c1d0d5/i);
@@ -328,7 +329,7 @@ test('Godeye is a fixed-route workbench rather than an arbitrary endpoint loader
   });
   assert.ok(!operatorShell.includes('wigleEndpointInput'));
   assert.ok(!operatorShell.includes('wigleConnectBtn'));
-  assert.ok(operatorShell.includes('/api/cybermap/viewport'));
+  assert.ok(mainJs.includes('/api/operator-signals'));
 });
 
 test('Wardriver APK links are only operator-token API links', () => {
@@ -340,7 +341,8 @@ test('Wardriver APK links are only operator-token API links', () => {
   assert.ok(operatorShell.includes('data-operator-download="apk"'));
   assert.match(mainJs, /function handleOperatorDownload/);
   assert.match(mainJs, /function hydrateWardriverRelease/);
-  assert.match(mainJs, /'X-Blue-Swallow-Operator-Token': session\.token/);
+  assert.match(mainJs, /operatorRequestHeaders/);
+  assert.match(readFileSync(new URL('../api/_private/operator/assets/operator-session.mjs', import.meta.url), 'utf8'), /X-Blue-Swallow-Operator-Token/);
   assert.match(mainJs, /fetch\(link\.href, \{[\s\S]*buildOperatorHeaders\(\{ Accept: 'application\/vnd\.blue-swallow\.wardriver-download-url\+json' \}\)/);
   assert.match(mainJs, /isBoundedWardriverDownloadUrl/);
   assert.match(mainJs, /window\.location\.replace\(downloadUrl\)/);

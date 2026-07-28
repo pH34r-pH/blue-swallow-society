@@ -5,6 +5,7 @@ const { verifyOperatorRequest } = require('../_lib/operator-auth');
 const PRIVATE_ASSET_DIR = path.join(__dirname, '..', '_private', 'operator', 'assets');
 const ASSET_MANIFEST = Object.freeze({
   'main.js': { file: 'main.js', contentType: 'application/javascript; charset=utf-8' },
+  'operator-session.mjs': { file: 'operator-session.mjs', contentType: 'application/javascript; charset=utf-8' },
   'map-math.mjs': { file: 'map-math.mjs', contentType: 'application/javascript; charset=utf-8' },
   'tzeentch.mjs': { file: 'tzeentch.mjs', contentType: 'application/javascript; charset=utf-8' },
   'tzeentch-dashboard.mjs': { file: 'tzeentch-dashboard.mjs', contentType: 'application/javascript; charset=utf-8' },

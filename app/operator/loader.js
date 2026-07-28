@@ -1,4 +1,8 @@
-const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
+import {
+  clearOperatorSession,
+  getActiveOperatorSession,
+} from './operator-session.mjs';
+
 const PRIVATE_ASSET_PREFIX = '/api/operator-assets/';
 
 const PRIVATE_ASSETS = Object.freeze([
@@ -6,6 +10,7 @@ const PRIVATE_ASSETS = Object.freeze([
   'theme.css',
   'maplibre-gl.css',
   'operator-mark.svg',
+  'operator-session.mjs',
   'map-math.mjs',
   'chained-daemon.mjs',
   'tzeentch-dashboard.mjs',
@@ -27,6 +32,7 @@ const PRIVATE_ASSETS = Object.freeze([
 ]);
 
 const MODULE_BOOT_ORDER = Object.freeze([
+  'operator-session.mjs',
   'map-math.mjs',
   'chained-daemon.mjs',
   'tzeentch-dashboard.mjs',
@@ -49,30 +55,6 @@ const MODULE_BOOT_ORDER = Object.freeze([
 
 let activeObjectUrls = [];
 
-function getOperatorSession() {
-  try {
-    const raw = window.sessionStorage.getItem(OPERATOR_SESSION_KEY);
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw);
-    if (!parsed?.token || !parsed?.expiresAt) {
-      return null;
-    }
-
-    if (Date.parse(parsed.expiresAt) <= Date.now()) {
-      window.sessionStorage.removeItem(OPERATOR_SESSION_KEY);
-      return null;
-    }
-
-    return parsed;
-  } catch {
-    window.sessionStorage.removeItem(OPERATOR_SESSION_KEY);
-    return null;
-  }
-}
-
 function clearPrivateObjectUrls() {
   for (const url of activeObjectUrls) {
     URL.revokeObjectURL(url);
@@ -82,7 +64,7 @@ function clearPrivateObjectUrls() {
 
 function redirectHome() {
   clearPrivateObjectUrls();
-  window.sessionStorage.removeItem(OPERATOR_SESSION_KEY);
+  clearOperatorSession();
   window.location.replace('/');
 }
 
@@ -143,7 +125,6 @@ function installPrivateStyle(id, source) {
     existing.textContent = source;
     return;
   }
-
   const style = document.createElement('style');
   style.id = id;
   style.textContent = source;
@@ -184,8 +165,8 @@ function renderPrivateShell(shell, assetUrls) {
   );
 }
 
-async function boot() {
-  const session = getOperatorSession();
+export async function bootOperatorSurface() {
+  const session = getActiveOperatorSession();
   if (!session) {
     redirectHome();
     return;
@@ -196,7 +177,6 @@ async function boot() {
     credentials: 'same-origin',
     cache: 'no-store',
   });
-
   if (!response.ok) {
     redirectHome();
     return;
@@ -206,13 +186,22 @@ async function boot() {
     response.text(),
     preparePrivateAssets(session),
   ]);
+  const privateSession = await import(assetUrls['operator-session.mjs']);
+  if (!privateSession.activateOperatorSession(session)) {
+    throw new Error('Private operator session activation failed.');
+  }
+
   document.body.innerHTML = renderPrivateShell(shell, assetUrls);
   document.body.dataset.mode = 'operator';
-  await import(assetUrls['main.js']);
+  const privateMain = await import(assetUrls['main.js']);
+  privateMain.bootOperatorSurface();
+}
+
+function isDirectOperatorRoute() {
+  return window.location.pathname === '/operator' || window.location.pathname.startsWith('/operator/');
 }
 
 window.addEventListener('pagehide', clearPrivateObjectUrls, { once: true });
-boot().catch((error) => {
-  console.error('Operator boot failed', error);
+if (isDirectOperatorRoute()) {
   redirectHome();
-});
+}

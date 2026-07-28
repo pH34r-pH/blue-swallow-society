@@ -71,7 +71,7 @@ test('direct mTLS batch accepts a trusted proxy assertion without an ingest toke
 test('direct mTLS viewport accepts body coordinates and does not use a token or query coordinates', async () => {
   const server = makeServer();
   await withServer(server, async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/v1/cybermap/viewport?lat=1&lon=2`, {
+    const response = await fetch(`${baseUrl}/api/v1/cybermap/viewport`, {
       method: 'POST',
       headers: mtlsHeaders(),
       body: JSON.stringify({ lat: 47.61, lon: -122.33, radiusMeters: 250, limit: 20 }),

@@ -116,7 +116,7 @@ test('anonymous echo-lab route is retired without weakening Cybermap token route
 test('the public operator directory contains only generic loader files while private assets use a token-gated Function route', () => {
   assert.deepEqual(
     readdirSync(new URL('app/operator/', root)).sort(),
-    ['index.html', 'loader.css', 'loader.js'],
+    ['index.html', 'loader.css', 'loader.js', 'operator-session.mjs'],
     'anonymous static delivery must not expose private modules, CSS, HTML, or persona material',
   );
 

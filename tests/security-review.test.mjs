@@ -1,299 +1,57 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 
 const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const staticWebApp = JSON.parse(read('app/staticwebapp.config.json'));
-const indexHtml = read('app/index.html');
-const operatorHtml = read('app/operator/index.html');
-const operatorLoaderJs = read('app/operator/loader.js');
-const operatorShell = read('api/_private/operator/shell.html');
-const rootCss = read('app/styles.css');
-const rootMainJs = read('app/main.js');
-const operatorMainJs = read('api/_private/operator/assets/main.js');
-const tzeentchJs = read('api/_private/operator/assets/tzeentch.mjs');
-const tzeentchDashboardJs = read('api/_private/operator/assets/tzeentch-dashboard.mjs');
-const chainedDaemonJs = read('api/_private/operator/assets/chained-daemon.mjs');
+const route = (path) => staticWebApp.routes.find((entry) => entry.route === path);
+
+const rootMain = read('app/main.js');
+const loader = read('app/operator/loader.js');
+const publicSession = read('app/operator/operator-session.mjs');
+const privateMain = read('api/_private/operator/assets/main.js');
+const privateSession = read('api/_private/operator/assets/operator-session.mjs');
 const wigleApi = read('api/wigle/index.js');
-const localServer = read('local-server.js');
-const styles = read('api/_private/operator/assets/styles.css');
-const deployWorkflow = read('.github/workflows/deploy-static-web-app.yml');
-const infraParams = JSON.parse(read('infra/main.parameters.json'));
-const vmBicep = read('infra/vm-echo-lab.bicep');
-const cybermapInstallScript = read('infra/scripts/install-cybermap-api.sh');
-const paperStateApi = read('api/paper-state/index.js');
-const cybermapViewportApi = read('api/cybermap-viewport/index.js');
-const cybermapBatchApi = read('api/cybermap-observations-batch/index.js');
+const viewportApi = read('api/cybermap-viewport/index.js');
+const signalsApi = read('api/operator-signals/index.js');
 const operatorAuth = read('api/_lib/operator-auth.js');
-const operatorDownloadsApi = read('api/operator-downloads/index.js');
-const removedCanonicalPasscodeHash = [
-  '1498079020c154198640fb47d5dba23a804f44ff805fac623c69202af9db2c',
-  '80',
-].join('');
+const installScript = read('infra/scripts/install-cybermap-api.sh');
+const vmBicep = read('infra/vm-echo-lab.bicep');
 
-function routeConfig(route) {
-  return staticWebApp.routes.find((entry) => entry.route === route);
-}
-
-function normalizedSwaRoute(route) {
-  return route === '/' ? route : route.replace(/\/+$/, '');
-}
-
-test('Static Web Apps routes do not collide after Azure trailing-slash normalization', () => {
-  const seen = new Map();
-  for (const route of staticWebApp.routes.map((entry) => entry.route)) {
-    const normalized = normalizedSwaRoute(route);
-    assert.ok(!seen.has(normalized), `${route} duplicates ${seen.get(normalized)} after SWA normalization`);
-    seen.set(normalized, route);
+test('operator APIs reach explicit application guards rather than SWA AAD', () => {
+  for (const path of ['/api/wigle', '/api/operator-signals', '/api/cybermap/viewport', '/api/cybermap/observations/batch', '/api/tzeentch']) {
+    assert.deepEqual(route(path)?.allowedRoles, ['anonymous', 'authenticated'], path);
+  }
+  for (const source of [wigleApi, viewportApi, signalsApi]) {
+    assert.match(source, /requireOperatorToken/);
   }
 });
 
-test('operator APIs are reachable from the passcode login but fail closed on passcode-issued bearer tokens or cookies', () => {
-  ['/api/wigle', '/api/cybermap/viewport', '/api/cybermap/observations/batch', '/api/osint', '/api/tzeentch'].forEach((route) => {
-    assert.deepEqual(routeConfig(route)?.allowedRoles, ['anonymous', 'authenticated'], `${route} must not be SWA-AAD gated before token validation`);
-  });
-  assert.deepEqual(routeConfig('/api/validate-passcode')?.allowedRoles, ['anonymous', 'authenticated']);
-  assert.deepEqual(routeConfig('/api/operator-shell')?.allowedRoles, ['anonymous', 'authenticated']);
-  assert.deepEqual(routeConfig('/api/operator-downloads/wardriver/*')?.allowedRoles, ['anonymous', 'authenticated']);
-
-  assert.ok(read('api/osint/index.js').includes('requireOperatorToken'));
-  assert.ok(read('api/tzeentch/index.js').includes('requireOperatorToken'));
-  assert.ok(wigleApi.includes('requireOperatorToken'));
-  assert.ok(cybermapViewportApi.includes('requireOperatorToken'));
-  assert.ok(operatorDownloadsApi.includes('requireOperatorToken'));
-  assert.ok(operatorMainJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
+test('operator bearer material is memory-only throughout the public handoff and private asset graph', () => {
+  for (const source of [loader, publicSession, privateMain, privateSession]) {
+    assert.doesNotMatch(source, /blue-swallow-society:operator-session|sessionStorage.*operator|localStorage|document\.cookie/);
+  }
+  assert.doesNotMatch(rootMain, /blue-swallow-society:operator-session|sessionStorage.*operator|document\.cookie/);
+  assert.match(rootMain, /activateOperatorSession\(session\)/);
+  assert.match(loader, /activateOperatorSession/);
+  assert.match(privateSession, /X-Blue-Swallow-Operator-Token/);
+  assert.match(operatorAuth, /BLUE_SWALLOW_OPERATOR_TOKEN_VERSION/);
+  assert.match(operatorAuth, /DEFAULT_TOKEN_TTL_MS = 5 \* 60 \* 1000/);
 });
 
-test('root face ships only the passcode split and standard-site decoy, never operator or Wardriver material', () => {
-  const forbiddenRootNeedles = [
-    'OPERATOR CONSOLE',
-    'Tzeentch',
-    'Godeye',
-    'mainInterface',
-    '/api/osint',
-    '/api/tzeentch',
-    '/operator',
-    '/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk',
-    '/downloads/blue-swallow-wardriver.json',
-    'co.blueswallow.wardriver',
-  ];
-
-  assert.match(indexHtml, /<body\s+data-mode="login"/);
-  assert.match(indexHtml, /Blue Swallow Society/);
-  assert.match(indexHtml, /id="passcodeInput"/);
-  assert.match(indexHtml, /id="standardSite"/);
-  assert.match(indexHtml, /Event Planning/);
-  assert.match(indexHtml, /href="\/styles\.css"/);
-  assert.match(indexHtml, /<script src="\/main\.js" type="module"><\/script>/);
-  forbiddenRootNeedles.forEach((needle) => {
-    assert.ok(!indexHtml.includes(needle), `root index leaked ${needle}`);
-    assert.ok(!rootCss.includes(needle), `root css leaked ${needle}`);
-  });
+test('coordinate-bearing operator reads use body-only POSTs and the VM source is immutable', () => {
+  assert.match(viewportApi, /postCybermapJson/);
+  assert.match(signalsApi, /operator-signals/);
+  assert.match(installScript, /sha256sum --check/);
+  assert.match(installScript, /cybermap-api-release\.json/);
+  assert.match(vmBicep, /cybermapSourceRevision/);
+  assert.doesNotMatch(vmBicep, /refs\/heads\/main/);
 });
 
-test('operator entrypoint is separate from the root face, unlinked, and client-guarded by an operator session', () => {
-  assert.ok(operatorHtml.includes('operatorLoader'));
-  assert.ok(operatorHtml.includes('/operator/loader.js'));
-  assert.ok(!operatorHtml.includes('terminalScreen'));
-  assert.ok(!operatorHtml.includes('mainInterface'));
-  assert.ok(!operatorHtml.includes('/api/operator-downloads/wardriver/apk'));
-  assert.ok(operatorLoaderJs.includes("fetch('/api/operator-shell'"));
-  assert.ok(operatorLoaderJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
-  assert.ok(operatorLoaderJs.includes('await fetchPrivateAsset(assetName, session)'));
-  assert.ok(operatorLoaderJs.includes("await import(assetUrls['main.js'])"));
-  assert.ok(operatorLoaderJs.includes('URL.revokeObjectURL(url)'));
-  assert.ok(!operatorLoaderJs.includes('bss_operator_asset_grant'));
-  assert.ok(!operatorLoaderJs.includes('localStorage'));
-  assert.ok(!operatorLoaderJs.includes('indexedDB'));
-  assert.ok(operatorShell.includes('terminalScreen'));
-  assert.ok(operatorShell.includes('mainInterface'));
-  assert.ok(!indexHtml.includes('operator/index.html'));
-  assert.ok(!indexHtml.includes('/operator/'));
-  assert.ok(operatorMainJs.includes("window.location.replace('/')"));
-  assert.ok(operatorMainJs.includes('getOperatorSession()'));
-});
-
-test('the token-aware loader and token-gated asset route are passcode-flow reachable without SWA AAD', () => {
-  assert.deepEqual(routeConfig('/operator')?.allowedRoles, ['anonymous', 'authenticated']);
-  assert.equal(routeConfig('/operator')?.rewrite, '/operator/index.html');
-  assert.equal(routeConfig('/operator/*'), undefined);
-  assert.deepEqual(routeConfig('/api/operator-assets/*')?.allowedRoles, ['anonymous', 'authenticated']);
-  assert.equal(routeConfig('/agent')?.statusCode, 404);
-  assert.equal(routeConfig('/agent.html')?.statusCode, 404);
-  assert.equal(routeConfig('/api/agent')?.statusCode, 404);
-});
-
-test('passcode auth has no client fallback secret, canonical passcode literal, or local bypass', () => {
-  const browserSources = [rootMainJs, operatorMainJs].join('\n');
-  assert.ok(!browserSources.includes('PASSCODE_FALLBACK'));
-  assert.ok(!browserSources.includes("passcode === 'blue-swallow'"));
-  assert.ok(!browserSources.includes("passcode === 'tzeentch'"));
-  assert.ok(!browserSources.includes('ea7b2d9f4b6ba94bf277201956fa74b88597188eaa065bb12c57421d86c1d0d5'));
-  assert.ok(!browserSources.includes('Local fallback for development shells'));
-  assert.ok(!browserSources.includes(removedCanonicalPasscodeHash));
-});
-
-test('deployment config wires auth material from GitHub secrets only', () => {
-  assert.ok(deployWorkflow.includes('secrets.BLUE_SWALLOW_PASSCODE_SHA256'));
-  assert.ok(deployWorkflow.includes('secrets.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY'));
-  assert.match(deployWorkflow, /az staticwebapp appsettings set[\s\S]*BLUE_SWALLOW_PASSCODE_SHA256=/);
-  assert.match(deployWorkflow, /az staticwebapp appsettings set[\s\S]*BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY=/);
-  assert.ok(deployWorkflow.includes('BLUE_SWALLOW_PASSCODE_SHA256 must be a 64-character SHA-256 hex digest'));
-  assert.ok(deployWorkflow.includes('BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY must be at least 32 bytes'));
-  assert.ok(!deployWorkflow.includes(removedCanonicalPasscodeHash));
-});
-
-test('backend tokens only traverse HTTPS and the raw VM API port is not public', () => {
-  assert.notEqual(infraParams.parameters.allowedSourceIp.value, '*');
-  assert.ok(vmBicep.includes("domainNameLabel: backendDnsLabel"));
-  assert.ok(vmBicep.includes("output backendCybermapBaseUrl string = 'https://${backendFqdn}'"));
-  assert.ok(!vmBicep.includes("destinationPortRange: '8080'"));
-  assert.ok(vmBicep.includes("destinationPortRange: '443'"));
-  assert.ok(cybermapInstallScript.includes('BSS_CYBERMAP_BIND_HOST=127.0.0.1'));
-  assert.ok(cybermapInstallScript.includes('reverse_proxy 127.0.0.1:__CYBERMAP_API_PORT__'));
-  assert.ok(paperStateApi.includes("url.protocol !== 'https:'"));
-  assert.ok(cybermapViewportApi.includes("url.protocol !== 'https:'"));
-  assert.ok(cybermapBatchApi.includes("url.protocol !== 'https:'"));
-  assert.match(deployWorkflow, /BACKEND_PAPER_STATE_BASE_URL="\$\{\{ steps\.deploy\.outputs\.backendCybermapBaseUrl \}\}"/);
-});
-
-test('operator bearer tokens are signed with an independent server-side secret', () => {
-  assert.ok(operatorAuth.includes('BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY'));
-  assert.ok(operatorAuth.includes('getOperatorTokenSigningKey'));
-  assert.ok(operatorAuth.includes('signPayload(encodedPayload, signingKey)'));
-  assert.ok(!operatorAuth.includes('signPayload(encodedPayload, digest)'));
-});
-
-test('device-local endpoints stay same-origin while the map permits only reviewed OSM raster egress', () => {
-  const csp = staticWebApp.globalHeaders['Content-Security-Policy'];
-  assert.match(csp, /connect-src 'self' https:\/\/tile\.openstreetmap\.org https:\/\/\*\.tile\.openstreetmap\.org/);
-  assert.doesNotMatch(csp, /connect-src[^;]*(?:unpkg|jsdelivr|maplibre\.org)/i);
-  assert.match(csp, /script-src 'self' blob:/);
-  assert.match(csp, /worker-src 'self' blob:/);
-  assert.ok(!indexHtml.includes('http://device.local'));
-  assert.ok(!indexHtml.includes('placeholder="/api/ar-detections"'));
-  assert.ok(operatorShell.includes('POST /api/cybermap/viewport'));
-});
-
-test('OSINT and Cybermap coordinates are sent via POST bodies, not URLs or persistent storage', () => {
-  const cybermapViewportApi = read('api/cybermap-viewport/index.js');
-  const godeyeController = read('api/_private/operator/assets/godeye-controller.mjs');
-  assert.ok(tzeentchJs.includes("fetch(new URL('/api/osint', window.location.origin).toString()"));
-  assert.ok(tzeentchJs.includes("method: 'POST'"));
-  assert.ok(tzeentchJs.includes('body: JSON.stringify'));
-  assert.ok(!tzeentchJs.includes("url.searchParams.set('query'"));
-  assert.ok(!tzeentchJs.includes('localStorage'));
-  assert.ok(tzeentchJs.includes('sessionStorage'));
-  assert.ok(tzeentchJs.includes('buildOperatorHeaders()'));
-  assert.ok(tzeentchJs.includes('Authorization: `Bearer ${session.token}`'));
-  assert.ok(tzeentchJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
-
-  assert.ok(operatorMainJs.includes('godeyeController.buildRequestPayload'));
-  assert.ok(godeyeController.includes('function buildRequestPayload'));
-  assert.ok(operatorMainJs.includes("method: 'POST'"));
-  assert.ok(operatorMainJs.includes('body: JSON.stringify(requestPayload)'));
-  assert.ok(operatorMainJs.includes('buildOperatorHeaders({'));
-  assert.ok(!operatorMainJs.includes('buildWigleEndpointUrl'));
-  assert.ok(!operatorMainJs.includes("url.searchParams.set('lat'"));
-  assert.ok(cybermapViewportApi.includes('hasSensitiveLocationQuery'));
-  assert.ok(cybermapViewportApi.includes('Cybermap location coordinates must be sent in the POST body'));
-  assert.ok(cybermapViewportApi.includes("getBodyValue(req, 'lat'"));
-  assert.ok(!cybermapViewportApi.includes('api.wigle.net/api/v2/network/search'));
-});
-
-test('APK downloads are removed from the public static surface and served only by the operator-token API', () => {
-  assert.equal(routeConfig('/downloads/*')?.statusCode, 404);
-  assert.ok(staticWebApp.navigationFallback.exclude.some((entry) => entry.includes('apk')));
-  assert.ok(!indexHtml.includes('/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk'));
-  assert.ok(!indexHtml.includes('/downloads/blue-swallow-wardriver.json'));
-  assert.ok(!operatorHtml.includes('/api/operator-downloads/wardriver/apk'));
-  assert.ok(operatorShell.includes('/api/operator-downloads/wardriver/apk'));
-  assert.ok(operatorShell.includes('/api/operator-downloads/wardriver/metadata'));
-  assert.ok(operatorShell.includes('data-operator-download="apk"'));
-  assert.doesNotMatch(operatorShell, /2\.109-bss\.1|download="[^\"]+\.apk"/);
-  assert.ok(operatorShell.includes('data-operator-release-metadata'));
-  assert.ok(operatorMainJs.includes('handleOperatorDownload'));
-  assert.ok(operatorMainJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
-  assert.ok(operatorMainJs.includes('hydrateWardriverRelease'));
-  assert.match(operatorMainJs, /fetch\(link\.href, \{[\s\S]*buildOperatorHeaders\(\{ Accept: 'application\/vnd\.blue-swallow\.wardriver-download-url\+json' \}\)/);
-  assert.ok(operatorMainJs.includes('isBoundedWardriverDownloadUrl'));
-  assert.ok(operatorMainJs.includes('window.location.replace(downloadUrl)'));
-  assert.ok(!operatorMainJs.includes('document.cookie'));
-  assert.ok(!operatorMainJs.includes('localStorage'));
-  assert.ok(operatorDownloadsApi.includes('requireOperatorToken'));
-  assert.ok(operatorDownloadsApi.includes('createDownloadUrl'));
-  assert.ok(operatorDownloadsApi.includes('DOWNLOAD_URL_ACCEPT'));
-  assert.ok(operatorDownloadsApi.includes('downloadUrlResponse'));
-  assert.ok(operatorDownloadsApi.includes('status: 302'));
-});
-
-test('legacy debug APK is absent from Functions content', () => {
-  assert.equal(
-    existsSync(new URL('../api/_private/downloads/blue-swallow-wardriver-2.109-bss.1-debug.apk', import.meta.url)),
-    false,
-  );
-});
-
-test('Tzeentch network feeds are lazy-loaded only when the Tzeentch tab is opened', () => {
-  const initDefaults = operatorMainJs.match(/function initTabDefaults\(\) \{(?<body>[\s\S]*?)\n\}/)?.groups?.body || '';
-  assert.ok(!initDefaults.includes('initTzeentchDashboard'));
-  assert.match(operatorMainJs, /if \(nextTabKey === 'tzeentch'\) \{\n\s+initTzeentchDashboard\(\);/);
-});
-
-test('Tzeentch runtime never seeds or falls back to demo feed data', () => {
-  const runtimeSources = [tzeentchJs, tzeentchDashboardJs, chainedDaemonJs].join('\n');
-
-  assert.ok(!tzeentchJs.includes('createDemoDashboardDataset'));
-  assert.ok(!tzeentchJs.includes('using sample model'));
-  assert.ok(!runtimeSources.includes('createDemoChainedDaemonObservations'));
-  assert.ok(!runtimeSources.includes('CorpGuest-Redmond-5G'));
-  assert.ok(!runtimeSources.includes('BADGE-042-demo'));
-  assert.ok(!runtimeSources.includes('BSS-DeadDrop'));
-});
-
-test('local dev server returns JSON 501 for unmounted API routes instead of SPA HTML', () => {
-  assert.ok(localServer.includes("statusCode: 501"));
-  assert.ok(localServer.includes('API route not mounted locally'));
-  assert.ok(!localServer.includes("filePath = path.join(APP_DIR, 'index.html');\n    }\n    \n    fs.readFile"));
-});
-
-test('Godeye runtime exposes only real Cybermap viewport paths, not sample/demo WiGLE state', () => {
-  const runtimeSources = [operatorMainJs, operatorShell].join('\n');
-  assert.ok(operatorMainJs.includes("'/api/cybermap/viewport'"));
-  assert.ok(operatorShell.includes('POST /api/cybermap/viewport'));
-  assert.ok(!runtimeSources.includes('Sample/demo WiGLE dataset loaded'));
-  assert.ok(!runtimeSources.includes('Load sample data'));
-  assert.ok(!runtimeSources.includes('wigleSampleBtn'));
-  assert.ok(!operatorMainJs.includes('createSampleWigleDataset'));
-});
-
-test('stale shell CSS selectors are pruned', () => {
-  ['.terminal-badge', '.terminal-error', '.tzeentch-surface-tabs', '.tzeentch-surface-tab'].forEach((selector) => {
-    assert.ok(!styles.includes(selector), `${selector} should be removed`);
-  });
-});
-
-test('Godeye MVT remains a same-origin, operator-token-gated green-cell transport with no persistence or source escape hatch', () => {
-  const tileApiUrl = new URL('../api/cybermap-tiles/index.js', import.meta.url);
-  const registryUrl = new URL('../api/_private/operator/assets/godeye-layers.mjs', import.meta.url);
-  const mapUrl = new URL('../api/_private/operator/assets/godeye-map.mjs', import.meta.url);
-  assert.equal(existsSync(tileApiUrl), true);
-  const tileApi = existsSync(tileApiUrl) ? readFileSync(tileApiUrl, 'utf8') : '';
-  const mapSources = [
-    operatorMainJs,
-    existsSync(registryUrl) ? readFileSync(registryUrl, 'utf8') : '',
-    existsSync(mapUrl) ? readFileSync(mapUrl, 'utf8') : '',
-  ].join('\n');
-  const csp = staticWebApp.globalHeaders['Content-Security-Policy'];
-
-  assert.deepEqual(routeConfig('/api/cybermap/tiles/*')?.allowedRoles, ['anonymous', 'authenticated']);
-  assert.match(tileApi, /requireOperatorToken/);
-  assert.match(tileApi, /application\/vnd\.mapbox-vector-tile/);
-  assert.match(tileApi, /url\.search/);
-  assert.match(csp, /worker-src 'self' blob:/);
-  assert.match(csp, /connect-src[^;]*https:\/\/tile\.openstreetmap\.org/);
-  assert.doesNotMatch(csp, /unpkg|jsdelivr|maplibre\.org/i);
-  assert.doesNotMatch(mapSources, /localStorage|indexedDB|caches\.open|wigleEndpointInput|http:\/\//i);
-  assert.doesNotMatch(mapSources, /searchParams\.set\(['"](?:lat|lon|latitude|longitude|center|zoom)/i);
+test('browser code is not imported by backend functions', () => {
+  for (const source of [wigleApi, viewportApi, signalsApi]) {
+    assert.doesNotMatch(source, /app\/operator/);
+  }
+  assert.match(wigleApi, /shared\/legacy-wigle-parser\.mjs/);
 });

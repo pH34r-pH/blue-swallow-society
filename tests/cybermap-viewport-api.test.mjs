@@ -143,8 +143,16 @@ test('cybermap viewport API proxies only real backend viewport reads', async () 
   assert.deepEqual(response.body, backendPayload);
   assert.equal(fetchCalls.length, 1);
   const proxied = new URL(fetchCalls[0].url);
-  assert.equal(proxied.href, 'https://backend.local/root/api/v1/cybermap/viewport?lat=47.6062&lon=-122.3321&radiusMeters=250&limit=42');
-  assert.equal(fetchCalls[0].options.method, 'GET');
+  assert.equal(proxied.href, 'https://backend.local/root/api/v1/cybermap/viewport');
+  assert.equal(proxied.search, '');
+  assert.equal(fetchCalls[0].options.method, 'POST');
   assert.equal(fetchCalls[0].options.headers['x-blue-swallow-cybermap-read-token'], 'read-token-value-32-byte-minimum');
   assert.equal(fetchCalls[0].options.headers.accept, 'application/json');
+  assert.equal(fetchCalls[0].options.headers['content-type'], 'application/json');
+  assert.deepEqual(JSON.parse(fetchCalls[0].options.body), {
+    lat: 47.6062,
+    lon: -122.3321,
+    radiusMeters: 250,
+    limit: 42,
+  });
 });

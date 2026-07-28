@@ -64,8 +64,14 @@ param mtlsProxySecret string
 @description('PEM public certificate used by Caddy to verify the Wardriver client certificate. Never pass a PFX or private key.')
 param wardriverMtlsTrustCertificatePem string
 
-@description('Public repository tarball used by the VM extension to install vm/cybermap-api.')
-param cybermapSourceTarballUrl string = 'https://github.com/pH34r-pH/blue-swallow-society/archive/refs/heads/main.tar.gz'
+@description('Full immutable Git commit that identifies the Cybermap VM source archive.')
+param cybermapSourceRevision string
+
+@description('Immutable full-commit GitHub archive used by the VM extension to install vm/cybermap-api.')
+param cybermapSourceTarballUrl string
+
+@description('SHA-256 digest of the exact Cybermap archive. The VM verifies it before extraction or migration.')
+param cybermapSourceTarballSha256 string
 
 @description('Loopback-only Cybermap API port behind the HTTPS gateway.')
 param cybermapApiPort int = 8080
@@ -255,11 +261,20 @@ var cybermapInstallScriptWithMtlsProxySecret = replace(
   '__BSS_MTLS_PROXY_SECRET_B64__',
   base64(mtlsProxySecret)
 )
-var cybermapInstallScript = replace(
-  cybermapInstallScriptWithMtlsProxySecret,
+var cybermapInstallScriptWithSourceIdentity = replace(
+  replace(
+    replace(
+      cybermapInstallScriptWithMtlsProxySecret,
+      '__CYBERMAP_SOURCE_REVISION__',
+      cybermapSourceRevision
+    ),
+    '__CYBERMAP_SOURCE_TARBALL_SHA256__',
+    cybermapSourceTarballSha256
+  ),
   '__WARDIVER_MTLS_TRUST_CERT_PEM_B64__',
   base64(wardriverMtlsTrustCertificatePem)
 )
+var cybermapInstallScript = cybermapInstallScriptWithSourceIdentity
 
 resource cybermapApiExtension 'Microsoft.Compute/virtualMachines/extensions@2024-03-01' = {
   parent: vm
