@@ -156,17 +156,17 @@ export function createRequestHandler({
         return sendJson(response, 200, await handleOperatorSignalSnapshotPost(request, { store, now }));
       }
       if (request.method === 'POST' && url.pathname === VIEWPORT_PATH) {
-        if (singleHeader(request, 'x-blue-swallow-mtls-proxy-secret')) {
-          const mtlsAssertion = requireMtlsProxyAssertion(request, mtlsProxySecret);
-          const viewport = await handleMtlsViewport(request, { store, now, mtlsAssertion, deviceId: singleHeader(request, 'x-blue-swallow-device-id') });
-          return sendJson(response, 200, toAggregateViewportResponse(viewport));
-        }
-        requireBackendReadToken(request);
         if (url.search) {
           request.resume();
           throw new IngestError('invalid_viewport', 'Viewport requests must not use URL query parameters.', { statusCode: 400 });
         }
-        return sendJson(response, 200, await handleCybermapViewportPost(request, { store, now }));
+        if (singleHeader(request, 'x-blue-swallow-cybermap-read-token')) {
+          requireBackendReadToken(request);
+          return sendJson(response, 200, await handleCybermapViewportPost(request, { store, now }));
+        }
+        const mtlsAssertion = requireMtlsProxyAssertion(request, mtlsProxySecret);
+        const viewport = await handleMtlsViewport(request, { store, now, mtlsAssertion, deviceId: singleHeader(request, 'x-blue-swallow-device-id') });
+        return sendJson(response, 200, toAggregateViewportResponse(viewport));
       }
       if (request.method === 'GET' && url.pathname.startsWith('/api/v1/cybermap/tiles/')) {
         requireBackendReadToken(request);
