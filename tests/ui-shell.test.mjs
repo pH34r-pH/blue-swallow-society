@@ -341,6 +341,9 @@ test('Wardriver APK links are only operator-token API links', () => {
   assert.match(mainJs, /function handleOperatorDownload/);
   assert.match(mainJs, /function hydrateWardriverRelease/);
   assert.match(mainJs, /'X-Blue-Swallow-Operator-Token': session\.token/);
-  assert.doesNotMatch(mainJs, /fetch\(link\.href/);
+  assert.match(mainJs, /fetch\(link\.href, \{[\s\S]*buildOperatorHeaders\(\{ Accept: 'application\/vnd\.blue-swallow\.wardriver-download-url\+json' \}\)/);
+  assert.match(mainJs, /isBoundedWardriverDownloadUrl/);
+  assert.match(mainJs, /window\.location\.replace\(downloadUrl\)/);
+  assert.doesNotMatch(mainJs, /document\.cookie|localStorage/);
   assert.doesNotMatch(operatorShell, /download="[^\"]+\.apk"/);
 });

@@ -216,9 +216,15 @@ test('APK downloads are removed from the public static surface and served only b
   assert.ok(operatorMainJs.includes('handleOperatorDownload'));
   assert.ok(operatorMainJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
   assert.ok(operatorMainJs.includes('hydrateWardriverRelease'));
-  assert.ok(!operatorMainJs.includes('fetch(link.href'));
+  assert.match(operatorMainJs, /fetch\(link\.href, \{[\s\S]*buildOperatorHeaders\(\{ Accept: 'application\/vnd\.blue-swallow\.wardriver-download-url\+json' \}\)/);
+  assert.ok(operatorMainJs.includes('isBoundedWardriverDownloadUrl'));
+  assert.ok(operatorMainJs.includes('window.location.replace(downloadUrl)'));
+  assert.ok(!operatorMainJs.includes('document.cookie'));
+  assert.ok(!operatorMainJs.includes('localStorage'));
   assert.ok(operatorDownloadsApi.includes('requireOperatorToken'));
   assert.ok(operatorDownloadsApi.includes('createDownloadUrl'));
+  assert.ok(operatorDownloadsApi.includes('DOWNLOAD_URL_ACCEPT'));
+  assert.ok(operatorDownloadsApi.includes('downloadUrlResponse'));
   assert.ok(operatorDownloadsApi.includes('status: 302'));
 });
 

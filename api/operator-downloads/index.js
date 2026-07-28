@@ -3,6 +3,8 @@
 const { requireOperatorToken } = require('../_lib/operator-auth');
 const { createReleaseStore, toOperatorMetadata } = require('../_lib/wardriver-release-store');
 
+const DOWNLOAD_URL_ACCEPT = 'application/vnd.blue-swallow.wardriver-download-url+json';
+
 async function handler(context, req) {
   const auth = requireOperatorToken(context, req);
   if (!auth.ok) {
@@ -56,6 +58,10 @@ async function handleAuthorized(context, req, dependencies, auth) {
     if (!isHttpsBlobUrl(location)) {
       throw new Error('Release download URL is invalid.');
     }
+    if (acceptsDownloadUrl(req)) {
+      context.res = downloadUrlResponse(location);
+      return;
+    }
     context.res = {
       status: 302,
       headers: {
@@ -72,6 +78,20 @@ async function handleAuthorized(context, req, dependencies, auth) {
 
 function normalizeArtifact(value) {
   return String(value || '').trim().toLowerCase();
+}
+
+function acceptsDownloadUrl(req) {
+  const headers = req?.headers || {};
+  const value = typeof headers.get === 'function'
+    ? headers.get('accept')
+    : headers.accept ?? headers.Accept ?? '';
+  return String(value || '')
+    .split(',')
+    .some((entry) => entry.trim().split(';', 1)[0].toLowerCase() === DOWNLOAD_URL_ACCEPT);
+}
+
+function downloadUrlResponse(location) {
+  return jsonResponse(200, { ok: true, downloadUrl: location });
 }
 
 function metadataResponse(req, release, auth) {
@@ -122,6 +142,8 @@ function logReleaseError(context, error) {
 module.exports = handler;
 module.exports._internals = {
   handle,
+  acceptsDownloadUrl,
+  downloadUrlResponse,
   isHttpsBlobUrl,
   metadataResponse,
   normalizeArtifact,

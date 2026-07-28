@@ -356,19 +356,58 @@ function bindOperatorDownloads() {
 }
 
 function handleOperatorDownload(event) {
-  if (event.currentTarget?.getAttribute('aria-disabled') === 'true') {
+  const link = event.currentTarget;
+  if (link?.getAttribute('aria-disabled') === 'true') {
     event.preventDefault();
     return;
   }
-  // Downloads are navigations, not XHR payloads: the HttpOnly operator cookie
-  // authorizes the same-origin gate, then the gate issues a per-object Blob SAS.
-  // This avoids buffering a release APK in the operator console and keeps the
-  // signed Blob URL out of DOM state.
-  if (getOperatorSession()?.token) {
+  if (!(link instanceof HTMLAnchorElement) || link.dataset.operatorDownload !== 'apk') {
     return;
   }
+
   event.preventDefault();
-  window.location.replace('/');
+  void requestWardriverApkDownload(link);
+}
+
+async function requestWardriverApkDownload(link) {
+  if (!getOperatorSession()?.token) {
+    window.location.replace('/');
+    return;
+  }
+
+  try {
+    const response = await fetch(link.href, {
+      headers: buildOperatorHeaders({ Accept: 'application/vnd.blue-swallow.wardriver-download-url+json' }),
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      throw new Error(`Wardriver download unavailable (${response.status})`);
+    }
+
+    const payload = await response.json();
+    const downloadUrl = payload?.ok === true ? payload.downloadUrl : '';
+    if (!isBoundedWardriverDownloadUrl(downloadUrl)) {
+      throw new Error('Wardriver download URL was rejected.');
+    }
+
+    window.location.replace(downloadUrl);
+  } catch (error) {
+    console.error('Wardriver APK download unavailable', error);
+    setReleaseField('notes', 'Current signed APK download is unavailable. Refresh the operator session and retry.');
+  }
+}
+
+function isBoundedWardriverDownloadUrl(value) {
+  try {
+    const url = new URL(String(value || ''));
+    return url.protocol === 'https:'
+      && url.hostname.endsWith('.blob.core.windows.net')
+      && url.searchParams.get('sp') === 'r'
+      && url.searchParams.get('spr') === 'https';
+  } catch {
+    return false;
+  }
 }
 
 async function hydrateWardriverRelease() {

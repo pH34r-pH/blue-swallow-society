@@ -128,6 +128,28 @@ test('operator metadata exposes verified release provenance without storage inte
   });
 });
 
+test('header-authenticated APK requests can receive a bounded download URL representation', async () => {
+  await withSigningKey(async () => {
+    const session = createOperatorToken();
+    const response = await invoke('apk', {
+      headers: {
+        authorization: 'Bearer static-web-apps-platform-token',
+        'x-blue-swallow-operator-token': session.token,
+        accept: 'application/vnd.blue-swallow.wardriver-download-url+json',
+      },
+      dependencies: fakeReleaseStore(),
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers['Cache-Control'], 'private, no-store');
+    assert.equal(response.body.ok, true);
+    assert.match(response.body.downloadUrl, /^https:\/\/bsswardriver\.blob\.core\.windows\.net\//);
+    assert.match(response.body.downloadUrl, /(?:\?|&)sp=r(?:&|$)/);
+    assert.match(response.body.downloadUrl, /(?:\?|&)spr=https(?:&|$)/);
+    assert.equal(response.headers.Location, undefined);
+  });
+});
+
 test('operator APK request issues a bounded HTTPS redirect without buffering APK bytes', async () => {
   await withSigningKey(async () => {
     const session = createOperatorToken();
