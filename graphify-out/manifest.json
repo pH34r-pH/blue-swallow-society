@@ -270,8 +270,8 @@
     "semantic_hash": ""
   },
   "infra/scripts/install-cybermap-api.sh": {
-    "mtime": 1785251955.536789,
-    "ast_hash": "ce6c1b05817598fcf4418d59d4434ce1",
+    "mtime": 1785258912.7902315,
+    "ast_hash": "9cb6c9e3a7ce9c5b9979e75c69ab5254",
     "semantic_hash": ""
   },
   "local-server.js": {
@@ -1410,8 +1410,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/mtls-installer-contract.test.mjs": {
-    "mtime": 1785251955.6327913,
-    "ast_hash": "ff170d81f776d6ba1fb696e22b0894e2",
+    "mtime": 1785258894.6058059,
+    "ast_hash": "69892900b74e35fe464bae2b711ddb52",
     "semantic_hash": ""
   },
   "specs/014-wardriver-mtls-direct-api/plan.md": {
@@ -1625,18 +1625,38 @@
     "semantic_hash": ""
   },
   "specs/015-operator-download-navigation/spec.md": {
-    "mtime": 1785252530.150224,
-    "ast_hash": "3d35a62b0cd1a346f6110a45e7d3eb3e",
+    "mtime": 1785253120.824035,
+    "ast_hash": "a637d65baf79c7c508b031b61bab2f03",
     "semantic_hash": ""
   },
   "specs/015-operator-download-navigation/tasks.md": {
-    "mtime": 1785252530.1462238,
-    "ast_hash": "b59efad132f45cea75e87825e6f19ac8",
+    "mtime": 1785253103.6156325,
+    "ast_hash": "434eb5aa3645e62b37bb511249c2c6dc",
     "semantic_hash": ""
   },
   "specs/015-operator-download-navigation/tests.md": {
     "mtime": 1785252530.150224,
     "ast_hash": "582cfe949d67d3cb59f3296e7237b413",
+    "semantic_hash": ""
+  },
+  "specs/016-wardriver-mtls-proxy-secret/plan.md": {
+    "mtime": 1785257568.402535,
+    "ast_hash": "d5697aad60e64de2f0dc72f06fbdff13",
+    "semantic_hash": ""
+  },
+  "specs/016-wardriver-mtls-proxy-secret/spec.md": {
+    "mtime": 1785257568.402535,
+    "ast_hash": "0fe16ed6d05309ae7ef8ce58d95b717d",
+    "semantic_hash": ""
+  },
+  "specs/016-wardriver-mtls-proxy-secret/tasks.md": {
+    "mtime": 1785258311.832146,
+    "ast_hash": "3565d74077de2a27f15ec50db0662fb0",
+    "semantic_hash": ""
+  },
+  "specs/016-wardriver-mtls-proxy-secret/tests.md": {
+    "mtime": 1785257568.402535,
+    "ast_hash": "3a64df4c68d973d98e0a93ccd9add2f0",
     "semantic_hash": ""
   }
 }

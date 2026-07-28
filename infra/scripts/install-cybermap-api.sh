@@ -63,6 +63,20 @@ if ! grep -q -- 'BEGIN CERTIFICATE' /etc/caddy/wardriver-mtls-trust.pem; then
   echo "Wardriver mTLS trust certificate is invalid" >&2
   exit 1
 fi
+(
+  umask 077
+  caddy_proxy_env_tmp="$(mktemp /etc/caddy/.bss-mtls-proxy.env.XXXXXX)"
+  printf '%s\n' "BSS_MTLS_PROXY_SECRET=$BSS_MTLS_PROXY_SECRET" > "$caddy_proxy_env_tmp"
+  chmod 0600 "$caddy_proxy_env_tmp"
+  mv -f "$caddy_proxy_env_tmp" /etc/caddy/bss-mtls-proxy.env
+)
+install -d -m 0755 -o root -g root /etc/systemd/system/caddy.service.d
+cat > /etc/systemd/system/caddy.service.d/bss-mtls-proxy.conf <<'UNIT'
+[Service]
+EnvironmentFile=/etc/caddy/bss-mtls-proxy.env
+UNIT
+chmod 0644 /etc/systemd/system/caddy.service.d/bss-mtls-proxy.conf
+
 cat > /etc/bss/cybermap-api.env <<ENV
 PGHOST=__POSTGRES_SERVER_FQDN__
 PGPORT=5432
@@ -201,7 +215,7 @@ systemctl restart bss-cybermap-api.service
 systemctl enable --now bss-deflock-source.timer
 systemctl start bss-deflock-source.service
 systemctl enable caddy.service
-systemctl reload-or-restart caddy.service
+systemctl restart caddy.service
 systemctl is-active --quiet bss-cybermap-api.service
 systemctl is-active --quiet bss-deflock-source.timer
 systemctl is-active --quiet caddy.service

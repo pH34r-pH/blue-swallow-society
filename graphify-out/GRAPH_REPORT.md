@@ -1,16 +1,16 @@
 # Graph Report - wardriver-bss18-download-verify  (2026-07-28)
 
 ## Corpus Check
-- 317 files · ~301,152 words
+- 321 files · ~302,303 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 5657 nodes · 12035 edges · 322 communities (248 shown, 74 thin omitted)
+- 5676 nodes · 12051 edges · 308 communities (233 shown, 75 thin omitted)
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 629 edges (avg confidence: 0.65)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `35ead6c1`
+- Built from commit: `7426c019`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -177,7 +177,7 @@
 - Deployment sequence
 - render-wardriver-basemap-style.py
 - [CHECKLIST TYPE] Checklist: [FEATURE NAME]
-- clarify.md
+- API Endpoints
 - constitution.md
 - taskstoissues.md
 - Test Design: Wardriver Immutable Release Delivery
@@ -185,11 +185,9 @@
 - Test Design: Adversarial Surface Remediation and Tool-First Operator UI
 - Plan: Wardriver MapLibre Basemap
 - adversarial-surface-remediation.test.mjs
-- cybermap-ingest-api.test.mjs
 - runtime-versions.test.mjs
 - wardriver-release-delivery-config.test.mjs
 - agent-loader.js
-- loader.js
 - SKILL.md
 - Audit boundaries and provenance
 - Mosaic & Murmurs proposal delta
@@ -199,7 +197,6 @@
 - plan.md
 - godeye-map.mjs
 - godeye-deflock-ui.test.mjs
-- get
 - 0001_cybermap_core.sql
 - deflock-viewport-migration.test.mjs
 - Microsoft Entra External ID setup checklist
@@ -274,16 +271,10 @@
 - operator-data-controllers.test.mjs
 - wireup-custom-domains.py
 - query
-- serialize
-- renderActionablePanel
 - qt
-- Cybermap Geospatial Backend Design
 - godeye-map-shell.test.mjs
 - User Scenarios & Testing *(mandatory)*
-- getImage
 - determineLineBreaks
-- auth.mjs
-- key
 - Tasks: Adversarial Surface Remediation and Tool-First Operator UI
 - mosaic_murmurs_market_data.py
 - map-math.mjs
@@ -292,9 +283,6 @@
 - Blue Swallow Society on Azure Static Web Apps + Cybermap Backend
 - Nacre-Moiré operator design system
 - Product Surfaces
-- paper-state-proxy.test.mjs
-- global-viewport-contract.test.mjs
-- index.js
 - Enhancement Opportunities
 - Blue Swallow Society System Implementation Delta
 - Embodiment Milestones
@@ -302,7 +290,6 @@
 - clearGodeyeSessionAnalysis
 - Tzeentch Paper API Status
 - Sensorium Roadmap
-- handleCybermapViewport
 - Recommended delivery sequence
 - Deployment sequence
 - Plan: Wardriver MapLibre Basemap
@@ -319,7 +306,6 @@
 - Current Limitations
 - Reliability Features
 - vm-api.md
-- API Endpoints
 - Service Architecture
 - Integration Points
 - Test Design: Operator Download Navigation Repair
@@ -342,35 +328,35 @@
 ## Surprising Connections (you probably didn't know these)
 - `postGlobalViewport()` --indirect_call--> `error()`  [INFERRED]
   vm/cybermap-api/test/global-viewport-http.test.mjs → api/_private/operator/assets/maplibre-gl-shared.mjs
-- `withEnvironment()` --indirect_call--> `key()`  [INFERRED]
-  tests/morning-brief-api.test.mjs → api/_private/operator/assets/maplibre-gl-shared.mjs
 - `loadTzeentchMarketFeed()` --indirect_call--> `headers()`  [INFERRED]
   api/_private/operator/assets/tzeentch.mjs → vm/cybermap-api/test/morning-brief.test.mjs
 - `authorizationHeader()` --calls--> `createOperatorToken()`  [EXTRACTED]
   tests/tzeentch-route.test.mjs → api/_lib/operator-auth.js
 - `makeOperatorHeaders()` --calls--> `createOperatorToken()`  [EXTRACTED]
   tests/wigle-api.test.mjs → api/_lib/operator-auth.js
+- `latestPointGeometry()` --indirect_call--> `geometry()`  [INFERRED]
+  vm/cybermap-api/src/sources/nasa-eonet-events.mjs → api/_private/operator/assets/maplibre-gl-shared.mjs
 
 ## Import Cycles
 - None detected.
 
-## Communities (322 total, 74 thin omitted)
+## Communities (308 total, 75 thin omitted)
 
 ### Community 0 - "index.js"
 Cohesion: 0.06
-Nodes (89): { assertPublicTarget, isLikelyIpAddress, isPrivateIp, isUnsafeHostName }, classifyByMode(), classifyTarget(), looksLikeDomain(), looksLikeEmail(), looksLikeIp(), looksLikeUrl(), net (+81 more)
+Nodes (88): { assertPublicTarget, isLikelyIpAddress, isPrivateIp, isUnsafeHostName }, classifyByMode(), classifyTarget(), looksLikeDomain(), looksLikeEmail(), looksLikeIp(), looksLikeUrl(), net (+80 more)
 
 ### Community 1 - "fresh_snapshot"
-Cohesion: 0.14
-Nodes (32): append_jsonl(), canonical_json_hash(), clean_string(), collect_source_snapshot(), configured_paper_sync_url(), cron_packet(), default_ledger(), fragment_body() (+24 more)
+Cohesion: 0.13
+Nodes (33): append_jsonl(), canonical_json_hash(), clean_string(), collect_source_snapshot(), configured_paper_sync_url(), cron_packet(), default_ledger(), fragment_body() (+25 more)
 
 ### Community 2 - "chained-daemon.mjs"
 Cohesion: 0.06
 Nodes (76): addBucket(), AGENT_POLICY_RISK_CAPABILITIES, bucketPriority(), buildChainedDaemonLoopState(), buildChainedDaemonSelfPentestRun(), buildFeverLureQuarantine(), buildLoopBudget(), buildNegativeSpaceIam() (+68 more)
 
 ### Community 3 - "tzeentch.mjs"
-Cohesion: 0.09
-Nodes (44): abortIfPresent(), abortInFlight(), bindTzeentchSurfaceTabs(), buildOperatorHeaders(), classifyEvidenceTags(), createEmptyTzeentchPayload(), buildTzeentchDashboardModel(), formatPaperQuantity() (+36 more)
+Cohesion: 0.13
+Nodes (40): abortIfPresent(), abortInFlight(), bindTzeentchSurfaceTabs(), buildOperatorHeaders(), classifyEvidenceTags(), createEmptyState(), createEmptyTzeentchPayload(), formatPaperQuantity() (+32 more)
 
 ### Community 4 - "mosaic-murmurs-paper-memory-loop.py"
 Cohesion: 0.25
@@ -381,12 +367,12 @@ Cohesion: 0.09
 Nodes (45): date, Element, Exception, age_hours(), build_delivery_markdown(), build_manifest(), child_link(), child_text() (+37 more)
 
 ### Community 6 - "RuntimeError"
-Cohesion: 0.16
-Nodes (31): archive_and_readback(), _artifact(), _base_url(), build_archive_envelope(), canonical_json(), canonical_state_digest(), _delivered_batches(), dispatch_packet() (+23 more)
+Cohesion: 0.17
+Nodes (30): archive_and_readback(), _artifact(), _base_url(), build_archive_envelope(), canonical_json(), canonical_state_digest(), _delivered_batches(), dispatch_packet() (+22 more)
 
 ### Community 7 - "tzeentch-dashboard.mjs"
 Cohesion: 0.10
-Nodes (53): buildActionableIntelModel(), buildCryptoModel(), buildCryptoProposal(), buildMosaicModel(), buildMurmursModel(), buildPaperBookProposal(), buildPaperBooksModel(), buildPolymarketModel() (+45 more)
+Nodes (55): buildActionableIntelModel(), buildCryptoModel(), buildCryptoProposal(), buildMosaicModel(), buildMurmursModel(), buildPaperBookProposal(), buildPaperBooksModel(), buildPolymarketModel() (+47 more)
 
 ### Community 8 - "greenfeed-worker.mjs"
 Cohesion: 0.17
@@ -394,11 +380,11 @@ Nodes (21): boundedCount(), boundedDelay(), classifyFailure(), createRun(), deco
 
 ### Community 9 - "wigle.mjs"
 Cohesion: 0.09
-Nodes (53): buildTileGrid(), clamp(), latLonToTileXY(), metersPerPixel(), tileUrl(), wrapTileIndex(), key(), annotateCurrentRecord() (+45 more)
+Nodes (52): buildTileGrid(), clamp(), latLonToTileXY(), metersPerPixel(), tileUrl(), wrapTileIndex(), annotateCurrentRecord(), bearingBetween() (+44 more)
 
 ### Community 10 - "morning-brief.mjs"
 Cohesion: 0.01
-Nodes (111): addBucket(), addDash(), addRegularDash(), addRoundDash(), bo, broadcast(), calculateFogBlendOpacity(), cf (+103 more)
+Nodes (155): aa(), acquire(), addBucket(), addDash(), addRegularDash(), addRoundDash(), af, _applyDiffToSource() (+147 more)
 
 ### Community 11 - "global-viewport-contract.mjs"
 Cohesion: 0.11
@@ -409,8 +395,8 @@ Cohesion: 0.11
 Nodes (46): buildCanonicalPaperBooks(), buildCrypto(), buildDashboardPayload(), buildMosaic(), buildMurmurs(), buildPolymarket(), canonicalLoopMetadata(), cleanHttpUrl() (+38 more)
 
 ### Community 13 - "memory-store.mjs"
-Cohesion: 0.08
-Nodes (26): aggregateCaveats(), aggregateFreshness(), boundedGlobalLimit(), briefSummary(), cellUsesOnlyEligibleLayers(), centroidInBbox(), cloneBrief(), compareAggregateCells() (+18 more)
+Cohesion: 0.07
+Nodes (27): IngestError, aggregateCaveats(), aggregateFreshness(), boundedGlobalLimit(), briefSummary(), cellUsesOnlyEligibleLayers(), centroidInBbox(), cloneBrief() (+19 more)
 
 ### Community 14 - "mosaic_murmurs_paper_engine.py"
 Cohesion: 0.19
@@ -420,13 +406,9 @@ Nodes (40): _age_hours(), _crash_event(), _decision(), default_ledger(), _eligib
 Cohesion: 0.11
 Nodes (18): Acceptance Criteria, Allocation Policy, Brain Loop Topology, Combined System, Daily Dream Cycle, Dual-Mind Model, Escalation Gates, Governance Rules (+10 more)
 
-### Community 16 - "postgres-store.mjs"
-Cohesion: 0.11
-Nodes (30): allowVariableZoom(), calculateCameraOptionsFromTo(), calculateCenterFromCameraLngLatAlt(), _calculateNearFarZIfNeeded(), _distanceToCenterFromAltElevationPitch(), ea(), _elevateCameraIfInsideTerrain(), fa() (+22 more)
-
 ### Community 17 - "main.js"
-Cohesion: 0.09
-Nodes (49): createGodeyeController(), createGodeyeGlobalRenderer(), activateTab(), activateTabByIndex(), applyVisionDataset(), bindLoginFlow(), bindMorningBriefReturn(), bindOperatorDownloads() (+41 more)
+Cohesion: 0.08
+Nodes (54): createGodeyeController(), activateTab(), activateTabByIndex(), applyVisionDataset(), bindLoginFlow(), bindMorningBriefReturn(), bindOperatorDownloads(), bindTabSystem() (+46 more)
 
 ### Community 18 - "Mosaic & Murmurs Operating Doctrine"
 Cohesion: 0.05
@@ -437,8 +419,8 @@ Cohesion: 0.06
 Nodes (33): 1. Azure Static Web App, 2. Shared Cybermap Network, 3. Virtual Machine Cybermap API Gateway, 4. Cybermap API installation, 5. Optional Azure OpenAI Account, Azure Resources Specification, Configuration Files, Configuration Parameters (+25 more)
 
 ### Community 20 - "$"
-Cohesion: 0.12
-Nodes (35): activateGodeyeMode(), applyWigleDataset(), bindDeflockGlobalControls(), bindGodeyeControls(), bindGodeyeModeControls(), buildDeflockGlobalRequest(), getCurrentPosition(), handleGeoError() (+27 more)
+Cohesion: 0.14
+Nodes (36): activateGodeyeMode(), applyWigleDataset(), bindDeflockGlobalControls(), bindGodeyeControls(), bindGodeyeModeControls(), emptyWigleDataset(), handleGeoError(), handleGeoPosition() (+28 more)
 
 ### Community 21 - "main.js"
 Cohesion: 0.18
@@ -469,12 +451,12 @@ Cohesion: 0.07
 Nodes (25): chainedDaemonJs, cybermapBatchApi, cybermapInstallScript, cybermapViewportApi, deployWorkflow, indexHtml, infraParams, localServer (+17 more)
 
 ### Community 28 - "morning-brief.test.mjs"
-Cohesion: 0.08
-Nodes (22): createCybermapApiServer(), request, GlobalViewportStore, postGlobalViewport(), VALID_REQUEST, VALID_RESPONSE, ingestHeaders(), validBatch() (+14 more)
+Cohesion: 0.06
+Nodes (28): hashToken(), tokenDigestMatches(), createCybermapApiServer(), request, GlobalViewportStore, postGlobalViewport(), VALID_REQUEST, VALID_RESPONSE (+20 more)
 
 ### Community 29 - "server.mjs"
-Cohesion: 0.08
-Nodes (48): buildEchoPayload(), canonicalJson(), createRequestHandler(), GLOBAL_VIEWPORT_LAYER_IDS, handleCybermapTile(), handleGlobalViewport(), handleMorningBriefRequest(), handleMorningBriefWrite() (+40 more)
+Cohesion: 0.07
+Nodes (71): producerScript, REPO_ROOT, clampFiniteNumber(), createRequestHandler(), finiteNumber(), GLOBAL_VIEWPORT_LAYER_IDS, handleCybermapTile(), handleCybermapViewport() (+63 more)
 
 ### Community 30 - "Mosaic & Murmurs Source Expansion Research"
 Cohesion: 0.07
@@ -502,15 +484,15 @@ Nodes (16): clip(), _eligible_instrument(), finite_number(), generate_shadow_can
 
 ### Community 36 - "postgres-store.test.mjs"
 Cohesion: 0.01
-Nodes (121): ab(), addImageSection(), addTextSection(), angleWith(), angleWithSep(), ap, bb(), Bh (+113 more)
+Nodes (139): ab(), addImageSection(), addTextSection(), angleWith(), angleWithSep(), ap, av(), ay() (+131 more)
 
 ### Community 37 - "operator-auth.js"
 Cohesion: 0.18
 Nodes (18): base64UrlDecode(), base64UrlEncode(), createOperatorToken(), crypto, extractCookieValue(), extractOperatorTokens(), getConfiguredDigest(), getOperatorId() (+10 more)
 
 ### Community 38 - "Tasks: Static Web Application Functionality"
-Cohesion: 0.15
-Nodes (28): disableArFeed(), emptyWigleDataset(), enableArFeed(), ensureCameraStream(), ensureMotionTracking(), formatAngle(), formatAxis(), getArVideoScale() (+20 more)
+Cohesion: 0.17
+Nodes (23): disableArFeed(), enableArFeed(), ensureMotionTracking(), formatAngle(), formatAxis(), getArVideoScale(), getOrientationMode(), getOrientationSlide() (+15 more)
 
 ### Community 39 - "Tasks: Static Web Application Styling"
 Cohesion: 0.08
@@ -535,8 +517,8 @@ Nodes (23): {
 }, buildRunId(), commit(), createReleaseStore(), isoTimestamp(), notes(), parseConnectionString(), positiveInt() (+15 more)
 
 ### Community 43 - "refreshLiveWigleFeed"
-Cohesion: 0.02
-Nodes (133): add(), addClassName(), addControl(), _addDefaultHandlers(), addTo(), _applyChanges(), _blockedByActive(), bp (+125 more)
+Cohesion: 0.03
+Nodes (111): add(), addClassName(), addControl(), _addDefaultHandlers(), addTo(), _applyChanges(), _blockedByActive(), bp (+103 more)
 
 ### Community 44 - "Mosaic & Murmurs Dream Design: Cyber Augmentation Proposal"
 Cohesion: 0.08
@@ -548,7 +530,7 @@ Nodes (21): buildCryptoLane(), buildPolymarketLane(), buildTzeentchApplications(
 
 ### Community 46 - "Implementation Plan: Static Web Application Functionality"
 Cohesion: 0.03
-Nodes (101): add(), addTileFeatures(), ah(), Am(), appendLeaves(), bm(), ch(), cluster() (+93 more)
+Nodes (104): add(), addTileFeatures(), ah(), Am(), appendLeaves(), bm(), ch(), cluster() (+96 more)
 
 ### Community 47 - "Implementation Plan: Static Web Application Styling"
 Cohesion: 0.22
@@ -571,8 +553,8 @@ Cohesion: 0.09
 Nodes (20): Complexity Tracking, Constitution Check, Documentation (this feature), Implementation Plan: VM Echo API, Project Structure, Source Code (repository root), Summary, Technical Context (+12 more)
 
 ### Community 52 - "contracts.mjs"
-Cohesion: 0.13
-Nodes (25): assertJsonValue(), BATCH_FIELDS, ContractError, deepFreeze(), hashCanonicalJson(), hashPersistedObservation(), isPlainObject(), LOCATION_FIELDS (+17 more)
+Cohesion: 0.15
+Nodes (23): assertJsonValue(), BATCH_FIELDS, ContractError, deepFreeze(), isPlainObject(), LOCATION_FIELDS, OBSERVATION_FIELDS, OBSERVATION_KINDS (+15 more)
 
 ### Community 53 - "wigle-local-bridge.py"
 Cohesion: 0.20
@@ -587,8 +569,8 @@ Cohesion: 0.10
 Nodes (21): Acceptance criteria, Bridge lane, Core model, Daily design proposal lanes, Data model sketch, Dream phases, Executive summary, Free association protocol (+13 more)
 
 ### Community 56 - "Blue Swallow Society Constitution"
-Cohesion: 0.05
-Nodes (44): aa(), ai(), allowWorldCopies(), coordinatePoint(), createFramebuffer(), createRenderbuffer(), depthAtPoint(), _flattenAndSortRenderedFeatures() (+36 more)
+Cohesion: 0.04
+Nodes (69): ai(), allowVariableZoom(), allowWorldCopies(), calculateCameraOptionsFromTo(), calculateCenterFromCameraLngLatAlt(), _calculateNearFarZIfNeeded(), coordinatePoint(), _distanceToCenterFromAltElevationPitch() (+61 more)
 
 ### Community 57 - "Blue Swallow Society Constitution"
 Cohesion: 0.10
@@ -607,8 +589,8 @@ Cohesion: 0.10
 Nodes (20): Additional Security Requirements, API Security, Authentication and Authorization, Blue Swallow Society Constitution, Code Review Security Focus, Core Principles, Data Protection, Dependency Management (+12 more)
 
 ### Community 61 - "validatePaperState"
-Cohesion: 0.24
-Nodes (20): finiteNumber(), hasExactIds(), hasOnlyKeys(), hasUniqueStringField(), isPlainObject(), nullableHttpsUrl(), nullableTimestamp(), PAPER_ACTION_VALUES (+12 more)
+Cohesion: 0.13
+Nodes (21): renderActionableCard(), renderActionablePanel(), renderChipStrip(), renderCryptoIcon(), renderCryptoPanel(), renderMetricGrid(), renderMosaicCard(), renderMosaicPanel() (+13 more)
 
 ### Community 62 - "cybermap-geospatial-backend.md"
 Cohesion: 0.10
@@ -622,10 +604,6 @@ Nodes (12): ALL_SOURCE_CLASSES, APPROVED_GLOBAL_SOURCE_CLASSES, expectedAggregat
 Cohesion: 0.09
 Nodes (21): ASSET_MANIFEST, createOperatorAssetHandler(), deny(), fs, handler, noStoreHeaders(), path, PRIVATE_ASSET_DIR (+13 more)
 
-### Community 65 - "Wardriver RaID + BSS Backend Repair Plan"
-Cohesion: 0.10
-Nodes (24): apply(), clone(), cloneImages(), _getImagesForIds(), _getOperationsToPerform(), getPerspectiveRatio(), _getStyleAndImages(), getTerrainCoords() (+16 more)
-
 ### Community 66 - "common.sh"
 Cohesion: 0.12
 Nodes (4): get_current_branch(), get_feature_paths(), has_git(), common.sh script
@@ -635,8 +613,8 @@ Cohesion: 0.11
 Nodes (16): Implementation Plan: Wardriver Immutable Release Delivery, Rollout and rollback, Security decisions, Source layout, Summary, Technical context, Verification plan, Assumptions and exclusions (+8 more)
 
 ### Community 68 - "createRequestHandler"
-Cohesion: 0.21
-Nodes (10): boundedNumber(), createGlobalViewportClient(), DEFAULT_GODEYE_GLOBAL_VIEWPORT, deriveState(), healthStates(), normalizeGlobalViewportResponse(), renderCellEntry(), renderGapEntry() (+2 more)
+Cohesion: 0.20
+Nodes (11): boundedNumber(), createGlobalViewportClient(), createGodeyeGlobalRenderer(), DEFAULT_GODEYE_GLOBAL_VIEWPORT, deriveState(), healthStates(), normalizeGlobalViewportResponse(), renderCellEntry() (+3 more)
 
 ### Community 69 - "Strategy taxonomy"
 Cohesion: 0.12
@@ -647,8 +625,8 @@ Cohesion: 0.12
 Nodes (16): Campaign money, Enforcement and ethics, Federal elected officials, Federal executive and agency officials, Guardrails, Implementation backlog, Money, disclosure, and ethics sources, Official registry targets (+8 more)
 
 ### Community 71 - "godeye-global.mjs"
-Cohesion: 0.05
-Nodes (73): addImage(), addLayer(), addSource(), addSprite(), _afterImageUpdated(), _applyGlobalStateChanges(), ba(), _checkLoaded() (+65 more)
+Cohesion: 0.04
+Nodes (81): addImage(), addLayer(), addSource(), addSprite(), _applyGlobalStateChanges(), ba(), _checkLoaded(), coalesceChanges() (+73 more)
 
 ### Community 72 - "package.json"
 Cohesion: 0.12
@@ -675,16 +653,16 @@ Cohesion: 0.12
 Nodes (15): Acceptance criteria, Core architecture, Decision candidate, How this ties into dream-design cyber augmentation, Implementation slice, Kismet Wardriving Sensor Spine Research, Observation payload shape, Observed facts (+7 more)
 
 ### Community 78 - "greenfeed-materializer.test.mjs"
-Cohesion: 0.28
-Nodes (16): cameraForBoxAndBearing(), getEast(), getLesserNonNegativeNonNull(), getNorth(), getNorthEast(), getNorthWest(), getSouth(), getSouthEast() (+8 more)
+Cohesion: 0.14
+Nodes (12): Affected Files, Approach, Implementation Plan: Wardriver mTLS Proxy Secret Delivery, Root Cause, Security Boundary, Edge Cases, Feature Specification: Wardriver mTLS Proxy Secret Delivery, Functional Requirements (+4 more)
 
 ### Community 79 - "index.js"
 Cohesion: 0.30
 Nodes (13): requireOperatorToken(), acceptsDownloadUrl(), { createReleaseStore, toOperatorMetadata }, downloadUrlResponse(), handle(), handleAuthorized(), handler(), isHttpsBlobUrl() (+5 more)
 
 ### Community 80 - "Cybermap Geospatial Backend Design"
-Cohesion: 0.10
-Nodes (40): adjustAntiMeridian(), _afterEase(), applyUpdatedTransform(), cameraForBounds(), Cr(), dblclick(), _ease(), easeTo() (+32 more)
+Cohesion: 0.08
+Nodes (41): _calculateTransform(), contextmenu(), dblclick(), dragEnd(), dragMove(), dragStart(), _f(), ff() (+33 more)
 
 ### Community 81 - "Microsoft Layoff and Hiring Risk Radar"
 Cohesion: 0.14
@@ -695,8 +673,8 @@ Cohesion: 0.15
 Nodes (9): globalModuleUrl, globalViewportRequest, globalViewportResponse, loadGlobalModule(), operatorMain, operatorShell, operatorStyles, readGlobalModule() (+1 more)
 
 ### Community 83 - "morning-brief-api.test.mjs"
-Cohesion: 0.18
-Nodes (7): { requireOperatorToken }, { createOperatorToken }, handler, invoke(), makeContext(), require, withEnvironment()
+Cohesion: 0.20
+Nodes (6): { requireOperatorToken }, { createOperatorToken }, handler, invoke(), makeContext(), require
 
 ### Community 84 - "mosaic_murmurs_market_data.py"
 Cohesion: 0.15
@@ -731,7 +709,7 @@ Cohesion: 0.05
 Nodes (39): Architecture and interfaces, Constitution Check, CSP and assets, Failure behavior, Implementation Plan: Godeye Policy-Bound Operator Map, Implementation sequence, Layer registry, Map and workbench (+31 more)
 
 ### Community 92 - "Mosaic & Murmurs Morning Brief Implementation"
-Cohesion: 0.16
+Cohesion: 0.18
 Nodes (4): load_engine(), FakeResponse, load_module(), PaperSyncTests
 
 ### Community 93 - "User Scenarios & Testing *(mandatory)*"
@@ -752,11 +730,11 @@ Nodes (11): Feature Specification: Tzeentch Market Surface, Functional Requireme
 
 ### Community 97 - "index.js"
 Cohesion: 0.05
-Nodes (56): _afterTileLoadWorkerResponse(), _applyResourceTiming(), _charUsesLocalIdeographFontFamily(), clearTextures(), _createStyleImage(), _createTinySDF(), destroy(), _diffStyle() (+48 more)
+Nodes (60): _afterImageUpdated(), _afterTileLoadWorkerResponse(), _applyResourceTiming(), attemptAnchorPlacement(), _charUsesLocalIdeographFontFamily(), clearTextures(), _createTinySDF(), destroy() (+52 more)
 
 ### Community 98 - "Requirements"
-Cohesion: 0.08
-Nodes (44): ac(), af, cameraPosition(), ec(), extend(), _fireEvents(), getBounds(), getRayDirectionFromPixel() (+36 more)
+Cohesion: 0.60
+Nodes (4): DEBIAN_FRONTEND, migration_applied(), run_migration(), install-cybermap-api.sh script
 
 ### Community 99 - "iso"
 Cohesion: 0.18
@@ -783,8 +761,8 @@ Cohesion: 0.18
 Nodes (10): Acceptance evidence, Authority and scope, R1 — Public static-website paths; private Blob containers, R2 — Client style endpoint, R3 — Immutable tiles, mutable style pointer, R4 — Source and publication controls, R5 — Android renderer policy, R6 — Failure and boundary behavior (+2 more)
 
 ### Community 105 - "Tasks: Adversarial Surface Remediation and Tool-First Operator UI"
-Cohesion: 0.05
-Nodes (71): ac(), as(), ax(), bind(), bs(), Bx(), concat(), cs() (+63 more)
+Cohesion: 0.06
+Nodes (62): ac(), as(), ax(), bs(), Bx(), concat(), cs(), db() (+54 more)
 
 ### Community 106 - "operator-downloads-api.test.mjs"
 Cohesion: 0.22
@@ -799,12 +777,12 @@ Cohesion: 0.33
 Nodes (5): buildBackendUrl(), clampNumber(), getBodyValue(), parseNumber(), { requireOperatorToken }
 
 ### Community 110 - "Material gaps and risks"
-Cohesion: 0.09
-Nodes (29): _addTile(), _areDescendentsComplete(), getAllIds(), _getLoadedDescendents(), getLoadedTile(), getRenderableIds(), getRTLTextPluginStatus(), getTileById() (+21 more)
+Cohesion: 0.07
+Nodes (28): containsMaxSafeIntegerValues(), dc(), deserialize(), extend(), fc(), freeBufferAfterUpload(), fromPoints(), getFeatures() (+20 more)
 
 ### Community 111 - "Mosaic & Murmurs Autonomous Paper Engine"
-Cohesion: 0.04
-Nodes (71): kf(), addDebugCollisionBoxes(), addIndicesForPlacedSymbol(), addLineDashDependencies(), af(), ay(), bc, by() (+63 more)
+Cohesion: 0.05
+Nodes (58): addFeature(), addFeatures(), addIndicesForPlacedSymbol(), addLineDashDependencies(), af(), bc, _calculate(), calculateGlyphDependencies() (+50 more)
 
 ### Community 112 - "create-new-feature.sh"
 Cohesion: 0.22
@@ -836,7 +814,7 @@ Nodes (39): Affected Structure, Asset-grant boundary, Complexity Tracking, Const
 
 ### Community 119 - "clamp"
 Cohesion: 0.05
-Nodes (64): av(), bg(), calculateScaledKey(), determineAverageLineWidth(), determineLineBreaks(), Dv(), ev(), getMaxImageSize() (+56 more)
+Nodes (58): bg(), calculateScaledKey(), determineAverageLineWidth(), determineLineBreaks(), Dv(), ev(), getMaxImageSize(), getSection() (+50 more)
 
 ### Community 120 - "SKILL.md"
 Cohesion: 0.56
@@ -865,10 +843,6 @@ Nodes (7): Checklist Format (REQUIRED), Outline, Phase Structure, Pre-Execution 
 ### Community 126 - "Nacre-Moiré operator design system"
 Cohesion: 0.33
 Nodes (5): 1. Create the service principal, 2. Add the federated credential, 3. GitHub secrets to set, Azure Credentials Setup (OIDC, no secrets in GitHub), Generating `VM_SSH_PUBLIC_KEY`
-
-### Community 127 - "create-new-feature.ps1"
-Cohesion: 0.07
-Nodes (39): attemptAnchorPlacement(), calculatePosMatrix(), continuePlacement(), da(), di(), getAllTiles(), getFastPathSimpleProjectionMatrix(), getProjectionDataForCustomLayer() (+31 more)
 
 ### Community 128 - "checklist.md"
 Cohesion: 0.46
@@ -899,12 +873,12 @@ Cohesion: 0.25
 Nodes (4): appRoot, execFileAsync, MIME_TYPES, repoRoot
 
 ### Community 135 - "BSS Cybermap API — authenticated observation ingest"
-Cohesion: 0.06
-Nodes (51): fov(), ao(), bo(), _calculate(), checkSubtype(), co(), crossFadingFactor(), Do() (+43 more)
+Cohesion: 0.07
+Nodes (40): fov(), Bi(), bo(), checkSubtype(), co(), compare(), crossFadingFactor(), Do() (+32 more)
 
 ### Community 136 - "index.js"
 Cohesion: 0.12
-Nodes (30): { requireOperatorToken }, sendJson(), unavailable(), initMorningBriefTab(), activeObjectUrls, api(), appendArtifactControls(), appendMetadata() (+22 more)
+Nodes (29): { requireOperatorToken }, sendJson(), unavailable(), activeObjectUrls, api(), appendArtifactControls(), appendMetadata(), artifactFilename() (+21 more)
 
 ### Community 137 - "Safe options"
 Cohesion: 0.25
@@ -919,8 +893,8 @@ Cohesion: 0.29
 Nodes (6): 1) Local/open models on the VM, 2) Azure OpenAI (pay-as-you-go), 3) Azure AI Foundry Models (serverless, pay-as-you-go), AI / LM options while staying inside Azure credits, Safe options, What to avoid early
 
 ### Community 140 - "RED/GREEN Sequences"
-Cohesion: 0.14
-Nodes (21): $a(), ao(), Ca(), co(), fo(), getPitchedTextCorrection(), go(), Hu() (+13 more)
+Cohesion: 0.11
+Nodes (26): $a(), co(), fo(), getPerspectiveRatio(), ho(), io(), isInsideGrid(), isOffscreen() (+18 more)
 
 ### Community 141 - "passcode-api.test.mjs"
 Cohesion: 0.13
@@ -936,8 +910,8 @@ Cohesion: 0.33
 Nodes (6): parseJson(), publicationWorkflow, read(), root, storageModule, styleTemplate
 
 ### Community 144 - "agent.js"
-Cohesion: 0.20
-Nodes (20): artifact(), atomicJson(), buildBrief(), dispatchDiscord(), escapeHtml(), escapeXml(), execFileAsync, formatMoney() (+12 more)
+Cohesion: 0.17
+Nodes (23): artifact(), atomicJson(), buildBrief(), dispatchDiscord(), escapeHtml(), escapeXml(), execFileAsync, formatMoney() (+15 more)
 
 ### Community 145 - "applyVisionDataset"
 Cohesion: 0.39
@@ -956,20 +930,16 @@ Cohesion: 0.16
 Nodes (8): APP_DIR, createLocalServer(), fs, http, path, startLocalServer(), require, root
 
 ### Community 149 - "extract-mbtiles-tiles.py"
-Cohesion: 0.13
-Nodes (24): _computeTileBoundingVolume(), Cs(), fromAabb(), fromCenterSizeAngles(), fromInvProjectionMatrix(), getCameraFrustum(), Js(), pc() (+16 more)
+Cohesion: 0.07
+Nodes (49): bl(), Ca(), _computeTileBoundingVolume(), Cs(), dispatchRenderCallbacks(), Fc(), fromAabb(), fromCenterSizeAngles() (+41 more)
 
 ### Community 150 - "Recommended delivery sequence"
 Cohesion: 0.06
-Nodes (42): addImages(), backfillBorder(), cn, completeTask(), constructor(), copy(), _down(), fd() (+34 more)
+Nodes (41): addImages(), backfillBorder(), bind(), completeTask(), constructor(), copy(), _down(), fd() (+33 more)
 
 ### Community 152 - "User Scenarios & Testing *(mandatory)*"
 Cohesion: 0.33
 Nodes (5): Architecture decisions, Core decision, Non-goals, Product architecture, Target data flow
-
-### Community 153 - "paper-state-proxy.test.mjs"
-Cohesion: 0.12
-Nodes (18): acquire(), _applyDiffToSource(), ei(), fi(), getFeatureState(), gi(), hi(), Ii() (+10 more)
 
 ### Community 154 - ".test_query_current_state_returns_recent_unique_observations_ordered_by_signal"
 Cohesion: 0.23
@@ -984,12 +954,12 @@ Cohesion: 0.33
 Nodes (5): Phase 1 — Release store and protected BSS contract, Phase 2 — Azure deployment and release promotion, Phase 3 — Device freshness signal, Phase 4 — verification and operational cutover, Tasks: Wardriver Immutable Release Delivery
 
 ### Community 158 - "Recommended delivery sequence"
-Cohesion: 0.10
-Nodes (31): aa(), ba(), ca(), da(), distance(), eo(), fa(), ga() (+23 more)
+Cohesion: 0.09
+Nodes (42): aa(), ao(), ba(), ca(), canonicalID(), da(), distance(), Ea() (+34 more)
 
 ### Community 159 - "install-cybermap-api.sh"
-Cohesion: 0.07
-Nodes (42): bbox(), dd(), Dm(), Em(), gv(), jg(), kg(), nextField() (+34 more)
+Cohesion: 0.06
+Nodes (46): bbox(), bt(), dd(), Dm(), Em(), gv(), jg(), jv() (+38 more)
 
 ### Community 160 - "Deployment sequence"
 Cohesion: 0.40
@@ -1003,13 +973,13 @@ Nodes (4): Outline, Post-Execution Checks, Pre-Execution Checks, User Input
 Cohesion: 0.40
 Nodes (4): Outline, Post-Execution Checks, Pre-Execution Checks, User Input
 
-### Community 163 - "clarify.md"
-Cohesion: 0.60
-Nodes (4): DEBIAN_FRONTEND, migration_applied(), run_migration(), install-cybermap-api.sh script
+### Community 163 - "API Endpoints"
+Cohesion: 0.67
+Nodes (3): API Endpoints, Example Requests, Primary Endpoint: `/echo`
 
 ### Community 164 - "constitution.md"
-Cohesion: 0.07
-Nodes (40): gestureBeginsVertically(), bf(), bp(), _colorRampChanged(), _createColorRamp(), dp(), ep(), ff() (+32 more)
+Cohesion: 0.08
+Nodes (39): bf(), bp(), _colorRampChanged(), _createColorRamp(), dp(), ep(), ff(), fp() (+31 more)
 
 ### Community 165 - "taskstoissues.md"
 Cohesion: 0.40
@@ -1032,12 +1002,8 @@ Cohesion: 0.40
 Nodes (4): TDD sequence, Test Design: Wardriver Immutable Release Delivery, Test matrix, Traceability
 
 ### Community 170 - "adversarial-surface-remediation.test.mjs"
-Cohesion: 0.07
-Nodes (45): H(), ji(), nl, zn(), abort(), abortTile(), addLayer(), ce() (+37 more)
-
-### Community 171 - "cybermap-ingest-api.test.mjs"
-Cohesion: 0.25
-Nodes (19): createEmptyState(), initTzeentchDashboard(), loadOverview(), persistRecentQueries(), rememberRecentQuery(), renderFailure(), renderPayload(), renderRecentQueries() (+11 more)
+Cohesion: 0.06
+Nodes (47): cameraPosition(), ec(), H(), I, ji(), nl, te(), zn() (+39 more)
 
 ### Community 172 - "runtime-versions.test.mjs"
 Cohesion: 0.50
@@ -1049,11 +1015,7 @@ Nodes (4): main, moduleUrl, root, workflow
 
 ### Community 174 - "agent-loader.js"
 Cohesion: 0.05
-Nodes (57): id(), Ad(), ag(), an(), at(), Cd(), _convertFromCellCoord(), _convertToCellCoord() (+49 more)
-
-### Community 175 - "loader.js"
-Cohesion: 0.14
-Nodes (18): ho(), isLocationOccluded(), isSurfacePointOnScreen(), isSurfacePointVisible(), lngLatToCameraDepth(), _projectSurfacePointToScreen(), projectTileCoordinates(), qs() (+10 more)
+Nodes (55): id(), Ad(), ag(), an(), at(), Cd(), _convertFromCellCoord(), _convertToCellCoord() (+47 more)
 
 ### Community 176 - "SKILL.md"
 Cohesion: 0.07
@@ -1064,12 +1026,12 @@ Cohesion: 0.50
 Nodes (3): Outline, Pre-Execution Checks, User Input
 
 ### Community 180 - "Backing VM API and infrastructure review"
-Cohesion: 0.06
-Nodes (113): ad(), al(), bd(), bind(), _bindFramebuffer(), bl(), Bs(), Bu() (+105 more)
+Cohesion: 0.05
+Nodes (128): ad(), al(), ao(), bd(), bind(), _bindFramebuffer(), Bs(), Bu() (+120 more)
 
 ### Community 181 - "implement.md"
-Cohesion: 0.19
-Nodes (36): contains(), Ga(), gs(), handleEaseTo(), handleFlyTo(), oc(), oo(), sc() (+28 more)
+Cohesion: 0.04
+Nodes (154): ac(), acquireRTT(), adjustAntiMeridian(), _afterEase(), apply(), applyUpdatedTransform(), bindRTT(), _calcMatrices() (+146 more)
 
 ### Community 182 - "plan.md"
 Cohesion: 0.08
@@ -1100,20 +1062,20 @@ Cohesion: 0.22
 Nodes (23): build_paper_state(), _finite_number(), _has_exact_ids(), has_valid_execution_cost_attribution(), iso_z(), PaperSyncError, read_token_file(), _require_exact_keys() (+15 more)
 
 ### Community 191 - "paper-state-contract.test.mjs"
-Cohesion: 0.04
-Nodes (74): acquireRTT(), _addTerrainIdealTiles(), anyTilesAfterTime(), bindRTT(), _cleanUpRasterTiles(), _cleanUpVectorTiles(), _clearSource(), clearSymbolFadeHold() (+66 more)
+Cohesion: 0.03
+Nodes (110): _addTerrainIdealTiles(), _addTile(), anyTilesAfterTime(), _areDescendentsComplete(), _cleanUpRasterTiles(), _cleanUpVectorTiles(), _clearSource(), clearSymbolFadeHold() (+102 more)
 
 ### Community 192 - "addLine"
-Cohesion: 0.06
-Nodes (46): addCurrentVertex(), addFeature(), addFeatures(), addHalfVertex(), addLine(), addToLineVertexArray(), addToSortKeyRanges(), angleTo() (+38 more)
+Cohesion: 0.23
+Nodes (14): addCurrentVertex(), addHalfVertex(), addLine(), addToLineVertexArray(), addToSortKeyRanges(), angleTo(), di, dist() (+6 more)
 
 ### Community 194 - "node-runtime-policy.md"
 Cohesion: 0.50
 Nodes (3): observations_append_only_delete, observations_append_only_update, schema_migrations
 
 ### Community 212 - "addSymbols"
-Cohesion: 0.17
-Nodes (15): _addCollisionDebugVertex(), addCollisionDebugVertices(), addSymbols(), cp(), createNewSegment(), forceNewSegmentOnNextPrepare(), getOrCreateLatestSegment(), ip (+7 more)
+Cohesion: 0.10
+Nodes (25): _addCollisionDebugVertex(), addCollisionDebugVertices(), addDebugCollisionBoxes(), addSymbols(), cp(), createNewSegment(), destroy(), destroyDebugData() (+17 more)
 
 ### Community 213 - "Implementation Plan: Static Web Application Functionality"
 Cohesion: 0.09
@@ -1135,21 +1097,9 @@ Nodes (20): arm_request_json(), configure_apex(), create_custom_domain_and_token
 Cohesion: 0.12
 Nodes (15): Acceptance criteria, API endpoints, Azure resource shape, Cost baseline, Current Godeye Global implementation status (2026-07-22), Cybermap Geospatial Backend Design, Cybermap materialization loop, Decision (+7 more)
 
-### Community 269 - "serialize"
-Cohesion: 0.15
-Nodes (15): _calcMatrices(), _clearMatrixCaches(), clearNearFarZOverride(), _computeClippingPlane(), constrainInternal(), getCartesianPosition(), interpolatePadding(), overrideNearFarZ() (+7 more)
-
-### Community 270 - "renderActionablePanel"
-Cohesion: 0.17
-Nodes (4): check(), credentialRow, FakePool, ScriptedClient
-
 ### Community 271 - "qt"
 Cohesion: 0.14
 Nodes (12): Approach, Files, Implementation Plan: Operator Download Navigation Repair, Root cause, Security boundary, Feature Specification: Operator Download Navigation Repair, Functional Requirements, Incident (+4 more)
-
-### Community 272 - "Cybermap Geospatial Backend Design"
-Cohesion: 0.31
-Nodes (9): endMove(), _executeRelevantHandler(), _isOneFingerTouch(), _isSameTouchEvent(), isValidEndEvent(), isValidMoveEvent(), isValidStartEvent(), startMove() (+1 more)
 
 ### Community 273 - "godeye-map-shell.test.mjs"
 Cohesion: 0.13
@@ -1159,21 +1109,9 @@ Nodes (12): analysis, mapController, operatorAssets, operatorMain, operatorShell
 Cohesion: 0.14
 Nodes (13): Assumptions, Edge Cases, Feature Specification: Blue Swallow Society Static Web Application Styling, Functional Requirements, Key Entities *(include if feature involves data)*, Measurable Outcomes, Requirements *(mandatory)*, Success Criteria *(mandatory)* (+5 more)
 
-### Community 275 - "getImage"
-Cohesion: 0.15
-Nodes (18): dispatchRenderCallbacks(), Fc(), getImage(), getPattern(), getPixelSize(), qc(), Cl(), jn() (+10 more)
-
 ### Community 276 - "determineLineBreaks"
 Cohesion: 0.25
 Nodes (8): Actionable Intel Lane, Chained Daemon Self-Pentest Lane, Hourly Paper Memory Lane, Morning Brief Lane, Mosaic/Murmurs Narrative Stream Lane, Product Surfaces, Treasury Console, Tzeentch / Murmurs Lane
-
-### Community 277 - "auth.mjs"
-Cohesion: 0.24
-Nodes (5): forbidden(), hashToken(), IngestError, tokenDigestMatches(), createStore()
-
-### Community 278 - "key"
-Cohesion: 0.70
-Nodes (4): invokeRoute(), makeContext(), require, restoreEnv()
 
 ### Community 279 - "Tasks: Adversarial Surface Remediation and Tool-First Operator UI"
 Cohesion: 0.18
@@ -1204,12 +1142,8 @@ Cohesion: 0.25
 Nodes (7): Aesthetic authority, Assets and implementation, Copy grammar, Design tokens, Identity, Nacre-Moiré operator design system, Surface grammar
 
 ### Community 286 - "Product Surfaces"
-Cohesion: 0.32
-Nodes (5): headers(), NOW, packageHash(), stableJson(), validPackage()
-
-### Community 287 - "paper-state-proxy.test.mjs"
-Cohesion: 0.53
-Nodes (5): invoke(), makeContext(), require, restoreEnv(), TOKEN
+Cohesion: 0.12
+Nodes (18): key(), invokeRoute(), makeContext(), require, restoreEnv(), withEnvironment(), invoke(), makeContext() (+10 more)
 
 ### Community 291 - "Enhancement Opportunities"
 Cohesion: 0.40
@@ -1224,8 +1158,8 @@ Cohesion: 0.29
 Nodes (7): E0 — Dashboard Avatar, E1 — Voice / Notification Presence, E2 — Local Daemon Presence, E3 — Sensor Head, E4 — Mobile Body, E5 — Fielded Body, Embodiment Milestones
 
 ### Community 294 - "hashCanonicalJson"
-Cohesion: 0.08
-Nodes (29): aggregateCaveats(), aggregateFreshness(), aggregateLayers(), aggregateSourceClasses(), boundedGlobalLimit(), finiteInteger(), finiteOrNull(), GLOBAL_SOURCE_CLASSES (+21 more)
+Cohesion: 0.06
+Nodes (32): forbidden(), hashCanonicalJson(), hashPersistedObservation(), aggregateCaveats(), aggregateFreshness(), aggregateLayers(), aggregateSourceClasses(), boundedGlobalLimit() (+24 more)
 
 ### Community 295 - "clearGodeyeSessionAnalysis"
 Cohesion: 0.60
@@ -1238,10 +1172,6 @@ Nodes (5): Answer, Semantics, Tzeentch Paper API Status, Verification commands, 
 ### Community 297 - "Sensorium Roadmap"
 Cohesion: 0.33
 Nodes (6): Sensorium Roadmap, Stage S0 — Current Read-Only Sensorium, Stage S1 — Subscribed Data, Still Read-Only, Stage S2 — Expanded Local Sensor Fleet / Breach Mirror Split, Stage S3 — Active Collection Tasks, Stage S4 — Controllable Physical Presence
-
-### Community 298 - "handleCybermapViewport"
-Cohesion: 0.60
-Nodes (5): clampFiniteNumber(), handleCybermapViewport(), handleMtlsViewport(), parseFiniteNumber(), parseTimestampMs()
 
 ### Community 299 - "Recommended delivery sequence"
 Cohesion: 0.40
@@ -1303,10 +1233,6 @@ Nodes (4): Current Limitations, Functional Limitations, Operational Limitations,
 Cohesion: 0.50
 Nodes (4): Error Handling, Process Management, Reliability Features, Resource Usage
 
-### Community 315 - "API Endpoints"
-Cohesion: 0.67
-Nodes (3): API Endpoints, Example Requests, Primary Endpoint: `/echo`
-
 ### Community 316 - "Service Architecture"
 Cohesion: 0.67
 Nodes (3): Deployment, Service Architecture, Technology Stack
@@ -1316,16 +1242,16 @@ Cohesion: 0.67
 Nodes (3): Integration Points, With Azure OpenAI (Optional), With Static Web App
 
 ## Knowledge Gaps
-- **1390 isolated node(s):** `check-prerequisites.sh script`, `common.sh script`, `create-new-feature.sh script`, `setup-plan.sh script`, `setup-tasks.sh script` (+1385 more)
+- **1401 isolated node(s):** `check-prerequisites.sh script`, `common.sh script`, `create-new-feature.sh script`, `setup-plan.sh script`, `setup-tasks.sh script` (+1396 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **74 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **75 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `error()` connect `index.js` to `tzeentch.mjs`, `postgres-store.test.mjs`, `Tasks: Static Web Application Functionality`, `BSS Cybermap API — authenticated observation ingest`, `index.js`, `greenfeed-worker.mjs`, `hashCanonicalJson`, `cybermap-ingest-api.test.mjs`, `Implementation Plan: Static Web Application Functionality`, `index.js`, `main.js`, `$`, `main.js`, `Recommended delivery sequence`, `morning-brief.test.mjs`, `server.mjs`?**
+- **Why does `error()` connect `main.js` to `index.js`, `tzeentch.mjs`, `postgres-store.test.mjs`, `Tasks: Static Web Application Functionality`, `BSS Cybermap API — authenticated observation ingest`, `index.js`, `greenfeed-worker.mjs`, `hashCanonicalJson`, `Implementation Plan: Static Web Application Functionality`, `index.js`, `$`, `main.js`, `Recommended delivery sequence`, `morning-brief.test.mjs`, `server.mjs`?**
   _High betweenness centrality (0.103) - this node is a cross-community bridge._
-- **Why does `key()` connect `wigle.mjs` to `index.js`, `tzeentch-dashboard.mjs`, `passcode-api.test.mjs`, `agent.js`, `key`, `cybermap-tiles-api.test.mjs`, `vision.mjs`, `server.mjs`, `Product Surfaces`, `paper-state-proxy.test.mjs`, `postgres-store.test.mjs`, `operator-auth.js`, `contracts.mjs`, `deflock-viewport-contract.mjs`, `validatePaperState`, `morning-brief-api.test.mjs`, `Wu`, `cybermap-global-viewport-api.test.mjs`, `cybermap-viewport-api.test.mjs`?**
+- **Why does `key()` connect `Product Surfaces` to `index.js`, `postgres-store.test.mjs`, `operator-auth.js`, `deflock-viewport-contract.mjs`, `tzeentch-dashboard.mjs`, `wigle.mjs`, `cybermap-tiles-api.test.mjs`, `passcode-api.test.mjs`, `agent.js`, `cybermap-global-viewport-api.test.mjs`, `cybermap-viewport-api.test.mjs`, `contracts.mjs`, `Wu`, `vision.mjs`, `server.mjs`?**
   _High betweenness centrality (0.035) - this node is a cross-community bridge._
 - **Why does `url()` connect `install-cybermap-api.sh` to `postgres-store.test.mjs`, `index.js`, `index.js`, `Mosaic & Murmurs Autonomous Paper Engine`, `.test_query_current_state_returns_recent_unique_observations_ordered_by_signal`, `server.mjs`?**
   _High betweenness centrality (0.018) - this node is a cross-community bridge._
@@ -1334,6 +1260,6 @@ _Questions this graph is uniquely positioned to answer:_
 - **Are the 42 inferred relationships involving `l()` (e.g. with `bd()` and `cameraForBoxAndBearing()`) actually correct?**
   _`l()` has 42 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `check-prerequisites.sh script`, `common.sh script`, `create-new-feature.sh script` to the rest of the system?**
-  _1390 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1401 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `index.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.05777491408934708 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05745614035087719 - nodes in this community are weakly interconnected._
