@@ -16,6 +16,7 @@ The fault is between Caddy and the API. The installer writes `BSS_MTLS_PROXY_SEC
 4. Run `systemctl daemon-reload` and restart Caddy after the drop-in exists.
 5. Prove the installer contract RED→GREEN, then deploy through the canonical Society workflow.
 6. Verify only boolean presence and status remotely; do not print, hash, or copy the proxy secret, certificate fingerprint, database credentials, or device identifiers.
+7. If a field upload or mTLS viewport request returns `403`, log one server-only, bounded rejection stage: missing ordinary credentials, invalid Caddy-to-API assertion (including an absent server assertion configuration), or mTLS credential rejection. Keep every client-facing rejection as the existing generic `403`; preserve token-gated requests with no mTLS assertion. Drain the unread POST request stream before responding. Never log client headers, certificate fingerprints, device identifiers, batch data, viewport coordinates, or secret material. Use the resulting category to choose whether credential remediation is justified.
 
 ## Affected Files
 

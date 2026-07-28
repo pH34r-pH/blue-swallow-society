@@ -270,8 +270,8 @@
     "semantic_hash": ""
   },
   "infra/scripts/install-cybermap-api.sh": {
-    "mtime": 1785258075.4225805,
-    "ast_hash": "a400bfce9fce683ecb4e25a4dead2c21",
+    "mtime": 1785258912.7902315,
+    "ast_hash": "9cb6c9e3a7ce9c5b9979e75c69ab5254",
     "semantic_hash": ""
   },
   "local-server.js": {
@@ -675,8 +675,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/server.mjs": {
-    "mtime": 1785251955.6127906,
-    "ast_hash": "d6e488ca9ffcfc786a0f3c3ab4a7f2c5",
+    "mtime": 1785268028.6796072,
+    "ast_hash": "2fc7aed16aed243c168017aee7c789bc",
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/sources/adapter-contract.mjs": {
@@ -1405,13 +1405,13 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/mtls-direct-api.test.mjs": {
-    "mtime": 1785251955.6327913,
-    "ast_hash": "0c2be477a39ba04ef285a50b850032bf",
+    "mtime": 1785267802.3100402,
+    "ast_hash": "91eaffd032723df026215042d7b3aa7f",
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/mtls-installer-contract.test.mjs": {
-    "mtime": 1785258097.2430952,
-    "ast_hash": "0f6282e8e3326ed3b18dd40c80f6dddf",
+    "mtime": 1785258894.6058059,
+    "ast_hash": "69892900b74e35fe464bae2b711ddb52",
     "semantic_hash": ""
   },
   "specs/014-wardriver-mtls-direct-api/plan.md": {
@@ -1640,23 +1640,23 @@
     "semantic_hash": ""
   },
   "specs/016-wardriver-mtls-proxy-secret/plan.md": {
-    "mtime": 1785257568.402535,
-    "ast_hash": "d5697aad60e64de2f0dc72f06fbdff13",
+    "mtime": 1785266950.1416206,
+    "ast_hash": "1b850e0b6f1bff619964d34753ba611a",
     "semantic_hash": ""
   },
   "specs/016-wardriver-mtls-proxy-secret/spec.md": {
-    "mtime": 1785257568.402535,
-    "ast_hash": "0fe16ed6d05309ae7ef8ce58d95b717d",
+    "mtime": 1785266950.0616188,
+    "ast_hash": "988f05b4c0fcb66b04a30cd41ffe0b6c",
     "semantic_hash": ""
   },
   "specs/016-wardriver-mtls-proxy-secret/tasks.md": {
-    "mtime": 1785257568.402535,
-    "ast_hash": "9fd9c159020de963b0a73f877759bb0f",
+    "mtime": 1785266950.069619,
+    "ast_hash": "f8f6511e7dd9872f150dc90a9733a659",
     "semantic_hash": ""
   },
   "specs/016-wardriver-mtls-proxy-secret/tests.md": {
-    "mtime": 1785257568.402535,
-    "ast_hash": "3a64df4c68d973d98e0a93ccd9add2f0",
+    "mtime": 1785266950.11362,
+    "ast_hash": "fb82723d3c35ef2b2a991c6192dfbbf5",
     "semantic_hash": ""
   }
 }

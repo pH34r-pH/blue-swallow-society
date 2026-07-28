@@ -188,7 +188,13 @@ export function createRequestHandler({
         store, now, ingestDeadlineMs, mtlsAssertion,
       });
     } catch (error) {
-      logger?.error?.({ code: error?.code ?? 'internal_error', statusCode: error?.statusCode ?? 500 });
+      request.resume?.();
+      const diagnosticCode = boundedDiagnosticCode(error?.diagnosticCode);
+      const record = { code: error?.code ?? 'internal_error', statusCode: error?.statusCode ?? 500 };
+      if (diagnosticCode) {
+        record.diagnostic_code = diagnosticCode;
+      }
+      logger?.error?.(record);
       return sendError(response, error);
     }
   };
@@ -210,6 +216,11 @@ async function handleObservationBatch(request, response, {
       || !headerDeviceId || headerDeviceId.length > 160
       || !headerIdempotencyKey || headerIdempotencyKey.length > 200)) {
     request.resume();
+    throw forbiddenWithDiagnostic('missing_ingest_credentials');
+  }
+
+  if (mtlsAssertion && typeof store.authenticateMtls !== 'function') {
+    request.resume();
     throw new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
   }
 
@@ -223,11 +234,18 @@ async function handleObservationBatch(request, response, {
   const batch = validateObservationBatch(parsed, { now: now() });
   let credential;
   if (mtlsAssertion) {
-    credential = await store.authenticateMtls({
-      deviceId: batch.device_id,
-      certificateFingerprint: mtlsAssertion.certificateFingerprint,
-      requiredScope: 'observations:write',
-    });
+    try {
+      credential = await store.authenticateMtls({
+        deviceId: batch.device_id,
+        certificateFingerprint: mtlsAssertion.certificateFingerprint,
+        requiredScope: 'observations:write',
+      });
+    } catch (error) {
+      if (error?.code === 'forbidden' && error?.statusCode === 403) {
+        throw withDiagnosticCode(error, 'mtls_credential_rejected');
+      }
+      throw error;
+    }
   } else {
     if (batch.device_id !== headerDeviceId) {
       throw new IngestError('device_id_mismatch', 'Device header and body do not match.', { statusCode: 400 });
@@ -747,14 +765,24 @@ function buildEchoPayload(url) {
 }
 
 async function handleMtlsViewport(request, { store, now, mtlsAssertion, deviceId }) {
-  if (!deviceId || deviceId.length > 160 || typeof store.authenticateMtls !== 'function') {
+  if (!deviceId || deviceId.length > 160) {
+    throw forbiddenWithDiagnostic('missing_ingest_credentials');
+  }
+  if (typeof store.authenticateMtls !== 'function') {
     throw new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
   }
-  await store.authenticateMtls({
-    deviceId,
-    certificateFingerprint: mtlsAssertion.certificateFingerprint,
-    requiredScope: 'cybermap:read',
-  });
+  try {
+    await store.authenticateMtls({
+      deviceId,
+      certificateFingerprint: mtlsAssertion.certificateFingerprint,
+      requiredScope: 'cybermap:read',
+    });
+  } catch (error) {
+    if (error?.code === 'forbidden' && error?.statusCode === 403) {
+      throw withDiagnosticCode(error, 'mtls_credential_rejected');
+    }
+    throw error;
+  }
   if (typeof store.queryViewport !== 'function') {
     throw new IngestError('viewport_unavailable', 'Cybermap viewport reads are not available.', { statusCode: 503 });
   }
@@ -900,9 +928,30 @@ async function handleDeflockGlobalViewport(body, { store, now }) {
   }
 }
 
+const MTLS_DIAGNOSTIC_CODES = new Set([
+  'missing_ingest_credentials',
+  'invalid_proxy_assertion',
+  'mtls_credential_rejected',
+]);
+
+function boundedDiagnosticCode(value) {
+  return typeof value === 'string' && MTLS_DIAGNOSTIC_CODES.has(value) ? value : null;
+}
+
+function forbiddenWithDiagnostic(diagnosticCode) {
+  return withDiagnosticCode(new IngestError('forbidden', 'Forbidden.', { statusCode: 403 }), diagnosticCode);
+}
+
+function withDiagnosticCode(error, diagnosticCode) {
+  if (error && typeof error === 'object' && boundedDiagnosticCode(diagnosticCode)) {
+    error.diagnosticCode = diagnosticCode;
+  }
+  return error;
+}
+
 function requireMtlsProxyAssertion(request, proxySecret) {
   const assertion = mtlsProxyAssertionIfPresent(request, proxySecret);
-  if (!assertion) throw new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
+  if (!assertion) throw forbiddenWithDiagnostic('invalid_proxy_assertion');
   return assertion;
 }
 
@@ -911,9 +960,12 @@ function mtlsProxyAssertionIfPresent(request, proxySecret) {
   const certificateFingerprint = singleHeader(request, 'x-blue-swallow-mtls-client-fingerprint').toLowerCase();
   if (!suppliedSecret && !certificateFingerprint) return null;
   const expectedSecret = String(proxySecret || '').trim();
-  if (!expectedSecret || !safeEqualString(suppliedSecret, expectedSecret)
+  if (!expectedSecret) {
+    throw forbiddenWithDiagnostic('invalid_proxy_assertion');
+  }
+  if (!safeEqualString(suppliedSecret, expectedSecret)
       || !SHA256_RE.test(certificateFingerprint) || !isLoopbackAddress(request.socket?.remoteAddress)) {
-    throw new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
+    throw forbiddenWithDiagnostic('invalid_proxy_assertion');
   }
   return Object.freeze({ certificateFingerprint });
 }

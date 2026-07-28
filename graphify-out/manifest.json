@@ -675,8 +675,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/server.mjs": {
-    "mtime": 1785251955.6127906,
-    "ast_hash": "d6e488ca9ffcfc786a0f3c3ab4a7f2c5",
+    "mtime": 1785268563.880484,
+    "ast_hash": "443f68a6c11d4ac86c11dc0cdb6eb729",
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/sources/adapter-contract.mjs": {
@@ -1405,8 +1405,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/mtls-direct-api.test.mjs": {
-    "mtime": 1785251955.6327913,
-    "ast_hash": "0c2be477a39ba04ef285a50b850032bf",
+    "mtime": 1785268549.0921316,
+    "ast_hash": "db99df0603fbc8628c0256238f082c82",
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/mtls-installer-contract.test.mjs": {
@@ -1640,23 +1640,23 @@
     "semantic_hash": ""
   },
   "specs/016-wardriver-mtls-proxy-secret/plan.md": {
-    "mtime": 1785257568.402535,
-    "ast_hash": "d5697aad60e64de2f0dc72f06fbdff13",
+    "mtime": 1785268596.5252619,
+    "ast_hash": "bac9b035c3fbcc35b88ae5c4c84c444b",
     "semantic_hash": ""
   },
   "specs/016-wardriver-mtls-proxy-secret/spec.md": {
-    "mtime": 1785257568.402535,
-    "ast_hash": "0fe16ed6d05309ae7ef8ce58d95b717d",
+    "mtime": 1785268596.5172617,
+    "ast_hash": "9be5fe1d9f3832bb23bd189b0de12718",
     "semantic_hash": ""
   },
   "specs/016-wardriver-mtls-proxy-secret/tasks.md": {
-    "mtime": 1785258311.832146,
-    "ast_hash": "3565d74077de2a27f15ec50db0662fb0",
+    "mtime": 1785268596.5252619,
+    "ast_hash": "1b2f145c515654357d3f9869d674febd",
     "semantic_hash": ""
   },
   "specs/016-wardriver-mtls-proxy-secret/tests.md": {
-    "mtime": 1785257568.402535,
-    "ast_hash": "3a64df4c68d973d98e0a93ccd9add2f0",
+    "mtime": 1785268596.5252619,
+    "ast_hash": "a16a0db6b5049c328af388cb6be7c1c6",
     "semantic_hash": ""
   }
 }
