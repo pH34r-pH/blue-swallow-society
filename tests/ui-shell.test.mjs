@@ -48,11 +48,12 @@ test('root login and standard public branch use the restored white/blue theme, n
   assert.doesNotMatch(rootStylesCss, /--neon-|#040611|#070c18|repeating-linear-gradient/);
 });
 
-test('root login branches server-side: operator token opens /operator, every non-token response opens the standard site', () => {
+test('root login keeps an operator token in memory and loads the protected shell without navigation', () => {
   assert.match(rootMainJs, /fetch\('\/api\/validate-passcode'/);
   assert.match(rootMainJs, /operatorSession\?\.token/);
-  assert.match(rootMainJs, /sessionStorage\.setItem\(OPERATOR_SESSION_KEY/);
-  assert.match(rootMainJs, /window\.location\.assign\('\/operator'\)/);
+  assert.match(rootMainJs, /activateOperatorSession\(session\)/);
+  assert.match(rootMainJs, /operatorFetch\('\/api\/operator-shell'/);
+  assert.doesNotMatch(rootMainJs, /blue-swallow-society:operator-session|sessionStorage\.setItem\(OPERATOR_SESSION_KEY/);
   assert.match(rootMainJs, /showStandardSite\(\)/);
   assert.doesNotMatch(rootMainJs, /tzeentch/i);
   assert.doesNotMatch(rootMainJs, /ea7b2d9f4b6ba94bf277201956fa74b88597188eaa065bb12c57421d86c1d0d5/i);
@@ -83,18 +84,16 @@ test('standard personal site exposes event calendar, list view, and name-based s
   assert.match(rootMainJs, /handleSupplyClaim\(/);
 });
 
-test('operator entrypoint requires an existing passcode-issued session before showing the console', () => {
+test('direct operator entry redirects to the root because an in-memory session cannot cross a reload', () => {
   assert.ok(operatorHtml.includes('operatorLoader'));
   assert.ok(operatorHtml.includes('/operator/loader.js'));
   assert.ok(!operatorHtml.includes('mainInterface'));
   assert.ok(!operatorHtml.includes('/api/operator-downloads/wardriver/apk'));
-  assert.ok(operatorLoaderJs.includes("fetch('/api/operator-shell'"));
-  assert.ok(operatorLoaderJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
-  assert.ok(operatorLoaderJs.includes("import('/operator/main.js')"));
+  assert.ok(operatorLoaderJs.includes("window.location.replace('/')"));
   assert.ok(operatorShell.includes('terminalScreen'));
   assert.ok(operatorShell.includes('mainInterface'));
   assert.ok(mainJs.includes("window.location.replace('/')"));
-  assert.ok(mainJs.includes('getOperatorSession()'));
+  assert.ok(mainJs.includes('hasActiveOperatorSession()'));
   assert.ok(mainJs.includes('unlockConsole()'));
 });
 
@@ -112,8 +111,7 @@ test('Nacre-Moiré identity is disclosed only inside token-gated operator respon
   assert.doesNotMatch(anonymousOperatorBundle, /Nacre-Moiré|nacre-moire|--nacre-/i);
   assert.doesNotMatch(indexHtml, /Nacre-Moiré|nacre-moire/i);
   assert.doesNotMatch(rootStylesCss, /--nacre-|nacre-moire|moire-field/i);
-  assert.match(operatorAgentLoaderJs, /fetch\('\/api\/operator-shell\?view=agent'/);
-  assert.match(operatorAgentLoaderJs, /'X-Blue-Swallow-Operator-Token': session\.token/);
+  assert.match(operatorAgentLoaderJs, /window\.location\.replace\('\/'\)/);
 });
 
 test('operator design system uses protected material layers, not generic neon', () => {
@@ -225,7 +223,7 @@ test('Godeye is a fixed-route workbench rather than an arbitrary endpoint loader
   });
   assert.ok(!operatorShell.includes('wigleEndpointInput'));
   assert.ok(!operatorShell.includes('wigleConnectBtn'));
-  assert.ok(operatorShell.includes('/api/cybermap/viewport'));
+  assert.ok(operatorShell.includes('/api/operator-signals'));
 });
 
 test('Wardriver APK links are only operator-token API links', () => {
@@ -237,7 +235,7 @@ test('Wardriver APK links are only operator-token API links', () => {
   assert.ok(operatorShell.includes('data-operator-download="apk"'));
   assert.match(mainJs, /function handleOperatorDownload/);
   assert.match(mainJs, /function hydrateWardriverRelease/);
-  assert.match(mainJs, /'X-Blue-Swallow-Operator-Token': session\.token/);
+  assert.match(mainJs, /operatorFetch\(target, \{ redirect: 'manual' \}\)/);
   assert.doesNotMatch(mainJs, /fetch\(link\.href/);
   assert.doesNotMatch(operatorShell, /download="[^\"]+\.apk"/);
 });

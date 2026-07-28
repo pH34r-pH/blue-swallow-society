@@ -228,7 +228,7 @@ Backend tasks:
    - `GET /readyz`
    - `POST /api/v1/sensorium/sessions`
    - `POST /api/v1/observations/batch`
-   - `GET /api/v1/cybermap/viewport`
+   - `POST /api/v1/cybermap/viewport`
    - `GET /api/v1/cybermap/cells/{h3Cell}`
    - `GET /api/v1/entities/{id}`
 4. Add scoped token classes:

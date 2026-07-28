@@ -52,8 +52,14 @@ param cybermapReadToken string
 @description('Dedicated token for canonical autonomous paper-state writes and reads.')
 param paperStateToken string
 
-@description('Public repository tarball used by the VM extension to install vm/cybermap-api.')
-param cybermapSourceTarballUrl string = 'https://github.com/pH34r-pH/blue-swallow-society/archive/refs/heads/main.tar.gz'
+@description('Full immutable Git commit that identifies the Cybermap VM source archive.')
+param cybermapSourceRevision string
+
+@description('Immutable full-commit GitHub archive used by the VM extension to install vm/cybermap-api.')
+param cybermapSourceTarballUrl string
+
+@description('SHA-256 digest of the exact Cybermap archive. The VM verifies it before extraction or migration.')
+param cybermapSourceTarballSha256 string
 
 @description('Loopback-only Cybermap API port behind the HTTPS gateway.')
 param cybermapApiPort int = 8080
@@ -274,8 +280,17 @@ var cybermapInstallScriptWithoutPaperToken = replace(
   '__BACKEND_FQDN__',
   backendFqdn
 )
-var cybermapInstallScript = replace(
+var cybermapInstallScriptWithRevision = replace(
   cybermapInstallScriptWithoutPaperToken,
+  '__CYBERMAP_SOURCE_REVISION__',
+  cybermapSourceRevision
+)
+var cybermapInstallScript = replace(
+  replace(
+    cybermapInstallScriptWithRevision,
+    '__CYBERMAP_SOURCE_TARBALL_SHA256__',
+    cybermapSourceTarballSha256
+  ),
   '__PAPER_STATE_TOKEN_B64__',
   base64(paperStateToken)
 )

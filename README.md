@@ -1,209 +1,98 @@
-# Personal Site Starter on Azure Static Web Apps + VM Echo Backend
+# Blue Swallow Society
 
-This starter repo gives you:
+Blue Swallow Society is a policy-bounded public/cover site and authenticated operator surface. This repository contains the Static Web App, Azure Functions edge layer, Cybermap VM service, Azure infrastructure, paper-only Mosaic & Murmurs automation, and the release-delivery contract for the separate Wardriver repository.
 
-- A **publicly accessible website** on **Azure Static Web Apps**
-- **GitHub Actions CI/CD** for the frontend, managed API, infrastructure, and custom-domain wiring
-- A small **Azure Functions proxy API** exposed as `/api/echo`, `/api/profile`, and `/api/agent`
-- An **Ubuntu VM** currently hosting a simple echo service; the first authenticated/idempotent Cybermap ingest service now exists in source but is not deployed
-- A **Cybermap-first geospatial backend design and P0 ingest implementation** using Azure Database for PostgreSQL Flexible Server B1MS + PostGIS
-- A clean place to add **local model experiments** later on the VM
-- An optional **Azure OpenAI** account, gated by a single Bicep parameter
-- Documentation to evolve toward **Microsoft Entra External ID** for customer sign-up/sign-in later
+**Source baseline:** `6124e64f8cc4970657a6c060713f97c4f1eb4abd` (`feat(godeye): add policy-bound operator map`), reviewed 2026-07-28. This repository describes source and deployment intent. It does not prove the state of a deployed Azure subscription, DNS, release container, VM, or database. See [System Implementation Delta](./docs/blue-swallow-system-implementation-delta.md).
 
 ## Architecture
 
 ```text
-Browser
-  ↓
-Azure Static Web App (public face + protected /operator console)
-  ↓
-/api/* (managed Azure Functions proxy)
-  ↓
-VM API gateway on Ubuntu (deployed scaffold: echo; source P0: authenticated ingest)
-  ↓
-Azure Database for PostgreSQL Flexible Server B1MS + PostGIS (target Cybermap store)
+public browser
+  -> app/ public cover and passcode split
+  -> /api/validate-passcode
+  -> five-minute signed operator token held only in browser module memory
+  -> root document fetches and injects the token-gated operator shell
+  -> /api/operator-shell (token-gated private HTML)
+  -> app/operator/ browser modules
+       -> token-gated Functions
+            -> HTTPS VM gateway (Caddy)
+                 -> loopback Node 24 Cybermap API
+                      -> private PostgreSQL/PostGIS
+
+field device
+  -> /api/cybermap/observations/batch
+  -> HTTPS VM gateway
+  -> strict device-token/idempotent ingest
+  -> PostgreSQL/PostGIS observation ledger
 ```
 
-The browser never calls the VM directly. The frontend calls the Static Web App API, and the API proxies the request to the VM.
+The root cover does not link to the operator shell, operator APIs, or Wardriver artifacts. After passcode validation, the root document holds the short-lived session only in module memory, fetches private HTML, and injects it in place. Direct static operator routes redirect to the root. Static operator JavaScript remains a public Static Web App asset; it is not an authorization boundary.
 
-The audited implementation-versus-design matrix is maintained in [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-system-implementation-delta.md). It distinguishes deployed, working-tree, prototype, schema-only, and designed-only capabilities across the website, VM/API, and Wardriver.
+Godeye uses self-hosted MapLibre, same-origin MVT tiles, and a bounded POST viewport path. Tile data is summary-only and green-source constrained in the VM store. The browser does not connect directly to PostgreSQL and does not persist map observations.
 
----
+## Runtime boundaries
 
-## Repo Layout
+| Surface | Runtime | Owner |
+|---|---|---|
+| Repository tooling | Node.js 24 | `.nvmrc` |
+| Azure Static Web Apps Functions | Node.js 22 | `app/staticwebapp.config.json`, `api/package.json` |
+| Cybermap VM service | Node.js 24 | `vm/cybermap-api/package.json`, `infra/scripts/install-cybermap-api.sh` |
+| Paper engine and collectors | Python 3 | `scripts/` |
+
+Do not raise the Functions runtime to Node 24 until Azure Static Web Apps supports it. [Node runtime policy](./docs/node-runtime-policy.md) owns this constraint.
+
+## Repository layout
 
 ```text
-.
-├── .github/
-│   ├── copilot-instructions.md
-│   └── workflows/
-│       ├── deploy-static-web-app.yml          # canonical CI: infra + app + custom domains
-│       ├── infra-whatif.yml                   # manual what-if (RG scope, OIDC)
-│       ├── azure-static-web-apps-wonderful-pond-0623ed81e.yml  # disabled legacy workflow; delete after cutover to blue-swallow-swa
-│       └── setup-azure-creds.md
-├── api/
-│   ├── echo/
-│   ├── profile/
-│   ├── agent/
-│   ├── operator-downloads/
-│   ├── operator-shell/
-│   └── _private/
-│       ├── downloads/
-│       └── operator/
-├── app/
-│   ├── index.html
-│   ├── main.js
-│   ├── styles.css
-│   ├── operator/
-│   │   ├── index.html
-│   │   ├── agent.html
-│   │   ├── main.js
-│   │   ├── agent.js
-│   │   ├── styles.css
-│   │   └── *.mjs
-│   └── staticwebapp.config.json
-├── docs/
-│   ├── architecture.md
-│   ├── ai-options-and-budget.md
-│   ├── blue-swallow-system-implementation-delta.md
-│   ├── cybermap-geospatial-backend.md
-│   ├── wardriver-raid-backend-repair-plan.md
-│   ├── external-id-setup-checklist.md
-│   ├── mosaic-and-murmurs-operating-doctrine.md
-│   ├── mosaic-and-murmurs-s0-sensorium-proposal.md
-│   ├── mosaic-and-murmurs-morning-brief-proposal.md
-│   ├── mosaic-and-murmurs-morning-brief-implementation.md
-│   ├── mosaic-and-murmurs-self-pentest-proposal.md
-│   ├── mosaic-and-murmurs-source-expansion-research.md
-│   ├── microsoft-layoff-risk-radar.md
-│   ├── public-official-political-signal-radar.md
-│   ├── crypto-paper-trading-strategy-research.md
-│   ├── anti-surveillance-style-research.md
-│   ├── tzeentch-paper-api-status.md
-│   └── vm-echo-wiring.md
-├── config/
-│   └── mosaic-murmurs-paper-ledger.json        # paper-only morning brief books/positions
-├── infra/
-│   ├── main.bicep                  # single entrypoint, composes VM + optional OpenAI
-│   ├── custom-domains.bicep        # custom-domain bindings for the Static Web App
-│   ├── custom-domains-dns.bicep    # Azure DNS records for apex/www
-│   ├── main.parameters.json
-│   ├── vm-echo-lab.bicep           # VM + NSG + cloud-init + auto-shutdown
-│   └── modules/
-│       └── openai.bicep            # optional Azure OpenAI account
-├── scripts/
-│   ├── local-dev.ps1
-│   ├── mosaic-murmurs-morning-brief-collect.py  # public-source morning brief collector
-│   ├── print-next-steps.sh
-│   ├── wireup-custom-domains.py    # helper script used by CI for custom-domain wiring
-│   └── wireup-backend-url.sh
-└── vm/
-    └── cybermap-api/
-        ├── README.md                    # P0 authenticated/idempotent ingest contract
-        ├── package.json
-        ├── src/                         # HTTP, validation, memory/PostgreSQL stores
-        ├── test/
-        └── db/migrations/               # ordered PostGIS + ingest migrations
+app/                  public cover, authenticated operator client, self-hosted MapLibre
+api/                  Azure Functions routes and shared edge helpers
+api/_private/         operator-only HTML and release-delivery material
+vm/cybermap-api/      Node HTTP service, stores, migrations, VM contract tests
+infra/                Bicep composition, network/database modules, VM installer
+scripts/              local collectors and canonical paper-state engine/sync
+specs/                Spec Kit feature authorities and verification records
+tests/                root Node and Python tests
+docs/                 source architecture, contracts, operations, proposals, research
 ```
 
-## What the website does
+## Current source capabilities
 
-The root home page is the **Blue Swallow Society passcode split**: a title, one passcode field, and a lowercase `login` button.
-It does not link to, embed, or name the operator console, Wardriver APK, operator APIs, or download artifacts.
+- Passcode verification uses a configured SHA-256 digest and independently signed, expiring operator tokens.
+- Operator data routes require the signed operator token. The release route validates a manifest and redirects an authorized request to a short-lived HTTPS Blob SAS URL.
+- Cybermap edge routes proxy device ingest, POST viewport reads, and MVT cell tiles over HTTPS. The VM validates its own read/device tokens; edge and VM controls are separate.
+- IaC defines a Standard Static Web App, VM gateway, public HTTPS ingress, private PostgreSQL Flexible Server networking, release storage, and an optional Azure OpenAI account. The VM installer deploys the Node service behind Caddy and disables the legacy echo systemd service.
+- The paper-only engine owns a canonical 3×8, 24-book ledger. Tzeentch reads a valid HTTPS VM snapshot and renders an empty/unavailable state rather than synthetic fallback data.
 
-The split behavior is server-side:
-- the canonical operator passcode is configured only as the GitHub/Azure secret `BLUE_SWALLOW_PASSCODE_SHA256`;
-- a matching passcode receives a signed operator session token and opens `/operator`;
-- any non-matching passcode falls through to the standard event-planning personal page;
-- the standard page currently renders an events calendar, list view, and local-browser supply-claim POC seeded with **The Great Northern Hoot** camping trip at Penrose Point State Park, site 83, July 17–20, 2026;
-- no browser bundle contains the canonical passcode literal or hash.
+Deployment/runtime status is deliberately not inferred from this source tree.
 
-The hidden operator half lives under `/operator` and `/agent`:
-- `/operator` ships only a token-aware loader; the real operator shell is served by `/api/operator-shell` from `api/_private/operator/shell.html` after `X-Blue-Swallow-Operator-Token` validation;
-- operator data APIs (`/api/wigle`, `/api/agent`, `/api/osint`, `/api/tzeentch`) fail closed inside the Functions layer with `requireOperatorToken`;
-- the Wardriver APK is no longer a public static asset and is served only by `/api/operator-downloads/wardriver/*` after the same operator-token check;
-- Godeye, Tzeentch, WiGLE, and agent surfaces are lazy-loaded from operator assets only.
+## Verification
 
-The Azure Function proxy at `/api/echo` forwards to the VM using the SWA app setting:
-- `BACKEND_ECHO_BASE_URL` → e.g. `http://<vm-public-ip>:8080`
-
-The WiGLE proxy at `/api/wigle` supports:
-- `mode=current` → AR current-state path. Reads the device-local WiGLE database/export through `WIGLE_LOCAL_DB_PATH` or `WIGLE_LOCAL_DB_URL`, filters to recent rows (`maxAgeSeconds`, default 45), and orders candidates by signal strength.
-- `mode=database` → Godeye/local snapshot path. Reads the same local database/export without AR recency gating.
-- `mode=live` → bridge/global fallback. Uses `WIGLE_LIVE_BRIDGE_URL`; direct public WiGLE API lookup is disabled because its search endpoint requires coordinate-bearing URLs.
-
-## Android APK download
-
-The branded Blue Swallow Wardriver debug APK is stored under [`api/_private/downloads/`](./api/_private/downloads/) so it is packaged with Functions, not published as a public static file. Static `/downloads/*` requests return `404`. Operator sessions download through:
-
-- `/api/operator-downloads/wardriver/apk`
-- `/api/operator-downloads/wardriver/metadata`
-
-Artifact details:
-
-- Package: `co.blueswallow.wardriver`
-- Version: `2.109-bss.1` / versionCode `310`
-- SHA-256: `f50d2dcf726ef52297968e1a0af9119c7569b7692e1813d70a1ed0274ba95a0e`
-
-The browser does **not** scan Wi-Fi directly and cannot read WiGLE's Android app-private sqlite database by itself. For AR, run a device-local process with file permission and expose JSON to the app, for example:
+Run the owning suites from the repository root:
 
 ```bash
-python3 scripts/wigle-local-bridge.py --db /path/to/wiglewifi.sqlite --host 127.0.0.1 --port 8787
+node --test tests/*.test.mjs
+PYTHONPATH=scripts python3 -m unittest discover -s tests -p '*_test.py'
+(cd vm/cybermap-api && npm ci && npm test)
+git diff --check
 ```
 
-In local development, point the WiGLE endpoint field at `http://127.0.0.1:8787/api/wigle`. In the deployed Static Web App, the production CSP keeps browser calls same-origin; configure `/api/wigle` with a server-reachable `WIGLE_LOCAL_DB_PATH` or `WIGLE_LOCAL_DB_URL` instead of asking the hosted browser to read device-local storage.
+The root suite is static/contract-oriented. VM PostgreSQL behavior requires a deliberately provisioned PostGIS instance; the in-memory store does not prove a live database deployment.
 
-## Deployment sequence
+## Documentation map
 
-The CI pipeline drives everything. You only run shell commands when bootstrapping the GitHub → Azure trust.
+- [Architecture decisions](./docs/architecture.md) — current module boundaries, data paths, and known gaps.
+- [System Implementation Delta](./docs/blue-swallow-system-implementation-delta.md) — source-only capability matrix and adversarial review baseline.
+- [Adversarial Review Repair Guidance](./docs/adversarial-review-repair-guidance.md) — implementation sequence, decision boundaries, and proof conditions for the review findings.
+- [VM API](./docs/vm-api.md) — implemented HTTP contract, deployment wiring, and secret boundary.
+- [Cybermap Geospatial Backend](./docs/cybermap-geospatial-backend.md) — current Godeye/ingest data boundary and the precise location-handling scope.
+- [VM echo compatibility wiring](./docs/vm-echo-wiring.md) — legacy probe route and its current Caddy/Node deployment path.
+- [Cybermap API README](./vm/cybermap-api/README.md) — service-local contract and local test/run procedure.
+- [Azure Resources](./docs/azure-resources.md) — Bicep topology and GitHub Actions deployment declaration.
+- [Tzeentch Paper API Status](./docs/tzeentch-paper-api-status.md) — canonical 24-book read model and unavailable-state behavior.
+- [Godeye feature specification](./specs/008-godeye-operator-map/spec.md) — observable behavior; its plan/tests/tasks record implementation evidence.
 
-### 1. Bootstrap Azure credentials (once)
+## Deployment declaration
 
-Follow [.github/workflows/setup-azure-creds.md](.github/workflows/setup-azure-creds.md) to:
-- create the `blue-swallow-deployer` service principal scoped to `rg-blue-swallow`
-- add an OIDC federated credential for `repo:<you>/blue-swallow-society:ref:refs/heads/main`
-- set GitHub secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `VM_SSH_PUBLIC_KEY`
+`.github/workflows/deploy-static-web-app.yml` runs on `main` and manual dispatch. It deploys Bicep, sets required SWA app settings from GitHub secrets, uploads `app/` and `api/`, and attempts custom-domain wiring. Required secret values must never enter this repository, browser bundles, logs, or documentation.
 
-### 2. Push to `main`
-
-The **Deploy Infra + App** workflow will:
-1. Create the resource group `rg-blue-swallow` if it does not exist.
-2. Run `az deployment group create` against `infra/main.bicep` (SWA resource `blue-swallow-swa` + VM echo lab; OpenAI optional).
-3. Set `BACKEND_ECHO_BASE_URL`, `BLUE_SWALLOW_PASSCODE_SHA256`, and `BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY` from GitHub/Azure secrets on the Static Web App.
-4. Deploy `app/` and `api/` to the Static Web App.
-5. Ensure the Azure DNS zone for `blueswallow.net` exists, then wire the apex `blueswallow.net` and `www.blueswallow.net` hostnames through the custom-domain helper script and Azure DNS in `rg-blue-swallow` (the canonical SWA is `blue-swallow-swa`; legacy SWAs `blue-swallow-society` and `wonderful-pond-0623ed81e` have been deleted after cutover). The helper stages the Azure DNS apex A alias and `www` CNAME even before public delegation is live; final SWA custom-domain binding still requires the domain to be registered and delegated at the registrar to the Azure DNS nameservers.
-
-> Current registrar-side prerequisite: `blueswallow.net` must be registered and delegated to the nameservers on the Azure DNS zone for `blueswallow.net`. Azure App Service Domains may reject this subscription as ineligible for domain purchase; if that happens, register the domain with an external registrar and set the registrar nameservers to the Azure DNS zone nameservers. Azure DNS usually propagates within about an hour after registrar delegation, but apex-domain changes can still take up to 72 hours in the worst case.
-
-### 3. (Optional) Enable Azure OpenAI
-
-Set `deployOpenAi` to `true` in [`infra/main.parameters.json`](./infra/main.parameters.json) and re-run the workflow.
-
-### 4. (Optional) Tighten access
-
-Replace `"allowedSourceIp": "*"` with your developer IP `/32` to restrict the VM NSG to SSH + 8080 from your address only. The VM auto-shutdown defaults to 02:00 Pacific to cap cost.
-
-## Notes on security
-
-This scaffold is intentionally simple so you can focus on experiments.
-
-For the VM starter, the echo service listens on a public IP and port 8080. That is **good for short experiments**, but not the hardened end state. Hardening steps already supported:
-
-- `allowedSourceIp` parameter restricts the NSG to your CIDR (default `*` is open).
-- Daily auto-shutdown schedule (DevTestLab) caps idle cost.
-- SWA `globalHeaders` set CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy`.
-- Operator access uses the passcode-issued token, not SWA Easy Auth, for `/api/wigle`, `/api/agent`, `/api/osint`, `/api/tzeentch`, and `/api/operator-downloads/wardriver/*`. `/api/profile` and `/account/*` remain SWA-authenticated.
-
-Next hardening to consider:
-- remove the VM public IP and reach it via private link / VNet integration on the SWA
-- swap to Microsoft Entra External ID for customer sign-up/sign-in
-- rotate the SWA deployment token quarterly
-
-## AI path
-
-If you want to keep **everything under Azure credits only**, the lowest-risk approach is:
-1. **Use local/open models on the VM** for experimentation.
-2. **Use Azure OpenAI pay-as-you-go** only for selective calls (`deployOpenAi: true`).
-3. Avoid provisioned throughput and fine-tuned hosting early.
-
+The VM installer currently fetches the repository tarball from the mutable `main` branch. Treat that as a deployment-integrity limitation until it is replaced with a commit-pinned, checksummed release artifact.

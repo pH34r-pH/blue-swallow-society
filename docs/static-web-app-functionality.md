@@ -33,7 +33,7 @@ The actual operator shell markup lives outside the public static app at:
 
 - `api/_private/operator/shell.html`
 
-`/operator/loader.js` reads the passcode-issued token from session storage, fetches `/api/operator-shell` with `X-Blue-Swallow-Operator-Token`, injects the private shell, then imports `/operator/main.js` and related modules.
+`/operator/loader.js` redirects direct visits to `/` because access material is memory-only. The root validates the passcode, holds the short-lived session in an ES-module closure, fetches `/api/operator-shell` with the operator header, injects the private shell, then imports `/operator/main.js`. Reload requires a new passcode flow.
 
 ### Authentication
 
@@ -73,7 +73,7 @@ Passcode/operator APIs:
 - `/api/osint` (POST): public-source target scan / overview; requires operator token.
 - `/api/tzeentch` (GET): read-only dashboard and paper books; requires operator token.
 - `/api/wigle` (GET/POST): local/current WiGLE snapshot proxy; requires operator token.
-- `/api/cybermap/viewport` (POST): token-gated Godeye viewport proxy to the managed PostGIS backend; requires operator token.
+- `/api/operator-signals` (POST): token-gated Godeye projection proxy to the managed PostGIS backend; requires an operator token. The older `/api/cybermap/viewport` remains a bounded Function compatibility endpoint, but the operator UI does not consume it.
 - `/api/cybermap/observations/batch` (POST): Wardriver observation-batch HTTPS ingress proxy to the VM backend; requires enrolled-device ingest headers.
 - `/api/agent` (POST): protected agent prompt route; requires operator token.
 - `/api/profile` (GET): protected profile endpoint.

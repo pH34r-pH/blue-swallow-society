@@ -94,6 +94,16 @@ Daily dream-design refinements should stay anchored to this sequence:
 
 Fixed masts, passive booms, and extra sensors are sub-gates inside these phases, not separate roadmap destinations.
 
+## Narrative virtual assay interface
+
+The dream cycle may use one fictional, non-operational scene or bounded event sequence to stress a retained refinement before it becomes a stable design candidate. The scene tests the operator experience and failure boundary, not a real device or field plan.
+
+- **Phase 1:** test a connectivity, thermal, or power loss against the rig's local-first behavior; a useful refinement preserves logs and makes WAN loss legible without turning the phone into command authority.
+- **Phase 2:** test a confusing visual cue, nearby bystander, or stale lease; a useful refinement fails closed, remains visibly supervised, and never turns a sensor head into autonomous tracking.
+- **Phase 3:** test proximity, cable strain, social discomfort, or an abort condition; a useful refinement favors a conservative null field, quick release, and human stoppage over capability theater.
+
+Narrative branches may expose illegal or unethical temptations only as explicitly rejected, non-actionable pressure cases. They may not supply target selection, collection tactics, credentials, evasion, or a route around the existing passive/authorized, supervised-motion doctrine.
+
 ## Power and runtime envelope
 
 Rough runtime estimates, assuming 85% usable conversion from battery watt-hours into the rig:

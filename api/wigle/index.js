@@ -7,7 +7,7 @@ let wigleModulePromise;
 
 function getWigleModule() {
   if (!wigleModulePromise) {
-    const modulePath = path.resolve(__dirname, '../../app/operator/wigle.mjs');
+    const modulePath = path.resolve(__dirname, '../../shared/legacy-wigle-parser.mjs');
     wigleModulePromise = import(pathToFileURL(modulePath).href);
   }
 
@@ -250,6 +250,7 @@ async function buildSnapshot({
     live: mode === 'live' ? live : mode === 'current' ? current : false,
     current,
     source,
+    provenance: { adapter: 'legacy_wigle', canonical: false },
     location: responseLocation,
     radiusMeters: effectiveLocation ? effectiveRadius : null,
     maxAgeMs: mode === 'current' ? maxAgeMs : undefined,

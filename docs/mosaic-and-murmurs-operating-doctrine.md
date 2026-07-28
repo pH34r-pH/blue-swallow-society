@@ -88,9 +88,10 @@ Together they produce only:
 12. daily morning briefs
 13. memory consolidation digests
 14. dream journal entries
-15. dream-design proposals
-16. hourly paper-loop run records
-17. Mosaic/Murmurs internal narrative stream fragments
+15. narrative virtual assays
+16. dream-design proposals
+17. hourly paper-loop run records
+18. Mosaic/Murmurs internal narrative stream fragments
 
 Any real-world expenditure or actuation remains user-approved.
 
@@ -357,6 +358,7 @@ Operational rule: dream output is split into a hard evidence lane plus fenced sp
 - **Consolidation:** evidence-backed memory patches, digests, resolved-outcome scoring, and cleanup actions.
 - **Meta-narrative journal:** a dated local journal step that can append durable self-model deltas, but only when the delta is stable and not just task progress.
 - **Self-pentest / repair:** Breach Mirror reports from the chained daemon, repair tickets, retest evidence, and residual-risk notes for owned/authorized surfaces.
+- **Narrative virtual assay:** one retained speculative seed or cyber-augmentation refinement may be tested through a local fictional scene/sequence, with a maturity decision and no operational authority.
 - **Design proposals — anything at all:** broad speculative seeds for cyber presence, embodiment, field hardware, narrative/product mechanics, and future source/sensor expansion.
 - **Design proposals — cyber-augmentation refinement:** specific details for the three-phase field-body track: (1) portable Jetson, (2) binocular pan/tilt, (3) multijoint multisensor.
 - **Morning brief:** a daily wake packet that summarizes breaking news, US/Washington State relevance, rising hype waves, perceptual deltas, and per-book paper performance.
@@ -597,10 +599,11 @@ Avoid:
 12. Add embodiment gate model before any controllable hardware integration.
 13. Add monthly review report: performance, costs, failures, overrides, direct-observation calibration impact, next proposed capability.
 14. Add daily dream cycle: run manifest, consolidation digest, memory patch list, dream seed ledger, and local meta-narrative journal output.
-15. Add dream-design proposal queue for cyber/physical presence upgrades, with `speculative: true` until reviewed and explicit gates for spend, external writes, and actuation.
-16. Add daily morning brief generation: breaking news, US/WA relevance, hype waves, perceptual deltas, and per-book paper PnL/action footer.
-17. Add Breach Mirror self-pentest scheduling: scope warrant, asset inventory, report manifest, repair tickets, and retest gates.
-18. Add Mosaic/Murmurs paper memory loop: Jetson-local hourly paper ticks, VM API writes for narrative fragments and paper ledger events, and SWA read-only stream cards.
+15. Add narrative virtual assay record support for one bounded fictional scene/sequence, assay card, maturity decision, and `stable_design_candidate` gate.
+16. Add dream-design proposal queue for cyber/physical presence upgrades, with `speculative: true` until reviewed and explicit gates for spend, external writes, and actuation.
+17. Add daily morning brief generation: breaking news, US/WA relevance, hype waves, perceptual deltas, and per-book paper PnL/action footer.
+18. Add Breach Mirror self-pentest scheduling: scope warrant, asset inventory, report manifest, repair tickets, and retest gates.
+19. Add Mosaic/Murmurs paper memory loop: Jetson-local hourly paper ticks, VM API writes for narrative fragments and paper ledger events, and SWA read-only stream cards.
 
 ## Acceptance Criteria
 

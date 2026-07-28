@@ -1,92 +1,25 @@
-# BSS Cybermap API — authenticated observation ingest
+# BSS Cybermap API
 
-This directory contains the first executable Wardriver → VM ingest slice. It replaces the echo-only contract in source, but it is **not yet promoted to the Azure VM**.
+Node 24 service for the Cybermap backend. It owns strict observation ingest, bounded map reads, and canonical paper-state persistence. It is not a browser service.
 
-## Implemented
+**Source baseline:** `6124e64f8cc4970657a6c060713f97c4f1eb4abd`, reviewed 2026-07-28. IaC contains a VM installation path, but this file does not assert that the service, PostgreSQL, migrations, or DNS are live.
 
-- `GET /healthz`
-- `GET /readyz`
-- `POST /api/v1/observations/batch`
-- scoped device authentication using `X-Blue-Swallow-Ingest-Token`
-- SHA-256 token digests only in PostgreSQL; raw bearer tokens are never persisted by the API
-- required `X-Blue-Swallow-Device-Id` and `Idempotency-Key` headers
-- strict `bss.observation_batch.v1` validation
-- preservation of passively observed broadcast identifiers and passive management-frame metadata, with explicit `redaction_class`/`retention_class` tags
-- strict timezone-qualified RFC3339 clocks and UUID session IDs; session ownership is bound to the authenticated device
-- 1 MiB request cap, 256-observation batch cap, bounded headers, and HTTP/DB timeouts
-- exact batch replay with the original immutable durable receipt
-- observation-level duplicate detection and changed-content conflict rejection across observation and batch-level storage semantics
-- transaction-scoped advisory locks plus in-transaction credential revocation rechecks for concurrent batch/observation identity safety
-- database-clock receipt timestamps
-- server-derived PostGIS geometry and H3 resolutions 7, 9, and 11
-- append-only observation inserts linked to source-consistent durable `sync_batches`
+## Implemented routes
 
-## Not yet implemented or promoted
+| Route | Required credential | Purpose |
+|---|---|---|
+| `GET /healthz` | none | Process health. |
+| `GET /readyz` | none | Store readiness. |
+| `GET /echo` | none | Legacy compatibility route. |
+| `POST /api/v1/observations/batch` | device ingest token + device ID + idempotency key | Strict batch ingest. |
+| `POST /api/v1/cybermap/viewport` | backend read token | Bounded current-location detail. Coordinates are accepted only in an authenticated JSON body. |
+| `POST /api/v1/cybermap/operator-signals` | backend read token | Redaction-safe, provenance-bearing operator projection. |
+| `GET /api/v1/cybermap/tiles/{z}/{x}/{y}` | backend read token | Green-source MVT cell summaries. |
+| `GET` / `PUT /api/v1/paper/state` | paper-state token; PUT also needs idempotency key | Canonical 3×8 paper-state read/write. |
 
-- Azure VM service installation and GitHub deployment job
-- live managed-PostgreSQL migration execution
-- device enrollment/rotation/revocation operator tooling
-- Android Keystore ownership of the enrolled token and AES-GCM outbox key
-- scanner-database export into `BssVmObservationBatch`
-- WorkManager scheduling/backoff and receipt/status UI
-- a live-device end-to-end field test
+## Ingest contract
 
-The service must not replace the deployed echo process until the managed database migration, enrollment path, VM service hardening, and end-to-end replay test all pass.
-
-## Run tests
-
-```bash
-cd vm/cybermap-api
-npm ci
-npm test
-npm audit --omit=dev
-```
-
-The service requires Node.js 24.x. The repository-level schema tests also cover both ordered migrations:
-
-```bash
-node --test tests/cybermap-schema.test.mjs
-```
-
-## Run locally against PostgreSQL/PostGIS
-
-Apply migrations in lexical order; see [`db/README.md`](./db/README.md).
-
-```bash
-cd vm/cybermap-api
-export DATABASE_URL='postgresql://bss_api:[REDACTED]@127.0.0.1:5432/bss_cybermap?sslmode=require'
-export BSS_CYBERMAP_BIND_HOST='127.0.0.1'
-export BSS_CYBERMAP_PORT='8080'
-npm start
-```
-
-`DATABASE_URL` belongs in the VM service secret environment, never in the repository, browser bundle, APK, process arguments, or logs.
-
-## Device enrollment record
-
-Generate at least 32 random bytes for each device token. Deliver the raw token once into Android Keystore through the future enrollment flow. Store only its lowercase SHA-256 hex digest:
-
-```sql
-INSERT INTO device_ingest_credentials (
-  device_id,
-  source_id,
-  token_sha256,
-  scopes,
-  enabled
-) VALUES (
-  'wardriver-device-id',
-  '00000000-0000-4000-8000-000000000000',
-  '[64-LOWERCASE-HEX-SHA256-DIGEST]',
-  ARRAY['observations:write'],
-  true
-);
-```
-
-The referenced `source_catalog` row must be enabled and should use `source_class = 'owned_device'`. Rotation creates a new credential, enrolls it, and disables the old credential after cutover. Revocation sets `enabled = false`.
-
-## Request contract
-
-Headers:
+The service accepts only JSON `bss.observation_batch.v1`. The request must include:
 
 ```http
 Content-Type: application/json; charset=utf-8
@@ -95,71 +28,64 @@ X-Blue-Swallow-Device-Id: wardriver-device-id
 Idempotency-Key: batch-00000000-0000-4000-8000-000000000001
 ```
 
-Body:
+Header/body `device_id` and `idempotency_key` must match. The PostgreSQL store persists only a SHA-256 digest of the device token, rechecks credential state in the transaction, rejects changed-content replays, and returns the original durable receipt for an exact replay.
 
-```json
-{
-  "schema_version": "bss.observation_batch.v1",
-  "idempotency_key": "batch-00000000-0000-4000-8000-000000000001",
-  "device_id": "wardriver-device-id",
-  "session_id": null,
-  "client_clock": "2026-07-11T18:42:31.120Z",
-  "redaction_class": "hashed",
-  "retention_class": "hash_only",
-  "observations": [
-    {
-      "external_observation_key": "scan-42:wifi:1",
-      "kind": "wifi_ap",
-      "observed_at": "2026-07-11T18:42:29.814Z",
-      "location": {
-        "latitude": 47.6062,
-        "longitude": -122.3321,
-        "accuracy_m": 8.4
-      },
-      "confidence": 0.82,
-      "payload": {
-        "bssid_hmac": "hmac-sha256:0123456789abcdef",
-        "ssid_hmac": "hmac-sha256:fedcba9876543210",
-        "rssi_dbm": -67,
-        "frequency_mhz": 2412,
-        "passive_only": true
-      },
-      "provenance": {
-        "collector": "co.blueswallow.wardriver",
-        "app_version": "2.109-bss.1"
-      }
-    }
-  ]
-}
+| Response | Meaning |
+|---|---|
+| `201` | Initial successful application. |
+| `200` with `Idempotent-Replayed: true` | Exact replay; response is the original receipt. |
+| `400` | Invalid JSON, parameter, or header/body identity mismatch. |
+| `403` | Invalid, disabled, expired, or under-scoped device credential. |
+| `409` | Existing batch or observation identity has different content. |
+| `413` | Body or observation count exceeds a bound. |
+| `415` | Content type is not JSON. |
+| `422` | Payload violates the strict contract or privacy policy. |
+
+Clients cannot choose `source_id`, `source_class`, geometry, H3 cells, ingest timestamps, trust, or authorization fields. The server derives geometry and H3 resolutions 7, 9, and 11.
+
+## Paper state
+
+`PUT /api/v1/paper/state` accepts the closed, paper-only 24-book state emitted by the local deterministic paper engine. The current schema is `bss.paper_state.v3`; the reader accepts v2 during the rolling transition. The store validates all book IDs, timestamps, accounting/cost fields, bounded events, idempotency keys, and governance invariants.
+
+No real-money, brokerage, wallet, or exchange adapter belongs in this service.
+
+## Local test
+
+```bash
+cd vm/cybermap-api
+npm ci
+npm test
 ```
 
-Header and body device/idempotency values must match. Clients cannot set `source_id`, `source_class`, geometry, H3 cells, ingest time, trust, or authorization fields.
+Root schema/edge tests:
 
-## Response semantics
-
-- `201`: first successful application
-- `200` + `Idempotent-Replayed: true`: exact batch replay; body is the original receipt
-- `400`: malformed JSON or header/body identity mismatch
-- `403`: missing, invalid, expired, disabled, or under-scoped credential
-- `409`: batch or observation key reused with changed content
-- `413`: request body or observation count limit exceeded
-- `415`: unsupported media type
-- `422`: valid JSON that violates the strict contract or privacy policy
-
-Receipt:
-
-```json
-{
-  "schema_version": "bss.sync_receipt.v1",
-  "server_batch_id": "00000000-0000-4000-8000-000000000000",
-  "idempotency_key": "batch-00000000-0000-4000-8000-000000000001",
-  "status": "applied",
-  "accepted_count": 1,
-  "rejected_count": 0,
-  "duplicate_count": 0,
-  "validation_errors": [],
-  "server_clock": "2026-07-11T18:43:00.000Z"
-}
+```bash
+cd ../..
+node --test tests/cybermap-schema.test.mjs \
+  tests/cybermap-ingest-api.test.mjs \
+  tests/cybermap-viewport-api.test.mjs \
+  tests/cybermap-tiles-api.test.mjs \
+  tests/paper-state-contract.test.mjs \
+  tests/paper-state-proxy.test.mjs
 ```
 
-Retries must preserve the exact serialized body and idempotency key from the encrypted outbox. A changed body under an existing key is a conflict, never an update.
+## Local PostgreSQL/PostGIS run
+
+Apply the ordered migrations from `db/migrations/` to an isolated PostGIS database. Then provide only local secret values:
+
+```bash
+export DATABASE_URL='postgresql://bss_api:[REDACTED]@127.0.0.1:5432/cybermap?sslmode=require'
+export BSS_CYBERMAP_BIND_HOST='127.0.0.1'
+export BSS_CYBERMAP_PORT='8080'
+export BSS_CYBERMAP_READ_TOKEN='[REDACTED]'
+export BSS_PAPER_STATE_TOKEN='[REDACTED]'
+npm start
+```
+
+`DATABASE_URL` and raw tokens must remain in protected runtime configuration. Do not place them in the repository, browser state, Android APK, process arguments, or logs.
+
+## IaC installation path
+
+`infra/scripts/install-cybermap-api.sh` installs Node 24, copies the service to `/opt/bss/cybermap-api`, applies migrations `0001`–`0003`, writes `/etc/bss/cybermap-api.env` mode `0600`, installs `bss-cybermap-api.service`, configures Caddy to proxy HTTPS traffic to loopback port 8080, and disables `echo-server.service`.
+
+The installer accepts only a deployment-supplied full Git commit archive and SHA-256 digest. It verifies their agreement before extraction or migrations, then writes `/etc/bss/cybermap-api-release.json` with the revision, archive digest, installation time, and applied migrations. The declared path is source evidence; inspect that receipt on the VM after deployment before treating it as live proof.

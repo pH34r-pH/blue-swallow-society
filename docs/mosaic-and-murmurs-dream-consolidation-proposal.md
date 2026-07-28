@@ -53,6 +53,7 @@ live day closes
   -> Breach Mirror self-pentest review
   -> repair / retest queue
   -> free-association dream
+  -> narrative virtual assay
   -> meta-narrative journal
   -> proposal / task queue
   -> morning brief dispatch
@@ -113,9 +114,10 @@ The bridge decides what deserves attention tomorrow. It does not decide what is 
 | 6. Breach Mirror self-pentest | Review owned/authorized BSS surfaces for simulated compromise paths. | Self-pentest report with scope warrant, safe evidence, and findings. |
 | 7. Repair / retest queue | Convert each finding into a repair ticket and retest gate. | Repair ticket list, promotion blockers, residual-risk candidates. |
 | 8. Free association | Explore speculative futures without factual promotion. | Dream seed ledger with relevance/novelty/risk scores. |
-| 9. Journal composition | Write the day's meta-narrative entry. | Dated journal entry with fact/dream separation. |
-| 10. Proposal queue | Convert selected seeds into concrete next steps. | Draft proposals, Kanban candidates, research questions. |
-| 11. Morning brief | Turn the overnight synthesis into the operator's first signal packet. | Breaking-news digest, hype-wave radar, perceptual deltas, paper-book footer. |
+| 9. Narrative virtual assay | Put one retained seed or refinement through a fictional, non-operational scene/sequence. | Local speculative assay, design deltas, and maturity decision. |
+| 10. Journal composition | Write the day's meta-narrative entry. | Dated journal entry with fact/dream separation. |
+| 11. Proposal queue | Convert selected seeds into concrete next steps. | Draft proposals, Kanban candidates, research questions. |
+| 12. Morning brief | Turn the overnight synthesis into the operator's first signal packet. | Breaking-news digest, hype-wave radar, perceptual deltas, paper-book footer. |
 
 ## Free association protocol
 
@@ -125,11 +127,22 @@ Use a persistent-creativity pattern, but keep it fenced:
 2. Generate dream seeds through lenses such as `sensorium`, `wardrive`, `antenna`, `borrowed body`, `rain`, `GPIO`, `hotspot`, `backpack`, `calibration`, `witness`, and `safety case`.
 3. Score each seed on relevance, novelty, technical plausibility, safety/legal risk, and fit to Mosaic/Murmurs identity.
 4. Store dream seeds as speculative design objects, not as memory facts.
-5. Promote only reviewed seeds into proposals or tasks.
+5. Let retained seeds marinate across runs; promote only reviewed seeds into proposals, tasks, or a local `stable_design_candidate` state.
+
+### Narrative virtual assay protocol
+
+A narrative virtual assay is a **single fictional scene or bounded event sequence** that pressure-tests one retained seed or cyber-augmentation refinement in the Blue Swallow setting. It is a creativity-led hypothesis test, not canon, evidence, field simulation, implementation approval, purchase approval, external-write approval, or actuation approval.
+
+1. Select one seed, linked pair, or unresolved refinement; do not force novelty when an older seed needs another pass.
+2. Write one scene that makes the capability earn its existence by showing a desired benefit, an inconvenient failure/social cost, and an abort/constraint moment.
+3. Harmful, illegal, or unethical branches may appear only as explicitly fictional and non-operational pressure cases: no real/private targets, identifiers, credentials, exploit steps, evasion, collection plan, or actionable wrongdoing.
+4. Append an assay card with `seedRefs`, `testQuestion`, `benefit`, `failureOrAbort`, `socialLegalPressure`, `designDeltas`, and `decision`.
+5. Decision values: `marinating`, `mutate`, `defer`, `discard`, or `stable_design_candidate`.
+6. `stable_design_candidate` requires at least three materially different assays on separate runs showing that the core benefit survives counterexamples, harms/boundaries are explicit, design deltas have stopped changing materially, and the next evidence or bench-test gate is concrete. It remains a reviewable local proposal, never a fact-memory, implementation, spend, external-write, or actuation promotion.
 
 ### Daily design proposal lanes
 
-Each daily dream run should emit two fenced proposal lanes after consolidation and journal composition:
+Each daily dream run should emit two fenced proposal lanes after consolidation, narrative virtual assay, and journal composition:
 
 1. **Anything at all** — broad speculative proposals across sensorium, cyber presence, narrative mechanics, operator rituals, data sources, visual language, safety tooling, and research questions. These can be strange, but must stay marked `speculative: true`.
 2. **Cyber-augmentation refinement** — concrete refinements to the wearable/field-body design. These stay anchored to the three-phase track:
@@ -186,6 +199,21 @@ type DreamSeed = {
   promotion: 'discard' | 'keep_in_ledger' | 'research' | 'proposal' | 'kanban_candidate';
 };
 
+type NarrativeAssay = {
+  id: string;
+  runId: string;
+  seedRefs: string[];
+  speculative: true;
+  format: 'single_scene' | 'event_sequence';
+  testQuestion: string;
+  narrativeMarkdown: string;
+  benefit: string[];
+  failureOrAbort: string[];
+  socialLegalPressure: string[];
+  designDeltas: string[];
+  decision: 'marinating' | 'mutate' | 'defer' | 'discard' | 'stable_design_candidate';
+};
+
 type DreamJournalEntry = {
   id: string;
   runId: string;
@@ -207,6 +235,7 @@ type DreamJournalEntry = {
 | Perception digest | `murmur_memories` + markdown digest | Durable with provenance |
 | Raw traces | Source-specific stores | Bounded, policy-specific |
 | Dream seeds | Local dream ledger | Durable but speculative |
+| Narrative assays | Local dream ledger / daily note | Durable but speculative; never evidence of a real event |
 | Meta-narrative journal | Vault/repo markdown | Durable, append-only |
 | Self-pentest report | Local markdown + JSON manifest | Durable security audit; no exploit recipes |
 | Repair tickets | Kanban/issues + manifest links | Durable until verified repair or accepted residual risk |
@@ -216,6 +245,8 @@ type DreamJournalEntry = {
 ## Governance
 
 - Every output field that comes from free association carries `speculative: true` until reviewed.
+- Narrative assays may examine harmful, illegal, or unethical hypothetical branches, but must remain fictional/non-operational and record the rejected boundary rather than an actionable method.
+- `stable_design_candidate` is a local design-proposal state selected by the cycle; it does not bypass evidence review, operator approval, or any physical, privacy, account, spend, or external-write gate.
 - Memory patches that affect durable fact state require evidence refs.
 - PII-sensitive details are summarized, redacted, or omitted by default.
 - The daily journal is local-first. Publishing to the internet requires explicit operator action.
@@ -243,7 +274,8 @@ Overall: **technically viable as a P0/P1 text+metadata pipeline immediately**. T
 ### P0 — Manual/procedural dream cycle
 
 - Create a daily markdown template for dream runs.
-- Define `DreamCycleRun`, `MemoryPatch`, `DreamSeed`, and `DreamJournalEntry` JSON shapes.
+- Define `DreamCycleRun`, `MemoryPatch`, `DreamSeed`, `NarrativeAssay`, and `DreamJournalEntry` JSON shapes.
+- Retain one local fictional assay when a seed or refinement merits pressure-testing.
 - Add a local-only daily cron/manual command that reads the day's selected logs and writes a draft dream digest.
 - Require human review before any durable fact-memory patch.
 
@@ -253,7 +285,7 @@ Overall: **technically viable as a P0/P1 text+metadata pipeline immediately**. T
 - Pull source summaries from Cybermap, Wardriver/RaID, Tzeentch, and vault notes.
 - Emit one operator summary plus one detailed machine-readable manifest.
 - Emit a daily morning brief from Mosaic & Murmurs with paper-book footer and stale-data markers.
-- Maintain separate ledgers for facts, perception, contradictions, and dream seeds.
+- Maintain separate ledgers for facts, perception, contradictions, dream seeds, and narrative assays.
 
 ### P2 — Integrated Mosaic/Murmurs memory loop
 
@@ -264,16 +296,18 @@ Overall: **technically viable as a P0/P1 text+metadata pipeline immediately**. T
 
 ### P3 — Dream-to-proposal automation
 
-- Promote high-scoring dream seeds into formal proposal drafts.
+- Let mature narrative-assay candidates become formal local design-proposal drafts while retaining their speculative provenance.
 - Optionally create Kanban candidates for approved implementation/research lanes.
 - Keep hardware/actuation/spend proposals gated by explicit user approval.
 
 ## Acceptance criteria
 
 - A daily run produces a dated digest, a memory patch list, a dream seed ledger, and a meta-narrative journal entry.
+- When a retained seed is tested, the run adds one bounded narrative assay and an explicit retain/mutate/defer/discard/candidate decision.
 - The wake output includes a morning brief with breaking news, hype waves, perceptual deltas, and per-book paper PnL.
 - Fact memories and dream seeds are visibly separated.
 - Every promoted fact has evidence refs or a review gate.
 - Every retained private/person/location detail has a retention reason and privacy class.
 - The operator can reject or edit any proposed memory patch.
 - The cycle can propose cyber/physical presence upgrades without executing purchases, external writes, or actuation.
+- A stable design candidate has three materially different narrative assays plus a concrete next evidence/bench-test gate; it remains speculative until an existing promotion gate is satisfied.

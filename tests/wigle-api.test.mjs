@@ -206,6 +206,7 @@ test('wigle API exposes a local database snapshot clipped to 100m', async () => 
     assert.equal(response.body.mode, 'database');
     assert.equal(response.body.live, false);
     assert.equal(response.body.source, 'local-db');
+    assert.deepEqual(response.body.provenance, { adapter: 'legacy_wigle', canonical: false });
     assert.equal(response.body.totalResults, 1);
     assert.equal(response.body.accessPoints.length, 1);
     assert.equal(response.body.accessPoints[0].ssid, 'Near AP');
@@ -269,6 +270,7 @@ test('wigle API exposes current local DB observations for AR from recent rows', 
     assert.equal(response.body.mode, 'current');
     assert.equal(response.body.live, true);
     assert.equal(response.body.source, 'local-db');
+    assert.deepEqual(response.body.provenance, { adapter: 'legacy_wigle', canonical: false });
     assert.equal(response.body.totalResults, 1);
     assert.equal(response.body.accessPoints[0].ssid, 'Current Near AP');
     assert.equal(response.body.accessPoints[0].current, true);

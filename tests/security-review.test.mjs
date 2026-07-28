@@ -12,6 +12,7 @@ const operatorShell = read('api/_private/operator/shell.html');
 const rootCss = read('app/styles.css');
 const rootMainJs = read('app/main.js');
 const operatorMainJs = read('app/operator/main.js');
+const operatorSessionJs = read('app/operator/operator-session.mjs');
 const tzeentchJs = read('app/operator/tzeentch.mjs');
 const tzeentchDashboardJs = read('app/operator/tzeentch-dashboard.mjs');
 const chainedDaemonJs = read('app/operator/chained-daemon.mjs');
@@ -51,8 +52,8 @@ test('Static Web Apps routes do not collide after Azure trailing-slash normaliza
   }
 });
 
-test('operator APIs are reachable from the passcode login but fail closed on passcode-issued bearer tokens or cookies', () => {
-  ['/api/wigle', '/api/cybermap/viewport', '/api/cybermap/observations/batch', '/api/agent', '/api/osint', '/api/tzeentch'].forEach((route) => {
+test('operator APIs are reachable from the passcode login and use memory-only bearer injection', () => {
+  ['/api/wigle', '/api/operator-signals', '/api/cybermap/viewport', '/api/cybermap/observations/batch', '/api/agent', '/api/osint', '/api/tzeentch'].forEach((route) => {
     assert.deepEqual(routeConfig(route)?.allowedRoles, ['anonymous', 'authenticated'], `${route} must not be SWA-AAD gated before token validation`);
   });
   assert.deepEqual(routeConfig('/api/validate-passcode')?.allowedRoles, ['anonymous', 'authenticated']);
@@ -65,10 +66,10 @@ test('operator APIs are reachable from the passcode login but fail closed on pas
   assert.ok(wigleApi.includes('requireOperatorToken'));
   assert.ok(cybermapViewportApi.includes('requireOperatorToken'));
   assert.ok(operatorDownloadsApi.includes('requireOperatorToken'));
-  assert.ok(agentJs.includes('Authorization: `Bearer ${session.token}`'));
-  assert.ok(agentJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
-  assert.ok(operatorMainJs.includes('Authorization: `Bearer ${session.token}`'));
-  assert.ok(operatorMainJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
+  assert.ok(agentJs.includes('operatorFetch'));
+  assert.ok(operatorMainJs.includes('operatorFetch'));
+  assert.ok(operatorSessionJs.includes("X-Blue-Swallow-Operator-Token"));
+  assert.ok(!operatorSessionJs.includes('sessionStorage'));
 });
 
 test('root face ships only the passcode split and standard-site decoy, never operator or Wardriver material', () => {
@@ -98,21 +99,19 @@ test('root face ships only the passcode split and standard-site decoy, never ope
   });
 });
 
-test('operator entrypoint is separate from the root face, unlinked, and client-guarded by an operator session', () => {
+test('operator entrypoint is separate from the root face, unlinked, and redirects because sessions are memory-only', () => {
   assert.ok(operatorHtml.includes('operatorLoader'));
   assert.ok(operatorHtml.includes('/operator/loader.js'));
   assert.ok(!operatorHtml.includes('terminalScreen'));
   assert.ok(!operatorHtml.includes('mainInterface'));
   assert.ok(!operatorHtml.includes('/api/operator-downloads/wardriver/apk'));
-  assert.ok(operatorLoaderJs.includes("fetch('/api/operator-shell'"));
-  assert.ok(operatorLoaderJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
-  assert.ok(operatorLoaderJs.includes("import('/operator/main.js')"));
+  assert.ok(operatorLoaderJs.includes("window.location.replace('/')"));
   assert.ok(operatorShell.includes('terminalScreen'));
   assert.ok(operatorShell.includes('mainInterface'));
   assert.ok(!indexHtml.includes('operator/index.html'));
   assert.ok(!indexHtml.includes('/operator/'));
   assert.ok(operatorMainJs.includes("window.location.replace('/')"));
-  assert.ok(operatorMainJs.includes('getOperatorSession()'));
+  assert.ok(operatorMainJs.includes('hasActiveOperatorSession()'));
 });
 
 test('operator HTML, JS, CSS, modules, and legacy routes are passcode-flow reachable without SWA AAD', () => {
@@ -154,7 +153,7 @@ test('backend tokens only traverse HTTPS and the raw VM API port is not public',
   assert.ok(cybermapInstallScript.includes('BSS_CYBERMAP_BIND_HOST=127.0.0.1'));
   assert.ok(cybermapInstallScript.includes('reverse_proxy 127.0.0.1:__CYBERMAP_API_PORT__'));
   assert.ok(paperStateApi.includes("url.protocol !== 'https:'"));
-  assert.ok(cybermapViewportApi.includes("url.protocol !== 'https:'"));
+  assert.ok(read('api/_lib/cybermap-backend.js').includes("url.protocol !== 'https:'"));
   assert.ok(cybermapBatchApi.includes("url.protocol !== 'https:'"));
   assert.match(deployWorkflow, /BACKEND_PAPER_STATE_BASE_URL="\$\{\{ steps\.deploy\.outputs\.backendCybermapBaseUrl \}\}"/);
 });
@@ -172,24 +171,22 @@ test('device-local endpoints stay same-origin while the map permits only reviewe
   assert.doesNotMatch(csp, /connect-src[^;]*(?:unpkg|jsdelivr|maplibre\.org)/i);
   assert.ok(!indexHtml.includes('http://device.local'));
   assert.ok(!indexHtml.includes('placeholder="/api/ar-detections"'));
-  assert.ok(operatorShell.includes('POST /api/cybermap/viewport'));
+  assert.ok(operatorShell.includes('POST /api/operator-signals'));
 });
 
-test('OSINT, Cybermap coordinates, and agent prompts are sent via POST bodies, not URLs or persistent storage', () => {
+test('OSINT, Cybermap coordinates, and agent prompts are sent via POST bodies with memory-only authorization', () => {
   const cybermapViewportApi = read('api/cybermap-viewport/index.js');
-  assert.ok(tzeentchJs.includes("fetch(new URL('/api/osint', window.location.origin).toString()"));
+  assert.ok(tzeentchJs.includes("operatorFetch(new URL('/api/osint', window.location.origin).toString()"));
   assert.ok(tzeentchJs.includes("method: 'POST'"));
   assert.ok(tzeentchJs.includes('body: JSON.stringify'));
   assert.ok(!tzeentchJs.includes("url.searchParams.set('query'"));
   assert.ok(!tzeentchJs.includes('localStorage'));
   assert.ok(tzeentchJs.includes('sessionStorage'));
-  assert.ok(tzeentchJs.includes('buildOperatorHeaders()'));
-  assert.ok(tzeentchJs.includes('Authorization: `Bearer ${session.token}`'));
-  assert.ok(tzeentchJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
+  assert.ok(tzeentchJs.includes('operatorFetch'));
 
-  assert.ok(agentJs.includes("fetch('/api/agent'"));
+  assert.ok(agentJs.includes("operatorFetch('/api/agent'"));
   assert.ok(agentJs.includes("method: 'POST'"));
-  assert.ok(agentJs.includes('buildOperatorHeaders({'));
+  assert.ok(agentJs.includes('operatorFetch'));
   assert.ok(agentJs.includes('body: JSON.stringify({ prompt })'));
   assert.ok(!agentJs.includes('/api/agent?prompt='));
   assert.ok(!agentApi.includes('req.query'));
@@ -198,12 +195,12 @@ test('OSINT, Cybermap coordinates, and agent prompts are sent via POST bodies, n
   assert.ok(operatorMainJs.includes('function buildWigleRequestPayload'));
   assert.ok(operatorMainJs.includes("method: 'POST'"));
   assert.ok(operatorMainJs.includes('body: JSON.stringify(requestPayload)'));
-  assert.ok(operatorMainJs.includes('buildOperatorHeaders({'));
+  assert.ok(operatorMainJs.includes('operatorFetch(target'));
   assert.ok(!operatorMainJs.includes('buildWigleEndpointUrl'));
   assert.ok(!operatorMainJs.includes("url.searchParams.set('lat'"));
   assert.ok(cybermapViewportApi.includes('hasSensitiveLocationQuery'));
   assert.ok(cybermapViewportApi.includes('Cybermap location coordinates must be sent in the POST body'));
-  assert.ok(cybermapViewportApi.includes("getBodyValue(req, 'lat'"));
+  assert.ok(cybermapViewportApi.includes('buildViewportPayload'));
   assert.ok(!cybermapViewportApi.includes('api.wigle.net/api/v2/network/search'));
 });
 
@@ -219,7 +216,7 @@ test('APK downloads are removed from the public static surface and served only b
   assert.doesNotMatch(operatorShell, /2\.109-bss\.1|download="[^\"]+\.apk"/);
   assert.ok(operatorShell.includes('data-operator-release-metadata'));
   assert.ok(operatorMainJs.includes('handleOperatorDownload'));
-  assert.ok(operatorMainJs.includes("'X-Blue-Swallow-Operator-Token': session.token"));
+  assert.ok(operatorMainJs.includes('operatorFetch(target, { redirect: \'manual\' })'));
   assert.ok(operatorMainJs.includes('hydrateWardriverRelease'));
   assert.ok(!operatorMainJs.includes('fetch(link.href'));
   assert.ok(operatorDownloadsApi.includes('requireOperatorToken'));
@@ -257,10 +254,10 @@ test('local dev server returns JSON 501 for unmounted API routes instead of SPA 
   assert.ok(!localServer.includes("filePath = path.join(APP_DIR, 'index.html');\n    }\n    \n    fs.readFile"));
 });
 
-test('Godeye runtime exposes only real Cybermap viewport paths, not sample/demo WiGLE state', () => {
+test('Godeye runtime exposes only the VM-owned operator signal projection, not sample/demo WiGLE state', () => {
   const runtimeSources = [operatorMainJs, operatorShell].join('\n');
-  assert.ok(operatorMainJs.includes("'/api/cybermap/viewport'"));
-  assert.ok(operatorShell.includes('POST /api/cybermap/viewport'));
+  assert.ok(operatorMainJs.includes("'/api/operator-signals'"));
+  assert.ok(operatorShell.includes('POST /api/operator-signals'));
   assert.ok(!runtimeSources.includes('Sample/demo WiGLE dataset loaded'));
   assert.ok(!runtimeSources.includes('Load sample data'));
   assert.ok(!runtimeSources.includes('wigleSampleBtn'));

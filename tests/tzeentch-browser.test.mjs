@@ -204,7 +204,7 @@ test('Obscura renders Tzeentch peer tabs, nested intel views, Mosaic facts, and 
       return;
     }
 
-    const pathname = url.pathname === '/operator' ? '/operator/index.html' : (url.pathname === '/' ? '/index.html' : url.pathname);
+    const pathname = url.pathname === '/' ? '/index.html' : url.pathname;
     const filePath = normalize(join(appRoot, pathname));
     if (!filePath.startsWith(appRoot)) {
       res.writeHead(403).end('forbidden');
@@ -214,9 +214,9 @@ test('Obscura renders Tzeentch peer tabs, nested intel views, Mosaic facts, and 
     try {
       const body = readFileSync(filePath);
       res.writeHead(200, { 'Content-Type': MIME_TYPES[extname(filePath)] || 'application/octet-stream' });
-      if (pathname === '/operator/index.html') {
+      if (pathname === '/index.html') {
         const html = body.toString('utf8')
-          .replace('<script src="/operator/loader.js" type="module"></script>', `${operatorSessionSeedScript()}${browserBootScript()}<script src="/operator/loader.js" type="module"></script>`);
+          .replace('</body>', `${browserBootScript()}</body>`);
         res.end(html);
         return;
       }
@@ -232,7 +232,7 @@ test('Obscura renders Tzeentch peer tabs, nested intel views, Mosaic facts, and 
   try {
     const { stdout } = await execFileAsync('obscura', [
       'fetch',
-      `http://127.0.0.1:${port}/operator`,
+      `http://127.0.0.1:${port}/`,
       '--allow-private-network',
       '--wait',
       '10',
@@ -269,18 +269,6 @@ function sendJson(res, body) {
     'Cache-Control': 'no-store',
   });
   res.end(JSON.stringify(body));
-}
-
-function operatorSessionSeedScript() {
-  return String.raw`
-    <script>
-      sessionStorage.setItem('blue-swallow-society:operator-session', JSON.stringify({
-        token: 'browser-token',
-        expiresAt: '2099-07-12T20:00:00Z',
-        ttlSeconds: 28800,
-      }));
-    </script>
-  `;
 }
 
 function browserBootScript() {
@@ -337,18 +325,9 @@ function browserBootScript() {
 
       window.addEventListener('load', async () => {
         try {
-          await sleep(50);
-          sessionStorage.setItem('blue-swallow-society:operator-session', JSON.stringify({
-            token: 'browser-token',
-            expiresAt: '2099-07-12T20:00:00Z',
-            ttlSeconds: 28800,
-          }));
-
-          document.body.dataset.mode = 'operator';
-          document.querySelector('#terminalScreen')?.classList.remove('active');
-          document.querySelector('#terminalScreen')?.setAttribute('aria-hidden', 'true');
-          document.querySelector('#mainInterface')?.classList.add('active');
-          document.querySelector('#mainInterface')?.removeAttribute('aria-hidden');
+          document.querySelector('#passcodeInput').value = 'browser-test-passcode';
+          document.querySelector('#loginBtn')?.click();
+          await waitFor(() => document.body.dataset.mode === 'operator' && document.querySelector('#mainInterface')?.classList.contains('active'), 'operator shell');
           document.querySelector('#tab-tzeentch')?.click();
           await waitFor(() => document.querySelector('#tzeentch-tab')?.classList.contains('active'), 'Tzeentch tab');
           await waitFor(() => (document.querySelector('#tzeentchStatus')?.textContent || '').includes('Public OSINT overview'), 'OSINT overview');

@@ -14,6 +14,14 @@ import {
   deriveGodeyeSessionAnalysis,
 } from './godeye-session-analysis.mjs';
 import { initTzeentchDashboard, stopTzeentchDashboard } from './tzeentch.mjs';
+import { toOperatorSignalDataset } from './operator-signal-client.mjs';
+import {
+  activateOperatorSession,
+  clearOperatorSession,
+  hasActiveOperatorSession,
+  operatorFetch,
+  operatorRequestHeaders,
+} from './operator-session.mjs';
 import {
   buildArCandidateBoxes,
   filterWigleRecordsByRadius,
@@ -32,8 +40,7 @@ const GEO_OPTIONS = {
   maximumAge: 5000,
   timeout: 10000,
 };
-const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
-const GODEYE_VIEWPORT_ENDPOINT = '/api/cybermap/viewport';
+const GODEYE_VIEWPORT_ENDPOINT = '/api/operator-signals';
 
 function emptyWigleDataset(source = 'cybermap-postgis') {
   return {
@@ -48,27 +55,6 @@ function emptyWigleDataset(source = 'cybermap-postgis') {
 
 const $ = (id) => document.getElementById(id);
 const $$ = (selector) => document.querySelectorAll(selector);
-
-function getOperatorSession() {
-  try {
-    const raw = sessionStorage.getItem(OPERATOR_SESSION_KEY);
-    const session = raw ? JSON.parse(raw) : null;
-    return session && typeof session.token === 'string' && session.token ? session : null;
-  } catch {
-    return null;
-  }
-}
-
-function buildOperatorHeaders(headers = {}) {
-  const session = getOperatorSession();
-  return session?.token
-    ? {
-      ...headers,
-      Authorization: `Bearer ${session.token}`,
-      'X-Blue-Swallow-Operator-Token': session.token,
-    }
-    : { ...headers };
-}
 
 const state = {
   authenticated: false,
@@ -129,14 +115,16 @@ function init() {
   bindTabSystem();
   bindOperatorDownloads();
 
+  if (hasActiveOperatorSession()) {
+    unlockConsole();
+    return;
+  }
+
   if (isOperatorEntrypoint()) {
-    if (!getOperatorSession()) {
+    if (!hasActiveOperatorSession()) {
       window.location.replace('/');
       return;
     }
-
-    unlockConsole();
-    return;
   }
 
   bindLoginFlow();
@@ -183,7 +171,7 @@ async function handleLogin() {
       return;
     }
 
-    persistOperatorSession(session);
+    activateOperatorSession(session);
     unlockConsole();
   } catch (error) {
     console.error('Login failed', error);
@@ -213,14 +201,6 @@ async function validatePasscode(passcode) {
   }
 
   return null;
-}
-
-function persistOperatorSession(session) {
-  try {
-    sessionStorage.setItem(OPERATOR_SESSION_KEY, JSON.stringify(session));
-  } catch {
-    // Session storage is best-effort; API calls will fail closed without a bearer token.
-  }
 }
 
 function unlockConsole() {
@@ -311,11 +291,6 @@ function resetConsoleToLogin() {
   renderGodeyeFields();
   renderWigleViews();
   updateArFullscreenState(false);
-  try {
-    sessionStorage.removeItem(OPERATOR_SESSION_KEY);
-  } catch {
-    // no-op
-  }
   resetTabSelection();
 }
 
@@ -325,34 +300,43 @@ function bindOperatorDownloads() {
   });
 }
 
-function handleOperatorDownload(event) {
-  if (event.currentTarget?.getAttribute('aria-disabled') === 'true') {
+async function handleOperatorDownload(event) {
+  const link = event.currentTarget;
+  if (!(link instanceof HTMLAnchorElement) || link.getAttribute('aria-disabled') === 'true') {
     event.preventDefault();
     return;
   }
-  // Downloads are navigations, not XHR payloads: the HttpOnly operator cookie
-  // authorizes the same-origin gate, then the gate issues a per-object Blob SAS.
-  // This avoids buffering a release APK in the operator console and keeps the
-  // signed Blob URL out of DOM state.
-  if (getOperatorSession()?.token) {
-    return;
-  }
   event.preventDefault();
-  window.location.replace('/');
+  try {
+    const target = new URL(link.href, window.location.origin);
+    if (target.origin !== window.location.origin || !target.pathname.startsWith('/api/operator-downloads/')) {
+      throw new Error('Unexpected download target.');
+    }
+    const response = await operatorFetch(target, { redirect: 'manual' });
+    const signedUrl = response.headers.get('location');
+    if (!response.ok && response.status !== 302) {
+      throw new Error(`Download gate returned HTTP ${response.status}.`);
+    }
+    if (!signedUrl) {
+      throw new Error('Download gate did not return a signed artifact URL.');
+    }
+    window.location.assign(signedUrl);
+  } catch (error) {
+    console.error('Wardriver download unavailable', error);
+    setReleaseField('notes', 'Signed download unavailable. Re-authenticate and retry; do not substitute a debug build.');
+  }
 }
 
 async function hydrateWardriverRelease() {
   const card = document.querySelector('[data-operator-release-card]');
   const endpoint = card?.dataset.operatorReleaseMetadata;
-  if (!endpoint || !getOperatorSession()?.token) {
+  if (!endpoint || !hasActiveOperatorSession()) {
     return;
   }
 
   try {
-    const response = await fetch(endpoint, {
-      headers: buildOperatorHeaders({ Accept: 'application/json' }),
-      credentials: 'same-origin',
-      cache: 'no-store',
+    const response = await operatorFetch(endpoint, {
+      headers: { Accept: 'application/json' },
     });
     if (!response.ok) {
       throw new Error(`Release manifest unavailable (${response.status})`);
@@ -449,18 +433,10 @@ async function handleLogout() {
   try {
     await fetch('/api/operator-logout', { method: 'POST' });
   } catch {
-    // The session storage token is already gone; the HttpOnly cookie will expire by TTL if this fails.
+    // The in-memory session is already gone.
   }
 
   window.location.replace('/');
-}
-
-function clearOperatorSession() {
-  try {
-    sessionStorage.removeItem(OPERATOR_SESSION_KEY);
-  } catch {
-    // no-op
-  }
 }
 
 function getTabButtons() {
@@ -762,12 +738,12 @@ async function refreshLiveWigleFeed({ quiet = false } = {}) {
       maxAgeMs: 45_000,
     });
 
-    const response = await fetch(target, {
+    const response = await operatorFetch(target, {
       method: 'POST',
-      headers: buildOperatorHeaders({
+      headers: {
         Accept: 'application/json, text/plain, */*',
         'Content-Type': 'application/json',
-      }),
+      },
       body: JSON.stringify(requestPayload),
     });
 
@@ -789,7 +765,7 @@ async function refreshLiveWigleFeed({ quiet = false } = {}) {
     }
 
     const current = payload?.live === true || isLiveWigleSnapshot(payload);
-    const parsed = parseWiglePayload(payload, { source: 'cybermap-postgis' });
+    const parsed = toOperatorSignalDataset(payload);
     if (requestGeneration !== state.godeyeRequestGeneration) return false;
     const sourceLabel = parsed.source || payload?.source || 'cybermap-postgis';
     const message = current
@@ -1868,7 +1844,7 @@ function renderGodeyeMap() {
   if (!state.godeyeMapController) {
     state.godeyeMapController = createGodeyeMapController({
       container: viewport,
-      getHeaders: () => buildOperatorHeaders(),
+      getHeaders: () => operatorRequestHeaders(),
       onCellSelect: (selection) => {
         state.godeyeSelection = selection;
         renderGodeyeWorkbench();

@@ -42,6 +42,13 @@
       ]
     },
     {
+      "route": "/api/operator-signals",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
       "route": "/api/cybermap/viewport",
       "allowedRoles": [
         "anonymous",

@@ -35,7 +35,27 @@ fi
 
 rm -rf /tmp/bss-source /tmp/bss.tar.gz
 mkdir -p /tmp/bss-source /opt/bss
-curl -fsSL '__CYBERMAP_SOURCE_TARBALL_URL__' -o /tmp/bss.tar.gz
+CYBERMAP_SOURCE_REVISION='__CYBERMAP_SOURCE_REVISION__'
+CYBERMAP_SOURCE_TARBALL_URL='__CYBERMAP_SOURCE_TARBALL_URL__'
+CYBERMAP_SOURCE_TARBALL_SHA256='__CYBERMAP_SOURCE_TARBALL_SHA256__'
+if ! printf '%s' "$CYBERMAP_SOURCE_REVISION" | grep -Eq '^[a-f0-9]{40}$'; then
+  echo "Cybermap source revision must be one full Git commit SHA" >&2
+  exit 1
+fi
+if ! printf '%s' "$CYBERMAP_SOURCE_TARBALL_URL" | grep -Eq '^https://github\.com/[^/]+/[^/]+/archive/[a-f0-9]{40}\.tar\.gz$'; then
+  echo "Cybermap source URL must identify one full Git commit archive" >&2
+  exit 1
+fi
+if ! printf '%s' "$CYBERMAP_SOURCE_TARBALL_URL" | grep -Fq "/archive/${CYBERMAP_SOURCE_REVISION}.tar.gz"; then
+  echo "Cybermap source archive revision does not match its declared revision" >&2
+  exit 1
+fi
+if ! printf '%s' "$CYBERMAP_SOURCE_TARBALL_SHA256" | grep -Eq '^[a-f0-9]{64}$'; then
+  echo "Cybermap source archive SHA-256 is invalid" >&2
+  exit 1
+fi
+curl -fsSL "$CYBERMAP_SOURCE_TARBALL_URL" -o /tmp/bss.tar.gz
+printf '%s  %s\n' "$CYBERMAP_SOURCE_TARBALL_SHA256" /tmp/bss.tar.gz | sha256sum --check --status
 tar -xzf /tmp/bss.tar.gz -C /tmp/bss-source --strip-components=1
 rm -rf /opt/bss/cybermap-api
 cp -a /tmp/bss-source/vm/cybermap-api /opt/bss/cybermap-api
@@ -86,6 +106,10 @@ run_migration() {
 run_migration 0001_cybermap_core db/migrations/0001_cybermap_core.sql
 run_migration 0002_device_ingest_contract db/migrations/0002_device_ingest_contract.sql
 run_migration 0003_paper_state db/migrations/0003_paper_state.sql
+cat > /etc/bss/cybermap-api-release.json <<EOF
+{"revision":"${CYBERMAP_SOURCE_REVISION}","archive_sha256":"${CYBERMAP_SOURCE_TARBALL_SHA256}","installed_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","migrations":["0001_cybermap_core","0002_device_ingest_contract","0003_paper_state"]}
+EOF
+chmod 0644 /etc/bss/cybermap-api-release.json
 
 cat > /etc/systemd/system/bss-cybermap-api.service <<'UNIT'
 [Unit]

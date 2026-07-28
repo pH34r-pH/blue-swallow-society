@@ -445,11 +445,23 @@ test('serves token-gated Cybermap viewport reads from ingested real observations
         body: JSON.stringify(batch),
       });
 
-      const anonymous = await fetch(`${baseUrl}/api/v1/cybermap/viewport?lat=47.6062&lon=-122.3321`);
+      const anonymous = await fetch(`${baseUrl}/api/v1/cybermap/viewport`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ lat: 47.6062, lon: -122.3321 }),
+      });
       assert.equal(anonymous.status, 403);
 
-      const response = await fetch(`${baseUrl}/api/v1/cybermap/viewport?lat=47.6062&lon=-122.3321&radiusMeters=100&limit=10`, {
-        headers: { 'x-blue-swallow-cybermap-read-token': process.env.BSS_CYBERMAP_READ_TOKEN },
+      const retiredQueryRoute = await fetch(`${baseUrl}/api/v1/cybermap/viewport?lat=47.6062&lon=-122.3321`);
+      assert.equal(retiredQueryRoute.status, 404);
+
+      const response = await fetch(`${baseUrl}/api/v1/cybermap/viewport`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-blue-swallow-cybermap-read-token': process.env.BSS_CYBERMAP_READ_TOKEN,
+        },
+        body: JSON.stringify({ lat: 47.6062, lon: -122.3321, radiusMeters: 100, limit: 10 }),
       });
       assert.equal(response.status, 200);
       const body = await response.json();
@@ -460,6 +472,21 @@ test('serves token-gated Cybermap viewport reads from ingested real observations
       assert.equal(body.totalResults, 1);
       assert.equal(body.accessPoints[0].ssid, 'hmac-sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210');
       assert.ok(body.accessPoints[0].distanceMeters <= 100);
+
+      const projectionResponse = await fetch(`${baseUrl}/api/v1/cybermap/operator-signals`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-blue-swallow-cybermap-read-token': process.env.BSS_CYBERMAP_READ_TOKEN,
+        },
+        body: JSON.stringify({ lat: 47.6062, lon: -122.3321, radiusMeters: 100 }),
+      });
+      assert.equal(projectionResponse.status, 200);
+      const projection = await projectionResponse.json();
+      assert.equal(projection.schema_version, 'bss.operator_signal_snapshot.v1');
+      assert.equal(projection.signals.length, 1);
+      assert.equal(projection.signals[0].redactionClass, 'identifier_suppressed');
+      assert.doesNotMatch(JSON.stringify(projection), /fedcba|ssid|bssid|external_observation_key/);
     });
   } finally {
     if (previousReadToken === undefined) delete process.env.BSS_CYBERMAP_READ_TOKEN;

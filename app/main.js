@@ -7,8 +7,12 @@ import {
   normalizeClaimName,
   releaseSupplyItem,
 } from './public-events.mjs';
+import {
+  activateOperatorSession,
+  clearOperatorSession,
+  operatorFetch,
+} from './operator/operator-session.mjs';
 
-const OPERATOR_SESSION_KEY = 'blue-swallow-society:operator-session';
 const CLAIM_NAME_KEY = 'blue-swallow-society:event-claim-name';
 const SUPPLY_CLAIMS_KEY = 'blue-swallow-society:event-supply-claims';
 
@@ -50,9 +54,8 @@ async function handleLogin() {
 
   try {
     const session = await requestOperatorSession(passcode);
-    if (session?.token) {
-      persistOperatorSession(session);
-      window.location.assign('/operator');
+    if (session && activateOperatorSession(session)) {
+      await bootOperatorShell();
       return;
     }
 
@@ -73,6 +76,7 @@ async function requestOperatorSession(passcode) {
     headers: {
       'Content-Type': 'application/json',
     },
+    cache: 'no-store',
     body: JSON.stringify({ passcode }),
   });
 
@@ -84,12 +88,25 @@ async function requestOperatorSession(passcode) {
   return data?.ok === true && data.operatorSession?.token ? data.operatorSession : null;
 }
 
-function persistOperatorSession(session) {
-  try {
-    sessionStorage.setItem(OPERATOR_SESSION_KEY, JSON.stringify(session));
-  } catch {
-    // Session storage is best-effort; the server-side cookie is the download fallback.
+async function bootOperatorShell() {
+  const response = await operatorFetch('/api/operator-shell', {
+    headers: { Accept: 'text/html' },
+  });
+  if (!response.ok) {
+    clearOperatorSession();
+    throw new Error('Operator shell is unavailable.');
   }
+
+  if (!document.querySelector('link[data-operator-shell-style]')) {
+    const stylesheet = document.createElement('link');
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = '/operator/styles.css';
+    stylesheet.dataset.operatorShellStyle = 'true';
+    document.head.append(stylesheet);
+  }
+  document.body.innerHTML = await response.text();
+  document.body.dataset.mode = 'operator';
+  await import('/operator/main.js');
 }
 
 function showStandardSite() {

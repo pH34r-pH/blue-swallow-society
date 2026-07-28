@@ -40,6 +40,17 @@ jobs:
           postgres_password=$(printf '%s' "$POSTGRES_ADMIN_PASSWORD" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           cybermap_read_token=$(printf '%s' "$BSS_CYBERMAP_READ_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           paper_state_token=$(printf '%s' "$BSS_PAPER_STATE_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if ! printf '%s' "$GITHUB_SHA" | grep -Eq '^[a-f0-9]{40}$'; then
+            echo "::error::GITHUB_SHA must be a full commit SHA for VM artifact what-if."
+            exit 1
+          fi
+          cybermap_source_url="https://github.com/${GITHUB_REPOSITORY}/archive/${GITHUB_SHA}.tar.gz"
+          cybermap_source_archive="$(mktemp)"
+          trap 'rm -f "$cybermap_source_archive"' EXIT
+          curl --fail --location --silent --show-error "$cybermap_source_url" --output "$cybermap_source_archive"
+          cybermap_source_sha256="$(sha256sum "$cybermap_source_archive" | awk '{print $1}')"
+          rm -f "$cybermap_source_archive"
+          trap - EXIT
           az deployment group what-if \
             --resource-group "$RESOURCE_GROUP" \
             --template-file infra/main.bicep \
@@ -47,4 +58,7 @@ jobs:
             --parameters sshPublicKey="$ssh_key" \
             --parameters postgresAdministratorLoginPassword="$postgres_password" \
             --parameters cybermapReadToken="$cybermap_read_token" \
-            --parameters paperStateToken="$paper_state_token"
+            --parameters paperStateToken="$paper_state_token" \
+            --parameters cybermapSourceRevision="$GITHUB_SHA" \
+            --parameters cybermapSourceTarballUrl="$cybermap_source_url" \
+            --parameters cybermapSourceTarballSha256="$cybermap_source_sha256"

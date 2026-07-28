@@ -13,6 +13,30 @@ function makeContext() {
   return { log: { warn: () => {}, error: () => {} } };
 }
 
+function createTestRateLimiter() {
+  const failures = new Map();
+  return {
+    async check(callerKey, { maxAttempts, now = Date.now() }) {
+      const state = failures.get(callerKey);
+      if (!state || state.expiresAtMs <= now || state.attempts < maxAttempts) {
+        return { limited: false, retryAfterSeconds: 0 };
+      }
+      return { limited: true, retryAfterSeconds: Math.max(1, Math.ceil((state.expiresAtMs - now) / 1000)) };
+    },
+    async recordFailure(callerKey, { windowMs, now = Date.now() }) {
+      const previous = failures.get(callerKey);
+      const state = previous && previous.expiresAtMs > now
+        ? previous
+        : { attempts: 0, expiresAtMs: now + windowMs };
+      state.attempts += 1;
+      failures.set(callerKey, state);
+    },
+    async reset(callerKey) {
+      failures.delete(callerKey);
+    },
+  };
+}
+
 async function invoke(passcode, { ip = '203.0.113.10' } = {}) {
   const context = makeContext();
   await handler(context, {
@@ -39,6 +63,7 @@ function withEnv(nextEnv, fn) {
   if (handler._resetRateLimitForTests) {
     handler._resetRateLimitForTests();
   }
+  handler._setRateLimiterForTests?.(createTestRateLimiter());
 
   return Promise.resolve()
     .then(fn)
@@ -74,18 +99,15 @@ test('validate-passcode accepts SHA-256 configured passcodes and rejects wrong g
     assert.match(accepted.body.operatorSession.token, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
     assert.match(accepted.body.operatorSession.expiresAt, /^\d{4}-\d{2}-\d{2}T/);
     assert.equal(accepted.headers['Cache-Control'], 'no-store');
-    assert.match(accepted.headers['Set-Cookie'], /^bss_operator_session=/);
-    assert.match(accepted.headers['Set-Cookie'], /HttpOnly/);
-    assert.match(accepted.headers['Set-Cookie'], /Secure/);
-    assert.match(accepted.headers['Set-Cookie'], /SameSite=Strict/);
+    assert.equal(accepted.headers['Set-Cookie'], undefined);
 
-    const verifiedCookie = verifyOperatorRequest({
+    const verifiedHeader = verifyOperatorRequest({
       headers: {
-        cookie: accepted.headers['Set-Cookie'].split(';')[0],
+        'x-blue-swallow-operator-token': accepted.body.operatorSession.token,
       },
     });
-    assert.equal(verifiedCookie.ok, true);
-    assert.equal(verifiedCookie.token.sub, 'operator');
+    assert.equal(verifiedHeader.ok, true);
+    assert.equal(verifiedHeader.token.sub, 'operator');
 
     const rejected = await invoke('blue-swallow');
     assert.equal(rejected.status, 401);
@@ -117,6 +139,7 @@ test('validate-passcode rate limits repeated failures per caller', async () => {
     const limited = await invoke('correct horse', { ip: '198.51.100.23' });
     assert.equal(limited.status, 429);
     assert.equal(limited.body.ok, false);
+    assert.match(limited.headers['Retry-After'], /^\d+$/);
   });
 });
 

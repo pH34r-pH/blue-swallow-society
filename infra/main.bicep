@@ -64,8 +64,14 @@ param cybermapReadToken string
 @description('Dedicated token used by the local autonomous paper engine and SWA to write/read the canonical VM paper-state snapshot.')
 param paperStateToken string
 
-@description('Public repository tarball used by the VM extension to install vm/cybermap-api.')
-param cybermapSourceTarballUrl string = 'https://github.com/pH34r-pH/blue-swallow-society/archive/refs/heads/main.tar.gz'
+@description('Full immutable Git commit that identifies the Cybermap VM source archive.')
+param cybermapSourceRevision string
+
+@description('Immutable full-commit GitHub archive used by the VM extension to install vm/cybermap-api.')
+param cybermapSourceTarballUrl string
+
+@description('SHA-256 digest of the exact Cybermap archive. The VM verifies it before extraction or migration.')
+param cybermapSourceTarballSha256 string
 
 @description('Opaque value used to force the VM Custom Script extension to re-run on each deployment.')
 param cybermapDeploymentVersion string = utcNow()
@@ -144,7 +150,9 @@ module vmModule 'vm-echo-lab.bicep' = {
     postgresAdministratorLoginPassword: postgresAdministratorLoginPassword
     cybermapReadToken: cybermapReadToken
     paperStateToken: paperStateToken
+    cybermapSourceRevision: cybermapSourceRevision
     cybermapSourceTarballUrl: cybermapSourceTarballUrl
+    cybermapSourceTarballSha256: cybermapSourceTarballSha256
     cybermapDeploymentVersion: cybermapDeploymentVersion
   }
 }
@@ -173,6 +181,18 @@ module wardriverReleaseStorage 'modules/wardriver-release-storage.bicep' = {
   }
 }
 
+/*
+ * Dedicated shared state for authoritative operator passcode throttling.
+ * It is intentionally separate from immutable Wardriver release artifacts.
+ */
+module passcodeRateLimitStorage 'modules/passcode-rate-limit-storage.bicep' = {
+  name: 'passcode-rate-limit-storage'
+  params: {
+    prefix: prefix
+    location: location
+  }
+}
+
 output staticWebAppDefaultHostname string = swa.properties.defaultHostname
 output staticWebAppResourceId string = swa.id
 output backendEchoBaseUrl string = vmModule.outputs.backendEchoBaseUrl
@@ -193,6 +213,8 @@ output postgresStorageSizeGiB int = postgresModule.outputs.storageSizeGiB
 output postgresGeoRedundantBackup string = postgresModule.outputs.geoRedundantBackup
 output wardriverReleaseStorageAccountName string = wardriverReleaseStorage.outputs.storageAccountName
 output wardriverReleaseContainerName string = wardriverReleaseStorage.outputs.releaseContainerName
+output passcodeRateLimitStorageAccountName string = passcodeRateLimitStorage.outputs.storageAccountName
+output passcodeRateLimitTableName string = passcodeRateLimitStorage.outputs.tableName
 output postgresHighAvailabilityMode string = postgresModule.outputs.highAvailabilityMode
 output openAiDeployed bool = deployOpenAi
 output openAiEndpoint string = deployOpenAi ? openAiModule!.outputs.endpoint : ''

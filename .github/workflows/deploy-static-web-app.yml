@@ -33,6 +33,8 @@ jobs:
       backendCybermapBaseUrl: ${{ steps.deploy.outputs.backendCybermapBaseUrl }}
       wardriverReleaseStorageAccountName: ${{ steps.deploy.outputs.wardriverReleaseStorageAccountName }}
       wardriverReleaseContainerName: ${{ steps.deploy.outputs.wardriverReleaseContainerName }}
+      passcodeRateLimitStorageAccountName: ${{ steps.deploy.outputs.passcodeRateLimitStorageAccountName }}
+      passcodeRateLimitTableName: ${{ steps.deploy.outputs.passcodeRateLimitTableName }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -134,6 +136,17 @@ jobs:
           postgres_password=$(printf '%s' "$POSTGRES_ADMIN_PASSWORD" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           cybermap_read_token=$(printf '%s' "$BSS_CYBERMAP_READ_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           paper_state_token=$(printf '%s' "$BSS_PAPER_STATE_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if ! printf '%s' "$GITHUB_SHA" | grep -Eq '^[a-f0-9]{40}$'; then
+            echo "::error::GITHUB_SHA must be a full commit SHA for VM artifact deployment."
+            exit 1
+          fi
+          cybermap_source_url="https://github.com/${GITHUB_REPOSITORY}/archive/${GITHUB_SHA}.tar.gz"
+          cybermap_source_archive="$(mktemp)"
+          trap 'rm -f "$cybermap_source_archive"' EXIT
+          curl --fail --location --silent --show-error "$cybermap_source_url" --output "$cybermap_source_archive"
+          cybermap_source_sha256="$(sha256sum "$cybermap_source_archive" | awk '{print $1}')"
+          rm -f "$cybermap_source_archive"
+          trap - EXIT
           set +e
           out=$(az deployment group create \
             --resource-group "$RESOURCE_GROUP" \
@@ -144,6 +157,9 @@ jobs:
             --parameters postgresAdministratorLoginPassword="$postgres_password" \
             --parameters cybermapReadToken="$cybermap_read_token" \
             --parameters paperStateToken="$paper_state_token" \
+            --parameters cybermapSourceRevision="$GITHUB_SHA" \
+            --parameters cybermapSourceTarballUrl="$cybermap_source_url" \
+            --parameters cybermapSourceTarballSha256="$cybermap_source_sha256" \
             --parameters cybermapDeploymentVersion="${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}" \
             --query properties.outputs -o json 2>az_stderr.log)
           rc=$?
@@ -172,14 +188,18 @@ jobs:
           cybermap_backend=$(echo "$out" | jq -r '.backendCybermapBaseUrl.value')
           release_storage_account=$(echo "$out" | jq -r '.wardriverReleaseStorageAccountName.value')
           release_container=$(echo "$out" | jq -r '.wardriverReleaseContainerName.value')
-          if [ -z "$release_storage_account" ] || [ "$release_storage_account" = "null" ] || [ -z "$release_container" ] || [ "$release_container" = "null" ]; then
-            echo "::error::Wardriver release storage deployment outputs are missing."
+          rate_limit_storage_account=$(echo "$out" | jq -r '.passcodeRateLimitStorageAccountName.value')
+          rate_limit_table=$(echo "$out" | jq -r '.passcodeRateLimitTableName.value')
+          if [ -z "$release_storage_account" ] || [ "$release_storage_account" = "null" ] || [ -z "$release_container" ] || [ "$release_container" = "null" ] || [ -z "$rate_limit_storage_account" ] || [ "$rate_limit_storage_account" = "null" ] || [ -z "$rate_limit_table" ] || [ "$rate_limit_table" = "null" ]; then
+            echo "::error::Wardriver release or passcode rate-limit storage deployment outputs are missing."
             exit 1
           fi
           echo "backendEchoBaseUrl=$backend" >> "$GITHUB_OUTPUT"
           echo "backendCybermapBaseUrl=$cybermap_backend" >> "$GITHUB_OUTPUT"
           echo "wardriverReleaseStorageAccountName=$release_storage_account" >> "$GITHUB_OUTPUT"
           echo "wardriverReleaseContainerName=$release_container" >> "$GITHUB_OUTPUT"
+          echo "passcodeRateLimitStorageAccountName=$rate_limit_storage_account" >> "$GITHUB_OUTPUT"
+          echo "passcodeRateLimitTableName=$rate_limit_table" >> "$GITHUB_OUTPUT"
 
       - name: Wire runtime app settings into SWA
         env:
@@ -208,16 +228,24 @@ jobs:
           swa_name=$(jq -r '.parameters.staticWebAppName.value' infra/main.parameters.json)
           release_storage_account="${{ steps.deploy.outputs.wardriverReleaseStorageAccountName }}"
           release_container="${{ steps.deploy.outputs.wardriverReleaseContainerName }}"
+          rate_limit_storage_account="${{ steps.deploy.outputs.passcodeRateLimitStorageAccountName }}"
+          rate_limit_table="${{ steps.deploy.outputs.passcodeRateLimitTableName }}"
           storage_connection_string=$(az storage account show-connection-string \
             --name "$release_storage_account" \
             --resource-group "$RESOURCE_GROUP" \
             --query connectionString \
             -o tsv)
-          if [ -z "$storage_connection_string" ] || [ "$storage_connection_string" = "null" ]; then
-            echo "::error::Wardriver release storage connection string could not be resolved."
+          rate_limit_connection_string=$(az storage account show-connection-string \
+            --name "$rate_limit_storage_account" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query connectionString \
+            -o tsv)
+          if [ -z "$storage_connection_string" ] || [ "$storage_connection_string" = "null" ] || [ -z "$rate_limit_connection_string" ] || [ "$rate_limit_connection_string" = "null" ]; then
+            echo "::error::Release or passcode rate-limit storage connection string could not be resolved."
             exit 1
           fi
           echo "::add-mask::$storage_connection_string"
+          echo "::add-mask::$rate_limit_connection_string"
           az staticwebapp appsettings set \
             --name "$swa_name" \
             --resource-group "$RESOURCE_GROUP" \
@@ -229,6 +257,8 @@ jobs:
               BSS_PAPER_STATE_TOKEN="$paper_state_token" \
               BSS_WARDRIVER_RELEASE_STORAGE_CONNECTION_STRING="$storage_connection_string" \
               BSS_WARDRIVER_RELEASE_CONTAINER="$release_container" \
+              BLUE_SWALLOW_PASSCODE_RATE_LIMIT_STORAGE_CONNECTION_STRING="$rate_limit_connection_string" \
+              BLUE_SWALLOW_PASSCODE_RATE_LIMIT_TABLE="$rate_limit_table" \
               BSS_WARDRIVER_RELEASE_MANIFEST_BLOB="wardriver/releases/latest.json" \
               BLUE_SWALLOW_PASSCODE_SHA256="$passcode_hash" \
               BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY="$signing_key" \

@@ -1,20 +1,20 @@
 const {
-  buildOperatorSessionCookie,
   createOperatorToken,
   getConfiguredDigest,
   getOperatorTokenSigningKey,
   verifyPasscode,
 } = require('../_lib/operator-auth');
+const {
+  PasscodeRateLimitUnavailableError,
+  callerKeyForRequest,
+  createPasscodeRateLimiter,
+  getPasscodeRateLimitConfig,
+} = require('../_lib/passcode-rate-limit');
 
-const DEFAULT_MAX_ATTEMPTS = 5;
-const DEFAULT_WINDOW_MS = 5 * 60 * 1000;
-const failuresByCaller = new Map();
+let limiterOverrideForTests = null;
 
-module.exports = async function (context, req) {
+module.exports = async function validatePasscode(context, req) {
   const passcode = typeof req.body?.passcode === 'string' ? req.body.passcode : '';
-  const callerKey = getCallerKey(req);
-  const maxAttempts = getPositiveInt(process.env.BLUE_SWALLOW_PASSCODE_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS);
-  const windowMs = getPositiveInt(process.env.BLUE_SWALLOW_PASSCODE_WINDOW_MS, DEFAULT_WINDOW_MS);
 
   if (!getConfiguredDigest()) {
     context.log?.error?.('Passcode validation is not configured. Set BLUE_SWALLOW_PASSCODE_SHA256.');
@@ -34,33 +34,49 @@ module.exports = async function (context, req) {
     return;
   }
 
-  pruneFailures(windowMs);
-  if (isRateLimited(callerKey, maxAttempts, windowMs)) {
-    context.res = jsonResponse(429, {
+  const callerKey = callerKeyForRequest(req);
+  const limiter = limiterOverrideForTests || createPasscodeRateLimiter();
+  const config = getPasscodeRateLimitConfig();
+  try {
+    const rateStatus = await limiter.check(callerKey, config);
+    if (rateStatus.limited) {
+      context.res = jsonResponse(429, {
+        ok: false,
+        message: 'Too many failed attempts.',
+      }, {
+        'Retry-After': String(rateStatus.retryAfterSeconds),
+      });
+      return;
+    }
+
+    if (verifyPasscode(passcode)) {
+      await limiter.reset(callerKey);
+      const session = createOperatorToken();
+      context.res = jsonResponse(200, {
+        ok: true,
+        operatorSession: session,
+      });
+      return;
+    }
+
+    await limiter.recordFailure(callerKey, config);
+    context?.log?.warn?.('Passcode verification failed.', {
+      callerKeyPrefix: callerKey.slice(0, 16),
+      rateLimitWindowMs: config.windowMs,
+    });
+    context.res = jsonResponse(401, {
       ok: false,
-      message: 'Too many failed attempts.',
+      message: 'Invalid passcode.',
     });
-    return;
-  }
-
-  const ok = verifyPasscode(passcode);
-  if (ok) {
-    failuresByCaller.delete(callerKey);
-    const session = createOperatorToken();
-    context.res = jsonResponse(200, {
-      ok: true,
-      operatorSession: session,
-    }, {
-      'Set-Cookie': buildOperatorSessionCookie(session),
+  } catch (error) {
+    if (!(error instanceof PasscodeRateLimitUnavailableError)) {
+      context.log?.error?.('Passcode rate-limit operation failed.');
+    }
+    context.res = jsonResponse(503, {
+      ok: false,
+      message: 'Passcode validation is temporarily unavailable.',
     });
-    return;
   }
-
-  recordFailure(callerKey);
-  context.res = jsonResponse(401, {
-    ok: false,
-    message: 'Invalid passcode.',
-  });
 };
 
 function jsonResponse(status, body, headers = {}) {
@@ -75,86 +91,10 @@ function jsonResponse(status, body, headers = {}) {
   };
 }
 
-function getCallerKey(req) {
-  const forwardedFor = toHeader(req, 'x-forwarded-for');
-  const clientIp = forwardedFor.split(',')[0]?.trim();
-  return clientIp || toHeader(req, 'x-client-ip') || 'unknown';
-}
-
-function toHeader(req, name) {
-  const headers = req?.headers || {};
-  const lowerName = name.toLowerCase();
-
-  if (typeof headers.get === 'function') {
-    return headerValueToString(headers.get(name) ?? headers.get(lowerName));
-  }
-
-  const direct = headers[name] ?? headers[lowerName] ?? headers[name.toUpperCase()];
-  if (direct !== undefined) {
-    return headerValueToString(direct);
-  }
-
-  for (const [key, value] of Object.entries(headers)) {
-    if (String(key).toLowerCase() === lowerName) {
-      return headerValueToString(value);
-    }
-  }
-  return '';
-}
-
-function headerValueToString(value) {
-  if (Array.isArray(value)) {
-    return headerValueToString(value[0]);
-  }
-  if (value === null || value === undefined) {
-    return '';
-  }
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
-  }
-  if (typeof value.value === 'string') {
-    return value.value;
-  }
-  if (typeof value.toString === 'function' && value.toString !== Object.prototype.toString) {
-    return value.toString();
-  }
-  return '';
-}
-
-function getPositiveInt(value, fallback) {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function recordFailure(callerKey) {
-  const now = Date.now();
-  const entry = failuresByCaller.get(callerKey) || { count: 0, firstFailureAt: now, lastFailureAt: now };
-  entry.count += 1;
-  entry.lastFailureAt = now;
-  failuresByCaller.set(callerKey, entry);
-}
-
-function isRateLimited(callerKey, maxAttempts, windowMs) {
-  const entry = failuresByCaller.get(callerKey);
-  if (!entry) return false;
-  if (Date.now() - entry.firstFailureAt > windowMs) {
-    failuresByCaller.delete(callerKey);
-    return false;
-  }
-  return entry.count >= maxAttempts;
-}
-
-function pruneFailures(windowMs) {
-  const now = Date.now();
-  for (const [callerKey, entry] of failuresByCaller.entries()) {
-    if (now - entry.firstFailureAt > windowMs) {
-      failuresByCaller.delete(callerKey);
-    }
-  }
-}
-
-module.exports._resetRateLimitForTests = () => failuresByCaller.clear();
+module.exports._setRateLimiterForTests = (limiter) => {
+  limiterOverrideForTests = limiter || null;
+};
+module.exports._resetRateLimitForTests = () => {
+  limiterOverrideForTests = null;
+};
 module.exports._internals = { verifyPasscode, getConfiguredDigest };
