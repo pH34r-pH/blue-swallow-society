@@ -270,8 +270,8 @@
     "semantic_hash": ""
   },
   "infra/scripts/install-cybermap-api.sh": {
-    "mtime": 1785258075.4225805,
-    "ast_hash": "a400bfce9fce683ecb4e25a4dead2c21",
+    "mtime": 1785258912.7902315,
+    "ast_hash": "9cb6c9e3a7ce9c5b9979e75c69ab5254",
     "semantic_hash": ""
   },
   "local-server.js": {
@@ -1410,8 +1410,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/mtls-installer-contract.test.mjs": {
-    "mtime": 1785258097.2430952,
-    "ast_hash": "0f6282e8e3326ed3b18dd40c80f6dddf",
+    "mtime": 1785258894.6058059,
+    "ast_hash": "69892900b74e35fe464bae2b711ddb52",
     "semantic_hash": ""
   },
   "specs/014-wardriver-mtls-direct-api/plan.md": {
@@ -1650,8 +1650,8 @@
     "semantic_hash": ""
   },
   "specs/016-wardriver-mtls-proxy-secret/tasks.md": {
-    "mtime": 1785257568.402535,
-    "ast_hash": "9fd9c159020de963b0a73f877759bb0f",
+    "mtime": 1785258311.832146,
+    "ast_hash": "3565d74077de2a27f15ec50db0662fb0",
     "semantic_hash": ""
   },
   "specs/016-wardriver-mtls-proxy-secret/tests.md": {
