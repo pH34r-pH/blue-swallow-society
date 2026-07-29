@@ -12,6 +12,7 @@ export class MemoryObservationStore {
   #credentials;
   #batches = new Map();
   #observations = new Map();
+  #legacyObservationIdentities = new Map();
   #paperStateUpdates = new Map();
   #paperState = null;
   #globalCells;
@@ -28,6 +29,7 @@ export class MemoryObservationStore {
     globalCells = [],
     globalSources = [],
     deflockSources = [],
+    legacyObservationIdentities = [],
     now = () => new Date(),
     randomUuid = randomUUID,
   } = {}) {
@@ -47,6 +49,10 @@ export class MemoryObservationStore {
       const normalized = normalizeDeflockSource(source);
       return [normalized.source_id, normalized];
     }));
+    this.#legacyObservationIdentities = new Map(legacyObservationIdentities.map((identity) => [
+      `${identity.source_id}\u0000${identity.external_observation_key}`,
+      Object.freeze({ contentHash: identity.content_hash ?? null }),
+    ]));
     this.#now = now;
     this.#randomUuid = randomUuid;
   }
@@ -99,7 +105,14 @@ export class MemoryObservationStore {
     const pending = [];
     let duplicateCount = 0;
     for (const observation of batch.observations) {
-      const identity = `${credential.source_id}\u0000${observation.external_observation_key}`;
+      const legacyIdentity = `${credential.source_id}\u0000${observation.external_observation_key}`;
+      if (this.#legacyObservationIdentities.has(legacyIdentity)) {
+        throw new IngestError('observation_identity_unscoped', 'Observation identity ownership is not provable.', {
+          statusCode: 409,
+          publicCode: 'observation_key_reused',
+        });
+      }
+      const identity = `${credential.source_id}\u0000${credential.device_id}\u0000${observation.external_observation_key}`;
       const contentHash = hashPersistedObservation(batch, observation);
       const existing = this.#observations.get(identity);
       if (existing) {
@@ -108,7 +121,16 @@ export class MemoryObservationStore {
         }
         duplicateCount += 1;
       } else {
-        pending.push({ identity, contentHash, observation });
+        pending.push({
+          identity,
+          observationId: hashCanonicalJson({
+            source_id: credential.source_id,
+            producer_device_id: credential.device_id,
+            external_observation_key: observation.external_observation_key,
+          }),
+          contentHash,
+          observation,
+        });
       }
     }
 
@@ -127,9 +149,11 @@ export class MemoryObservationStore {
 
     for (const entry of pending) {
       this.#observations.set(entry.identity, {
+        observationId: entry.observationId,
         contentHash: entry.contentHash,
         observation: structuredClone(entry.observation),
         sourceId: credential.source_id,
+        producerDeviceId: credential.device_id,
         sourceClass: credential.source_class,
         batchId: receipt.server_batch_id,
       });
@@ -449,7 +473,7 @@ function toAccessPoint(entry, center) {
   const lon = observation.location.longitude;
   const lastSeen = observation.observed_at;
   return {
-    id: observation.external_observation_key,
+    id: entry.observationId,
     kind: observation.kind,
     ssid: stringOrNull(payload.ssid ?? payload.ssid_hmac) || 'hashed Wi-Fi AP',
     bssid: stringOrNull(payload.bssid ?? payload.bssid_hmac),

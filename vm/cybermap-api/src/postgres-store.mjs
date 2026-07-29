@@ -9,6 +9,7 @@ const REQUIRED_MIGRATIONS = Object.freeze([
   '0003_paper_state',
   '0004_godeye_global_cells_and_sources',
   '0004_morning_brief_archive',
+  '0005_device_scoped_observation_identity',
 ]);
 const GLOBAL_SOURCE_CLASSES = Object.freeze(['green_public', 'green_owned', 'green_authorized']);
 const GREEN_TILE_SOURCE_CLASSES = Object.freeze(['green_public', 'green_owned', 'green_authorized']);
@@ -178,18 +179,40 @@ export class PostgresObservationStore {
         .map((observation) => observation.external_observation_key)
         .sort();
       await client.query(
-        `SELECT pg_advisory_xact_lock(hashtextextended($1 || ':' || observation_key, 1))
-         FROM unnest($2::text[]) AS observation_key
+        `SELECT pg_advisory_xact_lock(hashtextextended($1 || ':' || $2 || ':' || observation_key, 1))
+         FROM unnest($3::text[]) AS observation_key
          ORDER BY observation_key`,
-        [credential.source_id, sortedKeys],
+        [credential.source_id, credential.device_id, sortedKeys],
       );
 
       const existingObservations = await client.query(
-        `SELECT external_observation_key, content_hash
+        `SELECT external_observation_key, producer_device_id, content_hash
          FROM observations
-         WHERE source_id = $1 AND external_observation_key = ANY($2::text[])`,
+         WHERE source_id = $1
+           AND producer_device_id = $2
+           AND external_observation_key = ANY($3::text[])`,
+        [credential.source_id, credential.device_id, sortedKeys],
+      );
+      if (existingObservations.rows.some((row) => typeof row.content_hash !== 'string' || !/^[a-f0-9]{64}$/i.test(row.content_hash))) {
+        throw new IngestError('observation_identity_unscoped', 'Observation identity ownership is not provable.', {
+          statusCode: 409,
+          publicCode: 'observation_key_reused',
+        });
+      }
+      const unscopedLegacyObservations = await client.query(
+        `SELECT external_observation_key
+         FROM observations
+         WHERE source_id = $1
+           AND producer_device_id IS NULL
+           AND external_observation_key = ANY($2::text[])`,
         [credential.source_id, sortedKeys],
       );
+      if (unscopedLegacyObservations.rows.length > 0) {
+        throw new IngestError('observation_identity_unscoped', 'Observation identity ownership is not provable.', {
+          statusCode: 409,
+          publicCode: 'observation_key_reused',
+        });
+      }
       const existingByKey = new Map(
         existingObservations.rows.map((row) => [row.external_observation_key, row.content_hash]),
       );
@@ -229,6 +252,7 @@ export class PostgresObservationStore {
           JSON.stringify({
             authenticated_device_id: batch.device_id,
             credential_id: credential.credential_id,
+            observation_identity_scope: 'source_device_external_observation_key.v1',
           }),
         ],
       );
@@ -852,7 +876,7 @@ function rowToAccessPoint(row) {
   const provenance = parseJsonObject(row.provenance || {});
   const lastSeen = toIsoString(row.observed_at);
   return {
-    id: row.external_observation_key || row.id,
+    id: row.id || row.external_observation_key,
     kind: row.kind,
     ssid: stringOrNull(payload.ssid ?? payload.ssid_hmac) || 'hashed Wi-Fi AP',
     bssid: stringOrNull(payload.bssid ?? payload.bssid_hmac),
@@ -1031,19 +1055,19 @@ async function insertObservations(client, { credential, batch, batchId, entries 
 
   await client.query(
     `INSERT INTO observations (
-       source_id, source_class, session_id, sync_batch_id,
+       source_id, source_class, producer_device_id, session_id, sync_batch_id,
        external_observation_key, content_hash, idempotency_key,
        kind, observed_at, geom, h3_7, h3_9, h3_11,
        confidence, pii_status, retention_class, payload, provenance
      )
      SELECT
-       $1, $2::source_class, $3, $4,
+       $1, $2::source_class, $3, $4, $5,
        row.external_observation_key, row.content_hash, row.external_observation_key,
        row.kind::observation_kind, row.observed_at,
        ST_SetSRID(ST_MakePoint(row.longitude, row.latitude), 4326),
        row.h3_7, row.h3_9, row.h3_11,
-       row.confidence, $6, $7::cyber_retention_class, row.payload, row.provenance
-     FROM jsonb_to_recordset($5::jsonb) AS row(
+       row.confidence, $7, $8::cyber_retention_class, row.payload, row.provenance
+     FROM jsonb_to_recordset($6::jsonb) AS row(
        external_observation_key text,
        content_hash text,
        kind text,
@@ -1060,6 +1084,7 @@ async function insertObservations(client, { credential, batch, batchId, entries 
     [
       credential.source_id,
       credential.source_class,
+      credential.device_id,
       batch.session_id,
       batchId,
       JSON.stringify(rows),

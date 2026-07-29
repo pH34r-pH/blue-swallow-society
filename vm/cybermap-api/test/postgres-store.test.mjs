@@ -87,7 +87,8 @@ test('Postgres applyBatch serializes identity locks, derives spatial cells, and 
       },
     },
     { sql: /pg_advisory_xact_lock/i },
-    { sql: /FROM observations[\s\S]*external_observation_key = ANY/i, rows: [] },
+    { sql: /FROM observations[\s\S]*producer_device_id = \$2[\s\S]*external_observation_key = ANY/i, rows: [] },
+    { sql: /FROM observations[\s\S]*producer_device_id IS NULL[\s\S]*external_observation_key = ANY/i, rows: [] },
     {
       sql: /INSERT INTO sync_batches/i,
       rows: [{ id: batchId }],
@@ -107,8 +108,8 @@ test('Postgres applyBatch serializes identity locks, derives spatial cells, and 
         assert.match(sql, /jsonb_to_recordset/i);
         assert.equal(values[0], credentialRow.source_id);
         assert.equal(values[1], 'owned_device');
-        assert.equal(values[3], batchId);
-        const rows = JSON.parse(values[4]);
+        assert.equal(values[4], batchId);
+        const rows = JSON.parse(values[5]);
         assert.equal(rows.length, 1);
         assert.equal(rows[0].external_observation_key, batch.observations[0].external_observation_key);
         assert.match(rows[0].content_hash, /^[a-f0-9]{64}$/);
@@ -275,6 +276,75 @@ test('Postgres applyBatch validates durable replay receipts before returning the
   await assert.rejects(
     new PostgresObservationStore({ pool }).applyBatch({ credential: credentialRow, batch }),
     (error) => error.code === 'storage_contract_rejected' && error.statusCode === 422,
+  );
+});
+
+test('Postgres applyBatch scopes observation locking, lookup, and insertion to the authenticated device', async () => {
+  const batch = validBatch();
+  const batchId = '30000000-0000-4000-8000-000000000001';
+  const pool = new FakePool({ clientSteps: [
+    { sql: /^BEGIN$/i },
+    { sql: /SET LOCAL lock_timeout/i },
+    { sql: /FROM device_ingest_credentials[\s\S]*FOR NO KEY UPDATE/i, rows: [{ credential_id: credentialRow.credential_id }] },
+    { sql: /pg_try_advisory_xact_lock/i, rows: [{ locked: true }] },
+    { sql: /FROM sync_batches[\s\S]*FOR UPDATE/i, rows: [] },
+    {
+      sql: /pg_advisory_xact_lock[\s\S]*hashtextextended\(\$1 \|\| ':' \|\| \$2/i,
+      check(values) {
+        assert.deepEqual(values, [credentialRow.source_id, DEVICE_ID, [batch.observations[0].external_observation_key]]);
+      },
+    },
+    {
+      sql: /FROM observations[\s\S]*producer_device_id = \$2[\s\S]*external_observation_key = ANY/i,
+      rows: [],
+      check(values) {
+        assert.deepEqual(values, [credentialRow.source_id, DEVICE_ID, [batch.observations[0].external_observation_key]]);
+      },
+    },
+    {
+      sql: /FROM observations[\s\S]*producer_device_id IS NULL[\s\S]*external_observation_key = ANY/i,
+      rows: [],
+      check(values) {
+        assert.deepEqual(values, [credentialRow.source_id, [batch.observations[0].external_observation_key]]);
+      },
+    },
+    { sql: /INSERT INTO sync_batches/i, rows: [{ id: batchId }] },
+    {
+      sql: /INSERT INTO observations[\s\S]*producer_device_id/i,
+      check(values) {
+        assert.equal(values[2], DEVICE_ID);
+      },
+    },
+    { sql: /SELECT clock_timestamp\(\) AS server_clock/i, rows: [{ server_clock: new Date('2026-07-29T18:43:00.000Z') }] },
+    { sql: /UPDATE sync_batches[\s\S]*receipt =/i },
+    { sql: /UPDATE device_ingest_credentials[\s\S]*last_used_at/i },
+    { sql: /^COMMIT$/i },
+  ] });
+
+  const result = await new PostgresObservationStore({ pool }).applyBatch({ credential: credentialRow, batch });
+  assert.equal(result.statusCode, 201);
+  assert.equal(pool.client.unconsumedSteps, 0);
+});
+
+test('Postgres applyBatch fails closed when a scoped legacy identity lacks a content hash', async () => {
+  const batch = validBatch();
+  const pool = new FakePool({ clientSteps: [
+    { sql: /^BEGIN$/i },
+    { sql: /SET LOCAL lock_timeout/i },
+    { sql: /FROM device_ingest_credentials[\s\S]*FOR NO KEY UPDATE/i, rows: [{ credential_id: credentialRow.credential_id }] },
+    { sql: /pg_try_advisory_xact_lock/i, rows: [{ locked: true }] },
+    { sql: /FROM sync_batches[\s\S]*FOR UPDATE/i, rows: [] },
+    { sql: /pg_advisory_xact_lock/i },
+    {
+      sql: /FROM observations[\s\S]*producer_device_id = \$2[\s\S]*external_observation_key = ANY/i,
+      rows: [{ external_observation_key: batch.observations[0].external_observation_key, content_hash: null }],
+    },
+    { sql: /^ROLLBACK$/i },
+  ] });
+
+  await assert.rejects(
+    new PostgresObservationStore({ pool }).applyBatch({ credential: credentialRow, batch }),
+    (error) => error.code === 'observation_identity_unscoped' && error.publicCode === 'observation_key_reused' && error.statusCode === 409,
   );
 });
 

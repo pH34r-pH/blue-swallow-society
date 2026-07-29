@@ -1084,7 +1084,7 @@ function sendError(response, error) {
     return;
   }
   if (error instanceof ContractError || error instanceof GlobalViewportContractError || error instanceof IngestError) {
-    const body = { ok: false, error: error.code };
+    const body = { ok: false, error: error.publicCode ?? error.code };
     if (error instanceof ContractError && error.path) body.path = error.path;
     return sendJson(response, error.statusCode, body, error.statusCode === 413 ? { Connection: 'close' } : {});
   }
