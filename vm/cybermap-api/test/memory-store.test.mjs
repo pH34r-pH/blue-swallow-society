@@ -202,6 +202,74 @@ test('observation idempotency includes persisted batch semantics', async () => {
   );
 });
 
+test('device-scoped observation identities accept the same Wardriver key from another enrolled device', async () => {
+  const secondaryDeviceId = 'wardriver-secondary-device';
+  const secondaryToken = `${INGEST_TOKEN}:secondary`;
+  const store = new MemoryObservationStore({
+    credentials: [
+      {
+        device_id: DEVICE_ID,
+        source_id: 'source-owned-device-1',
+        source_class: 'owned_device',
+        token_sha256: hashToken(INGEST_TOKEN),
+        scopes: ['observations:write'],
+        enabled: true,
+      },
+      {
+        device_id: secondaryDeviceId,
+        source_id: 'source-owned-device-1',
+        source_class: 'owned_device',
+        token_sha256: hashToken(secondaryToken),
+        scopes: ['observations:write'],
+        enabled: true,
+      },
+    ],
+    now: () => new Date('2026-07-29T18:43:00.000Z'),
+  });
+  const primary = await store.authenticate({ deviceId: DEVICE_ID, token: INGEST_TOKEN, requiredScope: 'observations:write' });
+  const secondary = await store.authenticate({ deviceId: secondaryDeviceId, token: secondaryToken, requiredScope: 'observations:write' });
+
+  await store.applyBatch({ credential: primary, batch: validBatch() });
+  const second = await store.applyBatch({
+    credential: secondary,
+    batch: validBatch({
+      device_id: secondaryDeviceId,
+      idempotency_key: 'batch-00000000-0000-4000-8000-000000000002',
+    }),
+  });
+
+  assert.equal(second.statusCode, 201);
+  assert.equal(second.receipt.accepted_count, 1);
+  assert.equal(second.receipt.duplicate_count, 0);
+  assert.equal(store.observationCount(), 2);
+});
+
+test('an unscoped legacy observation identity fails closed without a durable receipt', async () => {
+  const store = new MemoryObservationStore({
+    credentials: [{
+      device_id: DEVICE_ID,
+      source_id: 'source-owned-device-1',
+      source_class: 'owned_device',
+      token_sha256: hashToken(INGEST_TOKEN),
+      scopes: ['observations:write'],
+      enabled: true,
+    }],
+    legacyObservationIdentities: [{
+      source_id: 'source-owned-device-1',
+      external_observation_key: 'scan-42:wifi:1',
+      content_hash: 'a'.repeat(64),
+    }],
+  });
+  const credential = await store.authenticate({ deviceId: DEVICE_ID, token: INGEST_TOKEN, requiredScope: 'observations:write' });
+
+  await assert.rejects(
+    store.applyBatch({ credential, batch: validBatch() }),
+    (error) => error.code === 'observation_identity_unscoped' && error.statusCode === 409,
+  );
+  assert.equal(store.observationCount(), 0);
+  assert.equal(store.batchCount(), 0);
+});
+
 test('paper snapshots replay only exact key/payload pairs and reject older or equal-time changed state', async () => {
   const store = createStore();
   const firstState = {

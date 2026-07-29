@@ -361,6 +361,32 @@ test('returns conflict for changed payload under the same batch or observation k
   });
 });
 
+test('returns conflict for unscoped legacy identities without exposing reconciliation diagnostics', async () => {
+  const store = new MemoryObservationStore({
+    credentials: [{
+      device_id: DEVICE_ID,
+      source_id: 'source-owned-device-1',
+      source_class: 'owned_device',
+      token_sha256: hashToken(INGEST_TOKEN),
+      scopes: ['observations:write'],
+      enabled: true,
+    }],
+    legacyObservationIdentities: [{
+      source_id: 'source-owned-device-1',
+      external_observation_key: 'scan-42:wifi:1',
+    }],
+  });
+  const server = createCybermapApiServer({ store });
+  await withServer(server, async (baseUrl) => {
+    const batch = validBatch();
+    const response = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST', headers: ingestHeaders(batch), body: JSON.stringify(batch),
+    });
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), { ok: false, error: 'observation_key_reused' });
+  });
+});
+
 test('rejects unsupported content types and oversized bodies while accepting passive observation payloads', async () => {
   const { server } = makeServer();
   await withServer(server, async (baseUrl) => {

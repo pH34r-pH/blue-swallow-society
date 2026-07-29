@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
@@ -174,6 +174,9 @@ test('passively observed RF identifiers and management-frame metadata have an ex
 test('migration docs define the lightweight ordered SQL runner contract', () => {
   assert.match(dbReadme, /psql/i);
   assert.match(dbReadme, /0001_cybermap_core\.sql/);
+  assert.match(dbReadme, /-f\s+vm\/cybermap-api\/db\/migrations\/0004_godeye_global_cells_and_sources\.sql/);
+  assert.match(dbReadme, /-f\s+vm\/cybermap-api\/db\/migrations\/0004_morning_brief_archive\.sql/);
+  assert.match(dbReadme, /-f\s+vm\/cybermap-api\/db\/migrations\/0005_device_scoped_observation_identity\.sql/);
   assert.match(dbReadme, /public_greenfeed\s*->\s*green_public/);
   assert.match(dbReadme, /PostGIS/i);
 });
@@ -224,6 +227,21 @@ test('device ingest migration links observations to batches and persists stable 
   assert.match(ingestMigrationLower, /create\s+trigger\s+sync_batches_finalized_update_guard/);
   assert.match(ingestMigrationLower, /finalized sync batches are immutable/);
   assert.match(ingestMigrationLower, /insert\s+into\s+schema_migrations\s*\(version\)\s*values\s*\('0002_device_ingest_contract'\)/);
+});
+
+test('device-scoped observation identity migration replaces source-only constraints without guessing legacy ownership', () => {
+  const migrationPath = new URL('../vm/cybermap-api/db/migrations/0005_device_scoped_observation_identity.sql', import.meta.url);
+  assert.equal(existsSync(migrationPath), true, 'device-scoped reconciliation migration must exist');
+  const scopedMigration = readFileSync(migrationPath, 'utf8').toLowerCase();
+  assert.match(scopedMigration, /add\s+column\s+producer_device_id\s+text/);
+  assert.match(scopedMigration, /set\s+producer_device_id\s*=\s*batch\.client_id[\s\S]*sync_batches/i);
+  assert.match(scopedMigration, /observation\.content_hash\s+is\s+not\s+null/i);
+  assert.match(scopedMigration, /drop\s+constraint\s+observations_source_id_external_observation_key_key/i);
+  assert.match(scopedMigration, /drop\s+constraint\s+observations_source_id_idempotency_key_key/i);
+  assert.match(scopedMigration, /unique\s*\(\s*source_id\s*,\s*producer_device_id\s*,\s*external_observation_key\s*\)/i);
+  assert.match(scopedMigration, /unique\s*\(\s*source_id\s*,\s*producer_device_id\s*,\s*idempotency_key\s*\)/i);
+  assert.match(scopedMigration, /insert\s+into\s+schema_migrations\s*\(version\)\s*values\s*\('0005_device_scoped_observation_identity'\)/i);
+  assert.match(installCybermapApi, /run_migration 0005_device_scoped_observation_identity db\/migrations\/0005_device_scoped_observation_identity\.sql/);
 });
 
 test('paper-state migration stores idempotent canonical snapshots and one current pointer', () => {

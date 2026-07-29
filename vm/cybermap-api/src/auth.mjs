@@ -1,10 +1,11 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 export class IngestError extends Error {
-  constructor(code, message = code, { statusCode = 400 } = {}) {
+  constructor(code, message = code, { statusCode = 400, publicCode = code } = {}) {
     super(message);
     this.name = 'IngestError';
     this.code = code;
+    this.publicCode = publicCode;
     this.statusCode = statusCode;
   }
 }
