@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { PostgresObservationStore } from '../src/postgres-store.mjs';
 import { hashToken } from '../src/auth.mjs';
-import { DEVICE_ID, INGEST_TOKEN, validBatch } from './helpers.mjs';
+import { DEVICE_ID, INGEST_TOKEN, validBatch, validObservation, validWardriverV2Batch } from './helpers.mjs';
 import { hashCanonicalJson, hashPersistedObservation } from '../src/contracts.mjs';
 
 class ScriptedClient {
@@ -151,6 +151,56 @@ test('Postgres applyBatch serializes identity locks, derives spatial cells, and 
   assert.equal(pool.client.unconsumedSteps, 0);
 });
 
+test('Postgres v2 preserves changed same-device content as a receipt-bound no-op', async () => {
+  const original = validWardriverV2Batch();
+  const batch = validWardriverV2Batch({
+    idempotency_key: 'batch-00000000-0000-4000-8000-000000000043',
+    observations: [validObservation({ external_observation_key: 'wardriver-observation:42', confidence: 0.2 })],
+  });
+  const originalHash = hashPersistedObservation(original, original.observations[0]);
+  const batchId = '30000000-0000-4000-8000-000000000043';
+  const pool = new FakePool({ clientSteps: [
+    { sql: /^BEGIN$/i },
+    { sql: /SET LOCAL lock_timeout/i },
+    { sql: /FROM device_ingest_credentials[\s\S]*FOR NO KEY UPDATE/i, rows: [{ credential_id: credentialRow.credential_id }] },
+    { sql: /pg_try_advisory_xact_lock/i, rows: [{ locked: true }] },
+    { sql: /FROM sync_batches[\s\S]*FOR UPDATE/i, rows: [] },
+    { sql: /pg_advisory_xact_lock/i },
+    {
+      sql: /FROM observations[\s\S]*producer_device_id = \$2[\s\S]*external_observation_key = ANY/i,
+      rows: [{ external_observation_key: 'wardriver-observation:42', producer_device_id: DEVICE_ID, content_hash: originalHash }],
+    },
+    { sql: /FROM observation_identity_scopes AS scope[\s\S]*JOIN observations/i, rows: [] },
+    { sql: /FROM observations AS observation[\s\S]*NOT EXISTS/i, rows: [] },
+    { sql: /INSERT INTO sync_batches/i, rows: [{ id: batchId }] },
+    { sql: /SELECT clock_timestamp\(\) AS server_clock/i, rows: [{ server_clock: new Date('2026-07-11T18:43:00.000Z') }] },
+    {
+      sql: /UPDATE sync_batches[\s\S]*preserved_conflict_count = \$7/i,
+      check(values) {
+        const receipt = JSON.parse(values[5]);
+        assert.equal(values[6], 1);
+        assert.equal(receipt.schema_version, 'bss.sync_receipt.v2');
+        assert.equal(receipt.accepted_count, 0);
+        assert.equal(receipt.duplicate_count, 0);
+        assert.equal(receipt.preserved_conflict_count, 1);
+        assert.deepEqual(receipt.progress, {
+          schema_version: 'bss.wardriver_progress.v1',
+          acknowledged_through: '42',
+        });
+      },
+    },
+    { sql: /UPDATE device_ingest_credentials[\s\S]*last_used_at/i },
+    { sql: /^COMMIT$/i },
+  ] });
+
+  const result = await new PostgresObservationStore({ pool }).applyBatch({ credential: credentialRow, batch });
+
+  assert.equal(result.statusCode, 201);
+  assert.equal(result.receipt.preserved_conflict_count, 1);
+  assert.equal(pool.client.released, true);
+  assert.equal(pool.client.unconsumedSteps, 0);
+});
+
 test('Postgres applyBatch rechecks credential state inside the write transaction', async () => {
   const pool = new FakePool({ clientSteps: [
     { sql: /^BEGIN$/i },
@@ -221,6 +271,69 @@ test('Postgres applyBatch returns the stored receipt for exact replay and reject
   await assert.rejects(
     new PostgresObservationStore({ pool: conflictPool }).applyBatch({ credential: credentialRow, batch }),
     (error) => error.code === 'idempotency_key_reused' && error.statusCode === 409,
+  );
+});
+
+test('Postgres v2 replay accepts only the stored server-derived acknowledgement', async () => {
+  const batch = validWardriverV2Batch();
+  const payloadHash = hashCanonicalJson(batch);
+  const receipt = {
+    schema_version: 'bss.sync_receipt.v2',
+    server_batch_id: '30000000-0000-4000-8000-000000000042',
+    idempotency_key: batch.idempotency_key,
+    status: 'applied',
+    accepted_count: 1,
+    rejected_count: 0,
+    duplicate_count: 0,
+    preserved_conflict_count: 0,
+    progress: {
+      schema_version: 'bss.wardriver_progress.v1',
+      acknowledged_through: '42',
+    },
+    validation_errors: [],
+    server_clock: '2026-07-11T18:43:00.000Z',
+  };
+  const replayPool = new FakePool({ clientSteps: [
+    { sql: /^BEGIN$/i },
+    { sql: /SET LOCAL lock_timeout/i },
+    { sql: /FROM device_ingest_credentials[\s\S]*FOR NO KEY UPDATE/i, rows: [{ credential_id: credentialRow.credential_id }] },
+    { sql: /pg_try_advisory_xact_lock/i, rows: [{ locked: true }] },
+    { sql: /FROM sync_batches[\s\S]*FOR UPDATE/i, rows: [{ payload_hash: payloadHash, receipt }] },
+    { sql: /UPDATE device_ingest_credentials[\s\S]*last_used_at/i },
+    { sql: /^COMMIT$/i },
+  ] });
+  const replay = await new PostgresObservationStore({ pool: replayPool }).applyBatch({ credential: credentialRow, batch });
+  assert.equal(replay.statusCode, 200);
+  assert.deepEqual(replay.receipt, receipt);
+
+  const malformedReceipt = structuredClone(receipt);
+  malformedReceipt.progress.acknowledged_through = '43';
+  const malformedPool = new FakePool({ clientSteps: [
+    { sql: /^BEGIN$/i },
+    { sql: /SET LOCAL lock_timeout/i },
+    { sql: /FROM device_ingest_credentials[\s\S]*FOR NO KEY UPDATE/i, rows: [{ credential_id: credentialRow.credential_id }] },
+    { sql: /pg_try_advisory_xact_lock/i, rows: [{ locked: true }] },
+    { sql: /FROM sync_batches[\s\S]*FOR UPDATE/i, rows: [{ payload_hash: payloadHash, receipt: malformedReceipt }] },
+    { sql: /^ROLLBACK$/i },
+  ] });
+  await assert.rejects(
+    new PostgresObservationStore({ pool: malformedPool }).applyBatch({ credential: credentialRow, batch }),
+    (error) => error.code === 'storage_contract_rejected' && error.statusCode === 422,
+  );
+
+  const errorReceipt = structuredClone(receipt);
+  errorReceipt.validation_errors = ['invalid'];
+  const errorPool = new FakePool({ clientSteps: [
+    { sql: /^BEGIN$/i },
+    { sql: /SET LOCAL lock_timeout/i },
+    { sql: /FROM device_ingest_credentials[\s\S]*FOR NO KEY UPDATE/i, rows: [{ credential_id: credentialRow.credential_id }] },
+    { sql: /pg_try_advisory_xact_lock/i, rows: [{ locked: true }] },
+    { sql: /FROM sync_batches[\s\S]*FOR UPDATE/i, rows: [{ payload_hash: payloadHash, receipt: errorReceipt }] },
+    { sql: /^ROLLBACK$/i },
+  ] });
+  await assert.rejects(
+    new PostgresObservationStore({ pool: errorPool }).applyBatch({ credential: credentialRow, batch }),
+    (error) => error.code === 'storage_contract_rejected' && error.statusCode === 422,
   );
 });
 

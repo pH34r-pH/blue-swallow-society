@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { forbidden, IngestError, tokenDigestMatches } from './auth.mjs';
-import { hashCanonicalJson, hashPersistedObservation } from './contracts.mjs';
+import { deriveWardriverProgress, hashCanonicalJson, hashPersistedObservation } from './contracts.mjs';
 
 const GLOBAL_SOURCE_CLASSES = Object.freeze(['green_public', 'green_owned', 'green_authorized']);
 const GLOBAL_MAX_CELLS = 1_000;
@@ -115,6 +115,13 @@ export class MemoryObservationStore {
 
     const pending = [];
     let duplicateCount = 0;
+    let preservedConflictCount = 0;
+    const progress = batch.schema_version === 'bss.observation_batch.v2'
+      ? Object.freeze({
+        schema_version: 'bss.wardriver_progress.v1',
+        acknowledged_through: deriveWardriverProgress(batch.observations),
+      })
+      : null;
     for (const observation of batch.observations) {
       const legacyIdentity = `${credential.source_id}\u0000${observation.external_observation_key}`;
       const legacyEntries = this.#legacyObservationIdentities.get(legacyIdentity) ?? [];
@@ -136,6 +143,10 @@ export class MemoryObservationStore {
       }
       if (existingHashes.size === 1) {
         if (existingHashes.values().next().value !== contentHash) {
+          if (progress) {
+            preservedConflictCount += 1;
+            continue;
+          }
           throw new IngestError('observation_key_reused', 'Observation key was reused with changed content.', { statusCode: 409 });
         }
         duplicateCount += 1;
@@ -155,13 +166,17 @@ export class MemoryObservationStore {
 
     const serverClock = this.#now().toISOString();
     const receipt = Object.freeze({
-      schema_version: 'bss.sync_receipt.v1',
+      schema_version: progress ? 'bss.sync_receipt.v2' : 'bss.sync_receipt.v1',
       server_batch_id: this.#randomUuid(),
       idempotency_key: batch.idempotency_key,
       status: 'applied',
       accepted_count: pending.length,
       rejected_count: 0,
       duplicate_count: duplicateCount,
+      ...(progress ? {
+        preserved_conflict_count: preservedConflictCount,
+        progress,
+      } : {}),
       validation_errors: [],
       server_clock: serverClock,
     });

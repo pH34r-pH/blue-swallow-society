@@ -12,8 +12,15 @@ const paperStateMigration = read('vm/cybermap-api/db/migrations/0003_paper_state
 const paperStateMigrationLower = paperStateMigration.toLowerCase();
 const globalSourceMigration = read('vm/cybermap-api/db/migrations/0004_godeye_global_cells_and_sources.sql');
 const globalSourceMigrationLower = globalSourceMigration.toLowerCase();
+const bestEffortProgressMigrationPath = new URL('../vm/cybermap-api/db/migrations/0006_best_effort_observation_progress.sql', import.meta.url);
+const bestEffortProgressMigration = existsSync(bestEffortProgressMigrationPath)
+  ? readFileSync(bestEffortProgressMigrationPath, 'utf8')
+  : '';
+const bestEffortProgressMigrationLower = bestEffortProgressMigration.toLowerCase();
 const dbReadme = read('vm/cybermap-api/db/README.md');
 const installCybermapApi = read('infra/scripts/install-cybermap-api.sh');
+const globalViewportMigrationTest = read('vm/cybermap-api/test/global-viewport-migration.test.mjs');
+const deflockViewportMigrationTest = read('vm/cybermap-api/test/deflock-viewport-migration.test.mjs');
 
 function tableBlock(tableName) {
   const match = migrationLower.match(new RegExp(`create\\s+table\\s+(?:if\\s+not\\s+exists\\s+)?${tableName}\\s*\\((?<body>[\\s\\S]*?)\\n\\);`, 'i'));
@@ -236,17 +243,36 @@ test('device-scoped observation identity migration preserves append-only observa
   assert.match(scopedMigration, /add\s+column\s+producer_device_id\s+text/);
   assert.match(scopedMigration, /add\s+constraint\s+observations_sync_batch_producer_device_required[\s\S]*check\s*\(\s*sync_batch_id\s+is\s+null\s+or\s+producer_device_id\s+is\s+not\s+null\s*\)\s+not\s+valid/i, 'old runtime writes cannot create new unscoped batch observations during migration');
   assert.doesNotMatch(scopedMigration, /\bupdate\s+observations\b/i, 'the evidence ledger is append-only');
-  assert.match(scopedMigration, /create\s+table\s+observation_identity_scopes/i);
-  assert.match(scopedMigration, /insert\s+into\s+observation_identity_scopes[\s\S]*from\s+observations[\s\S]*join\s+sync_batches/i);
-  assert.match(scopedMigration, /content_hash\s+~\s+'\^\[a-f0-9\]\{64\}\$'/i);
-  assert.match(scopedMigration, /create\s+trigger\s+observation_identity_scopes_append_only_update/i);
-  assert.match(scopedMigration, /create\s+trigger\s+observation_identity_scopes_append_only_delete/i);
+  assert.match(scopedMigration, /create\s+table\s+observation_identity_scopes/);
+  assert.match(scopedMigration, /create\s+trigger\s+observation_identity_scopes_append_only_update/);
+  assert.match(scopedMigration, /create\s+trigger\s+observation_identity_scopes_append_only_delete/);
+  assert.match(scopedMigration, /join\s+sync_batches[\s\S]*batch\.status\s*=\s*'applied'/);
+  assert.match(scopedMigration, /observation\.content_hash\s*~\s*'\^\[a-f0-9\]\{64\}\$'/);
   assert.match(scopedMigration, /drop\s+constraint\s+observations_source_id_external_observation_key_key/i);
   assert.match(scopedMigration, /drop\s+constraint\s+observations_source_id_idempotency_key_key/i);
   assert.match(scopedMigration, /unique\s*\(\s*source_id\s*,\s*producer_device_id\s*,\s*external_observation_key\s*\)/i);
   assert.match(scopedMigration, /unique\s*\(\s*source_id\s*,\s*producer_device_id\s*,\s*idempotency_key\s*\)/i);
   assert.match(scopedMigration, /insert\s+into\s+schema_migrations\s*\(version\)\s*values\s*\('0005_device_scoped_observation_identity'\)/i);
   assert.match(installCybermapApi, /run_migration 0005_device_scoped_observation_identity db\/migrations\/0005_device_scoped_observation_identity\.sql/);
+});
+
+test('best-effort progress migration preserves v1 receipts and adds only receipt-bound v2 state', () => {
+  assert.equal(existsSync(bestEffortProgressMigrationPath), true, 'best-effort progress migration must exist');
+  assert.match(bestEffortProgressMigrationLower, /add\s+column\s+preserved_conflict_count\s+integer\s+not\s+null\s+default\s+0/);
+  assert.match(bestEffortProgressMigrationLower, /drop\s+constraint\s+sync_batches_applied_receipt_complete/);
+  assert.match(bestEffortProgressMigrationLower, /bss\.sync_receipt\.v1/);
+  assert.match(bestEffortProgressMigrationLower, /bss\.sync_receipt\.v2/);
+  assert.match(bestEffortProgressMigrationLower, /bss\.wardriver_progress\.v1/);
+  assert.match(bestEffortProgressMigrationLower, /acknowledged_through/);
+  assert.match(bestEffortProgressMigrationLower, /accepted_count\s*\+\s*rejected_count\s*\+\s*duplicate_count\s*\+\s*preserved_conflict_count\s*=\s*observation_count/);
+  assert.match(bestEffortProgressMigrationLower, /\(receipt\s*->>\s*'duplicate_count'\)::integer\s*=\s*duplicate_count/);
+  assert.ok(bestEffortProgressMigrationLower.includes("jsonb_array_length(receipt -> 'validation_errors') = 0"));
+  assert.doesNotMatch(bestEffortProgressMigrationLower, /update\s+observations/);
+  assert.match(bestEffortProgressMigrationLower, /insert\s+into\s+schema_migrations\s*\(version\)\s*values\s*\('0006_best_effort_observation_progress'\)/);
+  assert.match(installCybermapApi, /run_migration 0006_best_effort_observation_progress db\/migrations\/0006_best_effort_observation_progress\.sql/);
+  assert.match(dbReadme, /0006_best_effort_observation_progress\.sql/);
+  assert.match(globalViewportMigrationTest, /0006_best_effort_observation_progress\.sql/);
+  assert.match(deflockViewportMigrationTest, /0006_best_effort_observation_progress\.sql/);
 });
 
 test('paper-state migration stores idempotent canonical snapshots and one current pointer', () => {

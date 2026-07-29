@@ -7,7 +7,7 @@ import {
   hashPersistedObservation,
   validateObservationBatch,
 } from '../src/contracts.mjs';
-import { validBatch, validObservation } from './helpers.mjs';
+import { validBatch, validObservation, validWardriverV2Batch } from './helpers.mjs';
 
 const NOW = Date.parse('2026-07-11T18:43:00.000Z');
 
@@ -21,6 +21,42 @@ test('validates and freezes the canonical Wardriver observation batch contract',
   assert.equal(validated.observations[0].payload.bssid_hmac.startsWith('hmac-sha256:'), true);
   assert.equal(Object.isFrozen(validated), true);
   assert.equal(Object.isFrozen(validated.observations[0]), true);
+});
+
+test('validates v2 Wardriver progress only when it is derived from submitted row keys', () => {
+  const batch = validWardriverV2Batch();
+  const validated = validateObservationBatch(batch, { now: NOW });
+  assert.equal(validated.schema_version, 'bss.observation_batch.v2');
+  assert.deepEqual(validated.progress, {
+    schema_version: 'bss.wardriver_progress.v1',
+    requested_through: '42',
+  });
+
+  assert.throws(
+    () => validateObservationBatch(validWardriverV2Batch({
+      progress: { schema_version: 'bss.wardriver_progress.v1', requested_through: '43' },
+    }), { now: NOW }),
+    (error) => error instanceof ContractError && error.code === 'invalid_progress_cursor',
+  );
+  assert.throws(
+    () => validateObservationBatch(validWardriverV2Batch({
+      observations: [validObservation({ external_observation_key: 'scan-42:wifi:1' })],
+    }), { now: NOW }),
+    (error) => error instanceof ContractError && error.code === 'invalid_progress_key',
+  );
+  assert.throws(
+    () => validateObservationBatch(validWardriverV2Batch({
+      progress: { schema_version: 'bss.wardriver_progress.v1', requested_through: '00042' },
+    }), { now: NOW }),
+    (error) => error instanceof ContractError && error.code === 'invalid_progress_cursor',
+  );
+  assert.throws(
+    () => validateObservationBatch(validWardriverV2Batch({
+      observations: [validObservation({ external_observation_key: 'wardriver-observation:9223372036854775808' })],
+      progress: { schema_version: 'bss.wardriver_progress.v1', requested_through: '42' },
+    }), { now: NOW }),
+    (error) => error instanceof ContractError && error.code === 'invalid_progress_key',
+  );
 });
 
 test('canonical hashing is stable across object key order', () => {

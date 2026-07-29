@@ -10,7 +10,8 @@ This directory contains the first executable Wardriver → VM ingest slice. It r
 - scoped device authentication using `X-Blue-Swallow-Ingest-Token`
 - SHA-256 token digests only in PostgreSQL; raw bearer tokens are never persisted by the API
 - required `X-Blue-Swallow-Device-Id` and `Idempotency-Key` headers
-- strict `bss.observation_batch.v1` validation
+- strict `bss.observation_batch.v1` and `bss.observation_batch.v2` validation
+- v2 server-derived Wardriver progress receipts, exact replay, and immutable first-writer-wins changed-content resolution
 - preservation of passively observed broadcast identifiers and passive management-frame metadata, with explicit `redaction_class`/`retention_class` tags
 - strict timezone-qualified RFC3339 clocks and UUID session IDs; session ownership is bound to the authenticated device
 - 1 MiB request cap, 256-observation batch cap, bounded headers, and HTTP/DB timeouts
@@ -21,17 +22,11 @@ This directory contains the first executable Wardriver → VM ingest slice. It r
 - server-derived PostGIS geometry and H3 resolutions 7, 9, and 11
 - append-only observation inserts linked to source-consistent durable `sync_batches`
 
-## Not yet implemented or promoted
+## Deployment boundary
 
-- Azure VM service installation and GitHub deployment job
-- live managed-PostgreSQL migration execution
-- device enrollment/rotation/revocation operator tooling
-- Android Keystore ownership of the enrolled token and AES-GCM outbox key
-- scanner-database export into `BssVmObservationBatch`
-- WorkManager scheduling/backoff and receipt/status UI
-- a live-device end-to-end field test
+The repository contains an immutable-archive VM installer and ordered migrations. A source checkout, test result, or workflow configuration is **not** deployment evidence. For a particular release, verify the deployed commit provenance, health/readiness, migration receipt, and authenticated device result separately.
 
-The service must not replace the deployed echo process until the managed database migration, enrollment path, VM service hardening, and end-to-end replay test all pass.
+The remaining acceptance boundary is a live-device end-to-end field test: an enrolled Android device must receive a committed durable receipt and prove exact replay behavior.
 
 ## Run tests
 
@@ -85,6 +80,8 @@ INSERT INTO device_ingest_credentials (
 The referenced `source_catalog` row must be enabled and should use `source_class = 'owned_device'`. Rotation creates a new credential, enrolls it, and disables the old credential after cutover. Revocation sets `enabled = false`.
 
 ## Request contract
+
+The endpoint accepts strict V1 and V2 envelopes. V1 preserves changed-content conflict behavior. V2 requires canonical Wardriver row-key progress and returns a durable `bss.sync_receipt.v2` only after commit; changed same-device content is a receipt-bound `preserved_conflict_count` no-op. The example below is V1 compatibility syntax.
 
 Headers:
 
