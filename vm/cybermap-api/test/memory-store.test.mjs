@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 
 import { MemoryObservationStore } from '../src/memory-store.mjs';
 import { hashToken } from '../src/auth.mjs';
+import { hashPersistedObservation } from '../src/contracts.mjs';
 import { validBatch, validObservation, DEVICE_ID, INGEST_TOKEN } from './helpers.mjs';
 
-function createStore() {
+function createStore({ legacyObservationIdentities = [] } = {}) {
   return new MemoryObservationStore({
     credentials: [{
       device_id: DEVICE_ID,
@@ -15,6 +16,7 @@ function createStore() {
       scopes: ['observations:write'],
       enabled: true,
     }],
+    legacyObservationIdentities,
     now: () => new Date('2026-07-11T18:43:00.000Z'),
     randomUuid: (() => {
       let index = 0;
@@ -264,6 +266,67 @@ test('an unscoped legacy observation identity fails closed without a durable rec
 
   await assert.rejects(
     store.applyBatch({ credential, batch: validBatch() }),
+    (error) => error.code === 'observation_identity_unscoped' && error.statusCode === 409,
+  );
+  assert.equal(store.observationCount(), 0);
+  assert.equal(store.batchCount(), 0);
+});
+
+test('a proven same-device legacy scope is a durable duplicate', async () => {
+  const batch = validBatch();
+  const store = createStore({
+    legacyObservationIdentities: [{
+      source_id: 'source-owned-device-1',
+      producer_device_id: DEVICE_ID,
+      external_observation_key: batch.observations[0].external_observation_key,
+      content_hash: hashPersistedObservation(batch, batch.observations[0]),
+    }],
+  });
+  const credential = await store.authenticate({ deviceId: DEVICE_ID, token: INGEST_TOKEN, requiredScope: 'observations:write' });
+
+  const result = await store.applyBatch({ credential, batch });
+
+  assert.equal(result.statusCode, 201);
+  assert.equal(result.receipt.accepted_count, 0);
+  assert.equal(result.receipt.duplicate_count, 1);
+  assert.equal(store.observationCount(), 0);
+  assert.equal(store.batchCount(), 1);
+});
+
+test('a legacy scope for another device does not block this device-local key', async () => {
+  const batch = validBatch();
+  const store = createStore({
+    legacyObservationIdentities: [{
+      source_id: 'source-owned-device-1',
+      producer_device_id: 'wardriver-legacy-device',
+      external_observation_key: batch.observations[0].external_observation_key,
+      content_hash: hashPersistedObservation(batch, batch.observations[0]),
+    }],
+  });
+  const credential = await store.authenticate({ deviceId: DEVICE_ID, token: INGEST_TOKEN, requiredScope: 'observations:write' });
+
+  const result = await store.applyBatch({ credential, batch });
+
+  assert.equal(result.statusCode, 201);
+  assert.equal(result.receipt.accepted_count, 1);
+  assert.equal(result.receipt.duplicate_count, 0);
+  assert.equal(store.observationCount(), 1);
+});
+
+test('a malformed same-device legacy scope fails closed without a receipt', async () => {
+  const batch = validBatch();
+  const store = createStore({
+    legacyObservationIdentities: [{
+      source_id: 'source-owned-device-1',
+      producer_device_id: DEVICE_ID,
+      external_observation_key: batch.observations[0].external_observation_key,
+      content_hash: 'not-a-valid-content-hash',
+    }],
+  });
+  const credential = await store.authenticate({ deviceId: DEVICE_ID, token: INGEST_TOKEN, requiredScope: 'observations:write' });
+
+  await assert.rejects(
+    store.applyBatch({ credential, batch }),
     (error) => error.code === 'observation_identity_unscoped' && error.statusCode === 409,
   );
   assert.equal(store.observationCount(), 0);
