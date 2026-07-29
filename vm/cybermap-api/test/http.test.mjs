@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { createCybermapApiServer, validatePaperState } from '../src/server.mjs';
 import { MemoryObservationStore } from '../src/memory-store.mjs';
 import { hashToken } from '../src/auth.mjs';
+import { hashPersistedObservation } from '../src/contracts.mjs';
 import { DEVICE_ID, INGEST_TOKEN, ingestHeaders, validBatch, validObservation, withServer } from './helpers.mjs';
 
 const PAPER_LINES = ['standard', 'aggressive', 'hyper_aggressive'];
@@ -384,6 +385,75 @@ test('returns conflict for unscoped legacy identities without exposing reconcili
     });
     assert.equal(response.status, 409);
     assert.deepEqual(await response.json(), { ok: false, error: 'observation_key_reused' });
+  });
+});
+
+test('returns a normal durable receipt for an uppercase valid same-device legacy hash', async () => {
+  const batch = validBatch();
+  const store = new MemoryObservationStore({
+    credentials: [{
+      device_id: DEVICE_ID,
+      source_id: 'source-owned-device-1',
+      source_class: 'owned_device',
+      token_sha256: hashToken(INGEST_TOKEN),
+      scopes: ['observations:write'],
+      enabled: true,
+    }],
+    legacyObservationIdentities: [{
+      source_id: 'source-owned-device-1',
+      producer_device_id: DEVICE_ID,
+      external_observation_key: batch.observations[0].external_observation_key,
+      content_hash: hashPersistedObservation(batch, batch.observations[0]).toUpperCase(),
+    }],
+  });
+  const server = createCybermapApiServer({ store });
+  await withServer(server, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST', headers: ingestHeaders(batch), body: JSON.stringify(batch),
+    });
+    assert.equal(response.status, 201);
+    const receipt = await response.json();
+    assert.equal(receipt.schema_version, 'bss.sync_receipt.v1');
+    assert.equal(receipt.idempotency_key, batch.idempotency_key);
+    assert.equal(receipt.status, 'applied');
+    assert.equal(receipt.accepted_count, 0);
+    assert.equal(receipt.duplicate_count, 1);
+    assert.equal(receipt.rejected_count, 0);
+    assert.equal('diagnostic_code' in receipt, false);
+    assert.equal(store.observationCount(), 0);
+  });
+});
+
+test('keeps changed scoped-legacy content behind the generic public conflict', async () => {
+  const original = validBatch();
+  const changed = validBatch({
+    idempotency_key: 'batch-00000000-0000-4000-8000-000000000002',
+    observations: [validObservation({ confidence: 0.3 })],
+  });
+  const store = new MemoryObservationStore({
+    credentials: [{
+      device_id: DEVICE_ID,
+      source_id: 'source-owned-device-1',
+      source_class: 'owned_device',
+      token_sha256: hashToken(INGEST_TOKEN),
+      scopes: ['observations:write'],
+      enabled: true,
+    }],
+    legacyObservationIdentities: [{
+      source_id: 'source-owned-device-1',
+      producer_device_id: DEVICE_ID,
+      external_observation_key: original.observations[0].external_observation_key,
+      content_hash: hashPersistedObservation(original, original.observations[0]),
+    }],
+  });
+  const server = createCybermapApiServer({ store });
+  await withServer(server, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST', headers: ingestHeaders(changed), body: JSON.stringify(changed),
+    });
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), { ok: false, error: 'observation_key_reused' });
+    assert.equal(store.observationCount(), 0);
   });
 });
 

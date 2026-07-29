@@ -14,3 +14,6 @@ implements: specs/017-device-scoped-observation-reconciliation/spec.md
 - [x] T006 Implement matching memory/Postgres identity behavior. Trace: FR-003–FR-005.
 - [x] T007 Preserve device-scoped identities through the viewport/operator merge path and fail closed on missing historical content hashes. Trace: TST-017-07, TST-017-08.
 - [x] T008 Run focused and owning regressions, root contracts, Graphify refresh, secret scan, and scoped review.
+- [x] T009 Add RED memory/HTTP parity tests for a proven immutable legacy scope, including case-normalized valid hashes. Trace: TST-017-09.
+- [x] T010 Make MemoryObservationStore distinguish proven legacy scope, cross-device scope, and unscoped ambiguity. Trace: TST-017-09.
+- [ ] T011 Re-run scoped regression, Graphify, review, and live deployment proof. Trace: TST-017-09.

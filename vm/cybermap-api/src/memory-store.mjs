@@ -49,10 +49,21 @@ export class MemoryObservationStore {
       const normalized = normalizeDeflockSource(source);
       return [normalized.source_id, normalized];
     }));
-    this.#legacyObservationIdentities = new Map(legacyObservationIdentities.map((identity) => [
-      `${identity.source_id}\u0000${identity.external_observation_key}`,
-      Object.freeze({ contentHash: identity.content_hash ?? null }),
-    ]));
+    const legacyIdentities = new Map();
+    for (const identity of legacyObservationIdentities) {
+      const key = `${identity.source_id}\u0000${identity.external_observation_key}`;
+      const entries = legacyIdentities.get(key) ?? [];
+      entries.push(Object.freeze({
+        producerDeviceId: typeof identity.producer_device_id === 'string' && identity.producer_device_id.length > 0
+          ? identity.producer_device_id
+          : null,
+        contentHash: isContentHash(identity.content_hash)
+          ? identity.content_hash.toLowerCase()
+          : identity.content_hash ?? null,
+      }));
+      legacyIdentities.set(key, entries);
+    }
+    this.#legacyObservationIdentities = new Map([...legacyIdentities].map(([key, entries]) => [key, Object.freeze(entries)]));
     this.#now = now;
     this.#randomUuid = randomUuid;
   }
@@ -106,17 +117,25 @@ export class MemoryObservationStore {
     let duplicateCount = 0;
     for (const observation of batch.observations) {
       const legacyIdentity = `${credential.source_id}\u0000${observation.external_observation_key}`;
-      if (this.#legacyObservationIdentities.has(legacyIdentity)) {
-        throw new IngestError('observation_identity_unscoped', 'Observation identity ownership is not provable.', {
-          statusCode: 409,
-          publicCode: 'observation_key_reused',
-        });
+      const legacyEntries = this.#legacyObservationIdentities.get(legacyIdentity) ?? [];
+      if (legacyEntries.some((entry) => entry.producerDeviceId === null)) {
+        throw unscopedObservationIdentity();
       }
+      const scopedLegacyEntries = legacyEntries.filter((entry) => entry.producerDeviceId === credential.device_id);
+      if (scopedLegacyEntries.some((entry) => !isContentHash(entry.contentHash))) {
+        throw unscopedObservationIdentity();
+      }
+
       const identity = `${credential.source_id}\u0000${credential.device_id}\u0000${observation.external_observation_key}`;
       const contentHash = hashPersistedObservation(batch, observation);
+      const existingHashes = new Set(scopedLegacyEntries.map((entry) => entry.contentHash));
       const existing = this.#observations.get(identity);
-      if (existing) {
-        if (existing.contentHash !== contentHash) {
+      if (existing) existingHashes.add(existing.contentHash);
+      if (existingHashes.size > 1) {
+        throw unscopedObservationIdentity();
+      }
+      if (existingHashes.size === 1) {
+        if (existingHashes.values().next().value !== contentHash) {
           throw new IngestError('observation_key_reused', 'Observation key was reused with changed content.', { statusCode: 409 });
         }
         duplicateCount += 1;
@@ -513,6 +532,17 @@ function toIsoString(value) {
 
 function stringOrNull(value) {
   return typeof value === 'string' && value ? value : null;
+}
+
+function isContentHash(value) {
+  return typeof value === 'string' && /^[a-f0-9]{64}$/i.test(value);
+}
+
+function unscopedObservationIdentity() {
+  return new IngestError('observation_identity_unscoped', 'Observation identity ownership is not provable.', {
+    statusCode: 409,
+    publicCode: 'observation_key_reused',
+  });
 }
 
 function distanceMeters(lat1, lon1, lat2, lon2) {
