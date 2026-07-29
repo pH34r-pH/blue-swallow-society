@@ -229,13 +229,18 @@ test('device ingest migration links observations to batches and persists stable 
   assert.match(ingestMigrationLower, /insert\s+into\s+schema_migrations\s*\(version\)\s*values\s*\('0002_device_ingest_contract'\)/);
 });
 
-test('device-scoped observation identity migration replaces source-only constraints without guessing legacy ownership', () => {
+test('device-scoped observation identity migration preserves append-only observations and records only provable legacy scope', () => {
   const migrationPath = new URL('../vm/cybermap-api/db/migrations/0005_device_scoped_observation_identity.sql', import.meta.url);
   assert.equal(existsSync(migrationPath), true, 'device-scoped reconciliation migration must exist');
   const scopedMigration = readFileSync(migrationPath, 'utf8').toLowerCase();
   assert.match(scopedMigration, /add\s+column\s+producer_device_id\s+text/);
-  assert.match(scopedMigration, /set\s+producer_device_id\s*=\s*batch\.client_id[\s\S]*sync_batches/i);
-  assert.match(scopedMigration, /observation\.content_hash\s+is\s+not\s+null/i);
+  assert.match(scopedMigration, /add\s+constraint\s+observations_sync_batch_producer_device_required[\s\S]*check\s*\(\s*sync_batch_id\s+is\s+null\s+or\s+producer_device_id\s+is\s+not\s+null\s*\)\s+not\s+valid/i, 'old runtime writes cannot create new unscoped batch observations during migration');
+  assert.doesNotMatch(scopedMigration, /\bupdate\s+observations\b/i, 'the evidence ledger is append-only');
+  assert.match(scopedMigration, /create\s+table\s+observation_identity_scopes/i);
+  assert.match(scopedMigration, /insert\s+into\s+observation_identity_scopes[\s\S]*from\s+observations[\s\S]*join\s+sync_batches/i);
+  assert.match(scopedMigration, /content_hash\s+~\s+'\^\[a-f0-9\]\{64\}\$'/i);
+  assert.match(scopedMigration, /create\s+trigger\s+observation_identity_scopes_append_only_update/i);
+  assert.match(scopedMigration, /create\s+trigger\s+observation_identity_scopes_append_only_delete/i);
   assert.match(scopedMigration, /drop\s+constraint\s+observations_source_id_external_observation_key_key/i);
   assert.match(scopedMigration, /drop\s+constraint\s+observations_source_id_idempotency_key_key/i);
   assert.match(scopedMigration, /unique\s*\(\s*source_id\s*,\s*producer_device_id\s*,\s*external_observation_key\s*\)/i);

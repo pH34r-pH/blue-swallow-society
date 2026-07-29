@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { PostgresObservationStore } from '../src/postgres-store.mjs';
 import { hashToken } from '../src/auth.mjs';
 import { DEVICE_ID, INGEST_TOKEN, validBatch } from './helpers.mjs';
-import { hashCanonicalJson } from '../src/contracts.mjs';
+import { hashCanonicalJson, hashPersistedObservation } from '../src/contracts.mjs';
 
 class ScriptedClient {
   constructor(steps) {
@@ -88,7 +88,8 @@ test('Postgres applyBatch serializes identity locks, derives spatial cells, and 
     },
     { sql: /pg_advisory_xact_lock/i },
     { sql: /FROM observations[\s\S]*producer_device_id = \$2[\s\S]*external_observation_key = ANY/i, rows: [] },
-    { sql: /FROM observations[\s\S]*producer_device_id IS NULL[\s\S]*external_observation_key = ANY/i, rows: [] },
+    { sql: /FROM observation_identity_scopes AS scope[\s\S]*JOIN observations AS observation[\s\S]*scope\.producer_device_id = \$2/i, rows: [] },
+    { sql: /FROM observations AS observation[\s\S]*NOT EXISTS[\s\S]*observation_identity_scopes/i, rows: [] },
     {
       sql: /INSERT INTO sync_batches/i,
       rows: [{ id: batchId }],
@@ -302,7 +303,14 @@ test('Postgres applyBatch scopes observation locking, lookup, and insertion to t
       },
     },
     {
-      sql: /FROM observations[\s\S]*producer_device_id IS NULL[\s\S]*external_observation_key = ANY/i,
+      sql: /FROM observation_identity_scopes AS scope[\s\S]*JOIN observations AS observation[\s\S]*scope\.producer_device_id = \$2/i,
+      rows: [],
+      check(values) {
+        assert.deepEqual(values, [credentialRow.source_id, DEVICE_ID, [batch.observations[0].external_observation_key]]);
+      },
+    },
+    {
+      sql: /FROM observations AS observation[\s\S]*NOT EXISTS[\s\S]*observation_identity_scopes/i,
       rows: [],
       check(values) {
         assert.deepEqual(values, [credentialRow.source_id, [batch.observations[0].external_observation_key]]);
@@ -326,6 +334,89 @@ test('Postgres applyBatch scopes observation locking, lookup, and insertion to t
   assert.equal(pool.client.unconsumedSteps, 0);
 });
 
+test('Postgres applyBatch accepts a key already used by another producer device', async () => {
+  const batch = validBatch();
+  const batchId = '30000000-0000-4000-8000-000000000003';
+  const otherDeviceId = 'device-other';
+  const externalKey = batch.observations[0].external_observation_key;
+  const pool = new FakePool({ clientSteps: [
+    { sql: /^BEGIN$/i },
+    { sql: /SET LOCAL lock_timeout/i },
+    { sql: /FROM device_ingest_credentials[\s\S]*FOR NO KEY UPDATE/i, rows: [{ credential_id: credentialRow.credential_id }] },
+    { sql: /pg_try_advisory_xact_lock/i, rows: [{ locked: true }] },
+    { sql: /FROM sync_batches[\s\S]*FOR UPDATE/i, rows: [] },
+    {
+      sql: /pg_advisory_xact_lock[\s\S]*hashtextextended\(\$1 \|\| ':' \|\| \$2/i,
+      check(values) {
+        assert.deepEqual(values, [credentialRow.source_id, DEVICE_ID, [externalKey]]);
+        assert.notEqual(values[1], otherDeviceId, 'the lock must not serialize another device-local key');
+      },
+    },
+    {
+      sql: /FROM observations[\s\S]*producer_device_id = \$2[\s\S]*external_observation_key = ANY/i,
+      rows: [], // A durable row exists for otherDeviceId; it must not match this device-scoped lookup.
+      check(values) {
+        assert.deepEqual(values, [credentialRow.source_id, DEVICE_ID, [externalKey]]);
+        assert.notEqual(values[1], otherDeviceId);
+      },
+    },
+    { sql: /FROM observation_identity_scopes AS scope[\s\S]*scope\.producer_device_id = \$2/i, rows: [] },
+    { sql: /FROM observations AS observation[\s\S]*producer_device_id IS NULL[\s\S]*NOT EXISTS/i, rows: [] },
+    { sql: /INSERT INTO sync_batches/i, rows: [{ id: batchId }] },
+    {
+      sql: /INSERT INTO observations[\s\S]*producer_device_id/i,
+      check(values) {
+        assert.equal(values[2], DEVICE_ID);
+        assert.notEqual(values[2], otherDeviceId);
+      },
+    },
+    { sql: /SELECT clock_timestamp\(\) AS server_clock/i, rows: [{ server_clock: new Date('2026-07-29T18:43:00.000Z') }] },
+    { sql: /UPDATE sync_batches[\s\S]*receipt =/i },
+    { sql: /UPDATE device_ingest_credentials[\s\S]*last_used_at/i },
+    { sql: /^COMMIT$/i },
+  ] });
+
+  const result = await new PostgresObservationStore({ pool }).applyBatch({ credential: credentialRow, batch });
+  assert.equal(result.statusCode, 201);
+  assert.equal(result.receipt.accepted_count, 1);
+  assert.equal(result.receipt.duplicate_count, 0);
+  assert.equal(pool.client.unconsumedSteps, 0);
+});
+
+test('Postgres applyBatch recognizes a proven immutable legacy scope for the authenticated device', async () => {
+  const batch = validBatch();
+  const batchId = '30000000-0000-4000-8000-000000000002';
+  const contentHash = hashPersistedObservation(batch, batch.observations[0]);
+  const pool = new FakePool({ clientSteps: [
+    { sql: /^BEGIN$/i },
+    { sql: /SET LOCAL lock_timeout/i },
+    { sql: /FROM device_ingest_credentials[\s\S]*FOR NO KEY UPDATE/i, rows: [{ credential_id: credentialRow.credential_id }] },
+    { sql: /pg_try_advisory_xact_lock/i, rows: [{ locked: true }] },
+    { sql: /FROM sync_batches[\s\S]*FOR UPDATE/i, rows: [] },
+    { sql: /pg_advisory_xact_lock/i },
+    { sql: /FROM observations[\s\S]*producer_device_id = \$2[\s\S]*external_observation_key = ANY/i, rows: [] },
+    {
+      sql: /FROM observation_identity_scopes AS scope[\s\S]*JOIN observations AS observation[\s\S]*scope\.producer_device_id = \$2/i,
+      rows: [{ external_observation_key: batch.observations[0].external_observation_key, content_hash: contentHash }],
+      check(values) {
+        assert.deepEqual(values, [credentialRow.source_id, DEVICE_ID, [batch.observations[0].external_observation_key]]);
+      },
+    },
+    { sql: /FROM observations AS observation[\s\S]*NOT EXISTS[\s\S]*observation_identity_scopes/i, rows: [] },
+    { sql: /INSERT INTO sync_batches/i, rows: [{ id: batchId }] },
+    { sql: /SELECT clock_timestamp\(\) AS server_clock/i, rows: [{ server_clock: new Date('2026-07-29T18:43:00.000Z') }] },
+    { sql: /UPDATE sync_batches[\s\S]*receipt =/i },
+    { sql: /UPDATE device_ingest_credentials[\s\S]*last_used_at/i },
+    { sql: /^COMMIT$/i },
+  ] });
+
+  const result = await new PostgresObservationStore({ pool }).applyBatch({ credential: credentialRow, batch });
+  assert.equal(result.statusCode, 201);
+  assert.equal(result.receipt.accepted_count, 0);
+  assert.equal(result.receipt.duplicate_count, 1);
+  assert.equal(pool.client.unconsumedSteps, 0);
+});
+
 test('Postgres applyBatch fails closed when a scoped legacy identity lacks a content hash', async () => {
   const batch = validBatch();
   const pool = new FakePool({ clientSteps: [
@@ -337,6 +428,10 @@ test('Postgres applyBatch fails closed when a scoped legacy identity lacks a con
     { sql: /pg_advisory_xact_lock/i },
     {
       sql: /FROM observations[\s\S]*producer_device_id = \$2[\s\S]*external_observation_key = ANY/i,
+      rows: [],
+    },
+    {
+      sql: /FROM observation_identity_scopes AS scope[\s\S]*JOIN observations AS observation[\s\S]*scope\.producer_device_id = \$2/i,
       rows: [{ external_observation_key: batch.observations[0].external_observation_key, content_hash: null }],
     },
     { sql: /^ROLLBACK$/i },

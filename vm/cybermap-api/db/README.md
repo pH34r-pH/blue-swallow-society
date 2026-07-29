@@ -36,7 +36,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f vm/cybermap-api/db/migrations/0005_de
 - `0003_paper_state.sql` stores idempotent autonomous paper-engine snapshots plus one current-state pointer; it contains no real-money execution credentials.
 - `0004_godeye_global_cells_and_sources.sql` creates the catalog-bound, aggregate-only Godeye global cell/source ledger.
 - `0004_morning_brief_archive.sql` creates the bounded, append-only Morning Brief archive.
-- `0005_device_scoped_observation_identity.sql` scopes Wardriver observation identities to the authenticated producer device. It backfills only provable batch-linked identities with a valid content hash; unscoped legacy rows remain fail-closed.
+- `0005_device_scoped_observation_identity.sql` scopes Wardriver observation identities to the authenticated producer device. It leaves append-only legacy observations unchanged and records only provable batch-linked identities, with a valid content hash, in immutable scope records; a `NOT VALID` check rejects new batch-linked rows without a producer device during rollout; remaining legacy rows stay fail-closed.
 - H3 cells (`h3_7`, `h3_9`, `h3_11`) are app-computed. Do not require a PostgreSQL H3 extension in P0.
 - Canonical source-class mapping: `public_greenfeed -> green_public`, `owned_greenfeed -> green_owned`, `authorized_greenfeed -> green_authorized`.
 - Green source classes may preload globally. Grey/orange/red rows must include local or explicitly authorized trigger metadata (`trigger_observation_id`, `session_id`, or `authorized_scope_ref`).

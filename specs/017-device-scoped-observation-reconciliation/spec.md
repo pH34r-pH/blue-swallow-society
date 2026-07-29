@@ -28,8 +28,8 @@ Repair the Cybermap ingest identity model so a Wardriver-local `external_observa
 ## Functional requirements
 
 - **FR-001:** New observations must persist `producer_device_id` and enforce unique `(source_id, producer_device_id, external_observation_key)` and `(source_id, producer_device_id, idempotency_key)` identities.
-- **FR-002:** The migration must backfill `producer_device_id` only from the linked immutable `sync_batches.client_id` when the stored `content_hash` is valid; remaining rows stay unscoped.
-- **FR-003:** The store must lock/query the device-scoped identity before insert. It must retain exact same-device duplicate and changed-content behavior.
+- **FR-002:** The migration must never update an append-only `observations` row. It must write one immutable `observation_identity_scopes` record for a legacy observation only when linked immutable `sync_batches.client_id` and a valid stored `content_hash` prove producer ownership; remaining rows stay unscoped. Once migration begins, the database must reject any new batch-linked observation without `producer_device_id` so an old process cannot create fresh ambiguous identities during rollout.
+- **FR-003:** The store must lock/query both new observation identities and proven legacy scope records before insert. It must retain exact same-device duplicate and changed-content behavior.
 - **FR-004:** Cross-device keys must not be treated as duplicate or changed-content conflicts merely because their source/key match.
 - **FR-005:** An unscoped legacy matching key must fail closed. It must not be inserted, merged, remapped, or acknowledged as durable success.
 - **FR-006:** The migration must be appended, registered in readiness, applied by the installer, and documented. Existing routes, mTLS checks, idempotency headers, receipt schema, and public surfaces remain unchanged.
