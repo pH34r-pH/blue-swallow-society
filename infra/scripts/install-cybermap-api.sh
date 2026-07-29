@@ -207,8 +207,6 @@ __BACKEND_FQDN__:8443 {
   @wardriver_mtls path /api/v1/cybermap/viewport /api/v1/observations/batch
   handle @wardriver_mtls {
     reverse_proxy 127.0.0.1:__CYBERMAP_API_PORT__ {
-      header_up -X-Blue-Swallow-Mtls-Proxy-Secret
-      header_up -X-Blue-Swallow-Mtls-Client-Fingerprint
       header_up X-Blue-Swallow-Mtls-Proxy-Secret {env.BSS_MTLS_PROXY_SECRET}
       header_up X-Blue-Swallow-Mtls-Client-Fingerprint {tls_client_fingerprint}
     }

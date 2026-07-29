@@ -17,8 +17,9 @@ test('installer creates an isolated mTLS listener that overwrites client-control
   assert.ok(caddyDropIn, 'the installer must define the Caddy environment drop-in');
   assert.match(caddyDropIn[1], /EnvironmentFile=\/etc\/caddy\/bss-mtls-proxy\.env/);
   assert.doesNotMatch(caddyDropIn[1], /\/etc\/bss\/cybermap-api\.env/);
-  assert.match(source, /header_up -X-Blue-Swallow-Mtls-Proxy-Secret/);
-  assert.match(source, /header_up X-Blue-Swallow-Mtls-Proxy-Secret/);
+  assert.doesNotMatch(source, /header_up -X-Blue-Swallow-Mtls-Proxy-Secret/);
+  assert.doesNotMatch(source, /header_up -X-Blue-Swallow-Mtls-Client-Fingerprint/);
+  assert.match(source, /header_up X-Blue-Swallow-Mtls-Proxy-Secret \{env\.BSS_MTLS_PROXY_SECRET\}/);
   assert.match(source, /header_up X-Blue-Swallow-Mtls-Client-Fingerprint \{tls_client_fingerprint\}/);
   assert.match(source, /handle \@wardriver_mtls/);
   assert.match(source, /respond "not_found" 404/);

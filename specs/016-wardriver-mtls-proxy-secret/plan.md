@@ -4,19 +4,19 @@
 
 ## Root Cause
 
-The direct client certificate succeeds at Caddy: the live API recorded three forbidden 403 responses and Caddy recorded no TLS errors. The active database has an eligible credential for the unchanged build default `wardriver-primary`.
+The live bss.19 receipt proves that the direct `:8443` endpoint, endpoint policy, and Android KeyChain material are valid. Caddy and the API are active; Caddy has the dedicated proxy-secret environment. The API recorded only `missing_ingest_credentials`, so the failure is before mTLS credential lookup.
 
-The fault is between Caddy and the API. The installer writes `BSS_MTLS_PROXY_SECRET` to `/etc/bss/cybermap-api.env` for the API, while its Caddyfile refers to `{env.BSS_MTLS_PROXY_SECRET}`. The Caddy systemd unit has neither that environment nor a dedicated `EnvironmentFile`. Caddy therefore forwards no valid proxy secret; `mtlsProxyAssertionIfPresent()` rejects the assertion before `authenticateMtls()` can evaluate the credential tuple.
+The Caddyfile's paired `header_up -X-Blue-Swallow-Mtls-*` removal rules delete the same fields that the later `header_up X-Blue-Swallow-Mtls-* <trusted value>` directives set. As a result, Caddy forwards neither assertion field even though its process has the secret. The API correctly selects no mTLS assertion and then reports `missing_ingest_credentials` before it can evaluate the enrolled tuple.
 
 ## Approach
 
-1. Keep the existing API environment file unchanged.
-2. During installation, create a private temporary file in `/etc/caddy` under `umask 077`, write the already validated proxy secret, enforce `0600`, and atomically rename it to `/etc/caddy/bss-mtls-proxy.env`. Root ownership follows the root-run installer.
-3. Create a Caddy systemd drop-in that references only that dedicated file.
-4. Run `systemctl daemon-reload` and restart Caddy after the drop-in exists.
-5. Prove the installer contract RED→GREEN, then deploy through the canonical Society workflow.
-6. Verify only boolean presence and status remotely; do not print, hash, or copy the proxy secret, certificate fingerprint, database credentials, or device identifiers.
-7. If a field upload or mTLS viewport request returns `403`, log one server-only, bounded rejection stage: missing ordinary credentials, invalid Caddy-to-API assertion (including an absent server assertion configuration), or mTLS credential rejection. Keep every client-facing rejection as the existing generic `403`; preserve token-gated requests with no mTLS assertion. Drain the unread POST request stream before responding. Never log client headers, certificate fingerprints, device identifiers, batch data, viewport coordinates, or secret material. Use the resulting category to choose whether credential remediation is justified.
+1. Remove only the two conflicting `header_up -X-Blue-Swallow-Mtls-*` removal rules. Retain the two `header_up X-Blue-Swallow-Mtls-* <trusted value>` directives, which replace client-supplied values.
+2. Keep the existing dedicated Caddy proxy-secret environment file and the API environment file unchanged.
+3. Keep the Caddy-only systemd drop-in and restart ordering unchanged.
+4. Prove the installer contract RED→GREEN, then deploy through the canonical Society workflow.
+5. Verify only boolean presence and status remotely; do not print, hash, or copy the proxy secret, certificate fingerprint, database credentials, or device identifiers.
+6. Verify the corrected proxy assertion against an internal malformed-body boundary before requesting one new field upload. Do not make Tyler retry while the defect remains deployed.
+7. If the post-fix field upload returns `403`, correlate one server-only, bounded rejection stage: missing ordinary credentials, invalid Caddy-to-API assertion (including an absent server assertion configuration), or mTLS credential rejection. Keep every client-facing rejection as the existing generic `403`; preserve token-gated requests with no mTLS assertion. Drain the unread POST request stream before responding. Never log client headers, certificate fingerprints, device identifiers, batch data, viewport coordinates, or secret material.
 
 ## Affected Files
 

@@ -9,7 +9,7 @@
 
 RaID did not run: camera state is `not-started`, detector state is `not-attempted`, and no local RaID error exists. Wardriver reaches the direct mTLS listener and receives HTTP 403.
 
-The Cybermap API requires a Caddy-injected loopback assertion containing the client-certificate fingerprint and `BSS_MTLS_PROXY_SECRET`. The installed Caddyfile expands `{env.BSS_MTLS_PROXY_SECRET}`, but the Caddy systemd unit receives neither a dedicated environment file nor the secret. The API service has the secret. Thus Caddy forwards an absent proxy secret and the API correctly fails closed with HTTP 403 before credential lookup.
+The Cybermap API requires a Caddy-injected loopback assertion containing the client-certificate fingerprint and `BSS_MTLS_PROXY_SECRET`. The live Caddy process has the dedicated proxy-secret environment, but its...[truncated]
 
 ## User Scenario & Acceptance
 
@@ -25,7 +25,7 @@ A Wardriver build that presents a CA-trusted enrolled client certificate uploads
 
 - Caddy must not inherit PostgreSQL credentials or unrelated API secrets merely to receive the proxy secret.
 - A missing dedicated Caddy environment file must cause service startup/reload failure rather than forwarding a blank assertion.
-- A caller-supplied proxy assertion remains removed and replaced by Caddy.
+- A caller-supplied proxy assertion must not reach the API. Caddy's `header_up <name> <value>` replacement MUST overwrite it; separate `header_up -<name>` rules must not be retained because they delete the trusted replacements.
 - The repair must not mutate device credentials, source enablement, client certificates, KeyChain aliases, app version, or encrypted outbox records.
 
 ## Functional Requirements
@@ -34,7 +34,7 @@ A Wardriver build that presents a CA-trusted enrolled client certificate uploads
 - **FR-002**: The installer MUST configure Caddy's systemd service to read that dedicated file before Caddy starts or restarts.
 - **FR-003**: The Caddyfile MUST continue to obtain the injected secret only from `{env.BSS_MTLS_PROXY_SECRET}`; the secret MUST NOT be rendered into source, a Caddyfile, logs, or command arguments.
 - **FR-004**: The installer MUST daemon-reload systemd and restart Caddy after changing the service environment.
-- **FR-005**: The existing `require_and_verify` client-auth policy, trust pool, loopback proxy target, and client-controlled assertion stripping MUST remain intact.
+- **FR-005**: The existing `require_and_verify` client-auth policy, trust pool, loopback proxy target, and Caddy `header_up` replacement of both client-controlled assertion fields MUST remain intact. The Caddyfile MUST NOT contain `header_up -X-Blue-Swallow-Mtls-Proxy-Secret` or `header_up -X-Blue-Swallow-Mtls-Client-Fingerprint`, because those removal rules delete the trusted replacement fields.
 - **FR-006**: The repair MUST NOT add an Android or database credential bypass.
 - **FR-007**: For a rejected mTLS observation batch or mTLS viewport request, server logs MUST record only one bounded authorization-stage category when applicable: `missing_ingest_credentials`, `invalid_proxy_assertion`, or `mtls_credential_rejected`. The client-facing response remains the existing generic `403 Forbidden`; an absent or invalid Caddy-to-API assertion, including a presented assertion when the server proxy secret is unconfigured, receives only the server-side `invalid_proxy_assertion` category. The existing token-gated browser/SWA routes remain unchanged when no mTLS assertion is present. Logs MUST NOT contain a proxy assertion, certificate fingerprint, device identifier, batch payload, viewport coordinates, or database credential. Before sending any rejected POST response, the API MUST resume the request stream so an unread body cannot retain a keep-alive socket.
 
