@@ -193,18 +193,33 @@ export class PostgresObservationStore {
            AND external_observation_key = ANY($3::text[])`,
         [credential.source_id, credential.device_id, sortedKeys],
       );
-      if (existingObservations.rows.some((row) => typeof row.content_hash !== 'string' || !/^[a-f0-9]{64}$/i.test(row.content_hash))) {
+      const scopedLegacyObservations = await client.query(
+        `SELECT observation.external_observation_key, observation.content_hash
+         FROM observation_identity_scopes AS scope
+         JOIN observations AS observation ON observation.id = scope.observation_id
+         WHERE scope.source_id = $1
+           AND scope.producer_device_id = $2
+           AND scope.external_observation_key = ANY($3::text[])`,
+        [credential.source_id, credential.device_id, sortedKeys],
+      );
+      const scopedObservations = [...existingObservations.rows, ...scopedLegacyObservations.rows];
+      if (scopedObservations.some((row) => typeof row.content_hash !== 'string' || !/^[a-f0-9]{64}$/i.test(row.content_hash))) {
         throw new IngestError('observation_identity_unscoped', 'Observation identity ownership is not provable.', {
           statusCode: 409,
           publicCode: 'observation_key_reused',
         });
       }
       const unscopedLegacyObservations = await client.query(
-        `SELECT external_observation_key
-         FROM observations
-         WHERE source_id = $1
-           AND producer_device_id IS NULL
-           AND external_observation_key = ANY($2::text[])`,
+        `SELECT observation.external_observation_key
+         FROM observations AS observation
+         WHERE observation.source_id = $1
+           AND observation.producer_device_id IS NULL
+           AND observation.external_observation_key = ANY($2::text[])
+           AND NOT EXISTS (
+             SELECT 1
+             FROM observation_identity_scopes AS scope
+             WHERE scope.observation_id = observation.id
+           )`,
         [credential.source_id, sortedKeys],
       );
       if (unscopedLegacyObservations.rows.length > 0) {
@@ -213,9 +228,17 @@ export class PostgresObservationStore {
           publicCode: 'observation_key_reused',
         });
       }
-      const existingByKey = new Map(
-        existingObservations.rows.map((row) => [row.external_observation_key, row.content_hash]),
-      );
+      const existingByKey = new Map();
+      for (const row of scopedObservations) {
+        const existingHash = existingByKey.get(row.external_observation_key);
+        if (existingHash !== undefined && existingHash !== row.content_hash) {
+          throw new IngestError('observation_identity_unscoped', 'Observation identity ownership is not provable.', {
+            statusCode: 409,
+            publicCode: 'observation_key_reused',
+          });
+        }
+        existingByKey.set(row.external_observation_key, row.content_hash);
+      }
       const pending = [];
       let duplicateCount = 0;
       for (const observation of batch.observations) {

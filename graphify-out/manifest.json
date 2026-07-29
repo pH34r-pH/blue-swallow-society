@@ -380,8 +380,8 @@
     "semantic_hash": ""
   },
   "tests/cybermap-schema.test.mjs": {
-    "mtime": 1785342641.3923786,
-    "ast_hash": "f98ce28d184773761917a2656a33d1ef",
+    "mtime": 1785344111.2830498,
+    "ast_hash": "a8baee04d73d364507cfca6feac1583d",
     "semantic_hash": ""
   },
   "tests/cybermap-viewport-api.test.mjs": {
@@ -670,8 +670,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/postgres-store.mjs": {
-    "mtime": 1785342641.3923786,
-    "ast_hash": "7ff0d5bab05f48e8278eecbd25f1fa5f",
+    "mtime": 1785343769.6550338,
+    "ast_hash": "7b3ae712920257d329a7c08571526ae9",
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/server.mjs": {
@@ -850,8 +850,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/postgres-store.test.mjs": {
-    "mtime": 1785342641.3963788,
-    "ast_hash": "218b23ae5a621c500ea1512d69dc7a94",
+    "mtime": 1785345181.4160635,
+    "ast_hash": "f1f8ce14bcf63d2471d6fd293982f741",
     "semantic_hash": ""
   },
   ".claude/skills/speckit-analyze/SKILL.md": {
@@ -1400,8 +1400,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/db/README.md": {
-    "mtime": 1785342641.3923786,
-    "ast_hash": "f37d52fddda4ac80fe9ba503c4505a54",
+    "mtime": 1785344169.6204147,
+    "ast_hash": "156806efa86e06aa8df6a46cf1081dfa",
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/mtls-direct-api.test.mjs": {
@@ -1775,18 +1775,18 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/db/migrations/0005_device_scoped_observation_identity.sql": {
-    "mtime": 1785342641.3923786,
-    "ast_hash": "3e403db36ed9dae09389028718593b92",
+    "mtime": 1785344139.6357133,
+    "ast_hash": "73878284e38b68f32070fca644f6c577",
     "semantic_hash": ""
   },
   "specs/017-device-scoped-observation-reconciliation/plan.md": {
-    "mtime": 1785342641.3923786,
-    "ast_hash": "4350ecb804cdac9153a0acaf8abcea81",
+    "mtime": 1785344169.5924141,
+    "ast_hash": "b92299a1352318e176cc2c9870c3d0ee",
     "semantic_hash": ""
   },
   "specs/017-device-scoped-observation-reconciliation/spec.md": {
-    "mtime": 1785342641.3923786,
-    "ast_hash": "b9df3251ece1f18896be9dd10a7e09c6",
+    "mtime": 1785344169.6124146,
+    "ast_hash": "6a328d2c1f4c000eaf1e4590e5bb2f33",
     "semantic_hash": ""
   },
   "specs/017-device-scoped-observation-reconciliation/tasks.md": {
@@ -1795,8 +1795,8 @@
     "semantic_hash": ""
   },
   "specs/017-device-scoped-observation-reconciliation/tests.md": {
-    "mtime": 1785342641.3923786,
-    "ast_hash": "e346831529e1cc1951f7dda339b80fbc",
+    "mtime": 1785345201.6925442,
+    "ast_hash": "419ebf7a97be74625551ff388168e60b",
     "semantic_hash": ""
   }
 }
