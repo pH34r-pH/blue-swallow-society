@@ -41,6 +41,20 @@ export function validBatch(overrides = {}) {
   };
 }
 
+export function validWardriverV2Batch(overrides = {}) {
+  const observations = overrides.observations ?? [validObservation({ external_observation_key: 'wardriver-observation:42' })];
+  return validBatch({
+    schema_version: 'bss.observation_batch.v2',
+    idempotency_key: 'batch-00000000-0000-4000-8000-000000000042',
+    observations,
+    progress: {
+      schema_version: 'bss.wardriver_progress.v1',
+      requested_through: '42',
+    },
+    ...overrides,
+  });
+}
+
 export async function withServer(server, run) {
   await new Promise((resolve, reject) => {
     server.once('error', reject);

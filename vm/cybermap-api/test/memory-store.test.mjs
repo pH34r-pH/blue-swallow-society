@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { MemoryObservationStore } from '../src/memory-store.mjs';
 import { hashToken } from '../src/auth.mjs';
 import { hashPersistedObservation } from '../src/contracts.mjs';
-import { validBatch, validObservation, DEVICE_ID, INGEST_TOKEN } from './helpers.mjs';
+import { validBatch, validObservation, validWardriverV2Batch, DEVICE_ID, INGEST_TOKEN } from './helpers.mjs';
 
 function createStore({ legacyObservationIdentities = [] } = {}) {
   return new MemoryObservationStore({
@@ -173,6 +173,49 @@ test('applies a batch once and replays the identical stored receipt', async () =
   assert.equal(store.batchCount(), 1);
 });
 
+test('v2 applies a derived Wardriver acknowledgement once and replays its immutable receipt', async () => {
+  const store = createStore();
+  const credential = await store.authenticate({ deviceId: DEVICE_ID, token: INGEST_TOKEN, requiredScope: 'observations:write' });
+  const batch = validWardriverV2Batch();
+
+  const first = await store.applyBatch({ credential, batch });
+  const replay = await store.applyBatch({ credential, batch: structuredClone(batch) });
+
+  assert.equal(first.statusCode, 201);
+  assert.equal(first.receipt.schema_version, 'bss.sync_receipt.v2');
+  assert.equal(first.receipt.preserved_conflict_count, 0);
+  assert.deepEqual(first.receipt.progress, {
+    schema_version: 'bss.wardriver_progress.v1',
+    acknowledged_through: '42',
+  });
+  assert.equal(replay.statusCode, 200);
+  assert.deepEqual(replay.receipt, first.receipt);
+  assert.equal(store.observationCount(), 1);
+});
+
+test('v2 preserves a changed same-device observation as a durable first-writer-wins no-op', async () => {
+  const store = createStore();
+  const credential = await store.authenticate({ deviceId: DEVICE_ID, token: INGEST_TOKEN, requiredScope: 'observations:write' });
+  await store.applyBatch({ credential, batch: validWardriverV2Batch() });
+
+  const changed = validWardriverV2Batch({
+    idempotency_key: 'batch-00000000-0000-4000-8000-000000000043',
+    observations: [validObservation({ external_observation_key: 'wardriver-observation:42', confidence: 0.2 })],
+  });
+  const result = await store.applyBatch({ credential, batch: changed });
+
+  assert.equal(result.statusCode, 201);
+  assert.equal(result.receipt.accepted_count, 0);
+  assert.equal(result.receipt.duplicate_count, 0);
+  assert.equal(result.receipt.preserved_conflict_count, 1);
+  assert.equal(result.receipt.rejected_count, 0);
+  assert.deepEqual(result.receipt.progress, {
+    schema_version: 'bss.wardriver_progress.v1',
+    acknowledged_through: '42',
+  });
+  assert.equal(store.observationCount(), 1);
+});
+
 test('rejects reuse of a batch key with changed content', async () => {
   const store = createStore();
   const credential = await store.authenticate({ deviceId: DEVICE_ID, token: INGEST_TOKEN, requiredScope: 'observations:write' });
@@ -289,6 +332,33 @@ test('a proven same-device legacy scope is a durable duplicate', async () => {
   assert.equal(result.statusCode, 201);
   assert.equal(result.receipt.accepted_count, 0);
   assert.equal(result.receipt.duplicate_count, 1);
+  assert.equal(store.observationCount(), 0);
+  assert.equal(store.batchCount(), 1);
+});
+
+test('v2 treats changed content for a proven same-device legacy identity as a bounded first-writer-wins no-op', async () => {
+  const original = validWardriverV2Batch();
+  const changed = validWardriverV2Batch({
+    idempotency_key: 'batch-00000000-0000-4000-8000-000000000043',
+    observations: [validObservation({ external_observation_key: 'wardriver-observation:42', confidence: 0.2 })],
+  });
+  const store = createStore({
+    legacyObservationIdentities: [{
+      source_id: 'source-owned-device-1',
+      producer_device_id: DEVICE_ID,
+      external_observation_key: 'wardriver-observation:42',
+      content_hash: hashPersistedObservation(original, original.observations[0]),
+    }],
+  });
+  const credential = await store.authenticate({ deviceId: DEVICE_ID, token: INGEST_TOKEN, requiredScope: 'observations:write' });
+
+  const result = await store.applyBatch({ credential, batch: changed });
+
+  assert.equal(result.statusCode, 201);
+  assert.equal(result.receipt.accepted_count, 0);
+  assert.equal(result.receipt.duplicate_count, 0);
+  assert.equal(result.receipt.preserved_conflict_count, 1);
+  assert.equal(result.receipt.progress.acknowledged_through, '42');
   assert.equal(store.observationCount(), 0);
   assert.equal(store.batchCount(), 1);
 });

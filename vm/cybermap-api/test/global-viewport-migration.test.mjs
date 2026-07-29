@@ -10,6 +10,8 @@ const migrationFiles = Object.freeze([
   '0002_device_ingest_contract.sql',
   '0003_paper_state.sql',
   '0004_godeye_global_cells_and_sources.sql',
+  '0005_device_scoped_observation_identity.sql',
+  '0006_best_effort_observation_progress.sql',
 ]);
 
 // TST-008 executes only with an injected, approved disposable PostGIS database.

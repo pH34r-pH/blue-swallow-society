@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-const BATCH_FIELDS = new Set([
+const BATCH_V1_FIELDS = new Set([
   'schema_version',
   'idempotency_key',
   'device_id',
@@ -10,6 +10,8 @@ const BATCH_FIELDS = new Set([
   'retention_class',
   'observations',
 ]);
+const BATCH_V2_FIELDS = new Set([...BATCH_V1_FIELDS, 'progress']);
+const WARDIVER_PROGRESS_FIELDS = new Set(['schema_version', 'requested_through']);
 const OBSERVATION_FIELDS = new Set([
   'external_observation_key',
   'kind',
@@ -27,6 +29,8 @@ const RFC3339_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_OBSERVATIONS = 256;
 const FUTURE_SKEW_MS = 5 * 60 * 1000;
+const WARDIVER_OBSERVATION_KEY = /^wardriver-observation:([1-9]\d{0,18})$/;
+const WARDIVER_ROW_ID_MAX = 9_223_372_036_854_775_807n;
 
 export class ContractError extends Error {
   constructor(code, message = code, { statusCode = 422, path = '' } = {}) {
@@ -57,8 +61,8 @@ export function hashPersistedObservation(batch, observation) {
 
 export function validateObservationBatch(input, { now = Date.now() } = {}) {
   requireObject(input, '$');
-  rejectUnknownFields(input, BATCH_FIELDS, '$');
-  requireExactString(input.schema_version, 'bss.observation_batch.v1', '$.schema_version');
+  const schemaVersion = requireBatchSchemaVersion(input.schema_version, '$.schema_version');
+  rejectUnknownFields(input, schemaVersion === 'bss.observation_batch.v2' ? BATCH_V2_FIELDS : BATCH_V1_FIELDS, '$');
   requireBoundedString(input.idempotency_key, '$.idempotency_key', 8, 200);
   requireBoundedString(input.device_id, '$.device_id', 3, 160);
   if (input.session_id !== null && input.session_id !== undefined) {
@@ -86,16 +90,72 @@ export function validateObservationBatch(input, { now = Date.now() } = {}) {
     return normalized;
   });
 
+  const progress = schemaVersion === 'bss.observation_batch.v2'
+    ? validateWardriverProgress(input.progress, observations)
+    : null;
+
   return deepFreeze({
-    schema_version: input.schema_version,
+    schema_version: schemaVersion,
     idempotency_key: input.idempotency_key.trim(),
     device_id: input.device_id.trim(),
     session_id: input.session_id == null ? null : input.session_id.trim(),
     client_clock: new Date(input.client_clock).toISOString(),
     redaction_class: input.redaction_class,
     retention_class: input.retention_class,
+    ...(progress === null ? {} : { progress }),
     observations,
   });
+}
+
+export function deriveWardriverProgress(observations) {
+  if (!Array.isArray(observations) || observations.length === 0) {
+    throw new ContractError('invalid_progress_key', 'Wardriver progress requires submitted observations.', { path: '$.observations' });
+  }
+  let greatest = null;
+  observations.forEach((observation, index) => {
+    const key = observation?.external_observation_key;
+    const match = typeof key === 'string' ? WARDIVER_OBSERVATION_KEY.exec(key) : null;
+    if (!match) {
+      throw new ContractError('invalid_progress_key', 'Progress batches require canonical Wardriver observation keys.', {
+        path: `$.observations[${index}].external_observation_key`,
+      });
+    }
+    const rowId = BigInt(match[1]);
+    if (rowId > WARDIVER_ROW_ID_MAX) {
+      throw new ContractError('invalid_progress_key', 'Wardriver observation key is outside the supported row range.', {
+        path: `$.observations[${index}].external_observation_key`,
+      });
+    }
+    if (greatest === null || rowId > greatest) greatest = rowId;
+  });
+  return greatest.toString();
+}
+
+function validateWardriverProgress(input, observations) {
+  requireObject(input, '$.progress');
+  rejectUnknownFields(input, WARDIVER_PROGRESS_FIELDS, '$.progress');
+  requireExactString(input.schema_version, 'bss.wardriver_progress.v1', '$.progress.schema_version');
+  const requestedThrough = requireWardriverRowId(input.requested_through, '$.progress.requested_through');
+  const derivedThrough = deriveWardriverProgress(observations);
+  if (requestedThrough !== derivedThrough) {
+    throw new ContractError('invalid_progress_cursor', 'Progress cursor must equal the greatest submitted Wardriver row.', {
+      path: '$.progress.requested_through',
+    });
+  }
+  return deepFreeze({
+    schema_version: 'bss.wardriver_progress.v1',
+    requested_through: derivedThrough,
+  });
+}
+
+function requireWardriverRowId(value, path) {
+  if (typeof value !== 'string' || !/^[1-9]\d{0,18}$/.test(value)) {
+    throw new ContractError('invalid_progress_cursor', 'Canonical positive Wardriver row ID required.', { path });
+  }
+  if (BigInt(value) > WARDIVER_ROW_ID_MAX) {
+    throw new ContractError('invalid_progress_cursor', 'Wardriver row ID is outside the supported range.', { path });
+  }
+  return value;
 }
 
 function validateObservation(input, index, now) {
@@ -165,6 +225,13 @@ function assertJsonValue(value, path) {
 
 function requireObject(value, path) {
   if (!isPlainObject(value)) throw new ContractError('object_required', `Object required at ${path}.`, { path });
+}
+
+function requireBatchSchemaVersion(value, path) {
+  if (value !== 'bss.observation_batch.v1' && value !== 'bss.observation_batch.v2') {
+    throw new ContractError('unsupported_schema_version', 'Expected a supported observation batch schema version.', { path });
+  }
+  return value;
 }
 
 function requireExactString(value, expected, path) {

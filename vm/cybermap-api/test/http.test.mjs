@@ -5,7 +5,7 @@ import { createCybermapApiServer, validatePaperState } from '../src/server.mjs';
 import { MemoryObservationStore } from '../src/memory-store.mjs';
 import { hashToken } from '../src/auth.mjs';
 import { hashPersistedObservation } from '../src/contracts.mjs';
-import { DEVICE_ID, INGEST_TOKEN, ingestHeaders, validBatch, validObservation, withServer } from './helpers.mjs';
+import { DEVICE_ID, INGEST_TOKEN, ingestHeaders, validBatch, validObservation, validWardriverV2Batch, withServer } from './helpers.mjs';
 
 const PAPER_LINES = ['standard', 'aggressive', 'hyper_aggressive'];
 const PAPER_STRATEGIES = [
@@ -331,6 +331,63 @@ test('accepts one authenticated batch and marks exact replay without creating du
     assert.equal(replay.status, 200);
     assert.equal(replay.headers.get('idempotent-replayed'), 'true');
     assert.deepEqual(await replay.json(), firstReceipt);
+    assert.equal(store.observationCount(), 1);
+  });
+});
+
+test('v2 receives an immutable derived acknowledgement and settles changed content without a global conflict', async () => {
+  const { server, store } = makeServer();
+  await withServer(server, async (baseUrl) => {
+    const initial = validWardriverV2Batch();
+    const first = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST', headers: ingestHeaders(initial), body: JSON.stringify(initial),
+    });
+    assert.equal(first.status, 201);
+    const receipt = await first.json();
+    assert.equal(receipt.schema_version, 'bss.sync_receipt.v2');
+    assert.equal(receipt.preserved_conflict_count, 0);
+    assert.deepEqual(receipt.progress, {
+      schema_version: 'bss.wardriver_progress.v1',
+      acknowledged_through: '42',
+    });
+
+    const replay = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST', headers: ingestHeaders(initial), body: JSON.stringify(initial),
+    });
+    assert.equal(replay.status, 200);
+    assert.deepEqual(await replay.json(), receipt);
+
+    const changed = validWardriverV2Batch({
+      idempotency_key: 'batch-00000000-0000-4000-8000-000000000043',
+      observations: [validObservation({ external_observation_key: 'wardriver-observation:42', confidence: 0.2 })],
+    });
+    const settled = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST', headers: ingestHeaders(changed), body: JSON.stringify(changed),
+    });
+    assert.equal(settled.status, 201);
+    const settledReceipt = await settled.json();
+    assert.equal(settledReceipt.accepted_count, 0);
+    assert.equal(settledReceipt.duplicate_count, 0);
+    assert.equal(settledReceipt.preserved_conflict_count, 1);
+    assert.equal(settledReceipt.rejected_count, 0);
+    assert.deepEqual(settledReceipt.progress, {
+      schema_version: 'bss.wardriver_progress.v1',
+      acknowledged_through: '42',
+    });
+    assert.equal(store.observationCount(), 1);
+
+    const invalid = validWardriverV2Batch({
+      idempotency_key: 'batch-00000000-0000-4000-8000-000000000044',
+      progress: { schema_version: 'bss.wardriver_progress.v1', requested_through: '43' },
+    });
+    const rejected = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST', headers: ingestHeaders(invalid), body: JSON.stringify(invalid),
+    });
+    assert.equal(rejected.status, 422);
+    const invalidBody = await rejected.json();
+    assert.equal(invalidBody.ok, false);
+    assert.equal(invalidBody.error, 'invalid_progress_cursor');
+    assert.equal(invalidBody.path, '$.progress.requested_through');
     assert.equal(store.observationCount(), 1);
   });
 });
