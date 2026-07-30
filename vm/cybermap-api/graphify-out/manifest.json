@@ -1,0 +1,372 @@
+{
+  "db/migrations/0001_cybermap_core.sql": {
+    "mtime": 1784582361.2448328,
+    "ast_hash": "f131513d8107cb63485c48c7dba3f27e",
+    "semantic_hash": ""
+  },
+  "db/migrations/0002_device_ingest_contract.sql": {
+    "mtime": 1784582361.2448328,
+    "ast_hash": "15ec5e5aa0300cee3652ec6db4e69b78",
+    "semantic_hash": ""
+  },
+  "db/migrations/0003_paper_state.sql": {
+    "mtime": 1784582361.2448328,
+    "ast_hash": "c495d9d8969e2a5f5032caa410fda8ca",
+    "semantic_hash": ""
+  },
+  "db/migrations/0004_godeye_global_cells_and_sources.sql": {
+    "mtime": 1785267028.9354527,
+    "ast_hash": "74c225c09a795a86c7860499632b3602",
+    "semantic_hash": ""
+  },
+  "db/migrations/0004_morning_brief_archive.sql": {
+    "mtime": 1785267028.9354527,
+    "ast_hash": "ab815c1eac6c740e1389d2c871082e71",
+    "semantic_hash": ""
+  },
+  "db/migrations/0005_device_scoped_observation_identity.sql": {
+    "mtime": 1785344139.6357133,
+    "ast_hash": "73878284e38b68f32070fca644f6c577",
+    "semantic_hash": ""
+  },
+  "db/migrations/0006_raid_model_lifecycle.sql": {
+    "mtime": 1785346679.5952,
+    "ast_hash": "b8bbb9e386b23788597361bc7517e0f3",
+    "semantic_hash": ""
+  },
+  "package.json": {
+    "mtime": 1785267028.9354527,
+    "ast_hash": "6fb75a9b9fd0a1ea80679b2a73e0c386",
+    "semantic_hash": ""
+  },
+  "scripts/run-morning-brief.mjs": {
+    "mtime": 1785267028.9354527,
+    "ast_hash": "1438ea151d8aa76c68213f1c5c15d4d4",
+    "semantic_hash": ""
+  },
+  "src/auth.mjs": {
+    "mtime": 1785342641.3923786,
+    "ast_hash": "eaed8436ece2f388683bbbca83a387b2",
+    "semantic_hash": ""
+  },
+  "src/contracts.mjs": {
+    "mtime": 1784582361.2448328,
+    "ast_hash": "d4c1cd190a9f6af2a6e2e2539f6b1238",
+    "semantic_hash": ""
+  },
+  "src/deflock-materializer.mjs": {
+    "mtime": 1785267028.9354527,
+    "ast_hash": "7570d9a30bae20ad9265d91b3a2d3d77",
+    "semantic_hash": ""
+  },
+  "src/deflock-source-job.mjs": {
+    "mtime": 1785267028.9354527,
+    "ast_hash": "e16efeb8783b8aae92962c8c53ae81f6",
+    "semantic_hash": ""
+  },
+  "src/deflock-viewport-contract.mjs": {
+    "mtime": 1785267028.9354527,
+    "ast_hash": "046bccf56d52e96e5a871c434727ace3",
+    "semantic_hash": ""
+  },
+  "src/global-viewport-contract.mjs": {
+    "mtime": 1785267028.9354527,
+    "ast_hash": "fc24e5b79c04603a61716f1e108d6cce",
+    "semantic_hash": ""
+  },
+  "src/greenfeed-materializer.mjs": {
+    "mtime": 1785267028.9354527,
+    "ast_hash": "f39dc9d478095687dba4717dd219a586",
+    "semantic_hash": ""
+  },
+  "src/greenfeed-worker.mjs": {
+    "mtime": 1785267028.9354527,
+    "ast_hash": "1208b826e39844ff899de54a22c25e78",
+    "semantic_hash": ""
+  },
+  "src/main.mjs": {
+    "mtime": 1785346575.8447776,
+    "ast_hash": "172c4c88e790f35877a69687d5cb7130",
+    "semantic_hash": ""
+  },
+  "src/memory-store.mjs": {
+    "mtime": 1785342641.3923786,
+    "ast_hash": "1dd8670e8b74fbf55e902e3327d51c01",
+    "semantic_hash": ""
+  },
+  "src/postgres-store.mjs": {
+    "mtime": 1785343769.6550338,
+    "ast_hash": "7b3ae712920257d329a7c08571526ae9",
+    "semantic_hash": ""
+  },
+  "src/raid-model-contract.mjs": {
+    "mtime": 1785348798.2598977,
+    "ast_hash": "0824c79753093cadf6eb5e53701e5fe0",
+    "semantic_hash": ""
+  },
+  "src/raid-model-store.mjs": {
+    "mtime": 1785348011.9697528,
+    "ast_hash": "9dcfa94914bb2498894d0affa2b56230",
+    "semantic_hash": ""
+  },
+  "src/raid-training-dispatch.mjs": {
+    "mtime": 1785347884.2588181,
+    "ast_hash": "7ebaca1ebd238183457b2cab5997513a",
+    "semantic_hash": ""
+  },
+  "src/server.mjs": {
+    "mtime": 1785345790.4904103,
+    "ast_hash": "b4908a96ae14377895cbd02891636d96",
+    "semantic_hash": ""
+  },
+  "src/sources/adapter-contract.mjs": {
+    "mtime": 1785267028.939453,
+    "ast_hash": "8e1edae50f77dd82bd5b3972d825a9b2",
+    "semantic_hash": ""
+  },
+  "src/sources/deflock-osm-alpr-reports.mjs": {
+    "mtime": 1785267028.939453,
+    "ast_hash": "b2d9ca5d2344bf7a440aa4717a0465ae",
+    "semantic_hash": ""
+  },
+  "src/sources/gdacs-alerts.mjs": {
+    "mtime": 1785267028.939453,
+    "ast_hash": "16dc33e020035c4d4e7d8ff3ca657c04",
+    "semantic_hash": ""
+  },
+  "src/sources/nasa-eonet-events.mjs": {
+    "mtime": 1785267028.939453,
+    "ast_hash": "e1812c5f0eeda7fda1867d2028e388d5",
+    "semantic_hash": ""
+  },
+  "src/sources/usgs-earthquakes.mjs": {
+    "mtime": 1785267028.939453,
+    "ast_hash": "5ef5917fe67d3700c28614a09adea8e9",
+    "semantic_hash": ""
+  },
+  "src/viewport.mjs": {
+    "mtime": 1785269513.802975,
+    "ast_hash": "db5f2130b3f05c6913acf85f7623ef52",
+    "semantic_hash": ""
+  },
+  "test/contracts.test.mjs": {
+    "mtime": 1784582361.2448328,
+    "ast_hash": "b741a65b291f8f597afa0edf73fb2296",
+    "semantic_hash": ""
+  },
+  "test/deflock-materializer.test.mjs": {
+    "mtime": 1785267028.939453,
+    "ast_hash": "df4fd2cbcc6e7c8d581b7e30f65bc916",
+    "semantic_hash": ""
+  },
+  "test/deflock-source-job.test.mjs": {
+    "mtime": 1785267028.939453,
+    "ast_hash": "f5474c4261256f890b085ba8eebab8ce",
+    "semantic_hash": ""
+  },
+  "test/deflock-viewport-contract.test.mjs": {
+    "mtime": 1785267028.939453,
+    "ast_hash": "7ee179faa1072907138136fe5e8197af",
+    "semantic_hash": ""
+  },
+  "test/deflock-viewport-http.test.mjs": {
+    "mtime": 1785267028.939453,
+    "ast_hash": "ea62717a086d42b000e4358b0a9eba66",
+    "semantic_hash": ""
+  },
+  "test/deflock-viewport-migration.test.mjs": {
+    "mtime": 1785267028.939453,
+    "ast_hash": "047dac36efb5f1fc49f900a5d37ae304",
+    "semantic_hash": ""
+  },
+  "test/deflock-worker.test.mjs": {
+    "mtime": 1785267028.939453,
+    "ast_hash": "a9ef777059cefc37f9aa18ba0de91b74",
+    "semantic_hash": ""
+  },
+  "test/fixtures/greenfeeds/deflock-osm-alpr-reports.json": {
+    "mtime": 1785267028.939453,
+    "ast_hash": "5f6a52c7488d4083e4fe007887a29cde",
+    "semantic_hash": ""
+  },
+  "test/fixtures/greenfeeds/gdacs-alerts-adapter.json": {
+    "mtime": 1785267028.939453,
+    "ast_hash": "6c829990d384afee2de4d6139fa9c8aa",
+    "semantic_hash": ""
+  },
+  "test/fixtures/greenfeeds/materializer-snapshots.json": {
+    "mtime": 1785267028.939453,
+    "ast_hash": "74b40df3351183a374433afc265c40ae",
+    "semantic_hash": ""
+  },
+  "test/fixtures/greenfeeds/nasa-eonet-events-adapter.json": {
+    "mtime": 1785267028.939453,
+    "ast_hash": "5b7b63dcbf2445532a0f8c0729216a84",
+    "semantic_hash": ""
+  },
+  "test/fixtures/greenfeeds/usgs-earthquakes-adapter.json": {
+    "mtime": 1785267028.9434528,
+    "ast_hash": "ab95ec9ee02c833bacb6a17214edcbda",
+    "semantic_hash": ""
+  },
+  "test/fixtures/greenfeeds/usgs-earthquakes-empty.json": {
+    "mtime": 1785267028.9434528,
+    "ast_hash": "461e6586d0743041d61fa2bd877e6ff1",
+    "semantic_hash": ""
+  },
+  "test/fixtures/greenfeeds/usgs-earthquakes-invalid.json": {
+    "mtime": 1785267028.9434528,
+    "ast_hash": "514807c032c76d3f92856fb634a8117d",
+    "semantic_hash": ""
+  },
+  "test/fixtures/greenfeeds/usgs-earthquakes-success.json": {
+    "mtime": 1785267028.9434528,
+    "ast_hash": "6066dc776d09f51f12a719a6c9d0ffb5",
+    "semantic_hash": ""
+  },
+  "test/global-memory-store.test.mjs": {
+    "mtime": 1785267028.9434528,
+    "ast_hash": "464a29dc2c38cf7ba5ed92bb1d13aa00",
+    "semantic_hash": ""
+  },
+  "test/global-postgres-store.test.mjs": {
+    "mtime": 1785267028.9434528,
+    "ast_hash": "3c9282442511f6171ea0b7ca9062cdca",
+    "semantic_hash": ""
+  },
+  "test/global-viewport-contract.test.mjs": {
+    "mtime": 1785267028.9434528,
+    "ast_hash": "a6c07dd3655f65eea16b0e331b501c05",
+    "semantic_hash": ""
+  },
+  "test/global-viewport-http.test.mjs": {
+    "mtime": 1785267028.9434528,
+    "ast_hash": "c052fdabf444f69296fa2f485e86a00c",
+    "semantic_hash": ""
+  },
+  "test/global-viewport-migration.test.mjs": {
+    "mtime": 1785267028.9434528,
+    "ast_hash": "42994361de4ad9d6afd5b805acecccc8",
+    "semantic_hash": ""
+  },
+  "test/global-viewport-postgres.test.mjs": {
+    "mtime": 1785267028.9434528,
+    "ast_hash": "0d438550aa268eaaa0216e48af53fe61",
+    "semantic_hash": ""
+  },
+  "test/greenfeed-materializer.test.mjs": {
+    "mtime": 1785267028.9434528,
+    "ast_hash": "f6351846eae01f7820e234ac72a1743a",
+    "semantic_hash": ""
+  },
+  "test/greenfeed-source-adapters.test.mjs": {
+    "mtime": 1785267028.9434528,
+    "ast_hash": "838a4edcc10f9fba365b7596cd946afa",
+    "semantic_hash": ""
+  },
+  "test/greenfeed-worker.test.mjs": {
+    "mtime": 1785267028.9434528,
+    "ast_hash": "b7e308324175cab1e1e042f47707878a",
+    "semantic_hash": ""
+  },
+  "test/helpers.mjs": {
+    "mtime": 1784582361.2448328,
+    "ast_hash": "603d7a99c159d408ebdc2f282ccc185c",
+    "semantic_hash": ""
+  },
+  "test/http.test.mjs": {
+    "mtime": 1785342641.3963788,
+    "ast_hash": "6ab7552fdc3e60778483899cc872dcf7",
+    "semantic_hash": ""
+  },
+  "test/memory-store.test.mjs": {
+    "mtime": 1785342641.3963788,
+    "ast_hash": "5591594547be76fd46385f7a71657606",
+    "semantic_hash": ""
+  },
+  "test/morning-brief-runner.test.mjs": {
+    "mtime": 1785267028.9434528,
+    "ast_hash": "8e46dcaf1fede7a4a7ee6d7b29b44961",
+    "semantic_hash": ""
+  },
+  "test/morning-brief.test.mjs": {
+    "mtime": 1785267028.9434528,
+    "ast_hash": "f2da6363e6ed54e6c42bc9439b1b3223",
+    "semantic_hash": ""
+  },
+  "test/mtls-direct-api.test.mjs": {
+    "mtime": 1785269513.806975,
+    "ast_hash": "3657be4dc42f60223f59607d1f1654b5",
+    "semantic_hash": ""
+  },
+  "test/mtls-installer-contract.test.mjs": {
+    "mtime": 1785342640.5083582,
+    "ast_hash": "cc00e7ffa2a88dddb036647601bd0641",
+    "semantic_hash": ""
+  },
+  "test/postgres-store.test.mjs": {
+    "mtime": 1785345181.4160635,
+    "ast_hash": "f1f8ce14bcf63d2471d6fd293982f741",
+    "semantic_hash": ""
+  },
+  "test/raid-model-contract.test.mjs": {
+    "mtime": 1785348737.3584898,
+    "ast_hash": "10274bd9ddb0ed605dafcd94d42fb08a",
+    "semantic_hash": ""
+  },
+  "test/raid-model-fixtures.mjs": {
+    "mtime": 1785348778.1714332,
+    "ast_hash": "962dbd2e43d524ec9154893eecf8797c",
+    "semantic_hash": ""
+  },
+  "test/raid-model-http.test.mjs": {
+    "mtime": 1785345677.3757567,
+    "ast_hash": "84dace048af0e577102c7ed65294a437",
+    "semantic_hash": ""
+  },
+  "test/raid-model-migration.test.mjs": {
+    "mtime": 1785346654.526615,
+    "ast_hash": "fb8fee3fa25a04bbb0f39343f51d048c",
+    "semantic_hash": ""
+  },
+  "test/raid-model-mtls-installer.test.mjs": {
+    "mtime": 1785346611.4616094,
+    "ast_hash": "4d9b8b5106abd93f14e5a6c6d5d54c7a",
+    "semantic_hash": ""
+  },
+  "test/raid-model-postgres-store.test.mjs": {
+    "mtime": 1785345848.759776,
+    "ast_hash": "d054ec406b34e958c3a83473bb16448b",
+    "semantic_hash": ""
+  },
+  "test/raid-model-store.test.mjs": {
+    "mtime": 1785347920.0196393,
+    "ast_hash": "1cd685372a12c0e9c5814e4c1e65826a",
+    "semantic_hash": ""
+  },
+  "test/raid-model-training-job-postgres.test.mjs": {
+    "mtime": 1785346897.676291,
+    "ast_hash": "8454e4e068e98de056f3baa805f0cd00",
+    "semantic_hash": ""
+  },
+  "test/raid-training-dispatch.test.mjs": {
+    "mtime": 1785347854.9581456,
+    "ast_hash": "6b071a3b199e7658f761a191aa89f8f4",
+    "semantic_hash": ""
+  },
+  "test/wardriver-contract-conformance.test.mjs": {
+    "mtime": 1785269513.806975,
+    "ast_hash": "66ed9bfb04bfc0d7e21d4b57578e0fdc",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1785267028.9354527,
+    "ast_hash": "bbb011951bae57a48e1e9730bd09ab88",
+    "semantic_hash": ""
+  },
+  "db/README.md": {
+    "mtime": 1785344169.6204147,
+    "ast_hash": "156806efa86e06aa8df6a46cf1081dfa",
+    "semantic_hash": ""
+  }
+}

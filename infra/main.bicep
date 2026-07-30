@@ -76,6 +76,9 @@ param mtlsProxySecret string
 @description('Public PEM trust certificate for Wardriver mTLS. A PFX or private key is forbidden.')
 param wardriverMtlsTrustCertificatePem string
 
+@description('JSON object of approved RaID release signing public keys. Never include a private signing key.')
+param raidModelTrustedPublicKeysJson string
+
 @description('Name of the RBAC-enabled, purge-protected Key Vault that holds the Wardriver client certificate.')
 param wardriverMtlsVaultName string = 'bsswdmtls3f85618'
 
@@ -188,6 +191,7 @@ module vmModule 'vm-echo-lab.bicep' = {
     morningBriefToken: morningBriefToken
     mtlsProxySecret: mtlsProxySecret
     wardriverMtlsTrustCertificatePem: wardriverMtlsTrustCertificatePem
+    raidModelTrustedPublicKeysJson: raidModelTrustedPublicKeysJson
     cybermapSourceRevision: cybermapSourceRevision
     cybermapSourceTarballUrl: cybermapSourceTarballUrl
     cybermapSourceTarballSha256: cybermapSourceTarballSha256

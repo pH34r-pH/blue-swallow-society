@@ -21,7 +21,23 @@ test('installer creates an isolated mTLS listener that overwrites client-control
   assert.doesNotMatch(source, /header_up -X-Blue-Swallow-Mtls-Client-Fingerprint/);
   assert.match(source, /header_up X-Blue-Swallow-Mtls-Proxy-Secret \{env\.BSS_MTLS_PROXY_SECRET\}/);
   assert.match(source, /header_up X-Blue-Swallow-Mtls-Client-Fingerprint \{tls_client_fingerprint\}/);
-  assert.match(source, /handle \@wardriver_mtls/);
+  assert.match(source, /handle \@wardriver_mtls_read/);
+  assert.match(source, /handle \@wardriver_mtls_write/);
   assert.match(source, /respond "not_found" 404/);
   assert.match(source, /systemctl daemon-reload[\s\S]*systemctl restart caddy\.service/);
+});
+
+test('installer creates a usable encoded database URL and fails closed on malformed RaID trust configuration', async () => {
+  const source = await readFile(installer, 'utf8');
+  assert.match(source, /encodeURIComponent\(process\.argv\[1\]\)\.replaceAll\(String\.fromCharCode\(39\), "%27"\)/);
+  assert.match(source, /%27/);
+  assert.match(source, /printf 'DATABASE_URL=postgresql:\/\/__POSTGRES_ADMINISTRATOR_LOGIN__:%s@__POSTGRES_SERVER_FQDN__/);
+  assert.doesNotMatch(source, /DATABASE_URL=.*\*\*\*/);
+  assert.match(source, /__BSS_RAID_MODEL_TRUSTED_PUBLIC_KEYS_JSON_B64__/);
+  assert.match(source, /RaID trusted public key configuration is invalid/);
+  assert.match(source, /RaID trusted key configuration must not contain a private key/);
+  assert.match(source, /RAID_MODEL_TRUSTED_PUBLIC_KEYS_JSON_B64="\$\(printf '%s' "\$RAID_MODEL_TRUSTED_PUBLIC_KEYS_JSON" \| base64 \| tr -d '\\n'\)"/);
+  assert.match(source, /printf 'BSS_RAID_MODEL_TRUSTED_PUBLIC_KEYS_JSON_B64=%s\\n' "\$RAID_MODEL_TRUSTED_PUBLIC_KEYS_JSON_B64"/);
+  assert.doesNotMatch(source, /printf "BSS_RAID_MODEL_TRUSTED_PUBLIC_KEYS_JSON='%s'/);
+  assert.match(source, /BSS_RAID_MODEL_TRUSTED_PUBLIC_KEYS_JSON_B64/);
 });

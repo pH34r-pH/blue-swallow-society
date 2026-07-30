@@ -38,6 +38,20 @@ test('deployment and what-if derive a full Git commit archive digest rather than
   assert.doesNotMatch(mainBicep, /refs\/heads\/main/);
 });
 
+test('RaID trust deployment requires a non-empty approved public-key configuration', () => {
+  [mainBicep, vmBicep].forEach((template) => {
+    assert.match(template, /param raidModelTrustedPublicKeysJson string(?!\s*=)/);
+  });
+  [deployWorkflow, whatIfWorkflow].forEach((workflow) => {
+    assert.match(workflow, /BSS_RAID_MODEL_TRUSTED_PUBLIC_KEYS_JSON must contain at least one approved public key/);
+    assert.doesNotMatch(workflow, /raid_model_trusted_public_keys_json='\{\}'/);
+  });
+  assert.match(installer, /RaID trusted public key configuration is empty/);
+  assert.match(installer, /Object\.keys\(parsed\)\.length === 0/);
+  assert.match(installer, /createPublicKey\(pem\)/);
+  assert.match(installer, /namedCurve !== "prime256v1"/);
+});
+
 test('passcode limiter wiring uses a dedicated Table store, not release storage', () => {
   const rateLimitModule = new URL('../infra/modules/passcode-rate-limit-storage.bicep', import.meta.url);
   const module = readFileSync(rateLimitModule, 'utf8');

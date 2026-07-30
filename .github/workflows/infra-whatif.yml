@@ -38,6 +38,7 @@ jobs:
           BSS_MORNING_BRIEF_TOKEN: ${{ secrets.BSS_MORNING_BRIEF_TOKEN }}
           BSS_MTLS_PROXY_SECRET: ${{ secrets.BSS_MTLS_PROXY_SECRET }}
           BSS_WARDRIVER_MTLS_TRUST_PEM: ${{ secrets.BSS_WARDRIVER_MTLS_TRUST_PEM }}
+          BSS_RAID_MODEL_TRUSTED_PUBLIC_KEYS_JSON: ${{ secrets.BSS_RAID_MODEL_TRUSTED_PUBLIC_KEYS_JSON }}
         run: |
           ssh_key=$(printf '%s' "$SSH_KEY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           postgres_password=$(printf '%s' "$POSTGRES_ADMIN_PASSWORD" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
@@ -46,6 +47,11 @@ jobs:
           morning_brief_token=$(printf '%s' "$BSS_MORNING_BRIEF_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           mtls_proxy_secret=$(printf '%s' "$BSS_MTLS_PROXY_SECRET" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           mtls_trust_pem=$(printf '%s' "$BSS_WARDRIVER_MTLS_TRUST_PEM" | tr -d '\r')
+          raid_model_trusted_public_keys_json=$(printf '%s' "$BSS_RAID_MODEL_TRUSTED_PUBLIC_KEYS_JSON" | tr -d '\r')
+          if [ -z "$raid_model_trusted_public_keys_json" ] || [ "$raid_model_trusted_public_keys_json" = '{}' ]; then
+            echo "BSS_RAID_MODEL_TRUSTED_PUBLIC_KEYS_JSON must contain at least one approved public key" >&2
+            exit 1
+          fi
           cybermap_source_url="https://github.com/${GITHUB_REPOSITORY}/archive/${GITHUB_SHA}.tar.gz"
           curl --fail --location --silent --show-error "$cybermap_source_url" -o cybermap-source.tar.gz
           cybermap_source_sha256="$(sha256sum cybermap-source.tar.gz | awk '{print $1}')"
@@ -61,6 +67,7 @@ jobs:
             --parameters morningBriefToken="$morning_brief_token" \
             --parameters mtlsProxySecret="$mtls_proxy_secret" \
             --parameters wardriverMtlsTrustCertificatePem="$mtls_trust_pem" \
+            --parameters raidModelTrustedPublicKeysJson="$raid_model_trusted_public_keys_json" \
             --parameters cybermapSourceRevision="$GITHUB_SHA" \
             --parameters cybermapSourceTarballUrl="$cybermap_source_url" \
             --parameters cybermapSourceTarballSha256="$cybermap_source_sha256"

@@ -1,6 +1,8 @@
 import { Pool } from 'pg';
 
 import { PostgresObservationStore } from './postgres-store.mjs';
+import { PostgresRaIDModelStore } from './raid-model-store.mjs';
+import { createRaIDReleaseTrustVerifier, resolveRaIDTrustedPublicKeysJson } from './raid-model-trust.mjs';
 import { createCybermapApiServer } from './server.mjs';
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -18,8 +20,15 @@ const pool = new Pool({
   application_name: 'bss-cybermap-api',
 });
 const store = new PostgresObservationStore({ pool });
+const raidTrustedPublicKeysJson = resolveRaIDTrustedPublicKeysJson({
+  encoded: process.env.BSS_RAID_MODEL_TRUSTED_PUBLIC_KEYS_JSON_B64,
+  plain: process.env.BSS_RAID_MODEL_TRUSTED_PUBLIC_KEYS_JSON,
+});
+const raidReleaseTrust = createRaIDReleaseTrustVerifier(raidTrustedPublicKeysJson);
+const modelStore = new PostgresRaIDModelStore({ pool, releaseVerifier: raidReleaseTrust.verify });
 const server = createCybermapApiServer({
   store,
+  modelStore,
   logger: {
     error(event) {
       process.stderr.write(`${JSON.stringify({ level: 'error', service: 'bss-cybermap-api', ...event })}\n`);

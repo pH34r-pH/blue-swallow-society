@@ -64,6 +64,9 @@ param mtlsProxySecret string
 @description('PEM public certificate used by Caddy to verify the Wardriver client certificate. Never pass a PFX or private key.')
 param wardriverMtlsTrustCertificatePem string
 
+@description('JSON object of approved RaID release signing public keys. Never include a private signing key.')
+param raidModelTrustedPublicKeysJson string
+
 @description('Full immutable Git commit that identifies the Cybermap VM source archive.')
 param cybermapSourceRevision string
 
@@ -274,7 +277,11 @@ var cybermapInstallScriptWithSourceIdentity = replace(
   '__WARDIVER_MTLS_TRUST_CERT_PEM_B64__',
   base64(wardriverMtlsTrustCertificatePem)
 )
-var cybermapInstallScript = cybermapInstallScriptWithSourceIdentity
+var cybermapInstallScript = replace(
+  cybermapInstallScriptWithSourceIdentity,
+  '__BSS_RAID_MODEL_TRUSTED_PUBLIC_KEYS_JSON_B64__',
+  base64(raidModelTrustedPublicKeysJson)
+)
 
 resource cybermapApiExtension 'Microsoft.Compute/virtualMachines/extensions@2024-03-01' = {
   parent: vm

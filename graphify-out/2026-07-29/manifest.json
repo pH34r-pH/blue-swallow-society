@@ -270,8 +270,8 @@
     "semantic_hash": ""
   },
   "infra/scripts/install-cybermap-api.sh": {
-    "mtime": 1785342641.3923786,
-    "ast_hash": "14fe8333e33454f04a11a9d5fc6c3f6a",
+    "mtime": 1785364150.2733808,
+    "ast_hash": "ad19fe3be8436f485b81c24f054c78bb",
     "semantic_hash": ""
   },
   "local-server.js": {
@@ -380,8 +380,8 @@
     "semantic_hash": ""
   },
   "tests/cybermap-schema.test.mjs": {
-    "mtime": 1785344111.2830498,
-    "ast_hash": "a8baee04d73d364507cfca6feac1583d",
+    "mtime": 1785364429.9120243,
+    "ast_hash": "9d28ba216c7234e6624fbf1514a2d2ef",
     "semantic_hash": ""
   },
   "tests/cybermap-viewport-api.test.mjs": {
@@ -660,8 +660,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/main.mjs": {
-    "mtime": 1784582361.2448328,
-    "ast_hash": "9caa566ab7489a9528c76d8ca66d0155",
+    "mtime": 1785351496.5359309,
+    "ast_hash": "a01df610adc228b02db431dc91769041",
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/memory-store.mjs": {
@@ -675,8 +675,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/server.mjs": {
-    "mtime": 1785342641.3923786,
-    "ast_hash": "f09aa9c4de9e2e7b26f6691fe3f0ebcc",
+    "mtime": 1785360554.5999322,
+    "ast_hash": "43e34c395c7b4b97474fb891baf43b0d",
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/sources/adapter-contract.mjs": {
@@ -850,8 +850,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/postgres-store.test.mjs": {
-    "mtime": 1785343887.6818085,
-    "ast_hash": "39e6f027ccb20cd056c52cf165480cb2",
+    "mtime": 1785345181.4160635,
+    "ast_hash": "f1f8ce14bcf63d2471d6fd293982f741",
     "semantic_hash": ""
   },
   ".claude/skills/speckit-analyze/SKILL.md": {
@@ -910,13 +910,13 @@
     "semantic_hash": ""
   },
   ".github/workflows/deploy-static-web-app.yml": {
-    "mtime": 1785269513.7909746,
-    "ast_hash": "bb4830e04a9a52990d7c705adfdca159",
+    "mtime": 1785360434.457081,
+    "ast_hash": "c94ffdd6443a3e6fa77c79a00468d38b",
     "semantic_hash": ""
   },
   ".github/workflows/infra-whatif.yml": {
-    "mtime": 1785269513.7909746,
-    "ast_hash": "7a66f7b95535442a2fb53be818f1601f",
+    "mtime": 1785360395.196148,
+    "ast_hash": "496502d12724002bdb6aba87d41fe4f3",
     "semantic_hash": ""
   },
   ".github/workflows/publish-wardriver-basemap.yml": {
@@ -1410,28 +1410,28 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/mtls-installer-contract.test.mjs": {
-    "mtime": 1785342640.5083582,
-    "ast_hash": "cc00e7ffa2a88dddb036647601bd0641",
+    "mtime": 1785364166.9097764,
+    "ast_hash": "bda5857a3bbb798a2bf8fed0f04af72d",
     "semantic_hash": ""
   },
   "specs/014-wardriver-mtls-direct-api/plan.md": {
-    "mtime": 1785267028.9234524,
-    "ast_hash": "866b4ee303e3e1bbff3f2d0579f4565b",
+    "mtime": 1785356239.1181958,
+    "ast_hash": "6266de320c3f14f67b0c41298d893deb",
     "semantic_hash": ""
   },
   "specs/014-wardriver-mtls-direct-api/spec.md": {
-    "mtime": 1785267028.9234524,
-    "ast_hash": "f2794ca6c6f7c554ebbbfdc0302cc9f6",
+    "mtime": 1785356239.1101956,
+    "ast_hash": "5f07467b16847a9fc40551b6c4e0ac27",
     "semantic_hash": ""
   },
   "specs/014-wardriver-mtls-direct-api/tasks.md": {
-    "mtime": 1785267028.9234524,
-    "ast_hash": "ca8306b7b269f82e48c750b260acbe01",
+    "mtime": 1785365815.948951,
+    "ast_hash": "aed44c6ca1e042dbb0d4fcd070e238e2",
     "semantic_hash": ""
   },
   "specs/014-wardriver-mtls-direct-api/tests.md": {
-    "mtime": 1785267028.9234524,
-    "ast_hash": "1c39ee4624342944966048dbf7434d19",
+    "mtime": 1785356239.1421964,
+    "ast_hash": "0d28da64155e44380ec86c08e3219756",
     "semantic_hash": ""
   },
   "api/_private/operator/assets/chained-daemon.mjs": {
@@ -1645,8 +1645,8 @@
     "semantic_hash": ""
   },
   "specs/016-wardriver-mtls-proxy-secret/spec.md": {
-    "mtime": 1785342640.504358,
-    "ast_hash": "5854095677a65a0bf1db16355566d921",
+    "mtime": 1785365927.5756204,
+    "ast_hash": "93bb2321404d92c1a9b939796e1e8444",
     "semantic_hash": ""
   },
   "specs/016-wardriver-mtls-proxy-secret/tasks.md": {
@@ -1795,8 +1795,108 @@
     "semantic_hash": ""
   },
   "specs/017-device-scoped-observation-reconciliation/tests.md": {
-    "mtime": 1785344169.632415,
-    "ast_hash": "b7c1297dbc5e7dc8831c38a55c737530",
+    "mtime": 1785345201.6925442,
+    "ast_hash": "419ebf7a97be74625551ff388168e60b",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/db/migrations/0006_raid_model_lifecycle.sql": {
+    "mtime": 1785350681.1130013,
+    "ast_hash": "b04ec157f796eb082ab7b376d8620939",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/src/raid-model-contract.mjs": {
+    "mtime": 1785350978.3639941,
+    "ast_hash": "4339e33b89933ef5b42b9459008826e8",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/src/raid-model-store.mjs": {
+    "mtime": 1785363683.9582577,
+    "ast_hash": "1b9cd290b6700fdeaec4c437792d9771",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/src/raid-training-dispatch.mjs": {
+    "mtime": 1785347884.2588181,
+    "ast_hash": "7ebaca1ebd238183457b2cab5997513a",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/test/raid-model-contract.test.mjs": {
+    "mtime": 1785351283.0150826,
+    "ast_hash": "3245b355ca018b379934f339d1e68d78",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/test/raid-model-fixtures.mjs": {
+    "mtime": 1785350990.7642853,
+    "ast_hash": "7d70ad200bb9249affe1f809eaf79427",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/test/raid-model-http.test.mjs": {
+    "mtime": 1785360528.7753198,
+    "ast_hash": "397d2892f5e3ad1f882d2a9e6846171a",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/test/raid-model-migration.test.mjs": {
+    "mtime": 1785350640.400042,
+    "ast_hash": "2abac4d0d23d3a609f35035fc8d2eec1",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/test/raid-model-mtls-installer.test.mjs": {
+    "mtime": 1785359709.9916387,
+    "ast_hash": "f2c39ba125d5ba24bb4972b68a143716",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/test/raid-model-postgres-store.test.mjs": {
+    "mtime": 1785363642.6412678,
+    "ast_hash": "21a4c6b5de592d25b4e85c19c87d9169",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/test/raid-model-store.test.mjs": {
+    "mtime": 1785363714.2749834,
+    "ast_hash": "87793d1763f60d6401af65bf99e17f10",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/test/raid-model-training-job-postgres.test.mjs": {
+    "mtime": 1785346897.676291,
+    "ast_hash": "8454e4e068e98de056f3baa805f0cd00",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/test/raid-training-dispatch.test.mjs": {
+    "mtime": 1785347854.9581456,
+    "ast_hash": "6b071a3b199e7658f761a191aa89f8f4",
+    "semantic_hash": ""
+  },
+  "specs/018-raid-model-lifecycle-control-plane/plan.md": {
+    "mtime": 1785356240.2102208,
+    "ast_hash": "1e97904261802ff6d050a756ceb235b5",
+    "semantic_hash": ""
+  },
+  "specs/018-raid-model-lifecycle-control-plane/spec.md": {
+    "mtime": 1785362873.715046,
+    "ast_hash": "e1286aff0f49f8301b726bd4e63495ea",
+    "semantic_hash": ""
+  },
+  "specs/018-raid-model-lifecycle-control-plane/tasks.md": {
+    "mtime": 1785365815.948951,
+    "ast_hash": "c4619d32c7d58147cb8dc8b3f4c28d51",
+    "semantic_hash": ""
+  },
+  "specs/018-raid-model-lifecycle-control-plane/tests.md": {
+    "mtime": 1785356240.2142208,
+    "ast_hash": "4919fb4af453829a441fb3dbfc0d3375",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/src/raid-model-trust.mjs": {
+    "mtime": 1785351478.2755141,
+    "ast_hash": "36257cac22b46fc6d0024fbb88ad89e0",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/test/raid-model-feedback-postgres.test.mjs": {
+    "mtime": 1785350567.4303222,
+    "ast_hash": "2940d4f85b99dfac8c9a91cd4596c8fd",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/test/raid-model-trust.test.mjs": {
+    "mtime": 1785351341.6844091,
+    "ast_hash": "7ac65dc4dc63c50495af5cfea17f94e1",
     "semantic_hash": ""
   }
 }

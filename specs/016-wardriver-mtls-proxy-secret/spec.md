@@ -9,7 +9,7 @@
 
 RaID did not run: camera state is `not-started`, detector state is `not-attempted`, and no local RaID error exists. Wardriver reaches the direct mTLS listener and receives HTTP 403.
 
-The Cybermap API requires a Caddy-injected loopback assertion containing the client-certificate fingerprint and `BSS_MTLS_PROXY_SECRET`. The live Caddy process has the dedicated proxy-secret environment, but its...[truncated]
+The Cybermap API requires a Caddy-injected loopback assertion containing the client-certificate fingerprint and `BSS_MTLS_PROXY_SECRET`. At incident time, the Caddy process had the dedicated proxy-secret environment but its service unit did not load that file before proxying, so the API received no valid assertion and rejected the request.
 
 ## User Scenario & Acceptance
 

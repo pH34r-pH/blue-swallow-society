@@ -3,6 +3,11 @@ import http from 'node:http';
 
 import { IngestError } from './auth.mjs';
 import { ContractError, validateObservationBatch } from './contracts.mjs';
+import {
+  artifactManifestHeaderValue,
+  validateModelCatalogRequest,
+  validateModelFeedback,
+} from './raid-model-contract.mjs';
 import { readOperatorSignalSnapshotFromBody, readViewportFromBody } from './viewport.mjs';
 import {
   GlobalViewportContractError,
@@ -18,6 +23,15 @@ import {
 const MAX_BODY_BYTES = 1_048_576;
 const MAX_MORNING_BRIEF_BODY_BYTES = 32 * 1_024 * 1_024;
 const INGEST_PATH = '/api/v1/observations/batch';
+const RAID_MODEL_CATALOG_PATH = '/api/v1/raid/models/catalog';
+const RAID_MODEL_ARTIFACT_PATH_RE = /^\/api\/v1\/raid\/models\/releases\/([a-z][a-z0-9-]{2,119})\/artifact$/;
+const RAID_MODEL_FEEDBACK_PATH_RE = /^\/api\/v1\/raid\/models\/releases\/([a-z][a-z0-9-]{2,119})\/feedback$/;
+const RAID_MODEL_COMPATIBILITY_HEADERS = Object.freeze({
+  appVersion: 'x-blue-swallow-raid-app-version',
+  runtimeId: 'x-blue-swallow-raid-runtime-id',
+  runtimeVersion: 'x-blue-swallow-raid-runtime-version',
+  decoderProfile: 'x-blue-swallow-raid-decoder-profile',
+});
 const VIEWPORT_PATH = '/api/v1/cybermap/viewport';
 const OPERATOR_SIGNALS_PATH = '/api/v1/cybermap/operator-signals';
 const TILE_PATH_RE = /^\/api\/v1\/cybermap\/tiles\/(\d+)\/(\d+)\/(\d+)$/;
@@ -111,6 +125,7 @@ const RFC3339_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\
 
 export function createCybermapApiServer({
   store,
+  modelStore = null,
   now = Date.now,
   logger = null,
   ingestDeadlineMs = 5_000,
@@ -118,7 +133,7 @@ export function createCybermapApiServer({
 } = {}) {
   if (!store) throw new TypeError('store is required');
   const server = http.createServer(createRequestHandler({
-    store, now, logger, ingestDeadlineMs, mtlsProxySecret,
+    store, modelStore, now, logger, ingestDeadlineMs, mtlsProxySecret,
   }));
   server.requestTimeout = 30_000;
   server.headersTimeout = 10_000;
@@ -129,6 +144,7 @@ export function createCybermapApiServer({
 
 export function createRequestHandler({
   store,
+  modelStore = null,
   now = Date.now,
   logger = null,
   ingestDeadlineMs = 5_000,
@@ -145,7 +161,29 @@ export function createRequestHandler({
       }
       if (request.method === 'GET' && url.pathname === '/readyz') {
         const readiness = await store.ready();
-        return sendJson(response, readiness.ok ? 200 : 503, readiness);
+        if (!modelStore || typeof modelStore.ready !== 'function') {
+          return sendJson(response, readiness.ok ? 200 : 503, readiness);
+        }
+        const modelReadiness = await modelStore.ready();
+        const ok = readiness.ok && modelReadiness.ok;
+        return sendJson(response, ok ? 200 : 503, {
+          ok,
+          database: readiness.database,
+          migrations: readiness.migrations,
+          model_lifecycle: modelReadiness,
+        });
+      }
+      const modelArtifactMatch = url.pathname.match(RAID_MODEL_ARTIFACT_PATH_RE);
+      const modelFeedbackMatch = url.pathname.match(RAID_MODEL_FEEDBACK_PATH_RE);
+      if (url.pathname === RAID_MODEL_CATALOG_PATH || modelArtifactMatch || modelFeedbackMatch) {
+        return await handleRaIDModelRequest(request, response, url, {
+          store,
+          modelStore,
+          now,
+          mtlsProxySecret,
+          artifactReleaseId: modelArtifactMatch?.[1] ?? null,
+          feedbackReleaseId: modelFeedbackMatch?.[1] ?? null,
+        });
       }
       if (request.method === 'POST' && url.pathname === OPERATOR_SIGNALS_PATH) {
         requireBackendReadToken(request);
@@ -206,6 +244,106 @@ export function createRequestHandler({
       return sendError(response, error);
     }
   };
+}
+
+async function handleRaIDModelRequest(request, response, url, {
+  store,
+  modelStore,
+  now,
+  mtlsProxySecret,
+  artifactReleaseId,
+  feedbackReleaseId,
+}) {
+  const isFeedback = feedbackReleaseId !== null;
+  const isCatalog = artifactReleaseId === null && !isFeedback;
+  const expectedMethod = isFeedback ? 'POST' : 'GET';
+  if (request.method !== expectedMethod) {
+    request.resume();
+    return sendJson(response, 404, { ok: false, error: 'not_found' });
+  }
+  const mtlsAssertion = requireMtlsProxyAssertion(request, mtlsProxySecret);
+  if (!modelStore) {
+    request.resume();
+    throw new IngestError('model_lifecycle_unavailable', 'Model lifecycle is not available.', { statusCode: 503 });
+  }
+  if (typeof store.authenticateMtls !== 'function') {
+    request.resume();
+    throw new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
+  }
+  const requiredScope = isFeedback ? 'models:feedback:write' : 'models:read';
+  let credential;
+  try {
+    credential = await store.authenticateMtls({
+      deviceId: singleHeader(request, 'x-blue-swallow-device-id'),
+      certificateFingerprint: mtlsAssertion.certificateFingerprint,
+      requiredScope,
+    });
+  } catch (error) {
+    if (error?.code === 'forbidden' && error?.statusCode === 403) {
+      throw withDiagnosticCode(error, 'mtls_credential_rejected');
+    }
+    throw error;
+  }
+  if (isFeedback) {
+    if (url.search) {
+      request.resume();
+      throw invalidModelRequest('Model feedback requests must not use URL query parameters.');
+    }
+    const contentType = String(request.headers['content-type'] ?? '').toLowerCase();
+    if (!contentType.startsWith('application/json')) {
+      request.resume();
+      throw new IngestError('unsupported_media_type', 'Content-Type must be application/json.', { statusCode: 415 });
+    }
+    if (typeof modelStore.recordFeedback !== 'function') {
+      throw new IngestError('model_lifecycle_unavailable', 'Model lifecycle is not available.', { statusCode: 503 });
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(await readBody(request));
+    } catch (error) {
+      if (error instanceof IngestError) throw error;
+      throw new IngestError('invalid_json', 'Malformed JSON.', { statusCode: 400 });
+    }
+    const feedback = validateModelFeedback(parsed);
+    if (feedback.release_id !== feedbackReleaseId) {
+      throw new IngestError('model_release_mismatch', 'Feedback release does not match the route.', { statusCode: 400 });
+    }
+    const result = await modelStore.recordFeedback({ credential, feedback });
+    return sendJson(response, result.statusCode, {
+      ok: true,
+      replayed: result.replayed,
+      receipt: result.receipt,
+    }, { 'Idempotent-Replayed': String(result.replayed) });
+  }
+
+  validateRaIDModelReadRequest(request, url, { isCatalog });
+  const compatibility = readRaIDModelCompatibilityHeaders(request);
+  if (artifactReleaseId !== null) {
+    if (typeof modelStore.getArtifact !== 'function') {
+      throw new IngestError('model_lifecycle_unavailable', 'Model lifecycle is not available.', { statusCode: 503 });
+    }
+    const artifact = await modelStore.getArtifact({ releaseId: artifactReleaseId, compatibility });
+    return sendBinary(response, 200, artifact.bytes, artifact.artifact.media_type, {
+      'X-Blue-Swallow-Artifact-SHA256': artifact.artifact.sha256,
+      'X-Blue-Swallow-Manifest-SHA256': artifact.release.manifest.sha256,
+      'X-Blue-Swallow-Model-Manifest-Base64': artifactManifestHeaderValue(artifact.release),
+      'X-Blue-Swallow-Model-Release-ID': artifact.release.release_id,
+    });
+  }
+  if (typeof modelStore.listCatalog !== 'function') {
+    throw new IngestError('model_lifecycle_unavailable', 'Model lifecycle is not available.', { statusCode: 503 });
+  }
+  const releases = await modelStore.listCatalog({ compatibility });
+  const revokedReleaseIds = typeof modelStore.listRevocations === 'function'
+    ? await modelStore.listRevocations({ compatibility }) : [];
+  return sendJson(response, 200, {
+    ok: true,
+    schema_version: 'bss.raid.model_catalog.v1',
+    channel: 'field',
+    generated_at: new Date(now()).toISOString(),
+    revoked_release_ids: revokedReleaseIds,
+    releases,
+  });
 }
 
 async function handleObservationBatch(request, response, {
@@ -1046,6 +1184,56 @@ function singleHeader(request, name) {
   const value = request.headers[name];
   if (Array.isArray(value)) return '';
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function invalidModelRequest(message) {
+  return new IngestError('invalid_model_request', message, { statusCode: 400 });
+}
+
+function validateRaIDModelReadRequest(request, url, { isCatalog }) {
+  const expectedQuery = isCatalog ? '?channel=field' : '';
+  if (url.search !== expectedQuery) {
+    request.resume();
+    throw invalidModelRequest(isCatalog
+      ? 'Catalog requests must use only channel=field.'
+      : 'Artifact requests must not use URL query parameters.');
+  }
+  const contentLength = request.headers['content-length'];
+  const transferEncoding = request.headers['transfer-encoding'];
+  if (Array.isArray(contentLength) || Array.isArray(transferEncoding)
+      || (typeof contentLength === 'string' && contentLength.trim() !== '0')
+      || (typeof transferEncoding === 'string' && transferEncoding.trim() !== '')) {
+    request.resume();
+    throw invalidModelRequest('Model read requests must not contain a body.');
+  }
+}
+
+function requiredRaIDModelCompatibilityHeader(request, name) {
+  const value = request.headers[name];
+  if (Array.isArray(value) || typeof value !== 'string' || value.includes(',')) {
+    throw invalidModelRequest('Model compatibility headers must be singleton values.');
+  }
+  const normalized = value.trim();
+  if (!normalized) throw invalidModelRequest('Model compatibility headers are required.');
+  return normalized;
+}
+
+function readRaIDModelCompatibilityHeaders(request) {
+  const appVersion = requiredRaIDModelCompatibilityHeader(request, RAID_MODEL_COMPATIBILITY_HEADERS.appVersion);
+  const runtimeId = requiredRaIDModelCompatibilityHeader(request, RAID_MODEL_COMPATIBILITY_HEADERS.runtimeId);
+  const runtimeVersion = requiredRaIDModelCompatibilityHeader(request, RAID_MODEL_COMPATIBILITY_HEADERS.runtimeVersion);
+  const decoderProfile = requiredRaIDModelCompatibilityHeader(request, RAID_MODEL_COMPATIBILITY_HEADERS.decoderProfile);
+  try {
+    return validateModelCatalogRequest({
+      schema_version: 'bss.raid.model_catalog_request.v1',
+      app_version: appVersion,
+      runtime_id: runtimeId,
+      runtime_version: runtimeVersion,
+      decoder_profiles: [decoderProfile],
+    });
+  } catch {
+    throw invalidModelRequest('Model compatibility headers are invalid.');
+  }
 }
 
 function withIngestDeadline(promise, deadlineMs) {
