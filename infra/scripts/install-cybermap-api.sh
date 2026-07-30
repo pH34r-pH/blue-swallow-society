@@ -150,6 +150,7 @@ chmod 0644 /etc/bss/cybermap-api-release.json
 run_migration 0004_godeye_global_cells_and_sources db/migrations/0004_godeye_global_cells_and_sources.sql
 run_migration 0004_morning_brief_archive db/migrations/0004_morning_brief_archive.sql
 run_migration 0005_device_scoped_observation_identity db/migrations/0005_device_scoped_observation_identity.sql
+run_migration 0006_best_effort_observation_progress db/migrations/0006_best_effort_observation_progress.sql
 run_migration 0006_raid_model_lifecycle db/migrations/0006_raid_model_lifecycle.sql
 run_migration 0007_raid_model_lifecycle_hardening db/migrations/0007_raid_model_lifecycle_hardening.sql
 psql -v ON_ERROR_STOP=1 -c "UPDATE source_catalog SET enabled = true, allowed_preload = true, terms_reviewed = true, updated_at = clock_timestamp() WHERE source_key = 'deflock-osm-alpr-reports'"

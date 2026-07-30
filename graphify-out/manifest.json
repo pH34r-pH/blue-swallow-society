@@ -270,8 +270,8 @@
     "semantic_hash": ""
   },
   "infra/scripts/install-cybermap-api.sh": {
-    "mtime": 1785369493.0832095,
-    "ast_hash": "62e2311c1bd00a8dbfffa543b1a76816",
+    "mtime": 1785374219.3936746,
+    "ast_hash": "c4632635aa1247b110c5710e1f1b361d",
     "semantic_hash": ""
   },
   "local-server.js": {
@@ -380,8 +380,8 @@
     "semantic_hash": ""
   },
   "tests/cybermap-schema.test.mjs": {
-    "mtime": 1785364429.9120243,
-    "ast_hash": "9d28ba216c7234e6624fbf1514a2d2ef",
+    "mtime": 1785374263.102668,
+    "ast_hash": "85c97adf5ae063963cf61ea09a9c52dd",
     "semantic_hash": ""
   },
   "tests/cybermap-viewport-api.test.mjs": {
@@ -625,8 +625,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/contracts.mjs": {
-    "mtime": 1784582361.2448328,
-    "ast_hash": "d4c1cd190a9f6af2a6e2e2539f6b1238",
+    "mtime": 1785373886.414196,
+    "ast_hash": "36f7094ececd4b9229fd264b60538fb2",
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/deflock-materializer.mjs": {
@@ -665,13 +665,13 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/memory-store.mjs": {
-    "mtime": 1785342641.3923786,
-    "ast_hash": "1dd8670e8b74fbf55e902e3327d51c01",
+    "mtime": 1785373886.414196,
+    "ast_hash": "93f7bb1878132b706c4378fc5e1d17ff",
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/postgres-store.mjs": {
-    "mtime": 1785343769.6550338,
-    "ast_hash": "7b3ae712920257d329a7c08571526ae9",
+    "mtime": 1785373886.414196,
+    "ast_hash": "09c935bdf5e289eb045141f4d761922a",
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/server.mjs": {
@@ -705,8 +705,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/contracts.test.mjs": {
-    "mtime": 1784582361.2448328,
-    "ast_hash": "b741a65b291f8f597afa0edf73fb2296",
+    "mtime": 1785373886.414196,
+    "ast_hash": "68fbcb7573ff259a1e6f381637b65993",
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/deflock-materializer.test.mjs": {
@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/deflock-viewport-migration.test.mjs": {
-    "mtime": 1785267028.939453,
-    "ast_hash": "047dac36efb5f1fc49f900a5d37ae304",
+    "mtime": 1785373886.4181962,
+    "ast_hash": "2dd5ebd03c92f911d3bc14713c586718",
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/deflock-worker.test.mjs": {
@@ -800,8 +800,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/global-viewport-migration.test.mjs": {
-    "mtime": 1785267028.9434528,
-    "ast_hash": "42994361de4ad9d6afd5b805acecccc8",
+    "mtime": 1785373886.4181962,
+    "ast_hash": "53dabea0111e8bd67cb1e5dd74da4a98",
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/global-viewport-postgres.test.mjs": {
@@ -825,18 +825,18 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/helpers.mjs": {
-    "mtime": 1784582361.2448328,
-    "ast_hash": "603d7a99c159d408ebdc2f282ccc185c",
+    "mtime": 1785373886.4181962,
+    "ast_hash": "109f7436d0cd7f9ee75f226e71d84d8d",
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/http.test.mjs": {
-    "mtime": 1785342641.3963788,
-    "ast_hash": "6ab7552fdc3e60778483899cc872dcf7",
+    "mtime": 1785373886.4181962,
+    "ast_hash": "76609bdcbb08adc0f286f4ca8e5b3771",
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/memory-store.test.mjs": {
-    "mtime": 1785342641.3963788,
-    "ast_hash": "5591594547be76fd46385f7a71657606",
+    "mtime": 1785373886.4181962,
+    "ast_hash": "cc5e7c5ef6d667f35dcc6a48cbf93fd0",
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/morning-brief-runner.test.mjs": {
@@ -850,8 +850,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/postgres-store.test.mjs": {
-    "mtime": 1785345181.4160635,
-    "ast_hash": "f1f8ce14bcf63d2471d6fd293982f741",
+    "mtime": 1785374279.9350514,
+    "ast_hash": "18f896535fae8113470cebc4d5641605",
     "semantic_hash": ""
   },
   ".claude/skills/speckit-analyze/SKILL.md": {
@@ -1395,13 +1395,13 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/README.md": {
-    "mtime": 1785267028.9354527,
-    "ast_hash": "bbb011951bae57a48e1e9730bd09ab88",
+    "mtime": 1785373886.414196,
+    "ast_hash": "de6a711a543ebd0e656404b65a9b34d4",
     "semantic_hash": ""
   },
   "vm/cybermap-api/db/README.md": {
-    "mtime": 1785344169.6204147,
-    "ast_hash": "156806efa86e06aa8df6a46cf1081dfa",
+    "mtime": 1785374242.2781944,
+    "ast_hash": "42f1654264c9c26865b02ee0672c213c",
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/mtls-direct-api.test.mjs": {
@@ -1740,8 +1740,8 @@
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/wardriver-contract-conformance.test.mjs": {
-    "mtime": 1785269513.806975,
-    "ast_hash": "66ed9bfb04bfc0d7e21d4b57578e0fdc",
+    "mtime": 1785373886.4221961,
+    "ast_hash": "251b949c6648c197b54ca862e98dc5ad",
     "semantic_hash": ""
   },
   "docs/adversarial-review-repair-guidance.md": {
@@ -1790,18 +1790,53 @@
     "semantic_hash": ""
   },
   "specs/017-device-scoped-observation-reconciliation/tasks.md": {
-    "mtime": 1785342641.3923786,
-    "ast_hash": "173cb470384b9cbe2bef76fd9b5dc7bd",
+    "mtime": 1785373886.4101958,
+    "ast_hash": "e768efcc39838102c439d96ac7a56c31",
     "semantic_hash": ""
   },
   "specs/017-device-scoped-observation-reconciliation/tests.md": {
-    "mtime": 1785345201.6925442,
-    "ast_hash": "419ebf7a97be74625551ff388168e60b",
+    "mtime": 1785373886.4101958,
+    "ast_hash": "bd9a91e84a79bf56adde66da6fd6b02c",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/db/migrations/0006_best_effort_observation_progress.sql": {
+    "mtime": 1785373886.414196,
+    "ast_hash": "7443f1149b6a5cf4cc449d1e8a55b42f",
+    "semantic_hash": ""
+  },
+  "specs/018-best-effort-observation-progress/plan.md": {
+    "mtime": 1785373886.4101958,
+    "ast_hash": "437b6ce1731b83d4ef378013b9b8bac6",
+    "semantic_hash": ""
+  },
+  "specs/018-best-effort-observation-progress/spec.md": {
+    "mtime": 1785373886.4101958,
+    "ast_hash": "53ec55d5d3605132976fdb32cb3b9e12",
+    "semantic_hash": ""
+  },
+  "specs/018-best-effort-observation-progress/tasks.md": {
+    "mtime": 1785373886.4101958,
+    "ast_hash": "3a82c4b5fc0b92dbf9fb2e8b7880bc7a",
+    "semantic_hash": ""
+  },
+  "specs/018-best-effort-observation-progress/tests.md": {
+    "mtime": 1785373886.4101958,
+    "ast_hash": "cc84d4cb863a858ac8cbee7637072fe5",
+    "semantic_hash": ""
+  },
+  "shared/contracts/bss.observation_batch.v2.wardriver-golden.json": {
+    "mtime": 1785373886.4101958,
+    "ast_hash": "85f53a1979d243cec46dac1b1f22efef",
     "semantic_hash": ""
   },
   "vm/cybermap-api/db/migrations/0006_raid_model_lifecycle.sql": {
     "mtime": 1785350681.1130013,
     "ast_hash": "b04ec157f796eb082ab7b376d8620939",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/db/migrations/0007_raid_model_lifecycle_hardening.sql": {
+    "mtime": 1785367477.6484694,
+    "ast_hash": "df430a3a24b616c35c6e343d647b08a2",
     "semantic_hash": ""
   },
   "vm/cybermap-api/src/raid-model-contract.mjs": {
@@ -1814,6 +1849,11 @@
     "ast_hash": "1c4f4394714572ca3f1bf9c9b8d5ff5f",
     "semantic_hash": ""
   },
+  "vm/cybermap-api/src/raid-model-trust.mjs": {
+    "mtime": 1785367552.946256,
+    "ast_hash": "b016176aecc440ad7e1b57a08a28c14a",
+    "semantic_hash": ""
+  },
   "vm/cybermap-api/src/raid-training-dispatch.mjs": {
     "mtime": 1785367456.8159752,
     "ast_hash": "9d33ec526d320922ff1b9cfacfdca1a3",
@@ -1822,6 +1862,11 @@
   "vm/cybermap-api/test/raid-model-contract.test.mjs": {
     "mtime": 1785351283.0150826,
     "ast_hash": "3245b355ca018b379934f339d1e68d78",
+    "semantic_hash": ""
+  },
+  "vm/cybermap-api/test/raid-model-feedback-postgres.test.mjs": {
+    "mtime": 1785367126.1881294,
+    "ast_hash": "a36c7900d299c12ee8782dcbe258ffcb",
     "semantic_hash": ""
   },
   "vm/cybermap-api/test/raid-model-fixtures.mjs": {
@@ -1859,6 +1904,11 @@
     "ast_hash": "fa5c0a2d814af1de9dc9a48bf896277a",
     "semantic_hash": ""
   },
+  "vm/cybermap-api/test/raid-model-trust.test.mjs": {
+    "mtime": 1785367596.3752863,
+    "ast_hash": "c311cb713a19825b9cddf4e71e0483aa",
+    "semantic_hash": ""
+  },
   "vm/cybermap-api/test/raid-training-dispatch.test.mjs": {
     "mtime": 1785367261.88335,
     "ast_hash": "0b1e355af439aefacacc3edf2a1c9549",
@@ -1882,26 +1932,6 @@
   "specs/018-raid-model-lifecycle-control-plane/tests.md": {
     "mtime": 1785356240.2142208,
     "ast_hash": "4919fb4af453829a441fb3dbfc0d3375",
-    "semantic_hash": ""
-  },
-  "vm/cybermap-api/src/raid-model-trust.mjs": {
-    "mtime": 1785367552.946256,
-    "ast_hash": "b016176aecc440ad7e1b57a08a28c14a",
-    "semantic_hash": ""
-  },
-  "vm/cybermap-api/test/raid-model-feedback-postgres.test.mjs": {
-    "mtime": 1785367126.1881294,
-    "ast_hash": "a36c7900d299c12ee8782dcbe258ffcb",
-    "semantic_hash": ""
-  },
-  "vm/cybermap-api/test/raid-model-trust.test.mjs": {
-    "mtime": 1785367596.3752863,
-    "ast_hash": "c311cb713a19825b9cddf4e71e0483aa",
-    "semantic_hash": ""
-  },
-  "vm/cybermap-api/db/migrations/0007_raid_model_lifecycle_hardening.sql": {
-    "mtime": 1785367477.6484694,
-    "ast_hash": "df430a3a24b616c35c6e343d647b08a2",
     "semantic_hash": ""
   }
 }

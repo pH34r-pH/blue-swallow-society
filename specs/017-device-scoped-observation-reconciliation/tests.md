@@ -16,5 +16,6 @@ implements: specs/017-device-scoped-observation-reconciliation/spec.md
 | TST-017-06 | Non-goal: client-visible diagnostics | HTTP request matches an unscoped legacy identity. | Internal server classification remains `observation_identity_unscoped`; the `409` response exposes only existing `observation_key_reused`. |
 | TST-017-07 | FR-002/003 | A scoped historical row has no valid content hash. | Server fails closed as legacy ambiguity; migration never scopes that row. |
 | TST-017-08 | FR-004 | Two device-scoped BLE observations reuse an external key. | Viewport emits opaque distinct IDs; operator merge retains both records. |
+| TST-017-09 | FR-003/004/005 | Memory and HTTP stores receive immutable legacy identities with proven/malformed scope and hash states, including an uppercase valid hash. | The owning device receives a normal duplicate receipt after hash normalization; another device may accept the same device-local key; malformed/unscoped rows fail closed; public conflicts stay generic `observation_key_reused`. |
 
 Run each new test RED before production code. Then run `npm test` in `vm/cybermap-api` and `node --test tests/*.test.mjs` at repo root.

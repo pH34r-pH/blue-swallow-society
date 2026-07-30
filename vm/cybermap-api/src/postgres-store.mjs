@@ -1,7 +1,7 @@
 import { latLngToCell } from 'h3-js';
 
 import { forbidden, hashToken, IngestError } from './auth.mjs';
-import { hashCanonicalJson, hashPersistedObservation } from './contracts.mjs';
+import { deriveWardriverProgress, hashCanonicalJson, hashPersistedObservation } from './contracts.mjs';
 
 const REQUIRED_MIGRATIONS = Object.freeze([
   '0001_cybermap_core',
@@ -10,6 +10,7 @@ const REQUIRED_MIGRATIONS = Object.freeze([
   '0004_godeye_global_cells_and_sources',
   '0004_morning_brief_archive',
   '0005_device_scoped_observation_identity',
+  '0006_best_effort_observation_progress',
 ]);
 const GLOBAL_SOURCE_CLASSES = Object.freeze(['green_public', 'green_owned', 'green_authorized']);
 const GREEN_TILE_SOURCE_CLASSES = Object.freeze(['green_public', 'green_owned', 'green_authorized']);
@@ -241,6 +242,13 @@ export class PostgresObservationStore {
       }
       const pending = [];
       let duplicateCount = 0;
+      let preservedConflictCount = 0;
+      const progress = batch.schema_version === 'bss.observation_batch.v2'
+        ? Object.freeze({
+          schema_version: 'bss.wardriver_progress.v1',
+          acknowledged_through: deriveWardriverProgress(batch.observations),
+        })
+        : null;
       for (const observation of batch.observations) {
         const contentHash = hashPersistedObservation(batch, observation);
         if (!existingByKey.has(observation.external_observation_key)) {
@@ -248,6 +256,10 @@ export class PostgresObservationStore {
           continue;
         }
         if (existingByKey.get(observation.external_observation_key) !== contentHash) {
+          if (progress) {
+            preservedConflictCount += 1;
+            continue;
+          }
           throw new IngestError('observation_key_reused', 'Observation key was reused with changed content.', { statusCode: 409 });
         }
         duplicateCount += 1;
@@ -293,13 +305,17 @@ export class PostgresObservationStore {
       const clockResult = await client.query('SELECT clock_timestamp() AS server_clock');
       const serverClock = new Date(clockResult.rows[0].server_clock).toISOString();
       const receipt = Object.freeze({
-        schema_version: 'bss.sync_receipt.v1',
+        schema_version: progress ? 'bss.sync_receipt.v2' : 'bss.sync_receipt.v1',
         server_batch_id: batchId,
         idempotency_key: batch.idempotency_key,
         status: 'applied',
         accepted_count: pending.length,
         rejected_count: 0,
         duplicate_count: duplicateCount,
+        ...(progress ? {
+          preserved_conflict_count: preservedConflictCount,
+          progress,
+        } : {}),
         validation_errors: [],
         server_clock: serverClock,
       });
@@ -307,9 +323,18 @@ export class PostgresObservationStore {
         `UPDATE sync_batches
          SET status = 'applied', completed_at = $2, accepted_count = $3,
              rejected_count = 0, duplicate_count = $4, observation_count = $5,
-             response_status = 201, receipt = $6::jsonb
+             response_status = 201, receipt = $6::jsonb,
+             preserved_conflict_count = $7
          WHERE id = $1`,
-        [batchId, serverClock, pending.length, duplicateCount, batch.observations.length, JSON.stringify(receipt)],
+        [
+          batchId,
+          serverClock,
+          pending.length,
+          duplicateCount,
+          batch.observations.length,
+          JSON.stringify(receipt),
+          preservedConflictCount,
+        ],
       );
       await touchCredential(client, credential.credential_id);
 
@@ -1154,19 +1179,49 @@ function parseDurableReceipt(value, batch) {
   const acceptedCount = receipt.accepted_count;
   const rejectedCount = receipt.rejected_count;
   const duplicateCount = receipt.duplicate_count;
-  if (receipt.schema_version !== 'bss.sync_receipt.v1'
-      || !UUID_RE.test(String(receipt.server_batch_id ?? ''))
-      || receipt.idempotency_key !== batch.idempotency_key
-      || receipt.status !== 'applied'
-      || !Number.isInteger(acceptedCount) || acceptedCount < 0
-      || !Number.isInteger(rejectedCount) || rejectedCount < 0
-      || !Number.isInteger(duplicateCount) || duplicateCount < 0
-      || acceptedCount + rejectedCount + duplicateCount !== batch.observations.length
-      || !Array.isArray(receipt.validation_errors)
-      || !validTimestamp(receipt.server_clock)) {
-    throw storageContractRejected();
+  const commonValid = UUID_RE.test(String(receipt.server_batch_id ?? ''))
+    && receipt.idempotency_key === batch.idempotency_key
+    && receipt.status === 'applied'
+    && nonnegativeInteger(acceptedCount)
+    && nonnegativeInteger(rejectedCount)
+    && nonnegativeInteger(duplicateCount)
+    && Array.isArray(receipt.validation_errors)
+    && receipt.validation_errors.length === 0
+    && validTimestamp(receipt.server_clock);
+  if (!commonValid) throw storageContractRejected();
+
+  if (batch.schema_version === 'bss.observation_batch.v1') {
+    if (receipt.schema_version !== 'bss.sync_receipt.v1'
+        || acceptedCount + rejectedCount + duplicateCount !== batch.observations.length) {
+      throw storageContractRejected();
+    }
+    return receipt;
   }
-  return receipt;
+
+  if (batch.schema_version === 'bss.observation_batch.v2') {
+    const preservedConflictCount = receipt.preserved_conflict_count;
+    const acknowledgedThrough = deriveWardriverProgress(batch.observations);
+    const progress = receipt.progress;
+    if (receipt.schema_version !== 'bss.sync_receipt.v2'
+        || !nonnegativeInteger(preservedConflictCount)
+        || acceptedCount + rejectedCount + duplicateCount + preservedConflictCount !== batch.observations.length
+        || !isPlainObject(progress)
+        || progress.schema_version !== 'bss.wardriver_progress.v1'
+        || progress.acknowledged_through !== acknowledgedThrough) {
+      throw storageContractRejected();
+    }
+    return receipt;
+  }
+
+  throw storageContractRejected();
+}
+
+function nonnegativeInteger(value) {
+  return Number.isInteger(value) && value >= 0;
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 }
 
 function validTimestamp(value) {
