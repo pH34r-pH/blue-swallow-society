@@ -18,7 +18,7 @@ Add a narrow Society Function route for release-CI provenance verification. The 
 ## Implementation sequence
 
 1. Add the feature authority artifacts and RED Node route contracts.
-2. Extend manifest validation to retain a constrained optional `acceptanceMode` field. Keep omitted fields compatible with bss.25 and older immutable manifests.
+2. Extend manifest validation to retain a constrained optional `acceptanceMode` field, cap the manifest body at 128 KiB, and bind source tag, permitted current/legacy artifact name forms, and immutable blob path to version/commit identity. Keep omitted acceptance mode compatible with bss.25 and older immutable manifests.
 3. Add `toReleaseProbeMetadata()` with exactly the fields needed for manifest equality and no delivery capability.
 4. Add the Function route and binding. Check configured probe secret, then method, before creating the release store. This prevents unauthenticated traffic from revealing route behavior and prevents even authorized non-GET traffic from loading release-storage credentials.
 5. Add a static deployment-workflow contract, then wire the Society repository secret through the canonical deployment workflow into the SWA app setting without printing it.

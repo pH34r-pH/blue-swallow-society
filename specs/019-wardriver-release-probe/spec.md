@@ -39,6 +39,7 @@ The new probe must add no install path and must not weaken public current-releas
 - **FR-006:** `validateManifest` shall retain a valid `acceptanceMode` when present and preserve compatibility with previously promoted manifests that omit it.
 - **FR-007:** The Wardriver promotion workflow shall use this probe secret only for a post-pointer metadata equality check; it shall not use the secret to request an APK or call an operator route as an authenticated user.
 - **FR-008:** The canonical Society deployment workflow shall validate and set `BSS_WARDRIVER_RELEASE_PROBE_SECRET` as an SWA app setting without logging its value; the matching Wardriver protected environment secret remains the only CI consumer.
+- **FR-009:** Before a successful probe, `validateManifest` shall reject a manifest larger than 128 KiB and reject a source tag, artifact file name, or immutable blob path that is inconsistent with the manifest version name and source commit. It shall retain the exact historical version-only artifact-name form alongside the current version-and-commit form.
 
 ## Non-functional Requirements
 

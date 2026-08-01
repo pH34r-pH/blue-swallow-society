@@ -12,6 +12,7 @@ const DEFAULT_CONTAINER = 'wardriver-releases';
 const DEFAULT_MANIFEST_BLOB = 'wardriver/releases/latest.json';
 const SAS_TTL_MS = 5 * 60 * 1000;
 const CLOCK_SKEW_MS = 30 * 1000;
+const MAX_MANIFEST_BYTES = 128 * 1024;
 
 class ReleaseUnavailableError extends Error {
   constructor(message, options = {}) {
@@ -134,8 +135,19 @@ function validateManifest(value) {
     throw new ReleaseUnavailableError('Wardriver release manifest tag is invalid.');
   }
 
+  if (manifest.sourceTag !== `wardriver-v${manifest.versionName}`) {
+    throw new ReleaseUnavailableError('Wardriver release manifest tag does not match the version.');
+  }
+  const expectedFileNames = new Set([
+    `blue-swallow-wardriver-${manifest.versionName}-${manifest.sourceCommit}.apk`,
+    `blue-swallow-wardriver-${manifest.versionName}.apk`,
+  ]);
+  if (!expectedFileNames.has(manifest.fileName)) {
+    throw new ReleaseUnavailableError('Wardriver release manifest file name is invalid.');
+  }
+
   const expectedBlob = `wardriver/releases/${manifest.versionName}/${manifest.sourceCommit}/${manifest.fileName}`;
-  if (manifest.blobName !== expectedBlob || !/\.apk$/i.test(manifest.fileName)) {
+  if (manifest.blobName !== expectedBlob) {
     throw new ReleaseUnavailableError('Wardriver release manifest blob path is invalid.');
   }
   return Object.freeze(manifest);
@@ -267,10 +279,16 @@ async function readStream(stream) {
     throw new ReleaseUnavailableError('Wardriver release manifest body is missing.');
   }
   const chunks = [];
+  let totalBytes = 0;
   for await (const chunk of stream) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += buffer.length;
+    if (totalBytes > MAX_MANIFEST_BYTES) {
+      throw new ReleaseUnavailableError('Wardriver release manifest body is too large.');
+    }
+    chunks.push(buffer);
   }
-  return Buffer.concat(chunks);
+  return Buffer.concat(chunks, totalBytes);
 }
 
 module.exports = {
@@ -282,4 +300,5 @@ module.exports = {
   toOperatorMetadata,
   toReleaseProbeMetadata,
   validateManifest,
+  _internals: Object.freeze({ readStream }),
 };
