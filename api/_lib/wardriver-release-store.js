@@ -118,6 +118,7 @@ function validateManifest(value) {
     publishedAt: isoTimestamp(value.publishedAt),
     notes: notes(value.notes),
     blobName: string(value.blobName, 'blobName', 400),
+    acceptanceMode: acceptanceMode(value.acceptanceMode),
   };
 
   if (manifest.schemaVersion !== 1) {
@@ -163,6 +164,29 @@ function toOperatorMetadata(manifest) {
   };
 }
 
+function toReleaseProbeMetadata(manifest) {
+  const release = validateManifest(manifest);
+  return {
+    schemaVersion: release.schemaVersion,
+    name: release.name,
+    packageId: release.packageId,
+    versionName: release.versionName,
+    versionCode: release.versionCode,
+    buildType: release.buildType,
+    fileName: release.fileName,
+    sizeBytes: release.sizeBytes,
+    sha256: release.sha256,
+    signerSha256: release.signerSha256,
+    sourceCommit: release.sourceCommit,
+    sourceTag: release.sourceTag,
+    buildRunId: release.buildRunId,
+    publishedAt: release.publishedAt,
+    notes: release.notes,
+    blobName: release.blobName,
+    acceptanceMode: release.acceptanceMode,
+  };
+}
+
 function toCurrentReleaseMetadata(manifest) {
   const release = validateManifest(manifest);
   return {
@@ -171,6 +195,17 @@ function toCurrentReleaseMetadata(manifest) {
     publishedAt: release.publishedAt,
     notes: release.notes,
   };
+}
+
+function acceptanceMode(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  const normalized = string(value, 'acceptanceMode', 80);
+  if (!/^[a-z][a-z0-9-]*$/.test(normalized)) {
+    throw new ReleaseUnavailableError('Wardriver release manifest acceptanceMode is invalid.');
+  }
+  return normalized;
 }
 
 function string(value, field, maxLength) {
@@ -245,5 +280,6 @@ module.exports = {
   createReleaseStore,
   toCurrentReleaseMetadata,
   toOperatorMetadata,
+  toReleaseProbeMetadata,
   validateManifest,
 };

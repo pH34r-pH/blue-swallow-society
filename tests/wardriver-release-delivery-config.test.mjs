@@ -21,9 +21,16 @@ test('Bicep provisions a recoverable Wardriver release account with private ordi
 });
 
 test('deployment wires the release-only connection string into SWA without logging it', () => {
+  const wireRuntimeStart = workflow.indexOf('      - name: Wire runtime app settings into SWA');
+  const wireRuntime = workflow.slice(wireRuntimeStart, workflow.indexOf('\n  deploy-app:', wireRuntimeStart));
+  assert.ok(wireRuntimeStart >= 0);
   assert.match(workflow, /Microsoft\.Storage/);
   assert.match(workflow, /BSS_WARDRIVER_RELEASE_STORAGE_CONNECTION_STRING/);
   assert.match(workflow, /BSS_WARDRIVER_RELEASE_CONTAINER/);
   assert.match(workflow, /BSS_WARDRIVER_RELEASE_MANIFEST_BLOB/);
+  assert.doesNotMatch(workflow.slice(0, wireRuntimeStart), /release_probe_secret/);
+  assert.match(wireRuntime, /BSS_WARDRIVER_RELEASE_PROBE_SECRET/);
+  assert.match(wireRuntime, /BSS_WARDRIVER_RELEASE_PROBE_SECRET="\$release_probe_secret"/);
+  assert.doesNotMatch(wireRuntime, /echo\s+\$?\{?release_probe_secret/i);
   assert.doesNotMatch(workflow, /echo\s+\$?\{?storage_connection_string/i);
 });
