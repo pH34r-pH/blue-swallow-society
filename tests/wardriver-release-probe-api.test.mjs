@@ -2,10 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
+import { Readable } from 'node:stream';
 
 const require = createRequire(import.meta.url);
 const handler = require('../api/wardriver-release-probe/index.js');
-const { toReleaseProbeMetadata } = require('../api/_lib/wardriver-release-store.js');
+const {
+  ReleaseUnavailableError,
+  _internals,
+  toReleaseProbeMetadata,
+  validateManifest,
+} = require('../api/_lib/wardriver-release-store.js');
 
 const PROBE_VALUE = 'test-probe-value-for-contract';
 const release = Object.freeze({
@@ -15,7 +21,7 @@ const release = Object.freeze({
   versionName: '2.110-bss.26',
   versionCode: 335,
   buildType: 'release',
-  fileName: 'blue-swallow-wardriver-2.110-bss.26.apk',
+  fileName: 'blue-swallow-wardriver-2.110-bss.26-a6295aba93efcdd425db1c7c32754c6eafaa0c94.apk',
   sizeBytes: 67012000,
   sha256: 'a'.repeat(64),
   signerSha256: 'b'.repeat(64),
@@ -24,7 +30,7 @@ const release = Object.freeze({
   buildRunId: '123456789-1',
   publishedAt: '2026-08-01T12:00:00Z',
   notes: ['Direct-current release policy.'],
-  blobName: 'wardriver/releases/2.110-bss.26/a6295aba93efcdd425db1c7c32754c6eafaa0c94/blue-swallow-wardriver-2.110-bss.26.apk',
+  blobName: 'wardriver/releases/2.110-bss.26/a6295aba93efcdd425db1c7c32754c6eafaa0c94/blue-swallow-wardriver-2.110-bss.26-a6295aba93efcdd425db1c7c32754c6eafaa0c94.apk',
   acceptanceMode: 'post-publication-required',
 });
 
@@ -91,6 +97,44 @@ test('release probe projection preserves compatibility for manifests without acc
   const projection = toReleaseProbeMetadata(legacyRelease);
 
   assert.equal(projection.acceptanceMode, null);
+});
+
+test('release manifest binds source tag to version name', () => {
+  assert.throws(
+    () => validateManifest({ ...release, sourceTag: 'wardriver-v2.110-bss.25' }),
+    ReleaseUnavailableError,
+  );
+});
+
+test('release manifest rejects unrecognized artifact file names', () => {
+  const fileName = 'blue-swallow-wardriver-2.110-bss.26-deadbeef.apk';
+  assert.throws(
+    () => validateManifest({
+      ...release,
+      fileName,
+      blobName: `wardriver/releases/${release.versionName}/${release.sourceCommit}/${fileName}`,
+    }),
+    ReleaseUnavailableError,
+  );
+});
+
+test('release manifest preserves legacy version-only artifact file names', () => {
+  const fileName = `blue-swallow-wardriver-${release.versionName}.apk`;
+  const legacy = validateManifest({
+    ...release,
+    fileName,
+    blobName: `wardriver/releases/${release.versionName}/${release.sourceCommit}/${fileName}`,
+  });
+
+  assert.equal(legacy.fileName, fileName);
+});
+
+test('release manifest reader rejects an oversized body', async () => {
+  assert.equal(typeof _internals?.readStream, 'function');
+  await assert.rejects(
+    _internals.readStream(Readable.from([Buffer.alloc(128 * 1024 + 1)])),
+    ReleaseUnavailableError,
+  );
 });
 
 test('authorized release probe returns exact manifest provenance without delivery capability', async () => {
