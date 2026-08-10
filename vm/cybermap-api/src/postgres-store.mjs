@@ -20,12 +20,14 @@ const GLOBAL_VIEWPORT_SCHEMA_VERSION = 'bss.godeye.global_viewport.v1';
 /** Durable PostgreSQL/PostGIS implementation of the authenticated observation store contract. */
 export class PostgresObservationStore {
   #pool;
+  #mtlsCredentialPolicy;
 
-  constructor({ pool } = {}) {
+  constructor({ pool, mtlsCredentialPolicy = null } = {}) {
     if (!pool || typeof pool.query !== 'function' || typeof pool.connect !== 'function') {
       throw new TypeError('A pg-compatible pool is required.');
     }
     this.#pool = pool;
+    this.#mtlsCredentialPolicy = normalizeMtlsCredentialPolicy(mtlsCredentialPolicy);
   }
 
   async ready() {
@@ -82,7 +84,10 @@ export class PostgresObservationStore {
          credential.id AS credential_id,
          credential.device_id,
          credential.source_id::text AS source_id,
+         source.source_key,
          source.source_class::text AS source_class,
+         source.provenance AS source_provenance,
+         credential.metadata AS credential_metadata,
          credential.scopes
        FROM device_ingest_credentials AS credential
        JOIN source_catalog AS source ON source.id = credential.source_id
@@ -92,16 +97,26 @@ export class PostgresObservationStore {
          AND credential.enabled = true
          AND (credential.expires_at IS NULL OR credential.expires_at > now())
          AND source.enabled = true
-       LIMIT 1`,
+         AND credential.metadata ->> 'credential_source' = source.provenance ->> 'credential_source'
+         AND credential.metadata ->> 'environment' = source.provenance ->> 'environment'
+       LIMIT 2`,
       [deviceId, certificateFingerprint, requiredScope],
     );
     if (result.rows.length !== 1) throw forbidden();
     const row = result.rows[0];
+    const boundPolicy = this.#mtlsCredentialPolicy
+      ? bindMtlsCredentialPolicy(this.#mtlsCredentialPolicy, certificateFingerprint)
+      : null;
+    if (boundPolicy && !matchesMtlsCredentialPolicy(row, boundPolicy)) throw forbidden();
     return Object.freeze({
       credential_id: row.credential_id,
       device_id: row.device_id,
       source_id: row.source_id,
+      source_key: row.source_key,
       source_class: row.source_class,
+      source_provenance: freezeJsonRecord(row.source_provenance),
+      credential_metadata: freezeJsonRecord(row.credential_metadata),
+      mtls_policy: boundPolicy,
       scopes: Object.freeze([...(row.scopes ?? [])]),
     });
   }
@@ -115,6 +130,24 @@ export class PostgresObservationStore {
       transactionOpen = true;
       await client.query("SET LOCAL lock_timeout TO '2s'; SET LOCAL statement_timeout TO '3s'; SET LOCAL idle_in_transaction_session_timeout TO '10s'");
 
+      const boundMtlsPolicy = credential.mtls_policy ?? null;
+      const mtlsPolicyPredicate = boundMtlsPolicy ? `
+           AND source.source_key = $4
+           AND source.source_class = $5
+           AND source.provenance = $6::jsonb
+           AND credential.metadata = $7::jsonb
+           AND credential.scopes @> $8::text[]
+           AND credential.scopes <@ $8::text[]` : '';
+      const liveCredentialParameters = [credential.credential_id, credential.device_id, credential.source_id];
+      if (boundMtlsPolicy) {
+        liveCredentialParameters.push(
+          boundMtlsPolicy.sourceKey,
+          boundMtlsPolicy.sourceClass,
+          JSON.stringify(boundMtlsPolicy.sourceProvenance),
+          JSON.stringify(boundMtlsPolicy.credentialMetadata),
+          [...boundMtlsPolicy.scopes],
+        );
+      }
       const liveCredential = await client.query(
         `SELECT credential.id AS credential_id
          FROM device_ingest_credentials AS credential
@@ -126,8 +159,9 @@ export class PostgresObservationStore {
            AND credential.enabled = true
            AND (credential.expires_at IS NULL OR credential.expires_at > now())
            AND source.enabled = true
+           ${mtlsPolicyPredicate}
          FOR NO KEY UPDATE OF credential, source`,
-        [credential.credential_id, credential.device_id, credential.source_id],
+        liveCredentialParameters,
       );
       if (liveCredential.rows.length !== 1) throw forbidden();
 
@@ -1165,6 +1199,15 @@ function normalizeDatabaseError(error) {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RFC3339_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
+const RECEIPT_V1_FIELDS = Object.freeze([
+  'schema_version', 'server_batch_id', 'idempotency_key', 'status', 'accepted_count', 'rejected_count',
+  'duplicate_count', 'validation_errors', 'server_clock',
+]);
+const RECEIPT_V2_FIELDS = Object.freeze([
+  'schema_version', 'server_batch_id', 'idempotency_key', 'status', 'accepted_count', 'rejected_count',
+  'duplicate_count', 'preserved_conflict_count', 'progress', 'validation_errors', 'server_clock',
+]);
+const WARDIVER_PROGRESS_V1_FIELDS = Object.freeze(['schema_version', 'acknowledged_through']);
 
 function parseDurableReceipt(value, batch) {
   let receipt;
@@ -1173,7 +1216,7 @@ function parseDurableReceipt(value, batch) {
   } catch {
     throw storageContractRejected();
   }
-  if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt)) {
+  if (!isPlainObject(receipt)) {
     throw storageContractRejected();
   }
   const acceptedCount = receipt.accepted_count;
@@ -1191,7 +1234,8 @@ function parseDurableReceipt(value, batch) {
   if (!commonValid) throw storageContractRejected();
 
   if (batch.schema_version === 'bss.observation_batch.v1') {
-    if (receipt.schema_version !== 'bss.sync_receipt.v1'
+    if (!hasExactOwnFieldSet(receipt, RECEIPT_V1_FIELDS)
+        || receipt.schema_version !== 'bss.sync_receipt.v1'
         || acceptedCount + rejectedCount + duplicateCount !== batch.observations.length) {
       throw storageContractRejected();
     }
@@ -1202,10 +1246,12 @@ function parseDurableReceipt(value, batch) {
     const preservedConflictCount = receipt.preserved_conflict_count;
     const acknowledgedThrough = deriveWardriverProgress(batch.observations);
     const progress = receipt.progress;
-    if (receipt.schema_version !== 'bss.sync_receipt.v2'
+    if (!hasExactOwnFieldSet(receipt, RECEIPT_V2_FIELDS)
+        || receipt.schema_version !== 'bss.sync_receipt.v2'
         || !nonnegativeInteger(preservedConflictCount)
         || acceptedCount + rejectedCount + duplicateCount + preservedConflictCount !== batch.observations.length
         || !isPlainObject(progress)
+        || !hasExactOwnFieldSet(progress, WARDIVER_PROGRESS_V1_FIELDS)
         || progress.schema_version !== 'bss.wardriver_progress.v1'
         || progress.acknowledged_through !== acknowledgedThrough) {
       throw storageContractRejected();
@@ -1224,6 +1270,12 @@ function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 }
 
+function hasExactOwnFieldSet(value, expectedFields) {
+  const actualFields = Object.keys(value).sort();
+  const expected = [...expectedFields].sort();
+  return actualFields.length === expected.length && actualFields.every((field, index) => field === expected[index]);
+}
+
 function validTimestamp(value) {
   return typeof value === 'string' && RFC3339_RE.test(value) && Number.isFinite(Date.parse(value));
 }
@@ -1239,4 +1291,82 @@ function parseJsonObject(value) {
 function parseJsonArray(value) {
   const parsed = typeof value === 'string' ? JSON.parse(value) : structuredClone(value);
   return Array.isArray(parsed) ? parsed : [];
+}
+
+function normalizeMtlsCredentialPolicy(value) {
+  if (value == null) return null;
+  if (!isPlainObject(value)) throw new TypeError('mtlsCredentialPolicy must be an object.');
+  const credentialMetadata = normalizeMtlsPolicyRecord(value.credentialMetadata, 'credentialMetadata');
+  if (Object.hasOwn(credentialMetadata, 'mtls_certificate_fingerprint')) {
+    throw new TypeError('mtlsCredentialPolicy credentialMetadata must not configure the dynamic certificate fingerprint.');
+  }
+  return Object.freeze({
+    deviceId: requireMtlsPolicyString(value.deviceId, 'deviceId'),
+    sourceKey: requireMtlsPolicyString(value.sourceKey, 'sourceKey'),
+    sourceClass: requireMtlsPolicyString(value.sourceClass, 'sourceClass'),
+    sourceProvenance: normalizeMtlsPolicyRecord(value.sourceProvenance, 'sourceProvenance'),
+    credentialMetadata,
+    scopes: normalizeMtlsPolicyScopes(value.scopes),
+  });
+}
+
+function bindMtlsCredentialPolicy(policy, certificateFingerprint) {
+  const fingerprint = String(certificateFingerprint ?? '').trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/u.test(fingerprint)) throw forbidden();
+  return Object.freeze({
+    ...policy,
+    credentialMetadata: Object.freeze({
+      ...policy.credentialMetadata,
+      mtls_certificate_fingerprint: fingerprint,
+    }),
+  });
+}
+
+function matchesMtlsCredentialPolicy(row, policy) {
+  return row.device_id === policy.deviceId
+    && row.source_key === policy.sourceKey
+    && row.source_class === policy.sourceClass
+    && exactJsonRecord(row.source_provenance, policy.sourceProvenance)
+    && exactJsonRecord(row.credential_metadata, policy.credentialMetadata)
+    && exactStringSet(row.scopes, policy.scopes);
+}
+
+function normalizeMtlsPolicyRecord(value, name) {
+  if (!isPlainObject(value)) throw new TypeError(`mtlsCredentialPolicy ${name} must be an object.`);
+  return Object.freeze(structuredClone(value));
+}
+
+function requireMtlsPolicyString(value, name) {
+  const normalized = String(value ?? '').trim();
+  if (!normalized || normalized.length > 200) throw new TypeError(`mtlsCredentialPolicy ${name} is invalid.`);
+  return normalized;
+}
+
+function normalizeMtlsPolicyScopes(value) {
+  if (!Array.isArray(value) || value.length === 0) throw new TypeError('mtlsCredentialPolicy scopes are invalid.');
+  const scopes = value.map((scope) => requireMtlsPolicyString(scope, 'scope'));
+  if (new Set(scopes).size !== scopes.length) throw new TypeError('mtlsCredentialPolicy scopes must be unique.');
+  return Object.freeze(scopes.sort());
+}
+
+function exactStringSet(actual, expected) {
+  if (!Array.isArray(actual)) return false;
+  const sorted = [...actual].sort();
+  return sorted.length === expected.length && sorted.every((value, index) => value === expected[index]);
+}
+
+function freezeJsonRecord(value) {
+  return isPlainObject(value) ? Object.freeze(structuredClone(value)) : null;
+}
+
+function exactJsonRecord(actual, expected) {
+  return isPlainObject(actual) && JSON.stringify(canonicalizeJson(actual)) === JSON.stringify(canonicalizeJson(expected));
+}
+
+function canonicalizeJson(value) {
+  if (Array.isArray(value)) return value.map(canonicalizeJson);
+  if (isPlainObject(value)) {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalizeJson(value[key])]));
+  }
+  return value;
 }

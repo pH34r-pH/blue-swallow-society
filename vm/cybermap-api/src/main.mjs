@@ -17,7 +17,8 @@ const pool = new Pool({
   idleTimeoutMillis: 30_000,
   application_name: 'bss-cybermap-api',
 });
-const store = new PostgresObservationStore({ pool });
+const mtlsCredentialPolicy = readMtlsCredentialPolicy();
+const store = new PostgresObservationStore({ pool, mtlsCredentialPolicy });
 const server = createCybermapApiServer({
   store,
   logger: {
@@ -62,4 +63,41 @@ function parsePositiveInteger(value, name) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) throw new Error(`${name} must be a positive integer.`);
   return parsed;
+}
+
+function readMtlsCredentialPolicy() {
+  const fields = Object.freeze({
+    deviceId: readOptionalEnvironment('BSS_MTLS_EXPECTED_DEVICE_ID'),
+    sourceKey: readOptionalEnvironment('BSS_MTLS_EXPECTED_SOURCE_KEY'),
+    sourceClass: readOptionalEnvironment('BSS_MTLS_EXPECTED_SOURCE_CLASS'),
+    credentialSource: readOptionalEnvironment('BSS_MTLS_EXPECTED_CREDENTIAL_SOURCE'),
+    environment: readOptionalEnvironment('BSS_MTLS_EXPECTED_ENVIRONMENT'),
+    scopes: readOptionalEnvironment('BSS_MTLS_EXPECTED_SCOPES'),
+  });
+  const values = Object.values(fields);
+  if (values.every((value) => value === null)) return null;
+  if (values.some((value) => value === null)) {
+    throw new Error('BSS_MTLS_EXPECTED_* policy must be configured as one complete set.');
+  }
+  const scopes = fields.scopes.split(',').map((scope) => scope.trim()).filter(Boolean);
+  if (scopes.length === 0) throw new Error('BSS_MTLS_EXPECTED_SCOPES must contain at least one scope.');
+  return Object.freeze({
+    deviceId: fields.deviceId,
+    sourceKey: fields.sourceKey,
+    sourceClass: fields.sourceClass,
+    sourceProvenance: Object.freeze({
+      credential_source: fields.credentialSource,
+      environment: fields.environment,
+    }),
+    credentialMetadata: Object.freeze({
+      credential_source: fields.credentialSource,
+      environment: fields.environment,
+    }),
+    scopes: Object.freeze(scopes),
+  });
+}
+
+function readOptionalEnvironment(name) {
+  const value = String(process.env[name] ?? '').trim();
+  return value || null;
 }

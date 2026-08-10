@@ -69,6 +69,66 @@ test('Postgres authentication queries by device and SHA-256 token digest without
   assert.equal(pool.authCalls[0].values.includes(INGEST_TOKEN), false);
 });
 
+const desktopMtlsPolicy = Object.freeze({
+  deviceId: 'wardriver-desktop-dev-2026',
+  sourceKey: 'wardriver-desktop-dev-2026',
+  sourceClass: 'owned_device',
+  sourceProvenance: Object.freeze({ credential_source: 'desktop', environment: 'local-proof' }),
+  credentialMetadata: Object.freeze({ credential_source: 'desktop', environment: 'local-proof' }),
+  scopes: Object.freeze(['observations:write', 'cybermap:read']),
+});
+
+function desktopMtlsCredentialRow(overrides = {}) {
+  return {
+    credential_id: credentialRow.credential_id,
+    device_id: desktopMtlsPolicy.deviceId,
+    source_id: credentialRow.source_id,
+    source_key: desktopMtlsPolicy.sourceKey,
+    source_class: desktopMtlsPolicy.sourceClass,
+    source_provenance: { ...desktopMtlsPolicy.sourceProvenance },
+    credential_metadata: {
+      ...desktopMtlsPolicy.credentialMetadata,
+      mtls_certificate_fingerprint: 'a'.repeat(64),
+    },
+    scopes: [...desktopMtlsPolicy.scopes],
+    ...overrides,
+  };
+}
+
+test('Postgres mTLS authentication rejects an ambiguous matching credential set instead of truncating it', async () => {
+  const first = desktopMtlsCredentialRow();
+  const second = desktopMtlsCredentialRow({ credential_id: '10000000-0000-4000-8000-000000000002' });
+  const pool = new FakePool({ authRows: [first, second] });
+  const store = new PostgresObservationStore({ pool });
+
+  await assert.rejects(
+    store.authenticateMtls({
+      deviceId: desktopMtlsPolicy.deviceId,
+      certificateFingerprint: 'a'.repeat(64),
+      requiredScope: 'observations:write',
+    }),
+    (error) => error.code === 'forbidden' && error.statusCode === 403,
+  );
+  assert.match(pool.authCalls[0].sql, /LIMIT 2/i,
+    'the database lookup must observe a second matching credential rather than hide it with LIMIT 1');
+});
+
+test('Postgres mTLS authentication enforces the configured exact desktop source, provenance, and scope policy', async () => {
+  const pool = new FakePool({ authRows: [desktopMtlsCredentialRow({
+    source_provenance: { credential_source: 'desktop', environment: 'other' },
+  })] });
+  const store = new PostgresObservationStore({ pool, mtlsCredentialPolicy: desktopMtlsPolicy });
+
+  await assert.rejects(
+    store.authenticateMtls({
+      deviceId: desktopMtlsPolicy.deviceId,
+      certificateFingerprint: 'a'.repeat(64),
+      requiredScope: 'observations:write',
+    }),
+    (error) => error.code === 'forbidden' && error.statusCode === 403,
+  );
+});
+
 test('Postgres applyBatch serializes identity locks, derives spatial cells, and commits one durable receipt', async () => {
   const sessionId = '40000000-0000-4000-8000-000000000001';
   const batch = validBatch({ session_id: sessionId });
@@ -214,6 +274,50 @@ test('Postgres applyBatch rechecks credential state inside the write transaction
   );
 });
 
+test('Postgres applyBatch rechecks the bound mTLS source, provenance, metadata, and exact scope policy', async () => {
+  const boundPolicy = {
+    ...desktopMtlsPolicy,
+    credentialMetadata: {
+      ...desktopMtlsPolicy.credentialMetadata,
+      mtls_certificate_fingerprint: 'a'.repeat(64),
+    },
+  };
+  const credential = {
+    ...credentialRow,
+    device_id: desktopMtlsPolicy.deviceId,
+    mtls_policy: boundPolicy,
+  };
+  const pool = new FakePool({ clientSteps: [
+    { sql: /^BEGIN$/i },
+    { sql: /SET LOCAL lock_timeout/i },
+    {
+      sql: /FROM device_ingest_credentials[\s\S]*FOR NO KEY UPDATE/i,
+      rows: [],
+      check(values, sql) {
+        assert.match(sql, /source\.source_key = \$4/);
+        assert.match(sql, /source\.source_class = \$5/);
+        assert.match(sql, /source\.provenance = \$6::jsonb/);
+        assert.match(sql, /credential\.metadata = \$7::jsonb/);
+        assert.match(sql, /credential\.scopes @> \$8::text\[\]/);
+        assert.match(sql, /credential\.scopes <@ \$8::text\[\]/);
+        assert.deepEqual(values.slice(3), [
+          boundPolicy.sourceKey,
+          boundPolicy.sourceClass,
+          JSON.stringify(boundPolicy.sourceProvenance),
+          JSON.stringify(boundPolicy.credentialMetadata),
+          [...boundPolicy.scopes],
+        ]);
+      },
+    },
+    { sql: /^ROLLBACK$/i },
+  ] });
+
+  await assert.rejects(
+    new PostgresObservationStore({ pool }).applyBatch({ credential, batch: validBatch({ device_id: credential.device_id }) }),
+    (error) => error.code === 'forbidden' && error.statusCode === 403,
+  );
+});
+
 
 
 test('Postgres applyBatch reports deadlock and transaction timeout failures as retryable', async () => {
@@ -333,6 +437,21 @@ test('Postgres v2 replay accepts only the stored server-derived acknowledgement'
   ] });
   await assert.rejects(
     new PostgresObservationStore({ pool: errorPool }).applyBatch({ credential: credentialRow, batch }),
+    (error) => error.code === 'storage_contract_rejected' && error.statusCode === 422,
+  );
+
+  const unsupportedExtensionReceipt = structuredClone(receipt);
+  unsupportedExtensionReceipt.unsupported_extension = true;
+  const unsupportedExtensionPool = new FakePool({ clientSteps: [
+    { sql: /^BEGIN$/i },
+    { sql: /SET LOCAL lock_timeout/i },
+    { sql: /FROM device_ingest_credentials[\s\S]*FOR NO KEY UPDATE/i, rows: [{ credential_id: credentialRow.credential_id }] },
+    { sql: /pg_try_advisory_xact_lock/i, rows: [{ locked: true }] },
+    { sql: /FROM sync_batches[\s\S]*FOR UPDATE/i, rows: [{ payload_hash: payloadHash, receipt: unsupportedExtensionReceipt }] },
+    { sql: /^ROLLBACK$/i },
+  ] });
+  await assert.rejects(
+    new PostgresObservationStore({ pool: unsupportedExtensionPool }).applyBatch({ credential: credentialRow, batch }),
     (error) => error.code === 'storage_contract_rejected' && error.statusCode === 422,
   );
 });

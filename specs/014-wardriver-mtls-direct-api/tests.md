@@ -13,6 +13,6 @@ implements: specs/014-wardriver-mtls-direct-api/spec.md
 | TST-014-03 | FR-5 | A marked body-only viewport request returns an aggregate response; query-only token viewport behavior remains unchanged. |
 | TST-014-04 | FR-6 | Existing token-gated request tests remain green. |
 | TST-014-05 | FR-1/FR-7 | `caddy validate` accepts the rendered Caddyfile; Bicep build accepts the vault and trust-material parameters. |
-| TST-014-06 | FR-7 | `az keyvault show` and certificate metadata prove RBAC, purge protection, policy, enabled state, and expiry without retrieving the certificate secret. |
+| TST-014-06 | FR-7 | `az keyvault show`, certificate metadata, and a public fingerprint inventory prove RBAC, purge protection, policy, enabled state, expiry, and approved trust-bundle membership without retrieving a certificate secret. |
 
 Run the new Node tests RED before production changes. Run the complete `npm test` suite after the server change. Run Bicep and Caddy checks before any deployment. Do not treat a local Caddy configuration as deployed evidence.

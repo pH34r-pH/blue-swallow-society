@@ -9,6 +9,7 @@
 | TST-005 | Physical device | SC-003 | Existing bss.18 uploads through its selected KeyChain identity without HTTP 403. |
 | TST-006 | API unit contract | FR-007 | mTLS batch and viewport routes classify absent ordinary credentials, invalid or unconfigured proxy assertions, and rejected `(device_id, certificate fingerprint)` tuples with one of the three bounded diagnostic categories. Every client response remains the established generic `403`; test records contain no header, fingerprint, device identifier, secret, batch, or viewport-coordinate values and suppress an untrusted error diagnostic. An early rejected POST resumes its unread request stream before responding. Existing token-gated requests with no mTLS assertion remain unchanged. |
 | TST-007 | Live field correlation | SC-004 | A new Tyler retry is correlated with one server-side diagnostic category per failed request, without emitting client identity or credential material. |
+| TST-008 | Spec-authority integrity | Incident / plan / task traceability | The active Spec Kit artifact set contains no compaction-truncation sentinel; the repaired incident statement remains coherent with the documented Caddy header-replacement root cause. |
 
 ## TDD Sequence
 
@@ -17,3 +18,4 @@
 3. Re-run TST-002, then the complete Cybermap and repository Node suites.
 4. Deploy and collect TST-003/TST-004 receipts. Tyler supplies exactly one post-fix physical receipt for TST-005.
 5. If the post-fix upload returns `403`, use TST-006 and the fixed server category to determine the next investigation; do not pre-emptively change enrollment.
+6. Add the TST-008 contract RED against an active authority marker, restore the complete incident statement from the documented header-replacement root cause, then run TST-008 GREEN and the complete Cybermap suite.

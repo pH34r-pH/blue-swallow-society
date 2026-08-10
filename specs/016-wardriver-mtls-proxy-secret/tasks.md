@@ -9,3 +9,4 @@
 - [ ] T007 Commit and deploy the server-only diagnostic; collect one post-deployment field retry and correlate only the bounded server category.
 - [x] T008 Add a RED installer contract that rejects the two conflicting Caddy removal directives, remove only those directives, and verify that the trusted `header_up` replacements remain.
 - [ ] T009 Run focused and full Node suites, syntax/secret contracts, Graphify, independent review, canonical CI/CD deployment, a sanitized internal assertion-boundary receipt, and exactly one new Tyler field upload.
+- [x] T010 Restore the complete active incident statement and add a TST-008 regression that rejects compaction truncation markers across the active Spec Kit artifact set; verify RED then GREEN without changing deployed behavior.

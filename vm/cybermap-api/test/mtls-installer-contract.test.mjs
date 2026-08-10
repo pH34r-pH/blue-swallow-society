@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 const installer = new URL('../../../infra/scripts/install-cybermap-api.sh', import.meta.url);
 
 test('installer creates an isolated mTLS listener that overwrites client-controlled proxy headers', async () => {
-  const source = await readFile(installer, 'utf8');
+  const source = (await readFile(installer, 'utf8')).replace(/\r\n/g, '\n');
   assert.match(source, /__BACKEND_FQDN__:8443/);
   assert.match(source, /require_and_verify/);
   assert.match(source, /install -d -m 0755 -o root -g root \/etc\/caddy/);

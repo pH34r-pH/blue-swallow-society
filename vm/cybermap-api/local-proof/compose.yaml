@@ -1,0 +1,100 @@
+name: bss-wardriver-local-proof
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.5
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - local-proof-postgis-data:/var/lib/postgresql/data
+    networks: [proof]
+
+  api:
+    build:
+      context: ..
+      dockerfile: local-proof/Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - BSS_CYBERMAP_BIND_HOST=127.0.0.1
+      - BSS_CYBERMAP_PORT=8080
+      - BSS_MTLS_PROXY_SECRET=${BSS_MTLS_PROXY_SECRET}
+      - LOCAL_MTLS_CERT_FINGERPRINT=${LOCAL_MTLS_CERT_FINGERPRINT}
+      - BSS_MTLS_EXPECTED_DEVICE_ID=wardriver-desktop-dev-2026
+      - BSS_MTLS_EXPECTED_SOURCE_KEY=wardriver-desktop-dev-2026
+      - BSS_MTLS_EXPECTED_SOURCE_CLASS=owned_device
+      - BSS_MTLS_EXPECTED_CREDENTIAL_SOURCE=desktop
+      - BSS_MTLS_EXPECTED_ENVIRONMENT=local-proof
+      - BSS_MTLS_EXPECTED_SCOPES=observations:write,cybermap:read
+    command:
+      - sh
+      - -ec
+      - |
+        node local-proof/apply-migrations.mjs
+        node local-proof/seed-desktop-device.mjs
+        exec node src/main.mjs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/readyz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [proof]
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    network_mode: "service:api"
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      BSS_MTLS_PROXY_SECRET: ${BSS_MTLS_PROXY_SECRET}
+    volumes:
+      - type: bind
+        source: ./Caddyfile
+        target: /etc/caddy/Caddyfile
+        read_only: true
+      - type: bind
+        source: "${BSS_LOCAL_MTLS_LAB_DIR}/server.pem"
+        target: /certs/server.pem
+        read_only: true
+      - type: bind
+        source: "${BSS_LOCAL_MTLS_LAB_DIR}/server-key.pem"
+        target: /certs/server-key.pem
+        read_only: true
+      - type: bind
+        source: "${BSS_DESKTOP_CLIENT_CERT_PEM}"
+        target: /certs/desktop-client.pem
+        read_only: true
+
+  frontdoor:
+    build:
+      context: ..
+      dockerfile: local-proof/Dockerfile
+    command: ["node", "local-proof/tcp-frontdoor.mjs"]
+    depends_on:
+      caddy:
+        condition: service_started
+    ports:
+      - target: 8443
+        published: "18080"
+        host_ip: 127.0.0.1
+        protocol: tcp
+    networks: [edge, proof]
+
+networks:
+  proof:
+    internal: true
+  edge: {}
+
+volumes:
+  local-proof-postgis-data:
+    name: bss-wardriver-local-proof-postgis-data

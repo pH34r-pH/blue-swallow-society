@@ -22,6 +22,7 @@ The Caddyfile's paired `header_up -X-Blue-Swallow-Mtls-*` removal rules delete t
 
 - `infra/scripts/install-cybermap-api.sh`
 - `vm/cybermap-api/test/mtls-installer-contract.test.mjs`
+- `vm/cybermap-api/test/spec-authority-integrity-contract.test.mjs`
 - `specs/016-wardriver-mtls-proxy-secret/{spec,plan,tests,tasks}.md`
 
 ## Security Boundary

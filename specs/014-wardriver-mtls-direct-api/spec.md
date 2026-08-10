@@ -12,7 +12,7 @@ Wardriver must read Azure/PostGIS aggregates and upload staged observations with
 
 ## Definitions
 
-- **Client certificate**: the exportable PFX certificate `wardriver-mtls-2026` in Key Vault `bsswdmtls3f85618`. The operator downloads it through Azure, imports it into Android KeyChain, then selects its alias in Wardriver.
+- **Client certificates**: the exportable PFX primary certificate `wardriver-mtls-2026` and separately named desktop development identities in Key Vault `bsswdmtls3f85618`. The operator imports an authorized identity into Android KeyChain, then selects its alias in Wardriver. The Caddy trust input is a public PEM bundle; no PFX/private key is deployed.
 - **mTLS ingress**: the dedicated backend listener on TCP 8443. Caddy verifies the client certificate before it proxies to the loopback-only Node API.
 - **Browser ingress**: the existing TCP 443 route used by SWA and browser clients. It is unchanged.
 
@@ -24,8 +24,8 @@ Wardriver must read Azure/PostGIS aggregates and upload staged observations with
 - **FR-4**: A valid mTLS batch must require `device_id` and `idempotency_key`, preserve idempotency, and resolve its enabled source credential without an app-supplied ingest token.
 - **FR-5**: A valid mTLS viewport request must use body fields `lat`, `lon`, `radiusMeters`, and `limit`; it must return aggregate-only data and must not include persisted raw RF observations or precise observation coordinates.
 - **FR-6**: The existing token-gated browser/SWA endpoints must remain available and unchanged.
-- **FR-7**: Infrastructure must declare the RBAC/purge-protected Key Vault and expose only its non-secret URI. Deployment must supply the public trust certificate to Caddy without storing the PFX/private key in GitHub, the repository, logs, or VM extension output.
+- **FR-7**: Infrastructure must declare the RBAC/purge-protected Key Vault and expose only its non-secret URI. Deployment must supply the public trust certificate bundle to Caddy without storing a PFX/private key in GitHub, the repository, logs, or VM extension output.
 
 ## Acceptance
 
-Node tests prove FR-3 through FR-6. Caddy configuration validation proves mTLS listener syntax and proxy restrictions. Azure inspection proves the vault is RBAC-enabled, purge-protected, and holds one enabled exportable RSA-3072 client certificate. A deployment is not claimed until its CI evidence exists.
+Node tests prove FR-3 through FR-6. Caddy configuration validation proves mTLS listener syntax and proxy restrictions. Azure inspection proves the vault is RBAC-enabled, purge-protected, and holds the enabled exportable RSA-3072 client identities required by the approved trust bundle. A deployment is not claimed until its CI evidence exists.
