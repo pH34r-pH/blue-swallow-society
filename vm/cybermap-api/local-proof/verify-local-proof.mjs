@@ -20,12 +20,14 @@ const HOST = 'bss.localhost';
 const CONNECT_HOST = '127.0.0.1';
 const PORT = 18080;
 const DEVICE_ID = 'wardriver-desktop-dev-2026';
+const UNBOUND_DEVICE_ID = 'wardriver-desktop-dev-2026-unbound';
 const REPLAY_HEADER = 'Idempotent-Replayed';
 const MAX_LOCAL_JSON_RESPONSE_BYTES = 64 * 1024;
 const MAX_LOCAL_ENVIRONMENT_FILE_BYTES = 8 * 1024;
 const MAX_LOCAL_CLIENT_P12_BYTES = 256 * 1024;
 const MAX_LOCAL_CA_CERT_BYTES = 64 * 1024;
 const MAX_LOCAL_DATABASE_COUNT_OUTPUT_BYTES = 1024;
+const MAX_LOCAL_API_LOG_BYTES = 64 * 1024;
 const LOCAL_PROOF_ENVIRONMENT_KEYS = new Set(['BSS_LOCAL_CLIENT_P12', 'BSS_LOCAL_CA_CERT']);
 const LOCAL_PROOF_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const API_ROOT = path.resolve(LOCAL_PROOF_DIRECTORY, '..');
@@ -84,6 +86,16 @@ async function runProof() {
   });
   require(viewport.statusCode === 200 && viewport.body?.ok === true, 'mTLS viewport was not accepted');
 
+  const unboundBatch = { ...makeBatch(), device_id: UNBOUND_DEVICE_ID };
+  const unboundResponse = await requestJson({
+    path: '/api/v1/observations/batch',
+    body: unboundBatch,
+    withClientCertificate: true,
+  });
+  require(unboundResponse.statusCode === 403 && unboundResponse.body?.error === 'forbidden',
+    'unbound mTLS identity did not keep the generic forbidden response');
+  await assertBoundedMtlsBindingRejection();
+
   const batch = makeBatch();
   const first = await requestJson({
     path: '/api/v1/observations/batch',
@@ -114,6 +126,7 @@ async function runProof() {
 
   process.stdout.write('LOCAL_PROOF_NO_CLIENT_CERT=rejected\n');
   process.stdout.write('LOCAL_PROOF_MTLS_VIEWPORT=accepted\n');
+  process.stdout.write('LOCAL_PROOF_MTLS_BINDING_REJECTION=classified\n');
   process.stdout.write('LOCAL_PROOF_DURABLE_RECEIPT=accepted\n');
   process.stdout.write('LOCAL_PROOF_DATABASE_COUNTS=accepted\n');
   process.stdout.write('LOCAL_PROOF_IDEMPOTENT_REPLAY=accepted\n');
@@ -177,6 +190,49 @@ async function readProofDatabaseCounts(environmentFile) {
     return parseProofDatabaseCounts(stdout);
   } catch {
     throw new Error('Local proof could not read bounded PostGIS counts');
+  }
+}
+
+async function assertBoundedMtlsBindingRejection() {
+  try {
+    const { stdout } = await execFileAsync('docker', [
+      'compose',
+      '--project-directory', API_ROOT,
+      '--env-file', EXPECTED_LOCAL_PROOF_ENV_FILE,
+      '-f', LOCAL_COMPOSE_FILE,
+      'logs',
+      '--no-log-prefix',
+      'api',
+    ], {
+      cwd: API_ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      maxBuffer: MAX_LOCAL_API_LOG_BYTES,
+    });
+    const records = stdout.split(/\r?\n/u)
+      .map((line) => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          return null;
+        }
+      })
+      .filter((record) => record?.diagnostic_code === 'mtls_credential_rejected');
+    require(records.length === 1, 'expected exactly one bounded mTLS rejection log record');
+    const record = records[0];
+    const expected = {
+      level: 'error',
+      service: 'bss-cybermap-api',
+      code: 'forbidden',
+      statusCode: 403,
+      diagnostic_code: 'mtls_credential_rejected',
+      mtls_rejection_reason: 'binding_absent',
+    };
+    require(Object.keys(record).length === Object.keys(expected).length
+      && Object.entries(expected).every(([key, value]) => record[key] === value),
+    'mTLS rejection log record was not bounded and exact');
+  } catch {
+    throw new Error('Local proof could not verify the bounded mTLS binding rejection diagnostic');
   }
 }
 

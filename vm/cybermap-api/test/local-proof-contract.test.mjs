@@ -91,6 +91,17 @@ function normalizeLineEndings(value) {
   return value.replace(/\r\n/g, '\n');
 }
 
+test('local proof verifies the bounded server-side mTLS binding diagnostic without releasing raw logs', async () => {
+  const verifier = await readFile(verifierFile, 'utf8');
+
+  assert.match(verifier, /LOCAL_PROOF_MTLS_BINDING_REJECTION=classified/);
+  assert.match(verifier, /assertBoundedMtlsBindingRejection/);
+  assert.match(verifier, /mtls_rejection_reason/);
+  assert.match(verifier, /binding_absent/);
+  assert.match(verifier, /MAX_LOCAL_API_LOG_BYTES/);
+  assert.doesNotMatch(verifier, /process\.stdout\.write\([^\n]*mtls_rejection_reason/);
+});
+
 test('local proof stack is a disposable PostGIS/Caddy-only mTLS boundary', async () => {
   assert.equal(await exists(composeFile), true, 'local proof compose.yaml must exist');
   assert.equal(await exists(caddyFile), true, 'local proof Caddyfile must exist');

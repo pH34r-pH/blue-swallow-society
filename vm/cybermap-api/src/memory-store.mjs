@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
-import { forbidden, IngestError, tokenDigestMatches } from './auth.mjs';
+import { forbidden, forbiddenWithMtlsRejectionReason, IngestError, tokenDigestMatches } from './auth.mjs';
+import {
+  bindMtlsCredentialPolicy,
+  matchesCredentialSourceProvenance,
+  matchesMtlsCredentialPolicy,
+  mtlsCredentialIsExpired,
+  normalizeMtlsCredentialPolicy,
+} from './mtls-credential-policy.mjs';
 import { deriveWardriverProgress, hashCanonicalJson, hashPersistedObservation } from './contracts.mjs';
 
 const GLOBAL_SOURCE_CLASSES = Object.freeze(['green_public', 'green_owned', 'green_authorized']);
@@ -10,6 +17,7 @@ const MORNING_BRIEF_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 export class MemoryObservationStore {
   #credentials;
+  #mtlsCredentialPolicy;
   #batches = new Map();
   #observations = new Map();
   #legacyObservationIdentities = new Map();
@@ -30,19 +38,27 @@ export class MemoryObservationStore {
     globalSources = [],
     deflockSources = [],
     legacyObservationIdentities = [],
+    mtlsCredentialPolicy = null,
     now = () => new Date(),
     randomUuid = randomUUID,
   } = {}) {
-    this.#credentials = credentials.map((credential) => ({
-      device_id: credential.device_id,
-      source_id: credential.source_id,
-      source_class: credential.source_class,
-      token_sha256: credential.token_sha256,
-      mtls_certificate_fingerprint: credential.mtls_certificate_fingerprint ?? null,
-      scopes: [...(credential.scopes ?? [])],
-      enabled: credential.enabled === true,
-      expires_at: credential.expires_at ?? null,
-    }));
+    this.#mtlsCredentialPolicy = normalizeMtlsCredentialPolicy(mtlsCredentialPolicy);
+    this.#credentials = credentials.map((credential) => {
+      const credentialMetadata = normalizeMemoryCredentialMetadata(credential);
+      return Object.freeze({
+        device_id: credential.device_id,
+        source_id: credential.source_id,
+        source_key: typeof credential.source_key === 'string' ? credential.source_key : null,
+        source_class: credential.source_class,
+        source_enabled: credential.source_enabled === true,
+        source_provenance: normalizeMemoryJsonRecord(credential.source_provenance),
+        credential_metadata: credentialMetadata,
+        token_sha256: credential.token_sha256,
+        scopes: [...(credential.scopes ?? [])],
+        enabled: credential.enabled === true,
+        expires_at: credential.expires_at ?? null,
+      });
+    });
     this.#globalCells = globalCells.map((cell) => structuredClone(cell));
     this.#globalSources = globalSources.map((source) => structuredClone(source));
     this.#deflockSources = new Map(deflockSources.map((source) => {
@@ -87,16 +103,31 @@ export class MemoryObservationStore {
   }
 
   async authenticateMtls({ deviceId, certificateFingerprint, requiredScope }) {
-    const credential = this.#credentials.find((candidate) => candidate.device_id === deviceId);
+    if (!this.#mtlsCredentialPolicy) throw forbiddenWithMtlsRejectionReason('policy_mismatch');
+    const boundPolicy = bindMtlsCredentialPolicy(this.#mtlsCredentialPolicy, certificateFingerprint);
+    const fingerprint = boundPolicy.credentialMetadata.mtls_certificate_fingerprint;
+    const candidates = this.#credentials.filter((candidate) => candidate.device_id === deviceId
+      && String(candidate.credential_metadata?.mtls_certificate_fingerprint || '').toLowerCase() === fingerprint);
+    if (candidates.length === 0) throw forbiddenWithMtlsRejectionReason('binding_absent');
     const now = this.#now();
-    if (!credential || !credential.enabled
-        || String(credential.mtls_certificate_fingerprint || '').toLowerCase() !== String(certificateFingerprint || '').toLowerCase()) throw forbidden();
-    if (credential.expires_at && new Date(credential.expires_at) <= now) throw forbidden();
-    if (!credential.scopes.includes(requiredScope)) throw forbidden();
+    const evaluatedCandidates = candidates.map((credential) => Object.freeze({
+      credential,
+      rejectionReason: classifyMemoryMtlsCredentialRejection(credential, { requiredScope, now, boundPolicy }),
+    }));
+    const eligibleCandidates = evaluatedCandidates.filter((candidate) => candidate.rejectionReason === null);
+    if (eligibleCandidates.length > 1) throw forbiddenWithMtlsRejectionReason('binding_ambiguous');
+    if (eligibleCandidates.length === 0) {
+      throw forbiddenWithMtlsRejectionReason(selectMemoryMtlsRejectionReason(evaluatedCandidates));
+    }
+    const credential = eligibleCandidates[0].credential;
     return Object.freeze({
       device_id: credential.device_id,
       source_id: credential.source_id,
+      source_key: credential.source_key,
       source_class: credential.source_class,
+      source_provenance: normalizeMemoryJsonRecord(credential.source_provenance),
+      credential_metadata: normalizeMemoryJsonRecord(credential.credential_metadata),
+      mtls_policy: boundPolicy,
       scopes: Object.freeze([...credential.scopes]),
     });
   }
@@ -393,6 +424,47 @@ export class MemoryObservationStore {
   batchCount() {
     return this.#batches.size;
   }
+}
+
+const MEMORY_MTLS_REJECTION_REASON_PRECEDENCE = Object.freeze([
+  'credential_disabled',
+  'credential_expired',
+  'required_scope_missing',
+  'source_disabled',
+  'provenance_mismatch',
+  'policy_mismatch',
+]);
+
+function classifyMemoryMtlsCredentialRejection(credential, { requiredScope, now, boundPolicy }) {
+  if (!credential.enabled) return 'credential_disabled';
+  if (mtlsCredentialIsExpired(credential.expires_at, now)) return 'credential_expired';
+  if (!credential.scopes.includes(requiredScope)) return 'required_scope_missing';
+  if (credential.source_enabled !== true) return 'source_disabled';
+  if (!matchesCredentialSourceProvenance(credential)) return 'provenance_mismatch';
+  if (!matchesMtlsCredentialPolicy(credential, boundPolicy)) return 'policy_mismatch';
+  return null;
+}
+
+function selectMemoryMtlsRejectionReason(candidates) {
+  const reasons = new Set(candidates.map((candidate) => candidate.rejectionReason));
+  return MEMORY_MTLS_REJECTION_REASON_PRECEDENCE.find((reason) => reasons.has(reason)) ?? 'policy_mismatch';
+}
+
+function normalizeMemoryCredentialMetadata(credential) {
+  const supplied = credential.credential_metadata ?? credential.metadata;
+  const metadata = isPlainObject(supplied) ? structuredClone(supplied) : {};
+  if (!Object.hasOwn(metadata, 'mtls_certificate_fingerprint') && credential.mtls_certificate_fingerprint != null) {
+    metadata.mtls_certificate_fingerprint = credential.mtls_certificate_fingerprint;
+  }
+  return Object.freeze(metadata);
+}
+
+function normalizeMemoryJsonRecord(value) {
+  return isPlainObject(value) ? Object.freeze(structuredClone(value)) : null;
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 }
 
 function globalResolutionForZoom(zoom) {

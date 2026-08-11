@@ -91,15 +91,169 @@ function desktopMtlsCredentialRow(overrides = {}) {
       mtls_certificate_fingerprint: 'a'.repeat(64),
     },
     scopes: [...desktopMtlsPolicy.scopes],
+    credential_enabled: true,
+    expires_at: null,
+    source_enabled: true,
+    evaluated_at: '2026-08-10T21:27:06.000Z',
     ...overrides,
   };
 }
+
+test('Postgres mTLS fails closed before tuple query when policy is absent', async () => {
+  const pool = new FakePool({ authRows: [desktopMtlsCredentialRow()] });
+  await assert.rejects(
+    new PostgresObservationStore({ pool }).authenticateMtls({
+      deviceId: desktopMtlsPolicy.deviceId,
+      certificateFingerprint: 'a'.repeat(64),
+      requiredScope: 'observations:write',
+    }),
+    (error) => error.code === 'forbidden' && error.statusCode === 403
+      && error.mtlsRejectionReason === 'policy_mismatch',
+  );
+  assert.equal(pool.authCalls.length, 0);
+});
+
+test('Postgres mTLS rejects a non-string fingerprint before tuple query', async () => {
+  const pool = new FakePool({ authRows: [desktopMtlsCredentialRow()] });
+  await assert.rejects(
+    new PostgresObservationStore({ pool, mtlsCredentialPolicy: desktopMtlsPolicy }).authenticateMtls({
+      deviceId: desktopMtlsPolicy.deviceId,
+      certificateFingerprint: { toString: () => 'a'.repeat(64) },
+      requiredScope: 'observations:write',
+    }),
+    (error) => error.code === 'forbidden' && error.statusCode === 403,
+  );
+  assert.equal(pool.authCalls.length, 0);
+});
+
+test('Postgres mTLS authentication classifies each rejected tuple without exposing candidate values', async () => {
+  const sentinel = 'do-not-log-or-return-this-candidate-value';
+  const cases = [
+    ['binding_absent', [], desktopMtlsPolicy],
+    ['binding_ambiguous', [desktopMtlsCredentialRow(), desktopMtlsCredentialRow({ credential_id: '10000000-0000-4000-8000-000000000002' })], desktopMtlsPolicy],
+    ['credential_disabled', [desktopMtlsCredentialRow({ credential_enabled: false })], desktopMtlsPolicy],
+    ['credential_expired', [desktopMtlsCredentialRow({ expires_at: '2000-01-01T00:00:00.000Z' })], desktopMtlsPolicy],
+    ['credential_expired', [desktopMtlsCredentialRow({ expires_at: 'not-a-timestamp' })], desktopMtlsPolicy],
+    ['required_scope_missing', [desktopMtlsCredentialRow({ scopes: ['cybermap:read'] })], desktopMtlsPolicy],
+    ['source_disabled', [desktopMtlsCredentialRow({ source_enabled: false })], desktopMtlsPolicy],
+    ['source_disabled', [desktopMtlsCredentialRow({ source_enabled: null })], desktopMtlsPolicy],
+    ['provenance_mismatch', [desktopMtlsCredentialRow({
+      credential_metadata: {
+        credential_source: sentinel,
+        environment: 'local-proof',
+        mtls_certificate_fingerprint: 'a'.repeat(64),
+      },
+    })], desktopMtlsPolicy],
+    ['provenance_mismatch', [desktopMtlsCredentialRow({ source_provenance: null })], desktopMtlsPolicy],
+    ['provenance_mismatch', [desktopMtlsCredentialRow({
+      source_provenance: { credential_source: 7, environment: 'local-proof' },
+      credential_metadata: {
+        credential_source: 7,
+        environment: 'local-proof',
+        mtls_certificate_fingerprint: 'a'.repeat(64),
+      },
+    })], desktopMtlsPolicy],
+    ['policy_mismatch', [desktopMtlsCredentialRow({ source_key: sentinel })], desktopMtlsPolicy],
+  ];
+
+  for (const [expectedReason, rows, policy] of cases) {
+    const pool = new FakePool({ authRows: rows });
+    const store = new PostgresObservationStore({ pool, mtlsCredentialPolicy: policy });
+    await assert.rejects(
+      store.authenticateMtls({
+        deviceId: desktopMtlsPolicy.deviceId,
+        certificateFingerprint: 'a'.repeat(64),
+        requiredScope: 'observations:write',
+      }),
+      (error) => {
+        assert.equal(error.code, 'forbidden');
+        assert.equal(error.statusCode, 403);
+        assert.equal(error.mtlsRejectionReason, expectedReason);
+        assert.equal(JSON.stringify(error).includes(sentinel), false);
+        return true;
+      },
+    );
+    assert.match(pool.authCalls[0].sql, /WHERE credential\.device_id = \$1[\s\S]*lower\(coalesce\(credential\.metadata ->> 'mtls_certificate_fingerprint', ''\)\) = lower\(\$2\)/i);
+    assert.doesNotMatch(pool.authCalls[0].sql, /\bLIMIT\b/i,
+      'the tuple lookup must not truncate a later eligible credential behind historical twins');
+  }
+});
+
+test('Postgres mTLS authentication keeps the successful credential contract after bounded classification', async () => {
+  const pool = new FakePool({ authRows: [desktopMtlsCredentialRow()] });
+  const credential = await new PostgresObservationStore({ pool, mtlsCredentialPolicy: desktopMtlsPolicy })
+    .authenticateMtls({
+      deviceId: desktopMtlsPolicy.deviceId,
+      certificateFingerprint: 'a'.repeat(64),
+      requiredScope: 'observations:write',
+    });
+
+  assert.equal(credential.device_id, desktopMtlsPolicy.deviceId);
+  assert.equal(credential.source_key, desktopMtlsPolicy.sourceKey);
+  assert.deepEqual(credential.scopes, desktopMtlsPolicy.scopes);
+  assert.match(pool.authCalls[0].sql, /credential\.enabled AS credential_enabled[\s\S]*credential\.expires_at[\s\S]*source\.enabled AS source_enabled/i);
+});
+
+test('Postgres mTLS authentication preserves one eligible credential behind ineligible historical twins', async () => {
+  const variants = [
+    ['disabled', { credential_enabled: false }],
+    ['expired', { expires_at: '2000-01-01T00:00:00.000Z' }],
+    ['scope-missing', { scopes: ['cybermap:read'] }],
+    ['source-disabled', { source_enabled: false }],
+    ['provenance-mismatched', {
+      credential_metadata: {
+        credential_source: 'other',
+        environment: 'local-proof',
+        mtls_certificate_fingerprint: 'a'.repeat(64),
+      },
+    }],
+    ['policy-mismatched', { source_key: 'other-source' }],
+  ];
+
+  for (const [name, overrides] of variants) {
+    const valid = desktopMtlsCredentialRow({ credential_id: '10000000-0000-4000-8000-000000000002' });
+    const historical = desktopMtlsCredentialRow({
+      credential_id: '10000000-0000-4000-8000-000000000001',
+      ...overrides,
+    });
+    const policy = desktopMtlsPolicy;
+    const pool = new FakePool({ authRows: [historical, valid] });
+    const credential = await new PostgresObservationStore({ pool, mtlsCredentialPolicy: policy })
+      .authenticateMtls({
+        deviceId: desktopMtlsPolicy.deviceId,
+        certificateFingerprint: 'a'.repeat(64),
+        requiredScope: 'observations:write',
+      });
+
+    assert.equal(credential.credential_id, valid.credential_id, name);
+  }
+});
+
+test('Postgres mTLS authentication selects the deterministic rejection reason when every tuple candidate is ineligible', async () => {
+  const pool = new FakePool({ authRows: [
+    desktopMtlsCredentialRow({ credential_enabled: false }),
+    desktopMtlsCredentialRow({
+      credential_id: '10000000-0000-4000-8000-000000000002',
+      scopes: ['cybermap:read'],
+    }),
+  ] });
+
+  await assert.rejects(
+    new PostgresObservationStore({ pool, mtlsCredentialPolicy: desktopMtlsPolicy }).authenticateMtls({
+      deviceId: desktopMtlsPolicy.deviceId,
+      certificateFingerprint: 'a'.repeat(64),
+      requiredScope: 'observations:write',
+    }),
+    (error) => error.code === 'forbidden' && error.statusCode === 403
+      && error.mtlsRejectionReason === 'credential_disabled',
+  );
+});
 
 test('Postgres mTLS authentication rejects an ambiguous matching credential set instead of truncating it', async () => {
   const first = desktopMtlsCredentialRow();
   const second = desktopMtlsCredentialRow({ credential_id: '10000000-0000-4000-8000-000000000002' });
   const pool = new FakePool({ authRows: [first, second] });
-  const store = new PostgresObservationStore({ pool });
+  const store = new PostgresObservationStore({ pool, mtlsCredentialPolicy: desktopMtlsPolicy });
 
   await assert.rejects(
     store.authenticateMtls({
@@ -107,10 +261,11 @@ test('Postgres mTLS authentication rejects an ambiguous matching credential set 
       certificateFingerprint: 'a'.repeat(64),
       requiredScope: 'observations:write',
     }),
-    (error) => error.code === 'forbidden' && error.statusCode === 403,
+    (error) => error.code === 'forbidden' && error.statusCode === 403
+      && error.mtlsRejectionReason === 'binding_ambiguous',
   );
-  assert.match(pool.authCalls[0].sql, /LIMIT 2/i,
-    'the database lookup must observe a second matching credential rather than hide it with LIMIT 1');
+  assert.doesNotMatch(pool.authCalls[0].sql, /\bLIMIT\b/i,
+    'the database lookup must evaluate the complete exact tuple before classifying ambiguity');
 });
 
 test('Postgres mTLS authentication enforces the configured exact desktop source, provenance, and scope policy', async () => {
@@ -319,6 +474,85 @@ test('Postgres applyBatch rechecks the bound mTLS source, provenance, metadata, 
 });
 
 
+
+test('Postgres mTLS locked write rejects a post-auth metadata rotation', async () => {
+  const pool = new FakePool({
+    authRows: [desktopMtlsCredentialRow()],
+    clientSteps: [
+      { sql: /^BEGIN$/i },
+      { sql: /SET LOCAL lock_timeout/i },
+      {
+        sql: /FROM device_ingest_credentials[\s\S]*FOR NO KEY UPDATE/i,
+        rows: [],
+        check(values, sql) {
+          assert.match(sql, /source\.source_key = \$4/);
+          assert.match(sql, /source\.provenance = \$6::jsonb/);
+          assert.match(sql, /credential\.metadata = \$7::jsonb/);
+          assert.match(sql, /cardinality\(credential\.scopes\) = cardinality\(\$8::text\[\]\)/);
+          assert.deepEqual(values.slice(3), [
+            credential.mtls_policy.sourceKey,
+            credential.mtls_policy.sourceClass,
+            JSON.stringify(credential.mtls_policy.sourceProvenance),
+            JSON.stringify(credential.mtls_policy.credentialMetadata),
+            [...credential.mtls_policy.scopes],
+          ]);
+        },
+      },
+      { sql: /^ROLLBACK$/i },
+    ],
+  });
+  const store = new PostgresObservationStore({ pool, mtlsCredentialPolicy: desktopMtlsPolicy });
+  const credential = await store.authenticateMtls({
+    deviceId: desktopMtlsPolicy.deviceId,
+    certificateFingerprint: 'a'.repeat(64),
+    requiredScope: 'observations:write',
+  });
+
+  await assert.rejects(
+    store.applyBatch({ credential, batch: validBatch({ device_id: credential.device_id }) }),
+    (error) => error.code === 'forbidden' && error.statusCode === 403,
+  );
+  assert.equal(pool.authCalls.length, 1);
+});
+
+test('Postgres applyBatch rejects duplicate stored scopes under an exact bound mTLS policy', async () => {
+  const boundPolicy = {
+    ...desktopMtlsPolicy,
+    credentialMetadata: {
+      ...desktopMtlsPolicy.credentialMetadata,
+      mtls_certificate_fingerprint: 'a'.repeat(64),
+    },
+  };
+  const credential = {
+    ...credentialRow,
+    device_id: desktopMtlsPolicy.deviceId,
+    mtls_policy: boundPolicy,
+  };
+  const pool = new FakePool({ clientSteps: [
+    { sql: /^BEGIN$/i },
+    { sql: /SET LOCAL lock_timeout/i },
+    {
+      sql: /FROM device_ingest_credentials[\s\S]*FOR NO KEY UPDATE/i,
+      rows: [],
+      check(values, sql) {
+        assert.match(sql, /credential\.scopes @> \$8::text\[\]/);
+        assert.match(sql, /credential\.scopes <@ \$8::text\[\]/);
+        assert.match(sql, /cardinality\(credential\.scopes\) = cardinality\(\$8::text\[\]\)/,
+          'the write-time exact policy must reject duplicate stored scope values');
+        assert.deepEqual(values[7], boundPolicy.scopes);
+      },
+    },
+    { sql: /^ROLLBACK$/i },
+  ] });
+
+  await assert.rejects(
+    new PostgresObservationStore({ pool }).applyBatch({
+      credential,
+      batch: validBatch({ device_id: credential.device_id }),
+    }),
+    (error) => error.code === 'forbidden' && error.statusCode === 403,
+  );
+});
 
 test('Postgres applyBatch reports deadlock and transaction timeout failures as retryable', async () => {
   for (const code of ['40P01', '55P03', '57014']) {

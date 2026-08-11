@@ -1,6 +1,13 @@
 import { latLngToCell } from 'h3-js';
 
-import { forbidden, hashToken, IngestError } from './auth.mjs';
+import { forbidden, forbiddenWithMtlsRejectionReason, hashToken, IngestError } from './auth.mjs';
+import {
+  bindMtlsCredentialPolicy,
+  matchesCredentialSourceProvenance,
+  matchesMtlsCredentialPolicy,
+  mtlsCredentialIsExpired,
+  normalizeMtlsCredentialPolicy,
+} from './mtls-credential-policy.mjs';
 import { deriveWardriverProgress, hashCanonicalJson, hashPersistedObservation } from './contracts.mjs';
 
 const REQUIRED_MIGRATIONS = Object.freeze([
@@ -79,6 +86,8 @@ export class PostgresObservationStore {
   }
 
   async authenticateMtls({ deviceId, certificateFingerprint, requiredScope }) {
+    if (!this.#mtlsCredentialPolicy) throw forbiddenWithMtlsRejectionReason('policy_mismatch');
+    const boundPolicy = bindMtlsCredentialPolicy(this.#mtlsCredentialPolicy, certificateFingerprint);
     const result = await this.#pool.query(
       `SELECT
          credential.id AS credential_id,
@@ -88,26 +97,28 @@ export class PostgresObservationStore {
          source.source_class::text AS source_class,
          source.provenance AS source_provenance,
          credential.metadata AS credential_metadata,
-         credential.scopes
+         credential.scopes,
+         credential.enabled AS credential_enabled,
+         credential.expires_at,
+         source.enabled AS source_enabled,
+         statement_timestamp() AS evaluated_at
        FROM device_ingest_credentials AS credential
        JOIN source_catalog AS source ON source.id = credential.source_id
        WHERE credential.device_id = $1
-         AND lower(coalesce(credential.metadata ->> 'mtls_certificate_fingerprint', '')) = lower($2)
-         AND $3 = ANY(credential.scopes)
-         AND credential.enabled = true
-         AND (credential.expires_at IS NULL OR credential.expires_at > now())
-         AND source.enabled = true
-         AND credential.metadata ->> 'credential_source' = source.provenance ->> 'credential_source'
-         AND credential.metadata ->> 'environment' = source.provenance ->> 'environment'
-       LIMIT 2`,
-      [deviceId, certificateFingerprint, requiredScope],
+         AND lower(coalesce(credential.metadata ->> 'mtls_certificate_fingerprint', '')) = lower($2)`,
+      [deviceId, boundPolicy.credentialMetadata.mtls_certificate_fingerprint],
     );
-    if (result.rows.length !== 1) throw forbidden();
-    const row = result.rows[0];
-    const boundPolicy = this.#mtlsCredentialPolicy
-      ? bindMtlsCredentialPolicy(this.#mtlsCredentialPolicy, certificateFingerprint)
-      : null;
-    if (boundPolicy && !matchesMtlsCredentialPolicy(row, boundPolicy)) throw forbidden();
+    if (result.rows.length === 0) throw forbiddenWithMtlsRejectionReason('binding_absent');
+    const evaluatedCandidates = result.rows.map((row) => Object.freeze({
+      row,
+      rejectionReason: classifyMtlsCredentialRejection(row, { requiredScope, boundPolicy }),
+    }));
+    const eligibleCandidates = evaluatedCandidates.filter((candidate) => candidate.rejectionReason === null);
+    if (eligibleCandidates.length > 1) throw forbiddenWithMtlsRejectionReason('binding_ambiguous');
+    if (eligibleCandidates.length === 0) {
+      throw forbiddenWithMtlsRejectionReason(selectMtlsRejectionReason(evaluatedCandidates));
+    }
+    const row = eligibleCandidates[0].row;
     return Object.freeze({
       credential_id: row.credential_id,
       device_id: row.device_id,
@@ -136,6 +147,7 @@ export class PostgresObservationStore {
            AND source.source_class = $5
            AND source.provenance = $6::jsonb
            AND credential.metadata = $7::jsonb
+           AND cardinality(credential.scopes) = cardinality($8::text[])
            AND credential.scopes @> $8::text[]
            AND credential.scopes <@ $8::text[]` : '';
       const liveCredentialParameters = [credential.credential_id, credential.device_id, credential.source_id];
@@ -1197,6 +1209,31 @@ function normalizeDatabaseError(error) {
   return error;
 }
 
+const MTLS_REJECTION_REASON_PRECEDENCE = Object.freeze([
+  'credential_disabled',
+  'credential_expired',
+  'required_scope_missing',
+  'source_disabled',
+  'provenance_mismatch',
+  'policy_mismatch',
+]);
+
+function selectMtlsRejectionReason(candidates) {
+  const reasons = new Set(candidates.map((candidate) => candidate.rejectionReason));
+  return MTLS_REJECTION_REASON_PRECEDENCE.find((reason) => reasons.has(reason)) ?? 'policy_mismatch';
+}
+
+/** Evaluates the former SQL predicates in fixed order without exposing a row or request value. */
+function classifyMtlsCredentialRejection(row, { requiredScope, boundPolicy }) {
+  if (row.credential_enabled !== true) return 'credential_disabled';
+  if (mtlsCredentialIsExpired(row.expires_at, row.evaluated_at)) return 'credential_expired';
+  if (!Array.isArray(row.scopes) || !row.scopes.includes(requiredScope)) return 'required_scope_missing';
+  if (row.source_enabled !== true) return 'source_disabled';
+  if (!matchesCredentialSourceProvenance(row)) return 'provenance_mismatch';
+  if (!matchesMtlsCredentialPolicy(row, boundPolicy)) return 'policy_mismatch';
+  return null;
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RFC3339_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 const RECEIPT_V1_FIELDS = Object.freeze([
@@ -1293,80 +1330,6 @@ function parseJsonArray(value) {
   return Array.isArray(parsed) ? parsed : [];
 }
 
-function normalizeMtlsCredentialPolicy(value) {
-  if (value == null) return null;
-  if (!isPlainObject(value)) throw new TypeError('mtlsCredentialPolicy must be an object.');
-  const credentialMetadata = normalizeMtlsPolicyRecord(value.credentialMetadata, 'credentialMetadata');
-  if (Object.hasOwn(credentialMetadata, 'mtls_certificate_fingerprint')) {
-    throw new TypeError('mtlsCredentialPolicy credentialMetadata must not configure the dynamic certificate fingerprint.');
-  }
-  return Object.freeze({
-    deviceId: requireMtlsPolicyString(value.deviceId, 'deviceId'),
-    sourceKey: requireMtlsPolicyString(value.sourceKey, 'sourceKey'),
-    sourceClass: requireMtlsPolicyString(value.sourceClass, 'sourceClass'),
-    sourceProvenance: normalizeMtlsPolicyRecord(value.sourceProvenance, 'sourceProvenance'),
-    credentialMetadata,
-    scopes: normalizeMtlsPolicyScopes(value.scopes),
-  });
-}
-
-function bindMtlsCredentialPolicy(policy, certificateFingerprint) {
-  const fingerprint = String(certificateFingerprint ?? '').trim().toLowerCase();
-  if (!/^[a-f0-9]{64}$/u.test(fingerprint)) throw forbidden();
-  return Object.freeze({
-    ...policy,
-    credentialMetadata: Object.freeze({
-      ...policy.credentialMetadata,
-      mtls_certificate_fingerprint: fingerprint,
-    }),
-  });
-}
-
-function matchesMtlsCredentialPolicy(row, policy) {
-  return row.device_id === policy.deviceId
-    && row.source_key === policy.sourceKey
-    && row.source_class === policy.sourceClass
-    && exactJsonRecord(row.source_provenance, policy.sourceProvenance)
-    && exactJsonRecord(row.credential_metadata, policy.credentialMetadata)
-    && exactStringSet(row.scopes, policy.scopes);
-}
-
-function normalizeMtlsPolicyRecord(value, name) {
-  if (!isPlainObject(value)) throw new TypeError(`mtlsCredentialPolicy ${name} must be an object.`);
-  return Object.freeze(structuredClone(value));
-}
-
-function requireMtlsPolicyString(value, name) {
-  const normalized = String(value ?? '').trim();
-  if (!normalized || normalized.length > 200) throw new TypeError(`mtlsCredentialPolicy ${name} is invalid.`);
-  return normalized;
-}
-
-function normalizeMtlsPolicyScopes(value) {
-  if (!Array.isArray(value) || value.length === 0) throw new TypeError('mtlsCredentialPolicy scopes are invalid.');
-  const scopes = value.map((scope) => requireMtlsPolicyString(scope, 'scope'));
-  if (new Set(scopes).size !== scopes.length) throw new TypeError('mtlsCredentialPolicy scopes must be unique.');
-  return Object.freeze(scopes.sort());
-}
-
-function exactStringSet(actual, expected) {
-  if (!Array.isArray(actual)) return false;
-  const sorted = [...actual].sort();
-  return sorted.length === expected.length && sorted.every((value, index) => value === expected[index]);
-}
-
 function freezeJsonRecord(value) {
   return isPlainObject(value) ? Object.freeze(structuredClone(value)) : null;
-}
-
-function exactJsonRecord(actual, expected) {
-  return isPlainObject(actual) && JSON.stringify(canonicalizeJson(actual)) === JSON.stringify(canonicalizeJson(expected));
-}
-
-function canonicalizeJson(value) {
-  if (Array.isArray(value)) return value.map(canonicalizeJson);
-  if (isPlainObject(value)) {
-    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalizeJson(value[key])]));
-  }
-  return value;
 }

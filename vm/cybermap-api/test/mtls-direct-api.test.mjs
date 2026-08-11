@@ -8,6 +8,14 @@ import { DEVICE_ID, validBatch, withServer } from './helpers.mjs';
 
 const CLIENT_FINGERPRINT = 'a'.repeat(64);
 const PROXY_SECRET = 'test-loopback-proxy-secret';
+const TEST_MTLS_POLICY = Object.freeze({
+  deviceId: DEVICE_ID,
+  sourceKey: 'source-owned-device-1',
+  sourceClass: 'owned_device',
+  sourceProvenance: Object.freeze({ credential_source: 'test', environment: 'unit-test' }),
+  credentialMetadata: Object.freeze({ credential_source: 'test', environment: 'unit-test' }),
+  scopes: Object.freeze(['observations:write', 'cybermap:read']),
+});
 
 function makeServer({
   storedFingerprint = CLIENT_FINGERPRINT,
@@ -15,16 +23,26 @@ function makeServer({
   authenticateMtls = null,
   omitAuthenticateMtls = false,
   mtlsProxySecret = PROXY_SECRET,
+  mtlsCredentialPolicy = TEST_MTLS_POLICY,
 } = {}) {
   const store = new MemoryObservationStore({
     credentials: [{
       device_id: DEVICE_ID,
       source_id: 'source-owned-device-1',
+      source_key: 'source-owned-device-1',
       source_class: 'owned_device',
+      source_enabled: true,
+      source_provenance: { credential_source: 'test', environment: 'unit-test' },
       mtls_certificate_fingerprint: storedFingerprint,
+      metadata: {
+        credential_source: 'test',
+        environment: 'unit-test',
+        mtls_certificate_fingerprint: storedFingerprint,
+      },
       scopes: ['observations:write', 'cybermap:read'],
       enabled: true,
     }],
+    mtlsCredentialPolicy,
     now: () => new Date('2026-07-26T18:43:00.000Z'),
     randomUuid: () => '00000000-0000-4000-8000-000000000001',
   });
@@ -160,6 +178,27 @@ test('direct mTLS batch accepts a trusted proxy assertion without an ingest toke
   });
 });
 
+test('direct mTLS batch stays generic and records policy mismatch when exact policy is absent', async () => {
+  const records = [];
+  const server = makeServer({
+    mtlsCredentialPolicy: null,
+    logger: { error: (record) => records.push(record) },
+  });
+  await withServer(server, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST', headers: mtlsHeaders(), body: JSON.stringify(validBatch()),
+    });
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { ok: false, error: 'forbidden' });
+  });
+  assert.deepEqual(records, [{
+    code: 'forbidden',
+    statusCode: 403,
+    diagnostic_code: 'mtls_credential_rejected',
+    mtls_rejection_reason: 'policy_mismatch',
+  }]);
+});
+
 test('direct mTLS batch fails closed when the credential authenticator is unavailable', async () => {
   const records = [];
   const server = makeServer({
@@ -192,7 +231,46 @@ test('direct mTLS batch logs a sanitized credential-rejection reason', async () 
     code: 'forbidden',
     statusCode: 403,
     diagnostic_code: 'mtls_credential_rejected',
+    mtls_rejection_reason: 'binding_absent',
   }]);
+});
+
+test('direct mTLS batch omits a credential-rejection diagnostic when its reason is untrusted', async () => {
+  const records = [];
+  const server = makeServer({
+    authenticateMtls: async () => {
+      const rejection = new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
+      rejection.mtlsRejectionReason = 'request-derived-value';
+      throw rejection;
+    },
+    logger: { error: (record) => records.push(record) },
+  });
+  await withServer(server, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST', headers: mtlsHeaders(), body: JSON.stringify(validBatch()),
+    });
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { ok: false, error: 'forbidden' });
+  });
+  assert.deepEqual(records, [{ code: 'forbidden', statusCode: 403 }]);
+});
+
+test('direct mTLS batch omits a credential-rejection diagnostic when its reason is absent', async () => {
+  const records = [];
+  const server = makeServer({
+    authenticateMtls: async () => {
+      throw new IngestError('forbidden', 'Forbidden.', { statusCode: 403 });
+    },
+    logger: { error: (record) => records.push(record) },
+  });
+  await withServer(server, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/v1/observations/batch`, {
+      method: 'POST', headers: mtlsHeaders(), body: JSON.stringify(validBatch()),
+    });
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { ok: false, error: 'forbidden' });
+  });
+  assert.deepEqual(records, [{ code: 'forbidden', statusCode: 403 }]);
 });
 
 test('direct mTLS batch does not mislabel a forbidden credential-store outage', async () => {
@@ -201,6 +279,7 @@ test('direct mTLS batch does not mislabel a forbidden credential-store outage', 
     authenticateMtls: async () => {
       const outage = new IngestError('forbidden', 'Credential store is unavailable.', { statusCode: 503 });
       outage.diagnosticCode = 'request-derived-value';
+      outage.mtlsRejectionReason = 'request-derived-value';
       throw outage;
     },
     logger: { error: (record) => records.push(record) },
@@ -273,6 +352,7 @@ test('direct mTLS viewport logs a rejected credential without changing the respo
     code: 'forbidden',
     statusCode: 403,
     diagnostic_code: 'mtls_credential_rejected',
+    mtls_rejection_reason: 'binding_absent',
   }]);
 });
 

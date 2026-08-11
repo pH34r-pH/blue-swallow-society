@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import http from 'node:http';
 
-import { IngestError } from './auth.mjs';
+import { boundedMtlsRejectionReason, IngestError } from './auth.mjs';
 import { ContractError, validateObservationBatch } from './contracts.mjs';
 import { readOperatorSignalSnapshotFromBody, readViewportFromBody } from './viewport.mjs';
 import {
@@ -198,8 +198,14 @@ export function createRequestHandler({
     } catch (error) {
       request.resume?.();
       const diagnosticCode = boundedDiagnosticCode(error?.diagnosticCode);
+      const mtlsRejectionReason = boundedMtlsRejectionReason(error?.mtlsRejectionReason);
       const record = { code: error?.code ?? 'internal_error', statusCode: error?.statusCode ?? 500 };
-      if (diagnosticCode) {
+      if (diagnosticCode === 'mtls_credential_rejected') {
+        if (mtlsRejectionReason) {
+          record.diagnostic_code = diagnosticCode;
+          record.mtls_rejection_reason = mtlsRejectionReason;
+        }
+      } else if (diagnosticCode) {
         record.diagnostic_code = diagnosticCode;
       }
       logger?.error?.(record);
