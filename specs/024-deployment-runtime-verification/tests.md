@@ -1,0 +1,10 @@
+# Test Design: Deployment Runtime Verification Gates
+
+| Requirement | RED condition | GREEN evidence | Test |
+|---|---|---|---|
+| FR-001–003 | Deployment jobs have no source-validation dependency, validation can mint OIDC, or a lockfile install runs lifecycle scripts | Validation job and VM installer have script-disabled lockfile installs, root/VM tests, config checks, no OIDC capability, and gates both deployment jobs | `tests/deployment-runtime-gates.test.mjs` |
+| FR-004 | Installer writes a receipt before final migrations or omits migration JSON | Receipt follows migrations and includes migration ledger query | `tests/deployment-runtime-gates.test.mjs` |
+| FR-005 | No post-deploy job or verifier skips immutable receipt checks | Runtime job invokes bounded verifier after both deployments | `tests/deployment-runtime-gates.test.mjs` |
+| FR-006–007 | Any direct Azure CLI shell invocation, mutable Action ref, unbounded response/CLI output, hung/near-deadline Azure process, raw Azure diagnostic, adapter stdout result channel, inherited credential value, secret argv, lifecycle-enabled install, unbounded custom-domain OIDC/ARM child, unchecked Azure-derived `GITHUB_OUTPUT`, or missing protected probe | A single bounded Azure adapter owns every workflow CLI invocation, all Action refs are immutable commits, the adapter caps output, rejects deadline-close races, kills a hung child tree, permits only a safe child environment, rejects sensitive arguments, writes result bytes only to mode-0600 files, and uses a scrubbed helper to schema-validate/control-character-reject Azure-derived GitHub outputs; it emits only local verdicts, scopes/clears dynamic deployment tokens, invokes a bounded custom-domain OIDC/ARM wrapper with redacted remote failures, and retains the retry/health/ready/receipt/protected-probe contracts | `tests/deployment-runtime-gates.test.mjs` |
+
+The test is source-only. It deliberately performs no Azure access, deployment, or endpoint call. A real workflow run is the production evidence path.

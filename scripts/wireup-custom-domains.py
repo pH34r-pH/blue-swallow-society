@@ -30,6 +30,7 @@ TOKEN_SLEEP_SECONDS = 5
 WWW_DOMAIN_RETRIES = 60
 WWW_DOMAIN_SLEEP_SECONDS = 10
 TXT_RECORD_NAME = "_dnsauth.www"
+MAX_RESPONSE_BYTES = 64 * 1024
 
 
 def subscription_id() -> str:
@@ -127,24 +128,38 @@ def management_access_token() -> str:
     return access_token
 
 
+def _read_bounded_utf8(response: Any) -> str:
+    raw = response.read(MAX_RESPONSE_BYTES + 1)
+    if len(raw) > MAX_RESPONSE_BYTES:
+        raise RuntimeError("Azure API response exceeded the byte bound.")
+    try:
+        return raw.decode("utf-8").strip()
+    except UnicodeDecodeError:
+        raise RuntimeError("Azure API response was not valid UTF-8.") from None
+
+
 def request_json(request: urllib_request.Request, *, timeout: int = 60) -> dict[str, Any]:
     try:
         with urllib_request.urlopen(request, timeout=timeout) as response:
-            raw = response.read().decode("utf-8").strip()
+            raw = _read_bounded_utf8(response)
     except urllib_error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(
-            f"{request.get_method()} {request.full_url} failed (HTTP {exc.code}): {body.strip()}"
-        ) from exc
-    except urllib_error.URLError as exc:
-        raise RuntimeError(f"{request.get_method()} {request.full_url} failed: {exc.reason}") from exc
+        try:
+            exc.read(MAX_RESPONSE_BYTES + 1)
+        except OSError:
+            pass
+        raise RuntimeError(f"Azure API request failed (HTTP {exc.code}).") from None
+    except urllib_error.URLError:
+        raise RuntimeError("Azure API request could not complete.") from None
 
     if not raw:
         return {}
     try:
-        return json.loads(raw)
+        parsed = json.loads(raw)
     except json.JSONDecodeError:
-        return {"raw": raw}
+        raise RuntimeError("Azure API response was not valid JSON.") from None
+    if not isinstance(parsed, dict):
+        raise RuntimeError("Azure API response was not a JSON object.")
+    return parsed
 
 
 def arm_request_json(method: str, url: str, body: dict[str, Any] | None = None, *, timeout: int = 60) -> dict[str, Any]:

@@ -7,7 +7,6 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: read
 
 # Serialize deployments to this SWA without canceling an active ARM deployment.
@@ -26,8 +25,76 @@ env:
   WWW_DOMAIN: www.blueswallow.net
 
 jobs:
-  deploy-infra:
+  validate-source:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Node.js 22 for Static Web App contracts
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+
+      - name: Bootstrap root contract dependencies
+        run: |
+          if [ -f package.json ] && [ -f package-lock.json ]; then
+            npm ci --ignore-scripts
+            npm run bootstrap
+          else
+            npm ci --ignore-scripts --prefix api
+          fi
+
+      - name: Validate Functions configuration and root contracts
+        run: |
+          set -euo pipefail
+          bash -n infra/scripts/install-cybermap-api.sh
+          node - <<'NODE'
+          const { readdirSync, readFileSync } = require('node:fs');
+          const { join } = require('node:path');
+          const root = 'api';
+          const stack = [root];
+          const functionFiles = [];
+          while (stack.length) {
+            const directory = stack.pop();
+            for (const entry of readdirSync(directory, { withFileTypes: true })) {
+              const path = join(directory, entry.name);
+              if (entry.isDirectory()) stack.push(path);
+              else if (entry.isFile() && entry.name === 'function.json') functionFiles.push(path);
+            }
+          }
+          if (!functionFiles.length) throw new Error('No Azure Function function.json files were found.');
+          for (const path of functionFiles) JSON.parse(readFileSync(path, 'utf8'));
+          console.log(`Validated ${functionFiles.length} Azure Function configuration files.`);
+          NODE
+          if [ -f package.json ] && [ -f package-lock.json ]; then
+            npm test
+          else
+            node --test tests/*.test.mjs
+          fi
+
+      - name: Set up Node.js 24 for VM API contracts
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: vm/cybermap-api/package-lock.json
+
+      - name: Install and test VM API
+        run: |
+          npm ci --ignore-scripts --prefix vm/cybermap-api
+          npm test --prefix vm/cybermap-api
+
+  deploy-infra:
+    needs: validate-source
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     outputs:
       backendCybermapBaseUrl: ${{ steps.deploy.outputs.backendCybermapBaseUrl }}
       wardriverReleaseStorageAccountName: ${{ steps.deploy.outputs.wardriverReleaseStorageAccountName }}
@@ -36,10 +103,15 @@ jobs:
       passcodeRateLimitTableName: ${{ steps.deploy.outputs.passcodeRateLimitTableName }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Node.js 24 for bounded Azure commands
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
 
       - name: Azure Login (OIDC)
-        uses: azure/login@v3
+        uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -47,15 +119,23 @@ jobs:
 
       - name: Create resource group
         run: |
-          az group create --name "$RESOURCE_GROUP" --location "$LOCATION"
+          node scripts/run-bounded-az.mjs group create \
+            --name "$RESOURCE_GROUP" \
+            --location "$LOCATION" \
+            --only-show-errors \
+            -o none
 
       - name: Ensure resource providers are registered
         run: |
+          umask 077
+          provider_state_file="$(mktemp)"
+          trap 'rm -f "$provider_state_file"' EXIT
           for ns in Microsoft.Compute Microsoft.Network Microsoft.Web Microsoft.DevTestLab Microsoft.DBforPostgreSQL Microsoft.Storage; do
-            state=$(az provider show --namespace "$ns" --query registrationState -o tsv)
+            node scripts/run-bounded-az.mjs --output-file "$provider_state_file" provider show --namespace "$ns" --query registrationState -o tsv
+            state="$(<"$provider_state_file")"
             if [ "$state" != "Registered" ]; then
               echo "Registering $ns (current state: $state)..."
-              az provider register --namespace "$ns" --wait
+              node scripts/run-bounded-az.mjs provider register --namespace "$ns" --wait --only-show-errors -o none
             fi
           done
 
@@ -130,11 +210,15 @@ jobs:
       - name: Start existing VM for extension deployment
         run: |
           vm_name="$(jq -r '.parameters.prefix.value' infra/main.parameters.json)-vm"
-          if az vm show --resource-group "$RESOURCE_GROUP" --name "$vm_name" -o none 2>/dev/null; then
-            state=$(az vm get-instance-view --resource-group "$RESOURCE_GROUP" --name "$vm_name" --query "instanceView.statuses[?starts_with(code,'PowerState/')].code | [0]" -o tsv)
+          if node scripts/run-bounded-az.mjs vm show --resource-group "$RESOURCE_GROUP" --name "$vm_name" -o none 2>/dev/null; then
+            umask 077
+            vm_state_file="$(mktemp)"
+            trap 'rm -f "$vm_state_file"' EXIT
+            node scripts/run-bounded-az.mjs --output-file "$vm_state_file" vm get-instance-view --resource-group "$RESOURCE_GROUP" --name "$vm_name" --query "instanceView.statuses[?starts_with(code,'PowerState/')].code | [0]" -o tsv
+            state="$(<"$vm_state_file")"
             echo "VM $vm_name state before deployment: $state"
             if [ "$state" != "PowerState/running" ]; then
-              az vm start --resource-group "$RESOURCE_GROUP" --name "$vm_name"
+              node scripts/run-bounded-az.mjs vm start --resource-group "$RESOURCE_GROUP" --name "$vm_name" --only-show-errors -o none
             fi
           else
             echo "VM $vm_name does not exist yet; ARM deployment will create it running."
@@ -151,7 +235,7 @@ jobs:
           BSS_MTLS_PROXY_SECRET: ${{ secrets.BSS_MTLS_PROXY_SECRET }}
           BSS_WARDRIVER_MTLS_TRUST_PEM: ${{ secrets.BSS_WARDRIVER_MTLS_TRUST_PEM }}
         run: |
-          # Trim any stray whitespace/newlines from secrets before passing to az.
+          # Trim any stray whitespace/newlines before passing values to the bounded Azure adapter.
           ssh_key=$(printf '%s' "$SSH_KEY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           postgres_password=$(printf '%s' "$POSTGRES_ADMIN_PASSWORD" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           cybermap_read_token=$(printf '%s' "$BSS_CYBERMAP_READ_TOKEN" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
@@ -163,60 +247,66 @@ jobs:
           curl --fail --location --silent --show-error "$cybermap_source_url" -o cybermap-source.tar.gz
           cybermap_source_sha256="$(sha256sum cybermap-source.tar.gz | awk '{print $1}')"
           rm -f cybermap-source.tar.gz
+          umask 077
+          secure_parameters_file="$(mktemp)"
+          trap 'rm -f "$secure_parameters_file"' EXIT
+          SSH_PUBLIC_KEY="$ssh_key" \
+          POSTGRES_ADMINISTRATOR_LOGIN_PASSWORD="$postgres_password" \
+          CYBERMAP_READ_TOKEN="$cybermap_read_token" \
+          PAPER_STATE_TOKEN="$paper_state_token" \
+          MORNING_BRIEF_TOKEN="$morning_brief_token" \
+          MTLS_PROXY_SECRET="$mtls_proxy_secret" \
+          WARDIVER_MTLS_TRUST_CERTIFICATE_PEM="$mtls_trust_pem" \
+          CYBERMAP_SOURCE_REVISION="$GITHUB_SHA" \
+          CYBERMAP_SOURCE_TARBALL_URL="$cybermap_source_url" \
+          CYBERMAP_SOURCE_TARBALL_SHA256="$cybermap_source_sha256" \
+          CYBERMAP_DEPLOYMENT_VERSION="${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}" \
+          node - "$secure_parameters_file" <<'NODE'
+          import { chmodSync, writeFileSync } from 'node:fs';
+
+          const outputPath = process.argv[2];
+          const parameterNames = {
+            sshPublicKey: 'SSH_PUBLIC_KEY',
+            postgresAdministratorLoginPassword: 'POSTGRES_ADMINISTRATOR_LOGIN_PASSWORD',
+            cybermapReadToken: 'CYBERMAP_READ_TOKEN',
+            paperStateToken: 'PAPER_STATE_TOKEN',
+            morningBriefToken: 'MORNING_BRIEF_TOKEN',
+            mtlsProxySecret: 'MTLS_PROXY_SECRET',
+            wardriverMtlsTrustCertificatePem: 'WARDIVER_MTLS_TRUST_CERTIFICATE_PEM',
+            cybermapSourceRevision: 'CYBERMAP_SOURCE_REVISION',
+            cybermapSourceTarballUrl: 'CYBERMAP_SOURCE_TARBALL_URL',
+            cybermapSourceTarballSha256: 'CYBERMAP_SOURCE_TARBALL_SHA256',
+            cybermapDeploymentVersion: 'CYBERMAP_DEPLOYMENT_VERSION',
+          };
+          const parameters = {};
+          for (const [parameterName, environmentName] of Object.entries(parameterNames)) {
+            const value = process.env[environmentName];
+            if (typeof value !== 'string' || value.length === 0) {
+              throw new Error(`Required secure deployment parameter ${parameterName} is absent.`);
+            }
+            parameters[parameterName] = { value };
+          }
+          writeFileSync(outputPath, JSON.stringify({ parameters }), { encoding: 'utf8', mode: 0o600 });
+          chmodSync(outputPath, 0o600);
+          NODE
+          umask 077
+          deployment_output_file="$(mktemp)"
+          trap 'rm -f "$secure_parameters_file" "$deployment_output_file"' EXIT
           set +e
-          out=$(az deployment group create \
+          node scripts/run-bounded-az.mjs --output-file "$deployment_output_file" deployment group create \
             --resource-group "$RESOURCE_GROUP" \
             --name main \
             --template-file infra/main.bicep \
             --parameters infra/main.parameters.json \
-            --parameters sshPublicKey="$ssh_key" \
-            --parameters postgresAdministratorLoginPassword="$postgres_password" \
-            --parameters cybermapReadToken="$cybermap_read_token" \
-            --parameters paperStateToken="$paper_state_token" \
-            --parameters morningBriefToken="$morning_brief_token" \
-            --parameters mtlsProxySecret="$mtls_proxy_secret" \
-            --parameters wardriverMtlsTrustCertificatePem="$mtls_trust_pem" \
-            --parameters cybermapSourceRevision="$GITHUB_SHA" \
-            --parameters cybermapSourceTarballUrl="$cybermap_source_url" \
-            --parameters cybermapSourceTarballSha256="$cybermap_source_sha256" \
-            --parameters cybermapDeploymentVersion="${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}" \
-            --query properties.outputs -o json 2>az_stderr.log)
+            --parameters "@${secure_parameters_file}" \
+            --query properties.outputs -o json
           rc=$?
           set -e
           if [ $rc -ne 0 ]; then
-            echo "::group::Deployment stderr"
-            cat az_stderr.log
-            echo "::endgroup::"
-            echo "::group::Failed deployment operations (top-level)"
-            az deployment operation group list \
-              --resource-group "$RESOURCE_GROUP" \
-              --name main \
-              --query "[?properties.provisioningState=='Failed'].{resource:properties.targetResource.resourceName, type:properties.targetResource.resourceType, status:properties.statusMessage}" \
-              -o json || true
-            echo "::endgroup::"
-            echo "::group::Failed deployment operations (VM API gateway module)"
-            az deployment operation group list \
-              --resource-group "$RESOURCE_GROUP" \
-              --name vm-echo-lab \
-              --query "[?properties.provisioningState=='Failed'].{resource:properties.targetResource.resourceName, type:properties.targetResource.resourceType, status:properties.statusMessage}" \
-              -o json || true
-            echo "::endgroup::"
+            echo "::error::Azure infrastructure deployment failed; bounded adapter diagnostics were intentionally withheld."
             exit $rc
           fi
-          cybermap_backend=$(echo "$out" | jq -r '.backendCybermapBaseUrl.value')
-          release_storage_account=$(echo "$out" | jq -r '.wardriverReleaseStorageAccountName.value')
-          release_container=$(echo "$out" | jq -r '.wardriverReleaseContainerName.value')
-          rate_limit_storage_account=$(echo "$out" | jq -r '.passcodeRateLimitStorageAccountName.value')
-          rate_limit_table=$(echo "$out" | jq -r '.passcodeRateLimitTableName.value')
-          if [ -z "$release_storage_account" ] || [ "$release_storage_account" = "null" ] || [ -z "$release_container" ] || [ "$release_container" = "null" ]; then
-            echo "::error::Wardriver release storage deployment outputs are missing."
-            exit 1
-          fi
-          echo "backendCybermapBaseUrl=$cybermap_backend" >> "$GITHUB_OUTPUT"
-          echo "wardriverReleaseStorageAccountName=$release_storage_account" >> "$GITHUB_OUTPUT"
-          echo "wardriverReleaseContainerName=$release_container" >> "$GITHUB_OUTPUT"
-          echo "passcodeRateLimitStorageAccountName=$rate_limit_storage_account" >> "$GITHUB_OUTPUT"
-          echo "passcodeRateLimitTableName=$rate_limit_table" >> "$GITHUB_OUTPUT"
+          env -i PATH="$PATH" HOME="$HOME" node scripts/emit-deployment-outputs.mjs "$deployment_output_file" "$GITHUB_OUTPUT"
 
       - name: Wire runtime app settings into SWA
         env:
@@ -255,57 +345,119 @@ jobs:
           release_container="${{ steps.deploy.outputs.wardriverReleaseContainerName }}"
           rate_limit_storage_account="${{ steps.deploy.outputs.passcodeRateLimitStorageAccountName }}"
           rate_limit_table="${{ steps.deploy.outputs.passcodeRateLimitTableName }}"
-          storage_connection_string=$(az storage account show-connection-string \
+          umask 077
+          storage_connection_file="$(mktemp)"
+          rate_limit_connection_file="$(mktemp)"
+          swa_resource_id_file="$(mktemp)"
+          swa_settings_file="$(mktemp)"
+          settings_file="$(mktemp)"
+          trap 'rm -f "$storage_connection_file" "$rate_limit_connection_file" "$swa_resource_id_file" "$swa_settings_file" "$settings_file"' EXIT
+          node scripts/run-bounded-az.mjs --output-file "$storage_connection_file" storage account show-connection-string \
             --name "$release_storage_account" \
             --resource-group "$RESOURCE_GROUP" \
             --query connectionString \
-            -o tsv)
-          rate_limit_connection_string=$(az storage account show-connection-string \
+            -o tsv
+          node scripts/run-bounded-az.mjs --output-file "$rate_limit_connection_file" storage account show-connection-string \
             --name "$rate_limit_storage_account" \
             --resource-group "$RESOURCE_GROUP" \
-            --query connectionString -o tsv)
-          if [ -z "$storage_connection_string" ] || [ "$storage_connection_string" = "null" ] || [ -z "$rate_limit_connection_string" ] || [ "$rate_limit_connection_string" = "null" ]; then
+            --query connectionString -o tsv
+          if [ ! -s "$storage_connection_file" ] || [ ! -s "$rate_limit_connection_file" ]; then
             echo "::error::Release or passcode rate-limit storage connection string could not be resolved."
             exit 1
           fi
-          echo "::add-mask::$storage_connection_string"
-          echo "::add-mask::$rate_limit_connection_string"
-          az staticwebapp appsettings set \
+          node scripts/run-bounded-az.mjs --output-file "$swa_resource_id_file" staticwebapp show \
             --name "$swa_name" \
             --resource-group "$RESOURCE_GROUP" \
-            --setting-names \
-              BACKEND_CYBERMAP_BASE_URL="${{ steps.deploy.outputs.backendCybermapBaseUrl }}" \
-              BACKEND_PAPER_STATE_BASE_URL="${{ steps.deploy.outputs.backendCybermapBaseUrl }}" \
-              BACKEND_MORNING_BRIEF_BASE_URL="${{ steps.deploy.outputs.backendCybermapBaseUrl }}" \
-              BSS_CYBERMAP_READ_TOKEN="$cybermap_read_token" \
-              BSS_PAPER_STATE_TOKEN="$paper_state_token" \
-              BSS_MORNING_BRIEF_TOKEN="$morning_brief_token" \
-              BSS_WARDRIVER_RELEASE_STORAGE_CONNECTION_STRING="$storage_connection_string" \
-              BSS_WARDRIVER_RELEASE_CONTAINER="$release_container" \
-              BLUE_SWALLOW_PASSCODE_RATE_LIMIT_STORAGE_CONNECTION_STRING="$rate_limit_connection_string" \
-              BLUE_SWALLOW_PASSCODE_RATE_LIMIT_TABLE="$rate_limit_table" \
-              BSS_WARDRIVER_RELEASE_MANIFEST_BLOB="wardriver/releases/latest.json" \
-              BSS_WARDRIVER_RELEASE_PROBE_SECRET="$release_probe_secret" \
-              BLUE_SWALLOW_PASSCODE_SHA256="$passcode_hash" \
-              BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY="$signing_key" \
-            --only-show-errors \
-            -o none
-          az staticwebapp appsettings delete \
+            --query id -o tsv
+          swa_resource_id="$(<"$swa_resource_id_file")"
+          if [ -z "$swa_resource_id" ] || [ "$swa_resource_id" = "null" ]; then
+            echo "::error::Static Web App resource ID could not be resolved."
+            exit 1
+          fi
+          node scripts/run-bounded-az.mjs --output-file "$swa_settings_file" staticwebapp appsettings list \
             --name "$swa_name" \
             --resource-group "$RESOURCE_GROUP" \
-            --setting-names BACKEND_ECHO_BASE_URL \
+            -o json
+          BACKEND_CYBERMAP_BASE_URL="${{ steps.deploy.outputs.backendCybermapBaseUrl }}" \
+          BSS_CYBERMAP_READ_TOKEN="$cybermap_read_token" \
+          BSS_PAPER_STATE_TOKEN="$paper_state_token" \
+          BSS_MORNING_BRIEF_TOKEN="$morning_brief_token" \
+          BSS_WARDRIVER_RELEASE_CONTAINER="$release_container" \
+          BLUE_SWALLOW_PASSCODE_RATE_LIMIT_TABLE="$rate_limit_table" \
+          BSS_WARDRIVER_RELEASE_PROBE_SECRET="$release_probe_secret" \
+          BLUE_SWALLOW_PASSCODE_SHA256="$passcode_hash" \
+          BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY="$signing_key" \
+          node - "$settings_file" "$swa_settings_file" "$storage_connection_file" "$rate_limit_connection_file" <<'NODE'
+          import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
+
+          const [outputPath, existingPath, storageConnectionPath, rateLimitConnectionPath] = process.argv.slice(2);
+          const readRequiredFile = (path, settingName) => {
+            const value = readFileSync(path, 'utf8').trim();
+            if (!value || value === 'null') throw new Error(`Required SWA setting ${settingName} is absent.`);
+            return value;
+          };
+          let existing;
+          try {
+            existing = JSON.parse(readFileSync(existingPath, 'utf8'));
+          } catch {
+            throw new Error('Static Web App app-settings response is invalid.');
+          }
+          if (!existing || typeof existing !== 'object' || Array.isArray(existing) || !existing.properties || typeof existing.properties !== 'object' || Array.isArray(existing.properties)) {
+            throw new Error('Static Web App app-settings response has no properties object.');
+          }
+          const environmentNames = {
+            BACKEND_CYBERMAP_BASE_URL: 'BACKEND_CYBERMAP_BASE_URL',
+            BACKEND_PAPER_STATE_BASE_URL: 'BACKEND_CYBERMAP_BASE_URL',
+            BACKEND_MORNING_BRIEF_BASE_URL: 'BACKEND_CYBERMAP_BASE_URL',
+            BSS_CYBERMAP_READ_TOKEN: 'BSS_CYBERMAP_READ_TOKEN',
+            BSS_PAPER_STATE_TOKEN: 'BSS_PAPER_STATE_TOKEN',
+            BSS_MORNING_BRIEF_TOKEN: 'BSS_MORNING_BRIEF_TOKEN',
+            BSS_WARDRIVER_RELEASE_CONTAINER: 'BSS_WARDRIVER_RELEASE_CONTAINER',
+            BLUE_SWALLOW_PASSCODE_RATE_LIMIT_TABLE: 'BLUE_SWALLOW_PASSCODE_RATE_LIMIT_TABLE',
+            BSS_WARDRIVER_RELEASE_PROBE_SECRET: 'BSS_WARDRIVER_RELEASE_PROBE_SECRET',
+            BLUE_SWALLOW_PASSCODE_SHA256: 'BLUE_SWALLOW_PASSCODE_SHA256',
+            BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY: 'BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY',
+          };
+          const properties = {
+            ...existing.properties,
+            BSS_WARDRIVER_RELEASE_MANIFEST_BLOB: 'wardriver/releases/latest.json',
+            BSS_WARDRIVER_RELEASE_STORAGE_CONNECTION_STRING: readRequiredFile(storageConnectionPath, 'BSS_WARDRIVER_RELEASE_STORAGE_CONNECTION_STRING'),
+            BLUE_SWALLOW_PASSCODE_RATE_LIMIT_STORAGE_CONNECTION_STRING: readRequiredFile(rateLimitConnectionPath, 'BLUE_SWALLOW_PASSCODE_RATE_LIMIT_STORAGE_CONNECTION_STRING'),
+          };
+          for (const [settingName, environmentName] of Object.entries(environmentNames)) {
+            const value = process.env[environmentName];
+            if (typeof value !== 'string' || value.length === 0) {
+              throw new Error(`Required SWA setting ${settingName} is absent.`);
+            }
+            properties[settingName] = value;
+          }
+          delete properties.BACKEND_ECHO_BASE_URL;
+          writeFileSync(outputPath, JSON.stringify({ properties }), { encoding: 'utf8', mode: 0o600 });
+          chmodSync(outputPath, 0o600);
+          NODE
+          node scripts/run-bounded-az.mjs rest --method put \
+            --uri "${swa_resource_id}/config/appsettings?api-version=2023-01-01" \
+            --body "@${settings_file}" \
             --only-show-errors \
             -o none
 
   deploy-app:
+    needs: [validate-source, deploy-infra]
     runs-on: ubuntu-latest
-    needs: deploy-infra
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Node.js 24 for bounded Azure commands
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
 
       - name: Azure Login (OIDC)
-        uses: azure/login@v3
+        uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -313,36 +465,50 @@ jobs:
 
       - name: Ensure public DNS zone exists
         run: |
-          az network dns zone create \
+          node scripts/run-bounded-az.mjs network dns zone create \
             --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
             --name "$DNS_ZONE_NAME" \
             --only-show-errors \
             -o none
 
       - name: Fetch SWA deployment token
-        id: swa-token
         run: |
+          umask 077
+          token_file="$(mktemp)"
+          trap 'rm -f "$token_file"' EXIT
           swa_name=$(jq -r '.parameters.staticWebAppName.value' infra/main.parameters.json)
-          token=$(az staticwebapp secrets list \
+          node scripts/run-bounded-az.mjs --output-file "$token_file" staticwebapp secrets list \
             --name "$swa_name" \
             --resource-group "$RESOURCE_GROUP" \
-            --query properties.apiKey -o tsv)
+            --query properties.apiKey -o tsv
+          token="$(<"$token_file")"
           if [ -z "$token" ] || [ "$token" = "null" ]; then
             echo "::error::Failed to retrieve deployment token for SWA $swa_name in $RESOURCE_GROUP."
             exit 1
           fi
+          token_control_bytes=$(printf '%s' "$token" | tr -d '[:print:]' | wc -c | tr -d ' ')
+          if [ "$token_control_bytes" -ne 0 ]; then
+            echo "::error::SWA deployment token must not contain control characters."
+            exit 1
+          fi
           echo "::add-mask::$token"
-          echo "token=$token" >> "$GITHUB_OUTPUT"
+          echo "SWA_DEPLOYMENT_TOKEN=$token" >> "$GITHUB_ENV"
+          unset token
 
       - name: Deploy SWA
-        uses: Azure/static-web-apps-deploy@v1
+        uses: Azure/static-web-apps-deploy@1a947af9992250f3bc2e68ad0754c0b0c11566c9 # v1
         with:
-          azure_static_web_apps_api_token: ${{ steps.swa-token.outputs.token }}
+          azure_static_web_apps_api_token: ${{ env.SWA_DEPLOYMENT_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
           app_location: "app"
           api_location: "api"
           output_location: ""
+
+      - name: Clear SWA deployment token
+        if: always()
+        run: |
+          echo "SWA_DEPLOYMENT_TOKEN=" >> "$GITHUB_ENV"
 
       - name: Configure custom domains
         env:
@@ -351,7 +517,7 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
           swa_name=$(jq -r '.parameters.staticWebAppName.value' infra/main.parameters.json)
-          python3 scripts/wireup-custom-domains.py \
+          node scripts/run-bounded-custom-domains.mjs \
             "$swa_name" \
             "$RESOURCE_GROUP" \
             "$DNS_ZONE_RESOURCE_GROUP" \
@@ -359,3 +525,51 @@ jobs:
             "" \
             "$APEX_DOMAIN" \
             "$WWW_DOMAIN"
+
+  verify-runtime:
+    needs: [deploy-infra, deploy-app]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Node.js 24 for bounded runtime verification
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Verify deployed Cybermap provenance and runtime boundaries
+        env:
+          BSS_RUNTIME_VERIFY_RELEASE_PROBE_SECRET: ${{ secrets.BSS_WARDRIVER_RELEASE_PROBE_SECRET }}
+        run: |
+          set -euo pipefail
+          swa_name="$(jq -r '.parameters.staticWebAppName.value' infra/main.parameters.json)"
+          vm_name="$(jq -r '.parameters.prefix.value' infra/main.parameters.json)-vm"
+          backend_origin="${{ needs.deploy-infra.outputs.backendCybermapBaseUrl }}"
+          if [ -z "$backend_origin" ] || [ "$backend_origin" = "null" ]; then
+            echo "::error::Deployment did not emit a Cybermap backend origin."
+            exit 1
+          fi
+          BSS_RUNTIME_VERIFY_RESOURCE_GROUP="$RESOURCE_GROUP" \
+          BSS_RUNTIME_VERIFY_SWA_NAME="$swa_name" \
+          BSS_RUNTIME_VERIFY_VM_NAME="$vm_name" \
+          BSS_RUNTIME_VERIFY_BACKEND_ORIGIN="$backend_origin" \
+          node scripts/verify-deployment-runtime.mjs
+
+      - name: Retain bounded runtime verification receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: cybermap-runtime-verification-${{ github.sha }}
+          path: runtime-verification-receipt.json
+          if-no-files-found: error
+          retention-days: 90

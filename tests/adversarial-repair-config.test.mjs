@@ -31,9 +31,9 @@ test('deployment and what-if derive a full Git commit archive digest rather than
   [deployWorkflow, whatIfWorkflow].forEach((workflow) => {
     assert.match(workflow, /GITHUB_SHA/);
     assert.match(workflow, /sha256sum/);
-    assert.match(workflow, /cybermapSourceRevision="\$GITHUB_SHA"/);
-    assert.match(workflow, /cybermapSourceTarballUrl=/);
-    assert.match(workflow, /cybermapSourceTarballSha256=/);
+    assert.match(workflow, /cybermapSourceRevision="\$GITHUB_SHA"|CYBERMAP_SOURCE_REVISION="\$GITHUB_SHA"/);
+    assert.match(workflow, /cybermapSourceTarballUrl=|cybermapSourceTarballUrl: 'CYBERMAP_SOURCE_TARBALL_URL'/);
+    assert.match(workflow, /cybermapSourceTarballSha256=|cybermapSourceTarballSha256: 'CYBERMAP_SOURCE_TARBALL_SHA256'/);
   });
   assert.doesNotMatch(mainBicep, /refs\/heads\/main/);
 });

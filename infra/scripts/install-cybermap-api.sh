@@ -61,7 +61,7 @@ tar -xzf /tmp/bss.tar.gz -C /tmp/bss-source --strip-components=1
 rm -rf /opt/bss/cybermap-api
 cp -a /tmp/bss-source/vm/cybermap-api /opt/bss/cybermap-api
 cd /opt/bss/cybermap-api
-npm ci --omit=dev
+npm ci --ignore-scripts --omit=dev
 
 install -d -m 0750 -o root -g root /etc/bss
 install -d -m 0755 -o root -g root /etc/caddy
@@ -131,13 +131,18 @@ run_migration() {
 run_migration 0001_cybermap_core db/migrations/0001_cybermap_core.sql
 run_migration 0002_device_ingest_contract db/migrations/0002_device_ingest_contract.sql
 run_migration 0003_paper_state db/migrations/0003_paper_state.sql
-printf '{"revision":"%s","archive_sha256":"%s","installed_at":"%s"}\n' "$CYBERMAP_SOURCE_REVISION" "$CYBERMAP_SOURCE_TARBALL_SHA256" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /etc/bss/cybermap-api-release.json
-chmod 0644 /etc/bss/cybermap-api-release.json
 run_migration 0004_godeye_global_cells_and_sources db/migrations/0004_godeye_global_cells_and_sources.sql
 run_migration 0004_morning_brief_archive db/migrations/0004_morning_brief_archive.sql
 run_migration 0005_device_scoped_observation_identity db/migrations/0005_device_scoped_observation_identity.sql
 run_migration 0006_best_effort_observation_progress db/migrations/0006_best_effort_observation_progress.sql
 psql -v ON_ERROR_STOP=1 -c "UPDATE source_catalog SET enabled = true, allowed_preload = true, terms_reviewed = true, updated_at = clock_timestamp() WHERE source_key = 'deflock-osm-alpr-reports'"
+migration_versions_json="$(psql -v ON_ERROR_STOP=1 -Atqc "SELECT COALESCE(json_agg(version ORDER BY version), '[]'::json)::text FROM schema_migrations")"
+if ! printf '%s' "$migration_versions_json" | node -e 'let text = ""; process.stdin.on("data", (chunk) => { text += chunk; }); process.stdin.on("end", () => { const versions = JSON.parse(text); if (!Array.isArray(versions) || versions.some((version) => typeof version !== "string")) process.exit(1); });'; then
+  echo "Migration receipt is invalid" >&2
+  exit 1
+fi
+printf '{"revision":"%s","archive_sha256":"%s","installed_at":"%s","migrations":%s}\n' "$CYBERMAP_SOURCE_REVISION" "$CYBERMAP_SOURCE_TARBALL_SHA256" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$migration_versions_json" > /etc/bss/cybermap-api-release.json
+chmod 0644 /etc/bss/cybermap-api-release.json
 
 cat > /etc/systemd/system/bss-cybermap-api.service <<'UNIT'
 [Unit]
