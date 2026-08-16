@@ -6,13 +6,16 @@ import { readFileSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { requireObscura } from './helpers/obscura.mjs';
 
 const execFileAsync = promisify(execFile);
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const appRoot = join(repoRoot, 'app');
 const MIME_TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.mjs': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
 
-test('Obscura boots the operator surface from a memory-only root session without navigation', async () => {
+test('Obscura boots the operator surface from a memory-only root session without navigation', async (t) => {
+  const obscura = requireObscura(t);
+  if (!obscura) return;
   let validationRequestCount = 0;
   const server = createServer((req, res) => {
     const url = new URL(req.url || '/', 'http://127.0.0.1');
@@ -38,7 +41,7 @@ test('Obscura boots the operator surface from a memory-only root session without
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
   try {
-    const { stdout } = await execFileAsync('obscura', ['fetch', `http://127.0.0.1:${port}/`, '--allow-private-network', '--wait', '3', '--timeout', '30', '--dump', 'text'], { encoding: 'utf8', timeout: 45000 });
+    const { stdout } = await execFileAsync(obscura, ['fetch', `http://127.0.0.1:${port}/`, '--allow-private-network', '--wait', '3', '--timeout', '30', '--dump', 'text'], { encoding: 'utf8', timeout: 45000 });
     const rendered = parseObscuraJson(stdout);
     assert.equal(rendered.evalError, undefined, JSON.stringify(rendered));
     assert.deepEqual(rendered.errors, [], JSON.stringify(rendered));

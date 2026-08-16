@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { requireObscura } from './helpers/obscura.mjs';
 
 const execFileAsync = promisify(execFile);
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -177,7 +178,9 @@ const tzeentchPayload = {
   },
 };
 
-test('Obscura renders Tzeentch peer tabs, nested intel views, Mosaic facts, and paper positions', async () => {
+test('Obscura renders Tzeentch peer tabs, nested intel views, Mosaic facts, and paper positions', async (t) => {
+  const obscura = requireObscura(t);
+  if (!obscura) return;
   const authenticatedAssetFetches = new Set();
   const server = createServer((req, res) => {
     const url = new URL(req.url || '/', 'http://127.0.0.1');
@@ -269,7 +272,7 @@ test('Obscura renders Tzeentch peer tabs, nested intel views, Mosaic facts, and 
   const { port } = server.address();
 
   try {
-    const { stdout, stderr } = await execFileAsync('obscura', [
+    const { stdout, stderr } = await execFileAsync(obscura, [
       'fetch',
       `http://127.0.0.1:${port}/operator`,
       '--allow-private-network',

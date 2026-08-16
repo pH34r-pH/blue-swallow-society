@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 import { validatePaperState } from '../vm/cybermap-api/src/server.mjs';
+import { resolvePythonLauncher } from './helpers/python-launcher.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -34,7 +35,8 @@ print(json.dumps(state, separators=(",", ":"), sort_keys=True))
 `;
 
 test('Python canonical producer and VM persistence validator share one executable schema-v4 contract', () => {
-  const produced = spawnSync('python3', ['-c', producerScript], {
+  const launcher = resolvePythonLauncher();
+  const produced = spawnSync(launcher.command, [...launcher.args, '-c', producerScript], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
     maxBuffer: 2 * 1024 * 1024,

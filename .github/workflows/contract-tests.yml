@@ -1,0 +1,46 @@
+name: Contract Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  root-contracts-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install root contract metadata
+        run: npm ci
+      - name: Bootstrap locked contract dependencies
+        run: npm run bootstrap
+      - name: Run root contract suite
+        run: npm test
+
+  browser-contracts-obscura:
+    runs-on: [self-hosted, linux, bss-obscura]
+    env:
+      BSS_REQUIRE_OBSCURA: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install root contract metadata
+        run: npm ci
+      - name: Bootstrap locked contract dependencies
+        run: npm run bootstrap
+      - name: Run provisioned browser contracts
+        run: npm run test:browser

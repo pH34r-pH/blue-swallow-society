@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const apiRoot = path.resolve(new URL('../api/', import.meta.url).pathname);
+const apiRoot = path.resolve(fileURLToPath(new URL('../api/', import.meta.url)));
 
 function apiJavaScriptFiles(directory) {
   return readdirSync(directory, { withFileTypes: true, recursive: true })

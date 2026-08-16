@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
+import { resolvePythonLauncher } from './helpers/python-launcher.mjs';
 
 const root = new URL('../', import.meta.url);
 const renderer = new URL('scripts/render-wardriver-basemap-style.py', root);
@@ -15,8 +16,9 @@ test('style renderer accepts the public Azure static-website tile endpoint', () 
   const output = join(directory, 'style.json');
   const tileBaseUrl = 'https://bsswdv6gc3cqokbdbw.z5.web.core.windows.net/wardriver-basemap/v1/generations/test/tiles';
 
+  const launcher = resolvePythonLauncher();
   try {
-    const result = spawnSync('python3', [fileURLToPath(renderer), '--template', fileURLToPath(template), '--tile-base-url', tileBaseUrl, '--output', output], {
+    const result = spawnSync(launcher.command, [...launcher.args, fileURLToPath(renderer), '--template', fileURLToPath(template), '--tile-base-url', tileBaseUrl, '--output', output], {
       encoding: 'utf8',
     });
     assert.equal(result.status, 0, result.stderr);

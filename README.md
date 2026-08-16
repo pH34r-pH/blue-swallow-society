@@ -126,6 +126,26 @@ The WiGLE proxy at `/api/wigle` supports:
 - `mode=database` → Godeye/local snapshot path. Reads the same local database/export without AR recency gating.
 - `mode=live` → bridge/global fallback. Uses `WIGLE_LIVE_BRIDGE_URL`; direct public WiGLE API lookup is disabled because its search endpoint requires coordinate-bearing URLs.
 
+## Contract-test bootstrap
+
+Use this reproducible local path before the root contract suite:
+
+```bash
+npm ci
+npm run bootstrap
+npm test
+```
+
+`npm run bootstrap` performs the locked, lifecycle-disabled Function dependency install in `api/`. The normal suite runs Node and Python contracts. The VM package owns a separate Node 24 lane: `(cd vm/cybermap-api && npm ci && npm test)`. The three real-browser contracts are explicitly skipped with a named reason unless an Obscura binary is provisioned.
+
+To run the browser lane on a provisioned host, set an absolute or PATH-resolved binary override when needed and enable the gate:
+
+```bash
+OBSCURA_BIN=/path/to/obscura BSS_REQUIRE_OBSCURA=1 npm run test:browser
+```
+
+The CI workflow runs the same bootstrap on Windows. Browser contracts run only on the tagged `bss-obscura` self-hosted runner; its runner image must provide the tested Obscura binary. This repository does not download an opaque browser binary during bootstrap.
+
 ## Android APK download
 
 The branded Blue Swallow Wardriver debug APK is stored under [`api/_private/downloads/`](./api/_private/downloads/) so it is packaged with Functions, not published as a public static file. Static `/downloads/*` requests return `404`. Operator sessions download through:

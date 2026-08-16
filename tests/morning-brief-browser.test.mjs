@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { requireObscura } from './helpers/obscura.mjs';
 
 const execFileAsync = promisify(execFile);
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -40,7 +41,9 @@ const brief = {
   ],
 };
 
-test('Obscura renders the Morning dossier inside the protected operator console and returns to landing', async () => {
+test('Obscura renders the Morning dossier inside the protected operator console and returns to landing', async (t) => {
+  const obscura = requireObscura(t);
+  if (!obscura) return;
   const authenticatedAssetFetches = new Set();
   const server = createServer((request, response) => {
     const url = new URL(request.url || '/', 'http://127.0.0.1');
@@ -150,7 +153,7 @@ test('Obscura renders the Morning dossier inside the protected operator console 
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
   try {
-    const { stdout, stderr } = await execFileAsync('obscura', [
+    const { stdout, stderr } = await execFileAsync(obscura, [
       'fetch',
       `http://127.0.0.1:${port}/operator/morning-brief.html`,
       '--allow-private-network',
