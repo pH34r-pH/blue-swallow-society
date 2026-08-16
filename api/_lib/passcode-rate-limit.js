@@ -4,7 +4,7 @@ const DEFAULT_MAX_ATTEMPTS = 5;
 const DEFAULT_WINDOW_MS = 5 * 60 * 1000;
 const DEFAULT_TABLE_NAME = 'passcodeFailures';
 const PARTITION_KEY = 'passcode-v1';
-const MAX_MUTATION_RETRIES = 5;
+const MAX_MUTATION_RETRIES = 16;
 
 class PasscodeRateLimitUnavailableError extends Error {
   constructor(message = 'Passcode rate limiting is unavailable.') {
@@ -59,12 +59,19 @@ class AzureTablePasscodeRateLimiter {
     };
   }
 
-  async recordFailure(callerKey, { windowMs, now = Date.now() } = {}) {
+  async reserveAttempt(callerKey, { maxAttempts, windowMs, now = Date.now() } = {}) {
     for (let retry = 0; retry < MAX_MUTATION_RETRIES; retry += 1) {
       const state = await this.#read(callerKey, now);
       if (state.expired) {
         await this.#deleteExpired(callerKey, state.etag);
         continue;
+      }
+
+      if (state.attempts >= maxAttempts) {
+        return {
+          limited: true,
+          retryAfterSeconds: Math.max(1, Math.ceil((state.expiresAtMs - now) / 1000)),
+        };
       }
 
       const entity = {
@@ -74,12 +81,17 @@ class AzureTablePasscodeRateLimiter {
         expiresAt: new Date(state.expiresAtMs || now + windowMs).toISOString(),
       };
       try {
+        let result;
         if (state.exists) {
-          await this.client.updateEntity(entity, 'Replace', { etag: state.etag });
+          result = await this.client.updateEntity(entity, 'Replace', { etag: state.etag });
         } else {
-          await this.client.createEntity(entity);
+          result = await this.client.createEntity(entity);
         }
-        return;
+        return {
+          limited: false,
+          retryAfterSeconds: 0,
+          reservation: { etag: mutationEtag(result) },
+        };
       } catch (error) {
         if (isConcurrencyError(error)) continue;
         throw unavailable(error);
@@ -88,11 +100,13 @@ class AzureTablePasscodeRateLimiter {
     throw unavailable();
   }
 
-  async reset(callerKey) {
+  async reset(callerKey, reservation) {
+    const etag = String(reservation?.etag || '');
+    if (!etag) throw unavailable();
     try {
-      await this.client.deleteEntity(PARTITION_KEY, callerKey, { etag: '*' });
+      await this.client.deleteEntity(PARTITION_KEY, callerKey, { etag });
     } catch (error) {
-      if (isNotFound(error)) return;
+      if (isNotFound(error) || isConcurrencyError(error)) return;
       throw unavailable(error);
     }
   }
@@ -127,9 +141,19 @@ class AzureTablePasscodeRateLimiter {
 function unavailableLimiter(message) {
   return {
     async check() { throw new PasscodeRateLimitUnavailableError(message); },
-    async recordFailure() { throw new PasscodeRateLimitUnavailableError(message); },
+    async reserveAttempt() { throw new PasscodeRateLimitUnavailableError(message); },
     async reset() { throw new PasscodeRateLimitUnavailableError(message); },
   };
+}
+
+function mutationEtag(result) {
+  const direct = result?.etag ?? result?.eTag ?? result?.ETag;
+  if (typeof direct === 'string' && direct) return direct;
+  const headerValue = result?._response?.headers?.get?.('etag')
+    ?? result?.headers?.get?.('etag')
+    ?? result?.headers?.etag;
+  if (typeof headerValue === 'string' && headerValue) return headerValue;
+  throw new PasscodeRateLimitUnavailableError('Passcode rate-limit mutation did not return an ETag.');
 }
 
 function callerKeyForRequest(req) {

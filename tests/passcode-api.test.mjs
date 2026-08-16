@@ -27,9 +27,30 @@ function createTestRateLimiter() {
       const previous = failures.get(callerKey);
       const state = previous && previous.expiresAtMs > now
         ? previous
-        : { attempts: 0, expiresAtMs: now + windowMs };
+        : { attempts: 0, expiresAtMs: now + windowMs, etag: 0 };
       state.attempts += 1;
+      state.etag += 1;
       failures.set(callerKey, state);
+    },
+    async reserveAttempt(callerKey, { maxAttempts, windowMs, now = Date.now() }) {
+      const previous = failures.get(callerKey);
+      const state = previous && previous.expiresAtMs > now
+        ? previous
+        : { attempts: 0, expiresAtMs: now + windowMs, etag: 0 };
+      if (state.attempts >= maxAttempts) {
+        return {
+          limited: true,
+          retryAfterSeconds: Math.max(1, Math.ceil((state.expiresAtMs - now) / 1000)),
+        };
+      }
+      state.attempts += 1;
+      state.etag += 1;
+      failures.set(callerKey, state);
+      return {
+        limited: false,
+        retryAfterSeconds: 0,
+        reservation: { etag: String(state.etag) },
+      };
     },
     async reset(callerKey) {
       failures.delete(callerKey);
@@ -140,6 +161,35 @@ test('validate-passcode rate limits repeated failures per caller', async () => {
     assert.equal(limited.status, 429);
     assert.equal(limited.body.ok, false);
     assert.match(limited.headers['Retry-After'], /^\d+$/);
+  });
+});
+
+test('successful passcode authentication clears its current reservation', async () => {
+  const digest = crypto.createHash('sha256').update('clear-current-reservation').digest('hex');
+  await withEnv({
+    BLUE_SWALLOW_PASSCODE_SHA256: digest,
+    BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY: TEST_SIGNING_KEY,
+    BLUE_SWALLOW_PASSCODE_MAX_ATTEMPTS: '2',
+    BLUE_SWALLOW_PASSCODE_WINDOW_MS: '60000',
+  }, async () => {
+    assert.equal((await invoke('wrong', { ip: '198.51.100.44' })).status, 401);
+    assert.equal((await invoke('clear-current-reservation', { ip: '198.51.100.44' })).status, 200);
+    assert.equal((await invoke('wrong again', { ip: '198.51.100.44' })).status, 401);
+  });
+});
+
+test('validate-passcode reserves before verifying a concurrent burst', async () => {
+  const digest = crypto.createHash('sha256').update('burst-safe passcode').digest('hex');
+  await withEnv({
+    BLUE_SWALLOW_PASSCODE_SHA256: digest,
+    BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY: TEST_SIGNING_KEY,
+    BLUE_SWALLOW_PASSCODE_MAX_ATTEMPTS: '5',
+    BLUE_SWALLOW_PASSCODE_WINDOW_MS: '60000',
+  }, async () => {
+    const responses = await Promise.all(Array.from({ length: 12 }, () => invoke('wrong', { ip: '198.51.100.91' })));
+    assert.equal(responses.filter((response) => response.status === 401).length, 5);
+    assert.equal(responses.filter((response) => response.status === 429).length, 7);
+    assert.ok(responses.filter((response) => response.status === 429).every((response) => /^\d+$/.test(response.headers['Retry-After'])));
   });
 });
 
