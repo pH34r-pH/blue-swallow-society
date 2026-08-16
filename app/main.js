@@ -10,6 +10,7 @@ import {
 
 import {
   activateOperatorSession,
+  clearOperatorSession,
 } from './operator/operator-session.mjs';
 import { bootOperatorSurface } from './operator/loader.js';
 
@@ -63,13 +64,18 @@ async function handleLogin() {
   try {
     const session = await requestOperatorSession(passcode);
     if (session && activateOperatorSession(session)) {
-      await bootOperatorSurface();
+      const booted = await bootOperatorSurface();
+      if (!booted) {
+        clearOperatorSession();
+        showStandardSite();
+      }
       return;
     }
 
     showStandardSite();
   } catch (error) {
     console.warn('Standard site fallback selected.', error);
+    clearOperatorSession();
     showStandardSite();
   } finally {
     if (loginBtn && !operatorHandoffStarted) {
