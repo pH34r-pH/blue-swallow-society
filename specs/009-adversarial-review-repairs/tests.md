@@ -10,6 +10,7 @@
 | FR-008–010 | `tests/passcode-rate-limit.test.mjs`, `tests/passcode-api.test.mjs`, `tests/adversarial-repair-config.test.mjs` | Per-process Map, no atomic store, no dedicated table | Shared fake demonstrates contention/expiry/reset; IaC wiring exists |
 | FR-011–013 | `vm/cybermap-api/test/http.test.mjs`, `tests/operator-signals-api.test.mjs`, `tests/adversarial-repair-config.test.mjs` | No canonical projection or raw identity leaks | Ingested batch creates redaction-safe projection consumed by browser adapter |
 | FR-014–015 | `tests/wigle-api.test.mjs`, `tests/backend-boundary.test.mjs`, `tests/adversarial-repair-config.test.mjs` | API imports `app/operator` or browser uses raw legacy parser as core | API-only adapter and isolated seams pass static/behavior tests |
+| FR-016 | `tests/passcode-api.test.mjs` | Legacy plaintext value is accepted, or malformed/missing digest issues a session | Only a valid SHA-256 digest authenticates; legacy-only and malformed configurations fail closed |
 
 ## Fixture authority
 
@@ -37,3 +38,4 @@ graphify update .
 4. A limiter conflict retries boundedly; a limiter outage returns 503; the public root remains a static route.
 5. A `hash_only` batch produces a projection with no raw or HMAC SSID/BSSID fields.
 6. `/api/wigle` cannot import or resolve any `app/operator` path.
+7. A legacy plaintext setting alone, or beside a malformed digest, cannot issue an operator session; a valid digest remains authoritative even when the legacy setting is present.

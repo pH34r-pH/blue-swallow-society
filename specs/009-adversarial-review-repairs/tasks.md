@@ -33,3 +33,9 @@
 - [x] T018 Update API/VM/architecture/repair guidance documentation for contracts, migration, rollback, and operational boundaries.
 - [x] T019 Run full Node, Python, VM, diff, Markdown, and Graphify verification.
 - [x] T020 Record local evidence and unperformed live Azure acceptance gates in the daily note and final report.
+
+## Phase 5 — Digest-only passcode configuration
+
+- [x] T021 [P] Add red legacy-only, malformed-digest-plus-legacy, and valid-digest-plus-legacy handler tests in `tests/passcode-api.test.mjs`; trace FR-016.
+- [x] T022 Remove plaintext fallback behavior in `api/_lib/operator-auth.js`, preserving validated digest-only comparison; trace FR-016.
+- [x] T023 Verify the focused passcode/security suite, `git diff --check`, and Graphify freshness; record source-only deployment boundary; trace SC-005.

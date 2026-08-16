@@ -102,7 +102,7 @@ function withEnv(nextEnv, fn) {
     });
 }
 
-test('validate-passcode fails closed when no secret hash or env passcode is configured', async () => {
+test('validate-passcode fails closed when no SHA-256 passcode digest is configured', async () => {
   await withEnv({}, async () => {
     const response = await invoke('blue-swallow');
     assert.equal(response.status, 503);
@@ -206,5 +206,42 @@ test('operator token header takes precedence over SWA platform authorization', a
 
     assert.equal(verified.ok, true);
     assert.equal(verified.token.sub, 'operator');
+  });
+});
+
+test('validate-passcode fails closed when only a legacy plaintext passcode is configured', async () => {
+  await withEnv({
+    BLUE_SWALLOW_PASSCODE: 'legacy-only-passcode',
+    BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY: TEST_SIGNING_KEY,
+  }, async () => {
+    const response = await invoke('legacy-only-passcode');
+    assert.equal(response.status, 503);
+    assert.equal(response.body.ok, false);
+    assert.match(response.body.message, /not configured/i);
+  });
+});
+
+test('validate-passcode fails closed when a malformed digest is accompanied by a legacy plaintext passcode', async () => {
+  await withEnv({
+    BLUE_SWALLOW_PASSCODE_SHA256: 'not-a-sha256-digest',
+    BLUE_SWALLOW_PASSCODE: 'legacy-with-malformed-digest',
+    BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY: TEST_SIGNING_KEY,
+  }, async () => {
+    const response = await invoke('legacy-with-malformed-digest');
+    assert.equal(response.status, 503);
+    assert.equal(response.body.ok, false);
+    assert.match(response.body.message, /not configured/i);
+  });
+});
+
+test('validate-passcode keeps a valid digest authoritative when a legacy plaintext setting is also present', async () => {
+  const canonicalPasscode = 'canonical-digest-passcode';
+  await withEnv({
+    BLUE_SWALLOW_PASSCODE_SHA256: crypto.createHash('sha256').update(canonicalPasscode).digest('hex'),
+    BLUE_SWALLOW_PASSCODE: 'legacy-shadow-passcode',
+    BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY: TEST_SIGNING_KEY,
+  }, async () => {
+    assert.equal((await invoke('legacy-shadow-passcode')).status, 401);
+    assert.equal((await invoke(canonicalPasscode)).status, 200);
   });
 });

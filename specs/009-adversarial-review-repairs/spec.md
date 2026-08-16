@@ -57,6 +57,17 @@ A maintainer can change session handling, upstream proxying, legacy WiGLE parsin
 
 **Independent Test**: Focused unit/static tests import the extracted seams and verify the old large route modules delegate to them.
 
+### User Story 6 — Use one digest-only passcode configuration contract (P1)
+
+An operator can configure the passcode boundary with one SHA-256 digest setting. A missing or malformed digest fails closed even if a legacy plaintext setting remains present.
+
+**Independent Test**: `tests/passcode-api.test.mjs` invokes the production handler with canonical, missing, malformed, and legacy-only environment combinations.
+
+**Acceptance Scenarios**:
+1. **Given** a valid 64-character SHA-256 digest and token-signing key, **when** the operator submits its matching passcode, **then** the route issues the existing short-lived operator session.
+2. **Given** no valid SHA-256 digest, **when** `BLUE_SWALLOW_PASSCODE` is set alone or beside a malformed digest, **then** the route returns its bounded configuration failure and issues no operator session.
+3. **Given** a legacy plaintext setting is present beside a valid digest, **when** the operator submits a value matching only the legacy setting, **then** the route rejects it; the digest remains the sole verification authority.
+
 ### Edge Cases
 
 - The commit archive URL is supplied with a non-commit ref or a malformed digest.
@@ -85,6 +96,7 @@ A maintainer can change session handling, upstream proxying, legacy WiGLE parsin
 - **FR-013**: The browser MUST use the operator-signal projection for Godeye/AR signal rendering.
 - **FR-014**: API code MUST NOT import from `app/operator/**`. Legacy WiGLE parsing belongs to an API-owned compatibility seam with explicit `legacy_wigle` provenance.
 - **FR-015**: Session, Cybermap proxy, legacy WiGLE adapter, and VM viewport/projection logic MUST have isolated modules and focused contract tests.
+- **FR-016**: `BLUE_SWALLOW_PASSCODE_SHA256` MUST be the sole passcode-verification authority. The route MUST accept only a well-formed 64-character SHA-256 digest, MUST NOT derive a digest from `BLUE_SWALLOW_PASSCODE`, and MUST fail closed without issuing a session when the digest is missing or malformed.
 
 ### Key Entities
 
@@ -100,6 +112,7 @@ A maintainer can change session handling, upstream proxying, legacy WiGLE parsin
 - **SC-002**: Root Node, Python, and VM suites pass with documented commands.
 - **SC-003**: Static tests prove no Function→browser module import, no persistent operator bearer storage, and no Function→VM sensitive-location URL construction.
 - **SC-004**: `graphify update .` completes after source changes and the generated graph is current for the working tree.
+- **SC-005**: Digest-only configuration tests prove that canonical authentication remains compatible and every legacy-only or malformed configuration fails closed.
 
 ## Assumptions
 

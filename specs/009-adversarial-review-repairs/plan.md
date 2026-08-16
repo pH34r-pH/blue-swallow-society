@@ -51,6 +51,11 @@
    - Update API/VM/architecture/repair documentation with migration and rollback behaviors.
    - Run all local suites, `git diff --check`, and `graphify update .`. Report live Azure validation as a separate unperformed gate.
 
+7. **Digest-only passcode configuration (R8)**
+   - Remove the runtime plaintext `BLUE_SWALLOW_PASSCODE` fallback from `api/_lib/operator-auth.js`.
+   - Preserve the existing constant-time comparison against a validated SHA-256 digest, but return no configured digest for missing or malformed digest settings regardless of legacy environment variables.
+   - Add handler-level regression coverage for legacy-only, malformed-digest-plus-legacy, valid-digest-plus-legacy, and canonical digest configurations. Do not print or persist passcode values.
+
 ## Affected structure
 
 ```text
