@@ -52,9 +52,11 @@ test('anonymous echo-lab route is retired without weakening Cybermap token route
   const localServer = read('local-server.js');
   const vmBicep = read('infra/vm-echo-lab.bicep');
   const mainBicep = read('infra/main.bicep');
-  const runtimeSettingsBlock = deployWorkflow.match(/az staticwebapp appsettings set[\s\S]*?(?=\n\s*az staticwebapp appsettings delete)/)?.[0] || '';
-  assert.ok(!runtimeSettingsBlock.includes('BACKEND_ECHO_BASE_URL'));
-  assert.match(deployWorkflow, /az staticwebapp appsettings delete[\s\S]*--setting-names BACKEND_ECHO_BASE_URL/);
+  const runtimeSettingsBlock = deployWorkflow.match(/const properties = \{[\s\S]*?node scripts\/run-bounded-az\.mjs rest --method put/)?.[0] || '';
+  assert.match(runtimeSettingsBlock, /delete properties\.BACKEND_ECHO_BASE_URL;\s*\n\s*writeFileSync\(outputPath, JSON\.stringify\(\{ properties \}\)/);
+  assert.doesNotMatch(runtimeSettingsBlock, /BACKEND_ECHO_BASE_URL\s*:/);
+  assert.match(runtimeSettingsBlock, /node scripts\/run-bounded-az\.mjs rest --method put/);
+  assert.doesNotMatch(deployWorkflow, /(?:^|\n)\s*az staticwebapp appsettings delete/);
   assert.ok(!localServer.includes("urlPath === '/api/echo'"));
   assert.ok(!localServer.includes('API echo endpoint available'));
   assert.ok(!vmBicep.includes('/opt/echo/echo_server.py'));

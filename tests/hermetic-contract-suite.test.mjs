@@ -71,5 +71,6 @@ test('CI mirrors the root bootstrap on Windows and runs a provisioned Obscura la
   assert.match(readme, /npm run bootstrap/);
   assert.match(readme, /OBSCURA_BIN/);
   assert.match(readme, /BSS_REQUIRE_OBSCURA/);
-  assert.match(rootPath.replace(/\\/g, '/'), /blue-swallow-society(?:-[a-z0-9-]+)?\/?$/i);
+  assert.ok(rootPath.length > 0);
+  assert.equal(existsSync(fileURLToPath(new URL('README.md', root))), true, 'the root contract must support an arbitrarily named materialized tree');
 });

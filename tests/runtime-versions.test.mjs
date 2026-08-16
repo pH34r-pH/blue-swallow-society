@@ -19,11 +19,11 @@ test('GitHub JavaScript actions use Node 24-native major versions', () => {
     assert.doesNotMatch(workflow, /azure\/login@v[12]\b/, path);
   }
 
-  assert.match(read(workflowPaths[0]), /actions\/checkout@v7\b/);
-  assert.match(read(workflowPaths[0]), /azure\/login@v3\b/);
-  assert.match(read(workflowPaths[1]), /actions\/checkout@v7\b/);
-  assert.match(read(workflowPaths[1]), /azure\/login@v3\b/);
-  assert.match(read(workflowPaths[2]), /actions\/checkout@v7\b/);
+  assert.match(read(workflowPaths[0]), /actions\/checkout@(?:[a-f0-9]{40}\s+# v7|v7)\b/i);
+  assert.match(read(workflowPaths[0]), /azure\/login@(?:[a-f0-9]{40}\s+# v3|v3)\b/i);
+  assert.match(read(workflowPaths[1]), /actions\/checkout@(?:[a-f0-9]{40}\s+# v7|v7)\b/i);
+  assert.match(read(workflowPaths[1]), /azure\/login@(?:[a-f0-9]{40}\s+# v3|v3)\b/i);
+  assert.match(read(workflowPaths[2]), /actions\/checkout@(?:[a-f0-9]{40}\s+# v7|v7)\b/i);
 });
 
 test('VM service and repository development runtime are pinned to Node 24', () => {

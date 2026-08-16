@@ -308,5 +308,9 @@
   "306": "setup-plan.ps1",
   "307": "setup-tasks.ps1",
   "308": "Reliability Features",
-  "309": "morning-brief-artifact-integrity.test.mjs"
+  "309": "morning-brief-artifact-integrity.test.mjs",
+  "310": "av",
+  "311": "osint-api.test.mjs",
+  "312": "BSS Cybermap API — authenticated observation ingest",
+  "313": "vm-echo-route-retirement.test.mjs"
 }
