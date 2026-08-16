@@ -140,9 +140,6 @@ export function createRequestHandler({
       if (request.method === 'GET' && url.pathname === '/healthz') {
         return sendJson(response, 200, { ok: true, service: 'bss-cybermap-api' });
       }
-      if (request.method === 'GET' && url.pathname === '/echo') {
-        return sendJson(response, 200, buildEchoPayload(url));
-      }
       if (request.method === 'GET' && url.pathname === '/readyz') {
         const readiness = await store.ready();
         return sendJson(response, readiness.ok ? 200 : 503, readiness);
@@ -763,19 +760,6 @@ function hasExactIds(values, expected) {
   if (!Array.isArray(values) || values.length !== expected.length) return false;
   const unique = new Set(values);
   return unique.size === expected.length && expected.every((value) => unique.has(value));
-}
-
-function buildEchoPayload(url) {
-  const query = {};
-  for (const key of new Set(url.searchParams.keys())) {
-    query[key] = url.searchParams.getAll(key);
-  }
-  return {
-    ok: true,
-    echo: url.searchParams.get('msg') || '',
-    path: url.pathname,
-    query,
-  };
 }
 
 async function handleMtlsViewport(request, { store, now, mtlsAssertion, deviceId }) {

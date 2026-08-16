@@ -918,17 +918,12 @@ test('paper-state GET returns 503 instead of serving stale or corrupt stored sta
   }
 });
 
-test('keeps legacy echo probe alive on the Cybermap API port during migration', async () => {
+test('retires the legacy echo route with an intentional not-found response', async () => {
   const { server } = makeServer();
   await withServer(server, async (baseUrl) => {
     const response = await fetch(`${baseUrl}/echo?msg=hello%20black%20ice`);
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), {
-      ok: true,
-      echo: 'hello black ice',
-      path: '/echo',
-      query: { msg: ['hello black ice'] },
-    });
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { ok: false, error: 'not_found' });
   });
 });
 

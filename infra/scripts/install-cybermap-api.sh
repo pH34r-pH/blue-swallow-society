@@ -196,7 +196,13 @@ UNIT
 cat > /etc/caddy/Caddyfile <<'CADDY'
 __BACKEND_FQDN__ {
   encode zstd gzip
-  reverse_proxy 127.0.0.1:__CYBERMAP_API_PORT__
+  @public_cybermap path /healthz /readyz /api/v1/observations/batch /api/v1/cybermap/viewport /api/v1/cybermap/operator-signals /api/v1/cybermap/tiles/* /api/v1/cybermap/global-viewport /api/v1/paper/state /api/v1/morning-briefs /api/v1/morning-briefs/*
+  handle @public_cybermap {
+    reverse_proxy 127.0.0.1:__CYBERMAP_API_PORT__
+  }
+  handle {
+    respond "not_found" 404
+  }
 }
 
 __BACKEND_FQDN__:8443 {
