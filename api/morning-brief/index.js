@@ -25,7 +25,12 @@ module.exports = async function morningBriefProxy(context, req) {
       'Cache-Control': 'private, no-store',
       'X-Content-Type-Options': 'nosniff',
     };
+    const artifactPath = path.includes('/artifacts/');
     const upstreamHash = response.headers.get('x-blue-swallow-artifact-sha256');
+    if (artifactPath && response.ok && !isArtifactHash(upstreamHash)) {
+      context.res = json(502, { ok: false, error: 'morning_brief_integrity_unavailable' });
+      return;
+    }
     if (upstreamHash) headers['X-Blue-Swallow-Artifact-SHA256'] = upstreamHash;
     const upstreamLength = response.headers.get('content-length');
     if (/^\d{1,12}$/.test(upstreamLength || '')) headers['Content-Length'] = upstreamLength;
@@ -34,7 +39,6 @@ module.exports = async function morningBriefProxy(context, req) {
       return;
     }
     const contentType = headers['Content-Type'].toLowerCase();
-    const artifactPath = path.includes('/artifacts/');
     if (contentType.includes('application/json') && !artifactPath) {
       let payload;
       try { payload = await response.json(); } catch { payload = { ok: false, error: 'invalid_backend_payload' }; }
@@ -92,4 +96,8 @@ function json(status, body, headers = {}) {
   };
 }
 
-module.exports._internals = { normalizePath, backendUrl, configuredToken };
+function isArtifactHash(value) {
+  return /^[a-f0-9]{64}$/i.test(String(value || '').trim());
+}
+
+module.exports._internals = { normalizePath, backendUrl, configuredToken, isArtifactHash };

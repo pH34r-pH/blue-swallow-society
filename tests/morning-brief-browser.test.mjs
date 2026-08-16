@@ -24,8 +24,8 @@ const MIME_TYPES = {
 };
 
 const runId = 'brief-2026-07-21T070000Z';
-const pageHash = 'fixture-page-sha256-0000000000000000000000000000000000000000000000000000';
-const packetHash = 'fixture-packet-sha256-000000000000000000000000000000000000000000000000000';
+const pageHash = 'a'.repeat(64);
+const packetHash = 'b'.repeat(64);
 const brief = {
   run_id: runId,
   generated_at: '2026-07-21T14:00:00.000Z',

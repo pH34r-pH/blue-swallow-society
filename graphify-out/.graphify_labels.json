@@ -243,6 +243,9 @@
   "241": "R1 — Replace the mutable VM artifact",
   "242": "Audit boundaries and provenance",
   "243": "Mosaic & Murmurs proposal delta",
+  "244": "Implementation plan",
+  "245": "Enhancement Opportunities",
+  "246": "Pool",
   "247": "implement.md",
   "248": "plan.md",
   "249": "Reconciled Architecture",
@@ -251,6 +254,7 @@
   "252": "wardriver-basemap-style-render.test.mjs",
   "253": "deflock-viewport-migration.test.mjs",
   "254": "local-proof-bootstrap-boundary.test.mjs",
+  "255": "Backing VM API and infrastructure review",
   "256": "Microsoft Entra External ID setup checklist",
   "257": "install-cybermap-api.sh",
   "258": "Tests: Wardriver MapLibre Basemap",
@@ -260,6 +264,7 @@
   "262": "Plan",
   "263": "backend-boundary.test.mjs",
   "264": "CustomDomainScriptTests",
+  "265": "Security Considerations",
   "266": "local-proof-acl-boundary.test.mjs",
   "267": "local-proof-mtls-policy-contract.test.mjs",
   "268": "local-proof-p12-identity-contract.test.mjs",
@@ -301,5 +306,7 @@
   "304": "local-dev.ps1",
   "305": "check-prerequisites.ps1",
   "306": "setup-plan.ps1",
-  "307": "setup-tasks.ps1"
+  "307": "setup-tasks.ps1",
+  "308": "Reliability Features",
+  "309": "morning-brief-artifact-integrity.test.mjs"
 }

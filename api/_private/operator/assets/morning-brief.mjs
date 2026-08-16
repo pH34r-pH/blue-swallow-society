@@ -55,16 +55,24 @@ function releasePageUrls() {
   activeObjectUrls.clear();
 }
 
-async function fetchArtifact(runId, artifact) {
+export async function fetchArtifact(runId, artifact) {
   const response = await fetch(artifactHref(runId, artifact.artifact_id), {
     headers: operatorHeaders(),
     credentials: 'same-origin',
   });
   if (response.status === 403) redirectToLogin();
   if (!response.ok) throw new Error(`${artifact.artifact_id} returned HTTP ${response.status}`);
-  const receivedHash = response.headers.get('x-blue-swallow-artifact-sha256');
-  if (receivedHash && receivedHash !== artifact.sha256) throw new Error(`${artifact.artifact_id} failed archive hash verification`);
+  const expectedHash = normalizeArtifactHash(artifact.sha256);
+  const receivedHash = normalizeArtifactHash(response.headers.get('x-blue-swallow-artifact-sha256'));
+  if (!expectedHash || !receivedHash || receivedHash !== expectedHash) {
+    throw new Error(`${artifact.artifact_id} failed archive hash verification`);
+  }
   return response.blob();
+}
+
+function normalizeArtifactHash(value) {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return /^[a-f0-9]{64}$/.test(normalized) ? normalized : '';
 }
 
 function appendMetadata(detail, brief) {

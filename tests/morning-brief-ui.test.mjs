@@ -27,7 +27,9 @@ test('morning brief operator surface renders verified dossier page PNGs and reta
   assert.match(source, /artifact\.media_type === 'image\/png'/);
   assert.match(source, /const url = URL\.createObjectURL\(blob\)/);
   assert.match(source, /image\.src = url/);
-  assert.match(source, /receivedHash && receivedHash !== artifact\.sha256/);
+  assert.match(source, /const expectedHash = normalizeArtifactHash\(artifact\.sha256\)/);
+  assert.match(source, /if \(!expectedHash \|\| !receivedHash \|\| receivedHash !== expectedHash\)/);
+  assert.doesNotMatch(source, /receivedHash && receivedHash !== artifact\.sha256/);
   assert.match(source, /downloadArtifact\(brief, artifact, download\)/);
 });
 

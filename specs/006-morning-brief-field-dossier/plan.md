@@ -12,3 +12,4 @@
 10. Update the local scheduler wrapper/job only after live archive and operator API probes pass; run one fresh validated acceptance packet.
 11. Add a local, fixed 78-card daily tarot curriculum to the collector. Select one record from the configured local date; include the same study record in Markdown, the cron packet, and a new deterministic Field Dossier lane. Do not introduce network, personalization, or divination behavior.
 12. Add RED/GREEN collector and renderer tests for stable date selection, 78-day wrap, Markdown/packet preservation, and validated Tarot-lane coverage; then run focused regressions and refresh Graphify.
+13. Add RED proxy/client tests for missing, malformed, and mismatched artifact hash headers. Require the SWA proxy to reject an artifact response without a valid upstream header and require the browser to compare normalized 64-hex values before creating a blob URL or download.

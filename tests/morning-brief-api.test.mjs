@@ -142,3 +142,25 @@ test('morning brief API preserves authenticated HEAD metadata and does not consu
     assert.equal(response.headers['X-Blue-Swallow-Artifact-SHA256'], 'b'.repeat(64));
   });
 });
+
+test('morning brief API withholds artifact bodies when upstream integrity headers are missing or malformed', async () => {
+  await withEnvironment(async () => {
+    for (const upstreamHash of [null, 'not-a-sha256']) {
+      global.fetch = async () => new Response(Uint8Array.from([137, 80, 78, 71]), {
+        status: 200,
+        headers: {
+          'content-type': 'image/png',
+          ...(upstreamHash ? { 'x-blue-swallow-artifact-sha256': upstreamHash } : {}),
+        },
+      });
+      const response = await invoke({
+        path: 'morning-brief-2026-07-21/artifacts/page-01',
+        headers: operatorHeaders(),
+      });
+      assert.equal(response.status, 502);
+      assert.equal(response.body.ok, false);
+      assert.equal(response.body.error, 'morning_brief_integrity_unavailable');
+      assert.equal(response.isRaw, undefined);
+    }
+  });
+});

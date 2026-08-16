@@ -22,6 +22,7 @@ One immutable, validated run package drives two independent outputs:
 - The operator surface presents verified rendered PNG pages in a horizontally scrollable, scroll-snap carousel; a dropdown selects any retained run. Text metadata and source files remain secondary provenance, not a substitute render.
 - Public routes expose neither brief content nor artifact metadata. All archive/UI/API responses require the existing operator-token boundary and use `private, no-store`.
 - No raw runtime path, credential, prompt, or backend URL is present in a rendered page, receipt, archive response, or operator UI.
+- A rendered or downloaded artifact is verified only when its response includes a well-formed SHA-256 integrity header that matches the retained manifest hash. Missing, malformed, or mismatched headers withhold the artifact; they never degrade to an unverified blob.
 
 ## Required lanes
 
@@ -70,5 +71,6 @@ SWA provides the operator-token gateway at `/api/morning-brief` and never expose
 - Renderer tests prove full seven-lane coverage, ordered unique 1200x1500 pages, deterministic hashes, and redaction of local paths.
 - Dispatcher tests prove batches of ≤10, hash-bound receipt creation, replay safety, and no send on withheld state.
 - VM, SWA proxy, and operator UI tests prove authorization, no-store headers, append-only conflicts, artifact hash verification, and public-route denial.
+- The SWA proxy and browser client reject missing, malformed, and mismatched artifact integrity headers before returning, rendering, or downloading artifact bytes.
 - A fresh real run performs wake → collect → validate → render → archive → Discord receipt, then the authenticated live UI presents the same package hash.
 - Fixed local dates select stable curriculum records; the cycle wraps after 78 days; and a validated package contains one `TAROT / DAILY STUDY` page with no prediction or personal-data claim.

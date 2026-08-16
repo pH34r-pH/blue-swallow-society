@@ -16,3 +16,6 @@
 - [x] T014 [US4] Add RED collector and renderer tests for a fixed daily tarot study record, 78-day cycle wrap, Markdown/packet preservation, and `TAROT / DAILY STUDY` page coverage. Trace: TST-011.
 - [x] T015 [US4] Implement the fixed local tarot curriculum and deterministic local-date selection; preserve the record in the collector outputs and Field Dossier renderer without network, profile, or prediction behavior. Trace: TST-011.
 - [x] T016 [US4] Run focused tarot/morning-brief regressions, refresh Graphify, and record the verified local result. Trace: TST-011.
+- [x] T017 [US3] Add RED proxy/browser artifact-integrity tests for matching, missing, malformed, and mismatched headers. Trace: TST-012.
+- [x] T018 [US3] Require a valid upstream SHA-256 header in the SWA artifact proxy and a normalized matching header in the browser before artifact bytes become a blob. Trace: TST-012.
+- [ ] T019 [US3] Run focused Morning Brief regressions, Graphify refresh, and scoped review; record live archive probing as an unperformed deployment gate. Trace: TST-012.

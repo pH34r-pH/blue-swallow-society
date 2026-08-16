@@ -19,6 +19,7 @@ Fresh checkout prerequisite: `(cd api && npm ci --ignore-scripts)`. Unit and int
 | TST-009 | SC-003; production acceptance | Run wake → collect → validate → render → archive → scheduler-managed Discord delivery; fetch the archive through the authenticated live UI and compare its hash with the immutable package/receipt. | deployment receipt + live probes |
 | TST-010 | FR-005; bounded archive retention | Archive eight daily runs against both memory and scripted PostgreSQL stores. The eighth successful transaction deletes artifacts before parent rows at the seven-day boundary; list/detail no longer expose the expired run. | `vm/cybermap-api/test/morning-brief.test.mjs`, `vm/cybermap-api/test/postgres-store.test.mjs` |
 | TST-011 | Daily tarot study; deterministic learning packet | For fixed `America/Los_Angeles` dates, select the expected fixed-curriculum record, prove the 78-day wrap, and assert that Markdown, cron packet, and a validated Field Dossier page preserve one reflective `TAROT / DAILY STUDY` record. | `tests/morning_brief_collect_test.py`, `tests/morning_brief_field_dossier_test.py` |
+| TST-012 | Artifact integrity fail-closed | Request image and retained artifacts with matching, missing, malformed, and mismatched `X-Blue-Swallow-Artifact-SHA256` headers. | Matching normalized 64-hex values are accepted; every absent, malformed, or mismatched header is withheld before proxy return, blob creation, render, or download. | `tests/morning-brief-api.test.mjs`, `tests/morning-brief-artifact-integrity.test.mjs` |
 
 ## Requirement coverage
 
@@ -32,6 +33,7 @@ Fresh checkout prerequisite: `(cd api && npm ci --ignore-scripts)`. Unit and int
 | One scheduler authority and deployment-secret minimization | TST-007 |
 | Fresh real package appears in authenticated live operator UI | TST-009 |
 | Deterministic non-predictive daily tarot study appears in all morning-brief outputs | TST-011 |
+| Proxy and UI require a matching well-formed artifact integrity header | TST-012 |
 
 ## Commands
 
