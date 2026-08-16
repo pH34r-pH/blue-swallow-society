@@ -84,7 +84,7 @@ test('global Cybermap proxy POSTs only bounded aggregate requests to the VM back
     BACKEND_CYBERMAP_BASE_URL: 'https://backend.local/root/', BSS_CYBERMAP_READ_TOKEN: 'read-token-value-32-byte-minimum',
   }), async (url, options) => {
     calls.push({ url: String(url), options });
-    return { ok: true, status: 200, text: async () => JSON.stringify(backendPayload) };
+    return new Response(JSON.stringify(backendPayload), { status: 200 });
   });
 
   assert.equal(response.status, 200);

@@ -56,12 +56,10 @@ test('paper-state edge proxy forwards canonical PUT with an explicit application
     body: state,
   }, async (url, options) => {
     calls.push({ url: String(url), options });
-    return {
-      ok: true,
+    return new Response(JSON.stringify({ ok: true, stored: true }), {
       status: 201,
-      headers: { get: (name) => name.toLowerCase() === 'idempotent-replayed' ? 'false' : null },
-      text: async () => JSON.stringify({ ok: true, stored: true }),
-    };
+      headers: { 'idempotent-replayed': 'false' },
+    });
   });
 
   assert.equal(response.status, 201);
@@ -77,13 +75,9 @@ test('paper-state edge proxy forwards canonical PUT with an explicit application
 });
 
 test('paper-state edge proxy supports token-gated canonical GET', async () => {
-  const response = await invoke({ method: 'GET', headers: { 'x-blue-swallow-paper-state-token': TOKEN } }, async (_url, options) => ({
-    ok: true,
-    status: 200,
-    headers: { get: () => null },
-    text: async () => JSON.stringify({ ok: true, state: { schema_version: 'bss.paper_state.v3' } }),
-    options,
-  }));
+  const response = await invoke({ method: 'GET', headers: { 'x-blue-swallow-paper-state-token': TOKEN } }, async () => (
+    new Response(JSON.stringify({ ok: true, state: { schema_version: 'bss.paper_state.v3' } }), { status: 200 })
+  ));
   assert.equal(response.status, 200);
   assert.equal(response.body.state.schema_version, 'bss.paper_state.v3');
 });
@@ -93,11 +87,9 @@ test('paper-state edge proxy fails closed on malformed replay acknowledgement', 
     method: 'PUT',
     headers: { 'x-blue-swallow-paper-state-token': TOKEN, 'idempotency-key': 'paper:test:2' },
     body: { schema_version: 'bss.paper_state.v2' },
-  }, async () => ({
-    ok: true,
+  }, async () => new Response(JSON.stringify({ ok: true }), {
     status: 201,
-    headers: { get: () => 'maybe' },
-    text: async () => JSON.stringify({ ok: true }),
+    headers: { 'idempotent-replayed': 'maybe' },
   }));
   assert.equal(response.status, 502);
   assert.match(response.body.message, /malformed replay/i);

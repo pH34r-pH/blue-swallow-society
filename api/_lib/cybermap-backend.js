@@ -1,4 +1,9 @@
 const SENSITIVE_LOCATION_QUERY_KEYS = new Set(['lat', 'lon', 'latitude', 'longitude']);
+const {
+  readBoundedJsonResponse,
+  readBoundedResponseBytes,
+  serializeJson,
+} = require('./cybermap-bounds');
 
 function hasSensitiveLocationQuery(req) {
   const query = req?.query || {};
@@ -60,6 +65,7 @@ async function postCybermapJson(path, payload) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5_000);
   try {
+    const body = serializeJson(payload, { label: 'Cybermap JSON request' });
     const response = await fetch(buildBackendUrl(path), {
       method: 'POST',
       signal: controller.signal,
@@ -68,22 +74,15 @@ async function postCybermapJson(path, payload) {
         'content-type': 'application/json',
         'x-blue-swallow-cybermap-read-token': readToken,
       },
-      body: JSON.stringify(payload),
+      body,
     });
-    const text = await response.text();
-    let body;
-    try {
-      body = JSON.parse(text);
-    } catch {
-      body = { ok: false, message: text };
-    }
     if (!response.ok) {
-      const error = new Error(body?.message || body?.error || `Cybermap backend returned HTTP ${response.status}.`);
-      error.status = response.status;
-      error.body = body;
+      await readBoundedResponseBytes(response, { label: 'Cybermap backend JSON rejection' });
+      const error = new Error(`Cybermap backend rejected the request with HTTP ${response.status}.`);
+      error.status = 502;
       throw error;
     }
-    return body;
+    return readBoundedJsonResponse(response, { label: 'Cybermap backend JSON response' });
   } finally {
     clearTimeout(timeout);
   }

@@ -23,10 +23,35 @@ const PAPER_STRATEGIES = [
 ];
 const PAPER_BOOK_IDS = PAPER_LINES.flatMap((lineId) => PAPER_STRATEGIES.map((strategyId) => `${lineId}__${strategyId}`));
 
-function jsonResponse(body, { status = 200 } = {}) {
+function readableBody(text) {
+  let sent = false;
+  return {
+    getReader() {
+      return {
+        async read() {
+          if (sent) return { done: true };
+          sent = true;
+          return { done: false, value: new TextEncoder().encode(text) };
+        },
+        async cancel() {},
+        releaseLock() {},
+      };
+    },
+  };
+}
+
+function jsonResponse(body, { status = 200, headers = {} } = {}) {
+  const text = JSON.stringify(body);
   return {
     ok: status >= 200 && status < 300,
     status,
+    headers: {
+      get(name) {
+        return headers[String(name).toLowerCase()] ?? null;
+      },
+    },
+    body: readableBody(text),
+    text: async () => text,
     json: async () => body,
   };
 }
@@ -377,6 +402,45 @@ test('api/tzeentch rejects requests without a passcode-issued operator session',
     assert.equal(context.res.status, 403);
     assert.equal(context.res.body.ok, false);
     assert.match(context.res.body.error, /operator session/i);
+  });
+});
+
+test('api/tzeentch rejects a declared oversized canonical paper-state response without reading it', async () => {
+  await withOperatorEnv(async () => {
+    let jsonRead = false;
+    let textRead = false;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options = {}) => {
+      if (String(url) === 'https://paper-backend.test/api/v1/paper/state') {
+        assert.equal(options.headers['X-Blue-Swallow-Paper-State-Token'], process.env.BSS_PAPER_STATE_TOKEN);
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: (name) => String(name).toLowerCase() === 'content-length' ? String(1024 * 1024 + 1) : null },
+          json: async () => {
+            jsonRead = true;
+            return canonicalPaperBackendResponse();
+          },
+          text: async () => {
+            textRead = true;
+            return 'UPSTREAM_OVERSIZED_PAPER_STATE_MUST_NOT_ESCAPE';
+          },
+        };
+      }
+      return mockTzeentchFeedFetch(url, options);
+    };
+
+    const context = { log: { error: () => {} } };
+    try {
+      await handler(context, { headers: new Headers(authorizationHeader()) });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    assert.equal(context.res.status, 200);
+    assert.equal(jsonRead, false);
+    assert.equal(textRead, false);
+    assert.equal(JSON.stringify(context.res.body).includes('UPSTREAM_OVERSIZED_PAPER_STATE_MUST_NOT_ESCAPE'), false);
   });
 });
 

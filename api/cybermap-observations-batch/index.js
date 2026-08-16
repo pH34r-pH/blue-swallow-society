@@ -3,6 +3,11 @@ const REQUIRED_HEADERS = Object.freeze([
   'x-blue-swallow-device-id',
   'idempotency-key',
 ]);
+const {
+  readBoundedJsonResponse,
+  readBoundedResponseBytes,
+  requestBody,
+} = require('../_lib/cybermap-bounds');
 
 function sendJson(context, status, body, headers = {}) {
   context.res = {
@@ -53,15 +58,6 @@ function buildBackendUrl() {
   return url;
 }
 
-function requestBody(req) {
-  if (typeof req?.rawBody === 'string' && req.rawBody.length > 0) return req.rawBody;
-  if (typeof req?.body === 'string') return req.body;
-  if (req?.body && typeof req.body === 'object') return JSON.stringify(req.body);
-  const error = new Error('Observation batch JSON body is required.');
-  error.status = 400;
-  throw error;
-}
-
 function forwardHeaders(req) {
   const headers = {
     accept: 'application/json',
@@ -95,16 +91,19 @@ module.exports = async function cybermapObservationsBatch(context, req) {
 
   try {
     const url = buildBackendUrl();
-    const body = requestBody(req);
+    const body = requestBody(req, {
+      required: true,
+      label: 'Cybermap observation batch request',
+    });
     const headers = forwardHeaders(req);
     const response = await fetchBackendBatch(url, body, headers);
-    const text = await response.text();
-    let payload;
-    try {
-      payload = JSON.parse(text);
-    } catch {
-      payload = { ok: response.ok, message: text };
+    if (!response.ok) {
+      await readBoundedResponseBytes(response, { label: 'Cybermap observation batch rejection' });
+      const error = new Error('Cybermap observation backend rejected the request.');
+      error.status = 502;
+      throw error;
     }
+    const payload = await readBoundedJsonResponse(response, { label: 'Cybermap observation batch response' });
     const replayed = response.headers?.get?.('idempotent-replayed');
     const responseHeaders = replayed ? { 'idempotent-replayed': replayed } : {};
     return sendJson(context, response.status, payload, responseHeaders);

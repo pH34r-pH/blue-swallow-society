@@ -1,4 +1,5 @@
 const { requireOperatorToken } = require('../_lib/operator-auth');
+const { requestBody } = require('../_lib/cybermap-bounds');
 const {
   buildViewportPayload,
   hasSensitiveLocationQuery,
@@ -31,6 +32,7 @@ module.exports = async function cybermapViewport(context, req) {
   }
 
   try {
+    requestBody(req, { label: 'Cybermap viewport request' });
     const payload = await postCybermapJson('api/v1/cybermap/viewport', buildViewportPayload(req));
     return sendJson(context, 200, payload);
   } catch (error) {

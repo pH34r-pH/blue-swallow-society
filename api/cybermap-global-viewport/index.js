@@ -1,4 +1,9 @@
 const { requireOperatorToken } = require('../_lib/operator-auth');
+const {
+  readBoundedJsonResponse,
+  readBoundedResponseBytes,
+  requestBody,
+} = require('../_lib/cybermap-bounds');
 
 const BACKEND_PATH = 'api/v1/cybermap/global-viewport';
 const REQUEST_TIMEOUT_MS = 5_000;
@@ -33,13 +38,6 @@ function backendUrl() {
   return url;
 }
 
-function requestBody(req) {
-  if (typeof req?.rawBody === 'string') return req.rawBody;
-  if (typeof req?.body === 'string') return req.body;
-  if (req?.body && typeof req.body === 'object') return JSON.stringify(req.body);
-  return undefined;
-}
-
 async function fetchGlobalViewport(url, body) {
   const readToken = String(process.env.BSS_CYBERMAP_READ_TOKEN || '').trim();
   if (!readToken) throw new Error('backend_unavailable');
@@ -57,8 +55,13 @@ async function fetchGlobalViewport(url, body) {
       },
       body,
     });
-    if (!response.ok) throw new Error('backend_unavailable');
-    return JSON.parse(await response.text());
+    if (!response.ok) {
+      await readBoundedResponseBytes(response, { label: 'Cybermap global viewport rejection' });
+      const error = new Error('backend_unavailable');
+      error.status = 502;
+      throw error;
+    }
+    return readBoundedJsonResponse(response, { label: 'Cybermap global viewport response' });
   } finally {
     clearTimeout(timeout);
   }
@@ -79,10 +82,16 @@ module.exports = async function cybermapGlobalViewport(context, req) {
   }
 
   try {
-    const payload = await fetchGlobalViewport(backendUrl(), requestBody(req));
+    const payload = await fetchGlobalViewport(
+      backendUrl(),
+      requestBody(req, { label: 'Cybermap global viewport request' }),
+    );
     return sendJson(context, 200, payload);
-  } catch {
+  } catch (error) {
     context?.log?.error?.('Cybermap global viewport API unavailable.');
+    if (Number.isFinite(error.status)) {
+      return sendJson(context, error.status, { ok: false, error: 'global_viewport_unavailable' });
+    }
     return unavailable(context);
   }
 };

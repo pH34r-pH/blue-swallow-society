@@ -92,12 +92,10 @@ test('cybermap observation batch proxy forwards only the Wardriver ingest contra
     { BACKEND_CYBERMAP_BASE_URL: 'https://backend.local/root/' },
     async (url, options) => {
       fetchCalls.push({ url: String(url), options });
-      return {
-        ok: true,
+      return new Response(JSON.stringify(receipt), {
         status: 201,
-        headers: { get: (name) => name.toLowerCase() === 'idempotent-replayed' ? 'false' : null },
-        text: async () => JSON.stringify(receipt),
-      };
+        headers: { 'idempotent-replayed': 'false' },
+      });
     },
   );
 

@@ -1,4 +1,5 @@
 const { requireOperatorToken } = require('../_lib/operator-auth');
+const { requestBody } = require('../_lib/cybermap-bounds');
 const {
   buildViewportPayload,
   hasSensitiveLocationQuery,
@@ -24,6 +25,7 @@ module.exports = async function operatorSignals(context, req) {
     return sendJson(context, 400, { ok: false, error: 'location_query_forbidden' });
   }
   try {
+    requestBody(req, { label: 'Operator signals request' });
     const snapshot = await postCybermapJson('api/v1/cybermap/operator-signals', buildViewportPayload(req));
     return sendJson(context, 200, snapshot);
   } catch (error) {

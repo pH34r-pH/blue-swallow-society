@@ -131,11 +131,7 @@ test('cybermap viewport API proxies only real backend viewport reads', async () 
     }),
     async (url, options) => {
       fetchCalls.push({ url: String(url), options });
-      return {
-        ok: true,
-        status: 200,
-        text: async () => JSON.stringify(backendPayload),
-      };
+      return new Response(JSON.stringify(backendPayload), { status: 200 });
     },
   );
 

@@ -1,4 +1,5 @@
 const { requireOperatorToken } = require('../_lib/operator-auth');
+const { readBoundedResponseBytes } = require('../_lib/cybermap-bounds');
 
 const MAX_ZOOM = 12;
 const TILE_COMPONENT_RE = /^(?:0|[1-9]\d*)$/;
@@ -95,11 +96,12 @@ async function fetchBackendTile(url) {
       },
     });
     if (!response.ok) {
-      const error = new Error(`Cybermap backend returned HTTP ${response.status}.`);
-      error.status = response.status;
+      await readBoundedResponseBytes(response, { label: 'Cybermap tile rejection' });
+      const error = new Error(`Cybermap backend rejected the tile request with HTTP ${response.status}.`);
+      error.status = 502;
       throw error;
     }
-    return Buffer.from(await response.arrayBuffer());
+    return readBoundedResponseBytes(response, { label: 'Cybermap tile response' });
   } finally {
     clearTimeout(timeout);
   }

@@ -1,6 +1,10 @@
 const crypto = require('node:crypto');
+const {
+  readBoundedJsonResponse,
+  readBoundedResponseBytes,
+  requestBody: boundedRequestBody,
+} = require('../_lib/cybermap-bounds');
 
-const MAX_BODY_BYTES = 1_500_000;
 const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9._:~-]{1,200}$/;
 
 function sendJson(context, status, body, headers = {}) {
@@ -59,19 +63,13 @@ function backendUrl() {
 }
 
 function requestBody(req) {
-  const body = typeof req?.rawBody === 'string'
-    ? req.rawBody
-    : typeof req?.body === 'string'
-      ? req.body
-      : JSON.stringify(req?.body ?? null);
+  const body = boundedRequestBody(req, {
+    required: true,
+    label: 'Canonical paper-state request',
+  });
   if (!body || body === 'null') {
     const error = new Error('Canonical paper-state JSON body is required.');
     error.status = 400;
-    throw error;
-  }
-  if (Buffer.byteLength(body, 'utf8') > MAX_BODY_BYTES) {
-    const error = new Error('Canonical paper-state body exceeds the edge limit.');
-    error.status = 413;
     throw error;
   }
   return body;
@@ -122,13 +120,13 @@ module.exports = async function paperStateProxy(context, req) {
       return sendJson(context, 401, { ok: false, message: 'Valid paper-state client token required.' });
     }
     const response = await fetchBackend(req, method);
-    const text = await response.text();
-    let payload;
-    try {
-      payload = JSON.parse(text);
-    } catch {
-      payload = { ok: response.ok, message: text };
+    if (!response.ok) {
+      await readBoundedResponseBytes(response, { label: 'Paper-state backend rejection' });
+      const error = new Error('Paper-state backend rejected the request.');
+      error.status = 502;
+      throw error;
     }
+    const payload = await readBoundedJsonResponse(response, { label: 'Paper-state backend response' });
     const replayed = response.headers?.get?.('idempotent-replayed');
     if (replayed !== null && replayed !== undefined && !['true', 'false'].includes(replayed.toLowerCase())) {
       return sendJson(context, 502, { ok: false, message: 'Paper-state backend returned a malformed replay acknowledgement.' });

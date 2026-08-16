@@ -1,4 +1,5 @@
 const { requireOperatorToken } = require('../_lib/operator-auth');
+const { readBoundedJsonResponse } = require('../_lib/cybermap-bounds');
 
 const USER_AGENT = 'BlueSwallowSociety/1.0 (+https://blueswallow.net)';
 const DEFAULT_TIMEOUT_MS = 9000;
@@ -413,8 +414,8 @@ async function fetchCanonicalPaperState({ warnings } = {}) {
       },
       signal: controller.signal,
     });
+    const body = await readBoundedJsonResponse(response, { label: 'Canonical paper-state backend response' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const body = await response.json();
     if (body?.source !== 'mosaic-murmurs-paper-engine' || !isCanonicalPaperState(body?.state)) {
       throw new Error('invalid canonical paper-state envelope');
     }
