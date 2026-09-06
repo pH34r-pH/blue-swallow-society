@@ -10,11 +10,6 @@ function getConfiguredDigest() {
     return digest;
   }
 
-  const legacyPlaintext = process.env.BLUE_SWALLOW_PASSCODE;
-  if (typeof legacyPlaintext === 'string' && legacyPlaintext.length > 0) {
-    return crypto.createHash('sha256').update(legacyPlaintext, 'utf8').digest('hex');
-  }
-
   return '';
 }
 
