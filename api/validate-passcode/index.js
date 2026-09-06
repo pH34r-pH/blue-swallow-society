@@ -38,7 +38,7 @@ module.exports = async function validatePasscode(context, req) {
   const limiter = limiterOverrideForTests || createPasscodeRateLimiter();
   const config = getPasscodeRateLimitConfig();
   try {
-    const rateStatus = await limiter.check(callerKey, config);
+    const rateStatus = await limiter.reserveAttempt(callerKey, config);
     if (rateStatus.limited) {
       context.res = jsonResponse(429, {
         ok: false,
@@ -50,7 +50,7 @@ module.exports = async function validatePasscode(context, req) {
     }
 
     if (verifyPasscode(passcode)) {
-      await limiter.reset(callerKey);
+      await limiter.reset(callerKey, rateStatus.reservation);
       const session = createOperatorToken();
       context.res = jsonResponse(200, {
         ok: true,
@@ -59,7 +59,6 @@ module.exports = async function validatePasscode(context, req) {
       return;
     }
 
-    await limiter.recordFailure(callerKey, config);
     context?.log?.warn?.('Passcode verification failed.', {
       callerKeyPrefix: callerKey.slice(0, 16),
       rateLimitWindowMs: config.windowMs,
