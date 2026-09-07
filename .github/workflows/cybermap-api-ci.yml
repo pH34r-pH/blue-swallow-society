@@ -1,0 +1,27 @@
+name: Cybermap API CI
+
+on:
+  pull_request:
+    paths:
+      - 'vm/cybermap-api/**'
+      - '.github/workflows/cybermap-api-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vm/cybermap-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: vm/cybermap-api/package-lock.json
+      - run: npm ci
+      - run: npm test
