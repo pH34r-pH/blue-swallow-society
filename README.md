@@ -1,5 +1,10 @@
 # Blue Swallow Society on Azure Static Web Apps + Cybermap Backend
 
+Deployment ownership is moving to the private Wardriver repository. The new
+[public CI and source handoff](docs/public-ci-handoff.md) validates Society code
+for that path. The current public Azure deployment workflow still runs on `main`
+until the private deployment is verified and the cutover issue is completed.
+
 This starter repo gives you:
 
 - A **publicly accessible website** on **Azure Static Web Apps**
@@ -199,4 +204,3 @@ If you want to keep **everything under Azure credits only**, the lowest-risk app
 1. **Use local/open models on the VM** for experimentation.
 2. **Use Azure OpenAI pay-as-you-go** only for selective calls (`deployOpenAi: true`).
 3. Avoid provisioned throughput and fine-tuned hosting early.
-
