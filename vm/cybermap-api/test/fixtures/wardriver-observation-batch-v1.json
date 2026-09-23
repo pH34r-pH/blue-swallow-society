@@ -1,0 +1,33 @@
+{
+  "schema_version": "bss.observation_batch.v1",
+  "idempotency_key": "batch-00000000-0000-4000-8000-000000000042",
+  "device_id": "wardriver-test-device",
+  "session_id": null,
+  "client_clock": "2026-09-06T20:00:01Z",
+  "redaction_class": "hashed",
+  "retention_class": "hash_only",
+  "observations": [
+    {
+      "external_observation_key": "wardriver-observation:42",
+      "kind": "wifi_ap",
+      "observed_at": "2026-09-06T20:00:00Z",
+      "location": {
+        "latitude": 47.6062,
+        "longitude": -122.3321,
+        "accuracy_m": 8.4,
+        "altitude_m": null
+      },
+      "confidence": 0.82,
+      "payload": {
+        "bssid_hmac": "hmac-sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "rssi_dbm": -67,
+        "frequency_mhz": 2412,
+        "passive_only": true
+      },
+      "provenance": {
+        "collector": "co.blueswallow.wardriver",
+        "app_version": "test"
+      }
+    }
+  ]
+}
