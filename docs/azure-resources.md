@@ -1,4 +1,6 @@
-# Azure Resources Specification
+# Azure Resources Specification (historical public deployment snapshot)
+
+> Current production DNS, SWA binding, Blob CORS, VM SNI and future private deployment authority are owned by [Blue Swallow Wardriver](https://github.com/pH34r-pH/blue-swallow-wardriver/tree/main/infra/dns). The canonical Society origin is `https://blueswallow.ph34r.dev`; the separate device mTLS host is `mtls.blueswallow.ph34r.dev:8443`. Fleet owns only the parent `ph34r.dev` delegation. The `.net`/`www` custom-domain instructions and public workflow in this document describe an earlier, unowned-domain plan and must not be executed. Society public CI is credential-free; its broad Azure workflow is manual recovery only until Wardriver parity.
 
 ## Overview
 This document specifies the Azure infrastructure resources deployed for the Blue Swallow Society project using Bicep templates. The architecture includes Azure Static Web Apps, custom-domain wiring through Azure DNS, explicit shared VNet topology for the VM/API gateway and private PostgreSQL, an Ubuntu Cybermap API gateway, networking components, and optional Azure OpenAI integration.
