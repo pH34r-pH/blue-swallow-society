@@ -1,6 +1,6 @@
 const { requireOperatorToken } = require('../_lib/operator-auth');
 
-const USER_AGENT = 'BlueSwallowSociety/1.0 (+https://blueswallow.net)';
+const USER_AGENT = 'BlueSwallowSociety/1.0 (+https://blueswallow.ph34r.dev)';
 const DEFAULT_TIMEOUT_MS = 9000;
 const HN_API = 'https://hacker-news.firebaseio.com/v0';
 const REDDIT_API = 'https://www.reddit.com/r/all/hot.json?limit=25';

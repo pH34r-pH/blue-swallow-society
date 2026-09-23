@@ -6,10 +6,12 @@ for that path. The legacy public Azure workflow is manual and main-only during
 migration; normal commits no longer reapply infrastructure. Its authority will
 be removed after the private Wardriver deployment passes the cutover gates.
 
-This starter repo gives you:
+Current public site: **https://blueswallow.ph34r.dev** (the existing default Azure Static Web Apps hostname remains reachable). Fleet delegates the `ph34r.dev` child label; private Wardriver owns its DNS, SWA binding, VM gateway, release CORS and deployment authority. Society owns the app, Functions, Cybermap runtime and public validation. The separate device-ingest gateway is `https://mtls.blueswallow.ph34r.dev:8443`; installed Android clients retain their existing compiled VM origin until Wardriver's verified migration.
+
+This repository gives you:
 
 - A **publicly accessible website** on **Azure Static Web Apps**
-- **GitHub Actions CI/CD** for the frontend, managed API, infrastructure, and custom-domain wiring
+- **Credential-free public GitHub Actions CI** for the frontend, managed API, and Cybermap runtime
 - **Azure Functions** for the passcode split, protected operator APIs, and Cybermap proxy routes
 - An **Ubuntu VM API gateway** for the authenticated/idempotent Cybermap ingest service
 - A **Cybermap-first geospatial backend design and P0 ingest implementation** using Azure Database for PostgreSQL Flexible Server B1MS + PostGIS
@@ -88,8 +90,8 @@ The [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-syste
 │   └── mosaic-murmurs-paper-ledger.json        # paper-only morning brief books/positions
 ├── infra/
 │   ├── main.bicep                  # single entrypoint, composes VM + optional OpenAI
-│   ├── custom-domains.bicep        # custom-domain bindings for the Static Web App
-│   ├── custom-domains-dns.bicep    # Azure DNS records for apex/www
+│   ├── custom-domains.bicep        # legacy deployable snapshot; private Wardriver owns live binding
+│   ├── custom-domains-dns.bicep    # legacy unowned-domain snapshot; do not deploy
 │   ├── main.parameters.json
 │   ├── vm-echo-lab.bicep           # legacy-named VM API gateway + NSG + auto-shutdown
 │   └── modules/
@@ -98,7 +100,7 @@ The [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-syste
 │   ├── local-dev.ps1
 │   ├── mosaic-murmurs-morning-brief-collect.py  # public-source morning brief collector
 │   ├── print-next-steps.sh
-│   ├── wireup-custom-domains.py    # helper script used by CI for custom-domain wiring
+│   ├── wireup-custom-domains.py    # legacy helper; current DNS is private Wardriver-owned
 │   └── wireup-backend-url.sh
 └── vm/
     └── cybermap-api/
@@ -153,41 +155,13 @@ python3 scripts/wigle-local-bridge.py --db /path/to/wiglewifi.sqlite --host 127.
 
 In local development, point the WiGLE endpoint field at `http://127.0.0.1:8787/api/wigle`. In the deployed Static Web App, the production CSP keeps browser calls same-origin; configure `/api/wigle` with a server-reachable `WIGLE_LOCAL_DB_PATH` or `WIGLE_LOCAL_DB_URL` instead of asking the hosted browser to read device-local storage.
 
-## Deployment sequence
+## Development and deployment
 
-The CI pipeline drives everything. You only run shell commands when bootstrapping the GitHub → Azure trust.
+Pull requests and `main` run [Society public CI](docs/public-ci-handoff.md) on free GitHub runners without Azure permissions. Society commits do not automatically apply Azure infrastructure. The intended private Wardriver promoter will check both named CI jobs on one exact Society main SHA, independently verify its archive digest, and deploy the app/Functions and VM runtime from that immutable source. Work and acceptance are tracked in [Wardriver #46](https://github.com/pH34r-pH/blue-swallow-wardriver/issues/46), [Wardriver #47](https://github.com/pH34r-pH/blue-swallow-wardriver/issues/47), and [Society #53](https://github.com/pH34r-pH/blue-swallow-society/issues/53).
 
-### 1. Bootstrap Azure credentials (once)
+Until that private path passes production probes, an operator can manually dispatch the legacy **Deploy Infra + App** workflow from `main` for recovery. It is a broad resource-group/VM deployment, not the routine source path. A full run can restore the historical Caddyfile and the old Blob CORS origins. After such a recovery, use [Wardriver's guarded domain steps](https://github.com/pH34r-pH/blue-swallow-wardriver/tree/main/infra/dns) to reapply its mTLS SNI and current `release-cors.bicep` overlay after the full infrastructure deployment, then verify both hosts and operator flows. Do not run the old `.net` domain-wiring helper or recreate an unowned zone. Public Azure credentials and manual workflow remain only until private parity and rollback are proven; [Society #53](https://github.com/pH34r-pH/blue-swallow-society/issues/53) tracks their removal.
 
-Follow [.github/workflows/setup-azure-creds.md](.github/workflows/setup-azure-creds.md) to:
-- create the `blue-swallow-deployer` service principal scoped to `rg-blue-swallow`
-- add an OIDC federated credential for `repo:<you>/blue-swallow-society:ref:refs/heads/main`
-- set GitHub secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `VM_SSH_PUBLIC_KEY`
-
-### 2. Temporary manual recovery deployment
-
-A push to `main` runs public source validation only. Until Wardriver has a
-verified private deployment, an operator may explicitly dispatch **Deploy Infra
-+ App** on the existing `main` branch to recover the site. This broad workflow
-is not the routine development path. It will:
-1. Verify the existing resource group `rg-blue-swallow`.
-2. Run `az deployment group create` against `infra/main.bicep` (SWA resource `blue-swallow-swa` + VM API gateway; OpenAI optional).
-3. Set the Cybermap backend URL/token configuration plus `BLUE_SWALLOW_PASSCODE_SHA256` and `BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY` on the Static Web App.
-4. Deploy `app/` and `api/` to the Static Web App.
-5. The former `blueswallow.net` custom-domain wiring is retired. The
-   delegated `blueswallow.ph34r.dev` zone and website/mTLS host bindings are
-   owned by [Wardriver](https://github.com/pH34r-pH/blue-swallow-wardriver/tree/main/infra/dns).
-   The legacy public infrastructure deployment can overwrite the Wardriver
-   VM Caddy SNI addition, so verify and restore it after any manual recovery
-   until Wardriver fully owns that VM deployment.
-
-### 3. (Optional) Enable Azure OpenAI
-
-Set `deployOpenAi` to `true` in [`infra/main.parameters.json`](./infra/main.parameters.json) and re-run the workflow.
-
-### 4. (Optional) Tighten access
-
-Set `allowedSourceIp` to your developer IP `/32` to restrict SSH access. The VM auto-shutdown defaults to 02:00 Pacific to cap cost.
+The [dated infrastructure specification](docs/azure-resources.md) describes the former public deployment and its old domain assumptions. Current Azure DNS authority and validation evidence are in Wardriver's `infra/dns` runbook. The default SWA hostname and old VM hostname remain available during the Android compatibility window.
 
 ## Notes on security
 

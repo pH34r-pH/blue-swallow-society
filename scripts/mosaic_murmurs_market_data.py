@@ -9,7 +9,7 @@ from typing import Any, Callable
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
-USER_AGENT = "BlueSwallowSociety/1.0 (+https://blueswallow.net)"
+USER_AGENT = "BlueSwallowSociety/1.0 (+https://blueswallow.ph34r.dev)"
 COINGECKO_URL = "https://api.coingecko.com/api/v3/coins/markets?" + urlencode(
     {
         "vs_currency": "usd",
