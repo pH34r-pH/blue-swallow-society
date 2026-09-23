@@ -2,33 +2,18 @@
 set -euo pipefail
 
 cat <<'EOF'
-Next steps:
-  1. Review infra/main.parameters.json and set allowedSourceIp to your
-     developer IP address (NOT "*") before deploying to production.
-     Run: curl -s https://ipinfo.io/ip  to discover your current IP.
-
-  2. Dry-run the deployment before creating any resources:
-       az deployment group what-if \
-         --resource-group rg-blue-swallow \
-         --template-file infra/main.bicep \
-         --parameters infra/main.parameters.json
-
-  3. Push this repo to GitHub.
-  4. Create the Azure service principal + OIDC federated credential
-     (see .github/workflows/setup-azure-creds.md).
-  5. Add the GitHub secrets listed in that doc:
-       AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID,
-       VM_SSH_PUBLIC_KEY
-  6. Push to main (or run "Deploy Infra + App" via workflow_dispatch).
-     The workflow:
-       - creates resource group rg-blue-swallow
-       - deploys infra/main.bicep (SWA + VM API gateway, optional OpenAI)
-       - sets Cybermap backend configuration on the SWA
-       - uploads the app + API
-       - wires blueswallow.net and www.blueswallow.net through Azure DNS to the canonical blue-swallow-swa Static Web App
-     After cutover, delete the legacy Static Web Apps blue-swallow-society and wonderful-pond-0623ed81e so only blue-swallow-swa remains connected.
-     Redeployments are idempotent — running the workflow again will
-     update existing resources without destroying state.
-
-  7. Browse to the Static Web App default hostname and verify the public root.
+Blue Swallow Society development:
+  1. Work on public app/, api/, and vm/cybermap-api/ source here. Pull requests
+     and main run credential-free Society public CI on GitHub-hosted runners.
+  2. The canonical site is https://blueswallow.ph34r.dev. Its Fleet parent
+     delegation, Wardriver child DNS/SWA binding and VM mTLS hostname are
+     documented in blue-swallow-wardriver/infra/dns/.
+  3. Private Wardriver promotion will verify the exact Society main SHA, both
+     public CI jobs and an independently hashed source archive. Track the
+     migration in Wardriver #46/#47 and Society #52/#53.
+  4. Until private parity is proven, use the manual, main-only Deploy Infra +
+     App workflow only for explicit recovery. A full recovery can restore
+     historical Caddy and Blob CORS settings; reapply and check Wardriver's
+     SNI and release-cors overlays afterwards. Do not run old .net domain
+     wiring or create subscription-wide public deployment credentials.
 EOF
