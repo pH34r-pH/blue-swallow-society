@@ -1,13 +1,10 @@
 name: Deploy Infra + App
 
+# Temporary recovery lane until Wardriver owns the protected production deployment.
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: read
 
 # Serialize deployments to this SWA without canceling an active ARM deployment.
@@ -22,6 +19,10 @@ env:
 
 jobs:
   deploy-infra:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     outputs:
       backendCybermapBaseUrl: ${{ steps.deploy.outputs.backendCybermapBaseUrl }}
@@ -283,6 +284,10 @@ jobs:
             -o none
 
   deploy-app:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     needs: deploy-infra
     steps:

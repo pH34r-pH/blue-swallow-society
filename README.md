@@ -2,8 +2,9 @@
 
 Deployment ownership is moving to the private Wardriver repository. The new
 [public CI and source handoff](docs/public-ci-handoff.md) validates Society code
-for that path. The current public Azure deployment workflow still runs on `main`
-until the private deployment is verified and the cutover issue is completed.
+for that path. The legacy public Azure workflow is manual and main-only during
+migration; normal commits no longer reapply infrastructure. Its authority will
+be removed after the private Wardriver deployment passes the cutover gates.
 
 This starter repo gives you:
 
@@ -43,7 +44,7 @@ The [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-syste
 ├── .github/
 │   ├── copilot-instructions.md
 │   └── workflows/
-│       ├── deploy-static-web-app.yml          # canonical CI: infra + app + custom domains
+│       ├── deploy-static-web-app.yml          # temporary manual recovery path
 │       ├── infra-whatif.yml                   # manual what-if (RG scope, OIDC)
 │       ├── azure-static-web-apps-wonderful-pond-0623ed81e.yml  # disabled legacy workflow; delete after cutover to blue-swallow-swa
 │       └── setup-azure-creds.md
@@ -163,16 +164,22 @@ Follow [.github/workflows/setup-azure-creds.md](.github/workflows/setup-azure-cr
 - add an OIDC federated credential for `repo:<you>/blue-swallow-society:ref:refs/heads/main`
 - set GitHub secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `VM_SSH_PUBLIC_KEY`
 
-### 2. Push to `main`
+### 2. Temporary manual recovery deployment
 
-The **Deploy Infra + App** workflow will:
-1. Create the resource group `rg-blue-swallow` if it does not exist.
+A push to `main` runs public source validation only. Until Wardriver has a
+verified private deployment, an operator may explicitly dispatch **Deploy Infra
++ App** on the existing `main` branch to recover the site. This broad workflow
+is not the routine development path. It will:
+1. Verify the existing resource group `rg-blue-swallow`.
 2. Run `az deployment group create` against `infra/main.bicep` (SWA resource `blue-swallow-swa` + VM API gateway; OpenAI optional).
 3. Set the Cybermap backend URL/token configuration plus `BLUE_SWALLOW_PASSCODE_SHA256` and `BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY` on the Static Web App.
 4. Deploy `app/` and `api/` to the Static Web App.
-5. Ensure the Azure DNS zone for `blueswallow.net` exists, then wire the apex `blueswallow.net` and `www.blueswallow.net` hostnames through the custom-domain helper script and Azure DNS in `rg-blue-swallow` (the canonical SWA is `blue-swallow-swa`; legacy SWAs `blue-swallow-society` and `wonderful-pond-0623ed81e` have been deleted after cutover). The helper stages the Azure DNS apex A alias and `www` CNAME even before public delegation is live; final SWA custom-domain binding still requires the domain to be registered and delegated at the registrar to the Azure DNS nameservers.
-
-> Current registrar-side prerequisite: `blueswallow.net` must be registered and delegated to the nameservers on the Azure DNS zone for `blueswallow.net`. Azure App Service Domains may reject this subscription as ineligible for domain purchase; if that happens, register the domain with an external registrar and set the registrar nameservers to the Azure DNS zone nameservers. Azure DNS usually propagates within about an hour after registrar delegation, but apex-domain changes can still take up to 72 hours in the worst case.
+5. The former `blueswallow.net` custom-domain wiring is retired. The
+   delegated `blueswallow.ph34r.dev` zone and website/mTLS host bindings are
+   owned by [Wardriver](https://github.com/pH34r-pH/blue-swallow-wardriver/tree/main/infra/dns).
+   The legacy public infrastructure deployment can overwrite the Wardriver
+   VM Caddy SNI addition, so verify and restore it after any manual recovery
+   until Wardriver fully owns that VM deployment.
 
 ### 3. (Optional) Enable Azure OpenAI
 
