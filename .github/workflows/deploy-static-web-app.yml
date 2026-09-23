@@ -20,10 +20,6 @@ concurrency:
 env:
   RESOURCE_GROUP: rg-blue-swallow
   LOCATION: westus2
-  DNS_ZONE_RESOURCE_GROUP: rg-blue-swallow
-  DNS_ZONE_NAME: blueswallow.net
-  APEX_DOMAIN: blueswallow.net
-  WWW_DOMAIN: www.blueswallow.net
 
 jobs:
   deploy-infra:
@@ -311,14 +307,6 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Ensure public DNS zone exists
-        run: |
-          az network dns zone create \
-            --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
-            --name "$DNS_ZONE_NAME" \
-            --only-show-errors \
-            -o none
-
       - name: Fetch SWA deployment token
         id: swa-token
         run: |
@@ -344,18 +332,3 @@ jobs:
           api_location: "api"
           output_location: ""
 
-      - name: Configure custom domains
-        env:
-          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: |
-          swa_name=$(jq -r '.parameters.staticWebAppName.value' infra/main.parameters.json)
-          python3 scripts/wireup-custom-domains.py \
-            "$swa_name" \
-            "$RESOURCE_GROUP" \
-            "$DNS_ZONE_RESOURCE_GROUP" \
-            "$DNS_ZONE_NAME" \
-            "" \
-            "$APEX_DOMAIN" \
-            "$WWW_DOMAIN"
