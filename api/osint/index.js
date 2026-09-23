@@ -4,7 +4,7 @@ const { requireOperatorToken } = require('../_lib/operator-auth');
 const { classifyTarget } = require('./classifier');
 const { assertPublicTarget, isSafePublicUrl, probePublicUrl } = require('./safety');
 
-const USER_AGENT = 'BlueSwallowSociety/1.0 (+https://blueswallow.net)';
+const USER_AGENT = 'BlueSwallowSociety/1.0 (+https://blueswallow.ph34r.dev)';
 const DEFAULT_TIMEOUT_MS = 9000;
 const JSON_TEXT_BYTES = 256 * 1024;
 const HTML_TEXT_BYTES = 64 * 1024;
