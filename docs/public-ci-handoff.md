@@ -12,10 +12,12 @@ and [Society #53](https://github.com/pH34r-pH/blue-swallow-society/issues/53).
 
 `Society public CI` validates pull requests and commits on `main` without an
 Azure identity, deployment token, or private-repository secret. It uses public
-GitHub-hosted runners. For now, the existing `Deploy Infra + App` workflow also
-runs after pushes to `main`. The public Azure workflow and credentials must stay
-in place until Wardriver has deployed and verified the equivalent private path;
-their removal is Society #53. A green public CI run alone is **not** evidence of
+GitHub-hosted runners. The legacy `Deploy Infra + App` workflow is now a
+manual, main-only recovery lane during migration. Normal commits no longer
+reapply the whole Azure resource group or VM. Its existing Azure credentials
+remain only until Wardriver has deployed and verified an equivalent protected
+private path; their removal is Society #53. Never treat a passing public CI
+check as authorization to run the manual deployment. A green public CI run alone is **not** evidence of
 a live deployment.
 
 The two public CI job names are `society-app-and-functions` and `cybermap-api`.
