@@ -24,7 +24,9 @@ test('deployment wires the release-only connection string into SWA without loggi
   const wireRuntimeStart = workflow.indexOf('      - name: Wire runtime app settings into SWA');
   const wireRuntime = workflow.slice(wireRuntimeStart, workflow.indexOf('\n  deploy-app:', wireRuntimeStart));
   assert.ok(wireRuntimeStart >= 0);
-  assert.match(workflow, /Microsoft\.Storage/);
+  assert.doesNotMatch(workflow, /az provider register/);
+  assert.doesNotMatch(workflow, /^\\s*push:\\s*$/m);
+  assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /BSS_WARDRIVER_RELEASE_STORAGE_CONNECTION_STRING/);
   assert.match(workflow, /BSS_WARDRIVER_RELEASE_CONTAINER/);
   assert.match(workflow, /BSS_WARDRIVER_RELEASE_MANIFEST_BLOB/);
