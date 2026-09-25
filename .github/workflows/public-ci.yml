@@ -17,15 +17,17 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
             api/package-lock.json
             vm/cybermap-api/package-lock.json
+      - name: Require the declared Node runtime before installation
+        run: node --test tests/node-runtime-contract.test.mjs
       - name: Install Function and shared contract dependencies
         run: |
-          npm ci --prefix api --ignore-scripts
-          npm ci --prefix vm/cybermap-api --ignore-scripts
+          npm ci --prefix api --ignore-scripts --engine-strict
+          npm ci --prefix vm/cybermap-api --ignore-scripts --engine-strict
       - name: Run app, Function, and source contract tests
         # Three Obscura browser tests require a separate browser CLI that is not
         # available on standard hosted runners; all other root tests run here.
@@ -41,7 +43,9 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: vm/cybermap-api/package-lock.json
+      - name: Require the declared Node runtime before installation
+        run: node --test tests/node-runtime-contract.test.mjs
       - name: Install Cybermap API dependencies
-        run: npm ci --prefix vm/cybermap-api --ignore-scripts
+        run: npm ci --prefix vm/cybermap-api --ignore-scripts --engine-strict
       - name: Run Cybermap API tests
         run: npm test --prefix vm/cybermap-api

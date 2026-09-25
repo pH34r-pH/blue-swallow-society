@@ -4,7 +4,7 @@
   "description": "Azure Static Web Apps managed Functions for blue-swallow-society.",
   "private": true,
   "engines": {
-    "node": ">=22.0.0 <23"
+    "node": ">=24.0.0 <25"
   },
   "dependencies": {
     "@azure/data-tables": "13.3.2",
