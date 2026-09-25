@@ -37,8 +37,8 @@ test('VM service and repository development runtime are pinned to Node 24', () =
   assert.doesNotMatch(installer, /setup_(18|20|22)\.x/);
 });
 
-test('managed SWA Functions are pinned to the newest Azure-supported Node runtime', () => {
-  assert.equal(readJson('app/staticwebapp.config.json').platform.apiRuntime, 'node:22');
-  assert.equal(readJson('api/package.json').engines.node, '>=22.0.0 <23');
-  assert.equal(readJson('api/package-lock.json').packages[''].engines.node, '>=22.0.0 <23');
+test('Functions source and desired runtime target Node 24 without claiming managed-host support', () => {
+  assert.equal(readJson('app/staticwebapp.config.json').platform.apiRuntime, 'node:24');
+  assert.equal(readJson('api/package.json').engines.node, '>=24.0.0 <25');
+  assert.equal(readJson('api/package-lock.json').packages[''].engines.node, '>=24.0.0 <25');
 });
