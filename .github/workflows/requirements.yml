@@ -13,6 +13,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: pH34r-pH/long-haul/.github/actions/requirements@b13b72e8a6c2920a0ac424031c5befb682f37df3
+      - uses: pH34r-pH/long-haul/.github/actions/requirements@9cf47e69ff0e40530082d5d6868eb37fc22998ae
         with:
           output: ${{ runner.temp }}/requirements.json

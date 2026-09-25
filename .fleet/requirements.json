@@ -7,18 +7,20 @@
     {"path":"vm/cybermap-api/package.json","kind":"node-project"},
     {"path":"vm/cybermap-api/package-lock.json","kind":"lock"},
     {"path":".nvmrc","kind":"toolchain"},
-    {"path":".github/workflows/public-ci.yml","kind":"workflow"}
+    {"path":"app/staticwebapp.config.json","kind":"build"},
+    {"path":".github/workflows/public-ci.yml","kind":"workflow"},
+    {"path":"tests/node-runtime-contract.test.mjs","kind":"build"}
   ],
   "profiles":{
     "functions":{
       "phases":["test","package","runtime"],
       "platforms":[{"os":"linux","arch":"amd64","abi":"glibc"}],
       "tools":{
-        "node":{"sources":["api/package.json",".github/workflows/public-ci.yml"]},
+        "node":{"sources":["api/package.json",".nvmrc","app/staticwebapp.config.json",".github/workflows/public-ci.yml"]},
         "npm":{"sources":["api/package.json","api/package-lock.json"]}
       },
-      "entrypoints":["npm ci --prefix api --ignore-scripts"],
-      "notes":"The native Function package's Node engine is distinct from Cybermap. Root shared tests currently install both packages; that legacy cross-profile step must not be used to claim one Node version satisfies both engines."
+      "entrypoints":["node --test tests/node-runtime-contract.test.mjs","npm ci --prefix api --ignore-scripts --engine-strict"],
+      "notes":"Owner decision: Functions and Cybermap both target Node 24. CI uses .nvmrc and strict native engine constraints; retain separate service profiles. Managed SWA runtime deployment must be qualified separately; source tests do not prove platform support."
     },
     "cybermap":{
       "phases":["build","test","runtime"],
@@ -27,7 +29,7 @@
         "node":{"sources":["vm/cybermap-api/package.json",".nvmrc"]},
         "npm":{"sources":["vm/cybermap-api/package.json","vm/cybermap-api/package-lock.json"]}
       },
-      "entrypoints":["npm ci --prefix vm/cybermap-api --ignore-scripts","npm test --prefix vm/cybermap-api"],
+      "entrypoints":["npm ci --prefix vm/cybermap-api --ignore-scripts --engine-strict","npm test --prefix vm/cybermap-api"],
       "notes":"PostgreSQL/PostGIS and private ingest credentials are runtime service bindings owned by Wardriver. Do not install a database or grant secrets to ordinary source CI. Existing optional Obscura browser and heavy basemap work are not enabled by this profile."
     }
   }
