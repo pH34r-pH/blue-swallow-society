@@ -28,3 +28,8 @@ jobs:
         run: nix profile add nixpkgs#devenv
       - name: Exercise Node 24 + PostGIS environment
         run: devenv test
+      - name: Build the existing Functions app on Microsoft's Node 24 base
+        run: |
+          set -euo pipefail
+          docker build -f api/Dockerfile.prototype -t society-functions-prototype .
+          docker run --rm --entrypoint node society-functions-prototype --version | grep -E '^v24\.'
