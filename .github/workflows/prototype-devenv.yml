@@ -15,21 +15,57 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: prototype-devenv-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+
       - name: Install devenv
         run: nix profile add nixpkgs#devenv
+
       - name: Exercise Node 24 + PostGIS environment
         run: devenv test
-      - name: Build the existing Functions app on Microsoft's Node 24 base
+
+      - name: Build existing Functions app on Microsoft's Node 24 base
         run: |
           set -euo pipefail
           docker build -f api/Dockerfile.prototype -t society-functions-prototype .
-          docker run --rm --entrypoint node society-functions-prototype --version | grep -E '^v24\.'
+          docker run --rm --entrypoint node society-functions-prototype --version |
+            grep -E '^v24\.'
+
+      - name: Start real Functions host and exercise existing /api/profile route
+        run: |
+          set -euo pipefail
+          trap 'docker rm -f society-functions society-azurite >/dev/null 2>&1 || true' EXIT
+
+          docker run -d             --name society-azurite             --network host             mcr.microsoft.com/azure-storage/azurite:3.37.0             azurite               --blobHost 127.0.0.1               --queueHost 127.0.0.1               --tableHost 127.0.0.1
+
+          docker run -d             --name society-functions             --network host             -e AzureWebJobsStorage=UseDevelopmentStorage=true             -e FUNCTIONS_WORKER_RUNTIME=node             society-functions-prototype
+
+          status=''
+          for attempt in {1..60}; do
+            status=$(curl -sS -o "$RUNNER_TEMP/profile.json" -w '%{http_code}'               http://127.0.0.1/api/profile || true)
+            if [ "$status" = '401' ]; then
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$status" != '401' ]; then
+            docker logs society-azurite || true
+            docker logs society-functions || true
+            printf 'unexpected status: %s\n' "$status" >&2
+            exit 1
+          fi
+
+          jq -e '.message == "Not authenticated."' "$RUNNER_TEMP/profile.json"
