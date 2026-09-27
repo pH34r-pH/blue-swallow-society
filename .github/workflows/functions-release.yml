@@ -101,7 +101,7 @@ jobs:
       - name: Require a release tag on main history
         run: |
           set -euo pipefail
-          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           git fetch --no-tags origin main
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -131,7 +131,7 @@ jobs:
 
           network=society-functions-release-smoke
           account=devstoreaccount1
-          key='ZmFrZS1rZXktZm9yLXNvY2lldHktcmVsZWFzZS1vbmx5'
+          key='ZmFrZS1rZXktZm9yLXNvY2lldHktY2ktb25seQ=='
           connection="DefaultEndpointsProtocol=http;AccountName=$account;AccountKey=$key;BlobEndpoint=http://azurite:10000/$account;QueueEndpoint=http://azurite:10001/$account;TableEndpoint=http://azurite:10002/$account;"
           docker network create "$network"
           trap 'docker rm -f society-functions-release-smoke azurite-release >/dev/null 2>&1 || true; docker network rm "$network" >/dev/null 2>&1 || true' EXIT
