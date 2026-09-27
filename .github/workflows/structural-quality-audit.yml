@@ -32,6 +32,7 @@ jobs:
           mkdir -p quality-audit
           npx --yes eslint@9.38.0 app api vm scripts tests \
             --no-config-lookup --ext .js,.mjs,.cjs \
+            --ignore-pattern 'api/_private/operator/assets/maplibre-gl*.mjs' \
             --rule 'max-lines: ["warn", {"max": 500, "skipBlankLines": true, "skipComments": true}]' \
             --rule 'max-lines-per-function: ["warn", {"max": 75, "skipBlankLines": true, "skipComments": true}]' \
             --rule 'complexity: ["warn", 15]' \
@@ -63,6 +64,7 @@ jobs:
           set +e
           lizard app api vm scripts tests -C 15 -L 75 -a 7 -w \
             -x "*/node_modules/*" -x "*/dist/*" -x "*/build/*" \
+            -x "api/_private/operator/assets/maplibre-gl*.mjs" \
             > quality-audit/lizard.txt 2>&1
           status=$?
           cat quality-audit/lizard.txt
@@ -76,7 +78,7 @@ jobs:
           npx --yes jscpd@5.0.12 app api vm scripts tests \
             --min-lines 8 --min-tokens 60 \
             --format python,javascript,typescript \
-            --ignore "**/node_modules/**,**/dist/**,**/build/**,**/*-lock.json" \
+            --ignore "**/node_modules/**,**/dist/**,**/build/**,**/*-lock.json,**/api/_private/operator/assets/maplibre-gl*.mjs" \
             --reporters console,json --output quality-audit/jscpd \
             > quality-audit/jscpd-console.txt 2>&1
           status=$?
