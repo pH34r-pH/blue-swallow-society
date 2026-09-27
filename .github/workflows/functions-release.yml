@@ -131,7 +131,7 @@ jobs:
 
           network=society-functions-release-smoke
           account=devstoreaccount1
-          key='ZmFrZS1rZXktZm9yLXNvY2lldHktcmVsZWFzZS1vbmx5'
+          key='ZmFrZS1rZXktZm9yLXNvY2lldHktY2ktb25seQ=='
           connection="DefaultEndpointsProtocol=http;AccountName=$account;AccountKey=$key;BlobEndpoint=http://azurite:10000/$account;QueueEndpoint=http://azurite:10001/$account;TableEndpoint=http://azurite:10002/$account;"
           docker network create "$network"
           trap 'docker rm -f society-functions-release-smoke azurite-release >/dev/null 2>&1 || true; docker network rm "$network" >/dev/null 2>&1 || true' EXIT
