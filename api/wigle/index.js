@@ -169,6 +169,58 @@ async function loadWigleApi() {
   throw error;
 }
 
+async function loadSnapshotPayload(mode, location, radiusMeters, limit) {
+  if (mode === 'database' || mode === 'current') {
+    return {
+      rawPayload: await readLocalSource(),
+      source: process.env.WIGLE_LOCAL_DB_PATH ? 'local-db' : 'local-url',
+      live: false,
+    };
+  }
+  const bridgePayload = await loadLiveBridge();
+  if (bridgePayload !== null && bridgePayload !== undefined) {
+    const { isLiveWigleSnapshot } = await getWigleModule();
+    return {
+      rawPayload: bridgePayload,
+      source: 'bridge',
+      live: typeof bridgePayload === 'string'
+        || Array.isArray(bridgePayload)
+        || isLiveWigleSnapshot(bridgePayload),
+    };
+  }
+  const apiPayload = await loadWigleApi(location, radiusMeters, limit);
+  return apiPayload === null || apiPayload === undefined
+    ? { rawPayload: null, source: null, live: false }
+    : { rawPayload: apiPayload, source: 'api', live: true };
+}
+
+function requireSnapshotPayload(mode, loaded) {
+  if (loaded.rawPayload !== null && loaded.rawPayload !== undefined) return;
+  const message = mode === 'database' || mode === 'current'
+    ? 'Local WiGLE database not configured. Set WIGLE_LOCAL_DB_PATH or WIGLE_LOCAL_DB_URL.'
+    : 'Live WiGLE is not configured. Set WIGLE_LIVE_BRIDGE_URL; direct public WiGLE API lookup is disabled because it requires coordinate-bearing URLs.';
+  const error = new Error(message);
+  error.status = 503;
+  throw error;
+}
+
+function limitSnapshotRecords(parsed, effectiveLocation, effectiveRadius, limit, filterWigleRecordsByRadius) {
+  const records = effectiveLocation
+    ? filterWigleRecordsByRadius(parsed.accessPoints, effectiveLocation, effectiveRadius)
+    : parsed.accessPoints.slice();
+  return Number.isFinite(limit) && limit > 0 ? records.slice(0, limit) : records;
+}
+
+function snapshotMessage(mode, live, current) {
+  if (mode === 'database') return 'Local WiGLE database snapshot ready.';
+  if (mode === 'current') {
+    return current
+      ? 'Current local WiGLE observations ready.'
+      : 'Local WiGLE database is configured, but no observations are recent enough for AR.';
+  }
+  return live ? 'Live WiGLE stream ready.' : 'WiGLE feed returned a non-live snapshot.';
+}
+
 async function buildSnapshot({
   context,
   mode,
@@ -178,49 +230,23 @@ async function buildSnapshot({
   maxAgeMs,
   now,
 }) {
-  const { parseWiglePayload, filterWigleRecordsByRadius, isLiveWigleSnapshot, buildCurrentWigleState } = await getWigleModule();
+  const {
+    parseWiglePayload,
+    filterWigleRecordsByRadius,
+    buildCurrentWigleState,
+  } = await getWigleModule();
+  const loaded = await loadSnapshotPayload(mode, location, radiusMeters, limit);
+  requireSnapshotPayload(mode, loaded);
 
-  let rawPayload = null;
-  let source = null;
-  let live = false;
-
-  if (mode === 'database' || mode === 'current') {
-    rawPayload = await readLocalSource();
-    source = process.env.WIGLE_LOCAL_DB_PATH ? 'local-db' : 'local-url';
-  } else {
-    rawPayload = await loadLiveBridge();
-    if (rawPayload !== null && rawPayload !== undefined) {
-      source = 'bridge';
-      live = typeof rawPayload === 'string' || Array.isArray(rawPayload) || isLiveWigleSnapshot(rawPayload);
-    }
-
-    if (rawPayload === null || rawPayload === undefined) {
-      const apiPayload = await loadWigleApi(location, radiusMeters, limit);
-      if (apiPayload !== null && apiPayload !== undefined) {
-        rawPayload = apiPayload;
-        source = 'api';
-        live = true;
-      }
-    }
-  }
-
-  if (rawPayload === null || rawPayload === undefined) {
-    const sourceError = mode === 'database' || mode === 'current'
-      ? 'Local WiGLE database not configured. Set WIGLE_LOCAL_DB_PATH or WIGLE_LOCAL_DB_URL.'
-      : 'Live WiGLE is not configured. Set WIGLE_LIVE_BRIDGE_URL; direct public WiGLE API lookup is disabled because it requires coordinate-bearing URLs.';
-    const error = new Error(sourceError);
-    error.status = 503;
-    throw error;
-  }
-
-  const normalizedPayload = normalizeUpstreamPayload(rawPayload);
-  const parseSource = mode === 'database' ? 'database' : mode === 'current' ? 'current' : 'live';
-  const parsed = parseWiglePayload(normalizedPayload, { source: parseSource });
+  const parsed = parseWiglePayload(normalizeUpstreamPayload(loaded.rawPayload), {
+    source: mode === 'database' ? 'database' : mode === 'current' ? 'current' : 'live',
+  });
   const effectiveLocation = location || parsed.location || null;
   const effectiveRadius = clampNumber(radiusMeters, 25, 5_000, 100);
   let responseLocation = effectiveLocation || parsed.location || null;
   let updatedAt = parsed.updatedAt || new Date().toISOString();
   let limitedAccessPoints;
+  let live = loaded.live;
   let current = false;
 
   if (mode === 'current') {
@@ -238,10 +264,9 @@ async function buildSnapshot({
     responseLocation = responseLocation || currentState.location;
     updatedAt = currentState.updatedAt || updatedAt;
   } else {
-    const accessPoints = effectiveLocation
-      ? filterWigleRecordsByRadius(parsed.accessPoints, effectiveLocation, effectiveRadius)
-      : parsed.accessPoints.slice();
-    limitedAccessPoints = Number.isFinite(limit) && limit > 0 ? accessPoints.slice(0, limit) : accessPoints;
+    limitedAccessPoints = limitSnapshotRecords(
+      parsed, effectiveLocation, effectiveRadius, limit, filterWigleRecordsByRadius,
+    );
   }
 
   return {
@@ -249,7 +274,7 @@ async function buildSnapshot({
     mode,
     live: mode === 'live' ? live : mode === 'current' ? current : false,
     current,
-    source,
+    source: loaded.source,
     provenance: { adapter: 'legacy_wigle', canonical: false },
     location: responseLocation,
     radiusMeters: effectiveLocation ? effectiveRadius : null,
@@ -257,15 +282,7 @@ async function buildSnapshot({
     totalResults: limitedAccessPoints.length,
     accessPoints: limitedAccessPoints,
     updatedAt,
-    message: mode === 'database'
-      ? 'Local WiGLE database snapshot ready.'
-      : mode === 'current'
-        ? (current
-            ? 'Current local WiGLE observations ready.'
-            : 'Local WiGLE database is configured, but no observations are recent enough for AR.')
-        : live
-          ? 'Live WiGLE stream ready.'
-          : 'WiGLE feed returned a non-live snapshot.',
+    message: snapshotMessage(mode, live, current),
   };
 }
 
