@@ -153,7 +153,11 @@ jobs:
             echo "Existing release digest does not match the versioned GHCR image; refusing to mutate either." >&2
             exit 1
           }
-          gh attestation verify "oci://$IMAGE_NAME@$recorded_digest" --repo "$GITHUB_REPOSITORY"
+          gh attestation verify "oci://$IMAGE_NAME@$recorded_digest" \
+            --repo "$GITHUB_REPOSITORY" \
+            --source-digest "$GITHUB_SHA" \
+            --source-ref "$GITHUB_REF" \
+            --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/functions-release.yml"
           echo "already_released=true" >> "$GITHUB_OUTPUT"
           echo "Existing release is complete and matches its immutable GHCR digest; no image tag or attestation will be rewritten." >> "$GITHUB_STEP_SUMMARY"
       - name: Build, smoke, and push the public Functions image
@@ -225,7 +229,10 @@ jobs:
         run: |
           gh attestation verify \
             "oci://${{ steps.image.outputs.name }}@${{ steps.image.outputs.digest }}" \
-            --repo "$GITHUB_REPOSITORY"
+            --repo "$GITHUB_REPOSITORY" \
+            --source-digest "$GITHUB_SHA" \
+            --source-ref "$GITHUB_REF" \
+            --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/functions-release.yml"
       - name: Publish normal GitHub release metadata
         if: steps.existing-release.outputs.already_released != 'true'
         env:
