@@ -213,95 +213,66 @@ function parseVisionCsv(lines, source) {
   };
 }
 
-function normalizeDetectionBox(box, detection) {
-  if (Array.isArray(box) && box.length >= 4) {
-    const [a, b, c, d] = box.map(toNumber);
-    if (![a, b, c, d].every(Number.isFinite)) {
-      return { x: null, y: null, width: null, height: null, normalized: false };
-    }
-
-    const mode = cleanString(firstDefined(detection, ['bboxMode', 'boxMode', 'boxFormat', 'format'])) || 'xywh';
-    const corners = mode === 'xyxy' || mode === 'corners' || mode === 'ltrb';
-    const normalized = inferNormalizedFlag(detection, [a, b, c, d]);
-
-    return corners
-      ? {
-          x: a,
-          y: b,
-          width: Math.max(0, c - a),
-          height: Math.max(0, d - b),
-          normalized,
-        }
-      : {
-          x: a,
-          y: b,
-          width: c,
-          height: d,
-          normalized,
-        };
-  }
-
-  if (!box || typeof box !== 'object') {
-    return { x: null, y: null, width: null, height: null, normalized: false };
-  }
-
-  if (Number.isFinite(toNumber(box.x)) && Number.isFinite(toNumber(box.y)) && Number.isFinite(toNumber(box.width)) && Number.isFinite(toNumber(box.height))) {
-    const x = toNumber(box.x);
-    const y = toNumber(box.y);
-    const width = toNumber(box.width);
-    const height = toNumber(box.height);
-    return {
-      x,
-      y,
-      width,
-      height,
-      normalized: inferNormalizedFlag(detection, [x, y, width, height], box.normalized),
-    };
-  }
-
-  if (Number.isFinite(toNumber(box.left)) && Number.isFinite(toNumber(box.top)) && Number.isFinite(toNumber(box.right)) && Number.isFinite(toNumber(box.bottom))) {
-    const left = toNumber(box.left);
-    const top = toNumber(box.top);
-    const right = toNumber(box.right);
-    const bottom = toNumber(box.bottom);
-    return {
-      x: left,
-      y: top,
-      width: Math.max(0, right - left),
-      height: Math.max(0, bottom - top),
-      normalized: inferNormalizedFlag(detection, [left, top, right, bottom], box.normalized),
-    };
-  }
-
-  if (Number.isFinite(toNumber(box.xMin)) && Number.isFinite(toNumber(box.yMin)) && Number.isFinite(toNumber(box.xMax)) && Number.isFinite(toNumber(box.yMax))) {
-    const xMin = toNumber(box.xMin);
-    const yMin = toNumber(box.yMin);
-    const xMax = toNumber(box.xMax);
-    const yMax = toNumber(box.yMax);
-    return {
-      x: xMin,
-      y: yMin,
-      width: Math.max(0, xMax - xMin),
-      height: Math.max(0, yMax - yMin),
-      normalized: inferNormalizedFlag(detection, [xMin, yMin, xMax, yMax], box.normalized),
-    };
-  }
-
-  if (Number.isFinite(toNumber(box.centerX)) && Number.isFinite(toNumber(box.centerY)) && Number.isFinite(toNumber(box.width)) && Number.isFinite(toNumber(box.height))) {
-    const centerX = toNumber(box.centerX);
-    const centerY = toNumber(box.centerY);
-    const width = toNumber(box.width);
-    const height = toNumber(box.height);
-    return {
-      x: centerX - width / 2,
-      y: centerY - height / 2,
-      width,
-      height,
-      normalized: inferNormalizedFlag(detection, [centerX, centerY, width, height], box.normalized),
-    };
-  }
-
+function emptyDetectionBox() {
   return { x: null, y: null, width: null, height: null, normalized: false };
+}
+
+function normalizedArrayBox(box, detection) {
+  const [a, b, c, d] = box.map(toNumber);
+  if (![a, b, c, d].every(Number.isFinite)) return emptyDetectionBox();
+  const mode = cleanString(firstDefined(detection, ['bboxMode', 'boxMode', 'boxFormat', 'format'])) || 'xywh';
+  const normalized = inferNormalizedFlag(detection, [a, b, c, d]);
+  if (mode === 'xyxy' || mode === 'corners' || mode === 'ltrb') {
+    return {
+      x: a, y: b, width: Math.max(0, c - a), height: Math.max(0, d - b), normalized,
+    };
+  }
+  return { x: a, y: b, width: c, height: d, normalized };
+}
+
+function numericBoxFields(box, names) {
+  const values = names.map((name) => toNumber(box[name]));
+  return values.every(Number.isFinite) ? values : null;
+}
+
+function normalizedObjectBox(box, detection) {
+  let values = numericBoxFields(box, ['x', 'y', 'width', 'height']);
+  if (values) {
+    const [x, y, width, height] = values;
+    return { x, y, width, height, normalized: inferNormalizedFlag(detection, values, box.normalized) };
+  }
+  values = numericBoxFields(box, ['left', 'top', 'right', 'bottom']);
+  if (values) {
+    const [left, top, right, bottom] = values;
+    return {
+      x: left, y: top, width: Math.max(0, right - left), height: Math.max(0, bottom - top),
+      normalized: inferNormalizedFlag(detection, values, box.normalized),
+    };
+  }
+  values = numericBoxFields(box, ['xMin', 'yMin', 'xMax', 'yMax']);
+  if (values) {
+    const [xMin, yMin, xMax, yMax] = values;
+    return {
+      x: xMin, y: yMin, width: Math.max(0, xMax - xMin), height: Math.max(0, yMax - yMin),
+      normalized: inferNormalizedFlag(detection, values, box.normalized),
+    };
+  }
+  values = numericBoxFields(box, ['centerX', 'centerY', 'width', 'height']);
+  if (!values) return emptyDetectionBox();
+  const [centerX, centerY, width, height] = values;
+  return {
+    x: centerX - width / 2,
+    y: centerY - height / 2,
+    width,
+    height,
+    normalized: inferNormalizedFlag(detection, values, box.normalized),
+  };
+}
+
+function normalizeDetectionBox(box, detection) {
+  if (Array.isArray(box) && box.length >= 4) return normalizedArrayBox(box, detection);
+  if (!box || typeof box !== 'object') return emptyDetectionBox();
+  return normalizedObjectBox(box, detection);
 }
 
 function normalizeFrame(frame) {
@@ -451,64 +422,22 @@ function parseCsvRow(line) {
   return cells;
 }
 
-function mapVisionHeader(header) {
-  const normalized = String(header || '').trim().toLowerCase();
-  const compact = normalized.replace(/[^a-z0-9]+/g, '');
+const VISION_CSV_HEADERS = Object.freeze({
+  label: 'label', classname: 'label', class: 'label', name: 'label',
+  object: 'label', category: 'label',
+  confidence: 'confidence', score: 'confidence', probability: 'confidence', prob: 'confidence',
+  x: 'x', left: 'x', y: 'y', top: 'y', width: 'width', height: 'height',
+  right: 'right', bottom: 'bottom',
+  xmin: 'xMin', ymin: 'yMin', xmax: 'xMax', ymax: 'yMax',
+  normalized: 'normalized', relative: 'normalized', isnormalized: 'normalized',
+  trackid: 'trackId',
+  source: 'source', feedsource: 'source', modelsource: 'source',
+  timestamp: 'timestamp', updatedat: 'timestamp', capturedat: 'timestamp', seenat: 'timestamp',
+});
 
-  switch (compact) {
-    case 'label':
-    case 'classname':
-    case 'class':
-    case 'name':
-    case 'object':
-    case 'category':
-      return 'label';
-    case 'confidence':
-    case 'score':
-    case 'probability':
-    case 'prob':
-      return 'confidence';
-    case 'x':
-    case 'left':
-      return 'x';
-    case 'y':
-    case 'top':
-      return 'y';
-    case 'width':
-      return 'width';
-    case 'height':
-      return 'height';
-    case 'right':
-      return 'right';
-    case 'bottom':
-      return 'bottom';
-    case 'xmin':
-      return 'xMin';
-    case 'ymin':
-      return 'yMin';
-    case 'xmax':
-      return 'xMax';
-    case 'ymax':
-      return 'yMax';
-    case 'normalized':
-    case 'relative':
-    case 'isnormalized':
-      return 'normalized';
-    case 'trackid':
-    case 'track_id':
-      return 'trackId';
-    case 'source':
-    case 'feedsource':
-    case 'modelsource':
-      return 'source';
-    case 'timestamp':
-    case 'updatedat':
-    case 'capturedat':
-    case 'seenat':
-      return 'timestamp';
-    default:
-      return header;
-  }
+function mapVisionHeader(header) {
+  const compact = String(header || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return VISION_CSV_HEADERS[compact] || header;
 }
 
 function slugifyLabel(value) {
