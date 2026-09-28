@@ -368,46 +368,88 @@ async function handlePaperStateRead(response, { store, now }) {
   });
 }
 
-async function handleMorningBriefRequest(request, response, url, { store }) {
-  if (typeof store.putMorningBrief !== 'function' || typeof store.listMorningBriefs !== 'function'
-      || typeof store.getMorningBrief !== 'function' || typeof store.getMorningBriefArtifact !== 'function') {
-    throw new IngestError('morning_brief_unavailable', 'Morning brief archive is not available.', { statusCode: 503 });
+function requireMorningBriefStore(store) {
+  if (typeof store.putMorningBrief !== 'function'
+      || typeof store.listMorningBriefs !== 'function'
+      || typeof store.getMorningBrief !== 'function'
+      || typeof store.getMorningBriefArtifact !== 'function') {
+    throw new IngestError(
+      'morning_brief_unavailable',
+      'Morning brief archive is not available.',
+      { statusCode: 503 },
+    );
   }
+}
+
+async function handleMorningBriefList(response, url, { store }) {
+  const requested = Number.parseInt(url.searchParams.get('limit') || '30', 10);
+  const limit = Number.isFinite(requested) ? Math.min(100, Math.max(1, requested)) : 30;
+  return sendJson(response, 200, { ok: true, runs: await store.listMorningBriefs({ limit }) });
+}
+
+async function handleMorningBriefArtifact(request, response, match, { store }) {
+  const artifact = await store.getMorningBriefArtifact(match[1], match[2]);
+  if (!artifact) {
+    throw new IngestError(
+      'morning_brief_artifact_not_found',
+      'Morning brief artifact not found.',
+      { statusCode: 404 },
+    );
+  }
+  if (!SHA256_RE.test(artifact.sha256) || sha256Buffer(artifact.content) !== artifact.sha256) {
+    throw new IngestError(
+      'morning_brief_artifact_corrupt',
+      'Stored morning brief artifact failed integrity validation.',
+      { statusCode: 503 },
+    );
+  }
+  const headers = {
+    'Cache-Control': 'private, no-store',
+    'X-Blue-Swallow-Artifact-SHA256': artifact.sha256,
+  };
+  if (request.method === 'HEAD') {
+    response.writeHead(200, {
+      'Content-Type': artifact.media_type,
+      'Content-Length': artifact.content.length,
+      'X-Content-Type-Options': 'nosniff',
+      ...headers,
+    });
+    return response.end();
+  }
+  return sendBinary(response, 200, artifact.content, artifact.media_type, headers);
+}
+
+async function handleMorningBriefRun(response, match, { store }) {
+  const brief = await store.getMorningBrief(match[1]);
+  if (!brief) {
+    throw new IngestError(
+      'morning_brief_not_found',
+      'Morning brief not found.',
+      { statusCode: 404 },
+    );
+  }
+  return sendJson(response, 200, { ok: true, brief });
+}
+
+async function handleMorningBriefRequest(request, response, url, { store }) {
+  requireMorningBriefStore(store);
   if (request.method === 'POST' && url.pathname === MORNING_BRIEFS_PATH) {
     return handleMorningBriefWrite(request, response, { store });
   }
   if (request.method === 'GET' && url.pathname === MORNING_BRIEFS_PATH) {
-    const requested = Number.parseInt(url.searchParams.get('limit') || '30', 10);
-    const limit = Number.isFinite(requested) ? Math.min(100, Math.max(1, requested)) : 30;
-    return sendJson(response, 200, { ok: true, runs: await store.listMorningBriefs({ limit }) });
+    return handleMorningBriefList(response, url, { store });
   }
-  const artifactMatch = url.pathname.match(/^\/api\/v1\/morning-briefs\/([a-z0-9][a-z0-9-]{2,120})\/artifacts\/([a-z0-9][a-z0-9-]{1,120})$/);
-  if ((request.method === 'GET' || request.method === 'HEAD') && artifactMatch) {
-    const artifact = await store.getMorningBriefArtifact(artifactMatch[1], artifactMatch[2]);
-    if (!artifact) throw new IngestError('morning_brief_artifact_not_found', 'Morning brief artifact not found.', { statusCode: 404 });
-    if (!SHA256_RE.test(artifact.sha256) || sha256Buffer(artifact.content) !== artifact.sha256) {
-      throw new IngestError('morning_brief_artifact_corrupt', 'Stored morning brief artifact failed integrity validation.', { statusCode: 503 });
-    }
-    const artifactHeaders = {
-      'Cache-Control': 'private, no-store',
-      'X-Blue-Swallow-Artifact-SHA256': artifact.sha256,
-    };
-    if (request.method === 'HEAD') {
-      response.writeHead(200, {
-        'Content-Type': artifact.media_type,
-        'Content-Length': artifact.content.length,
-        'X-Content-Type-Options': 'nosniff',
-        ...artifactHeaders,
-      });
-      return response.end();
-    }
-    return sendBinary(response, 200, artifact.content, artifact.media_type, artifactHeaders);
+  const artifactMatch = url.pathname.match(
+    /^\/api\/v1\/morning-briefs\/([a-z0-9][a-z0-9-]{2,120})\/artifacts\/([a-z0-9][a-z0-9-]{1,120})$/,
+  );
+  if (['GET', 'HEAD'].includes(request.method) && artifactMatch) {
+    return handleMorningBriefArtifact(request, response, artifactMatch, { store });
   }
-  const runMatch = url.pathname.match(/^\/api\/v1\/morning-briefs\/([a-z0-9][a-z0-9-]{2,120})$/);
+  const runMatch = url.pathname.match(
+    /^\/api\/v1\/morning-briefs\/([a-z0-9][a-z0-9-]{2,120})$/,
+  );
   if (request.method === 'GET' && runMatch) {
-    const brief = await store.getMorningBrief(runMatch[1]);
-    if (!brief) throw new IngestError('morning_brief_not_found', 'Morning brief not found.', { statusCode: 404 });
-    return sendJson(response, 200, { ok: true, brief });
+    return handleMorningBriefRun(response, runMatch, { store });
   }
   request.resume();
   return sendJson(response, 404, { ok: false, error: 'not_found' });
@@ -433,58 +475,105 @@ async function handleMorningBriefWrite(request, response, { store }) {
   }
   const packet = validateMorningBrief(parsed);
   const result = await store.putMorningBrief({ idempotencyKey, package: packet });
-  return sendJson(response, result.statusCode, { ok: true, replayed: result.replayed, brief: result.brief }, {
-    'Idempotent-Replayed': String(result.replayed),
-  });
+  return sendJson(
+    response,
+    result.statusCode,
+    { ok: true, replayed: result.replayed, brief: result.brief },
+    { 'Idempotent-Replayed': String(result.replayed) },
+  );
 }
 
-export function validateMorningBrief(value) {
+function validateMorningBriefEnvelope(value) {
   if (!isPlainObject(value)
       || value.schema_version !== 'bss.morning_brief.package.v1'
       || !MORNING_BRIEF_RUN_ID_RE.test(value.run_id || '')
       || !RFC3339_RE.test(value.generated_at || '')
       || !SHA256_RE.test(value.canonical_state_hash || '')
       || !SHA256_RE.test(value.package_sha256 || '')
-      || typeof value.summary !== 'string' || value.summary.length > 8_000
-      || !Array.isArray(value.artifacts) || value.artifacts.length < 1 || value.artifacts.length > 64) {
-    throw new IngestError('invalid_morning_brief', 'Morning brief envelope is invalid.', { statusCode: 422 });
+      || typeof value.summary !== 'string'
+      || value.summary.length > 8_000
+      || !Array.isArray(value.artifacts)
+      || value.artifacts.length < 1
+      || value.artifacts.length > 64) {
+    throw new IngestError(
+      'invalid_morning_brief',
+      'Morning brief envelope is invalid.',
+      { statusCode: 422 },
+    );
   }
-  const ids = new Set();
-  let totalBytes = 0;
-  const artifacts = value.artifacts.map((artifact) => {
-    if (!isPlainObject(artifact)
-        || !MORNING_BRIEF_ARTIFACT_ID_RE.test(artifact.artifact_id || '')
-        || !/^[-\w.+/;= ]{3,160}$/.test(artifact.media_type || '')
-        || !SHA256_RE.test(artifact.sha256 || '')
-        || typeof artifact.content_base64 !== 'string'
-        || !ids.add(artifact.artifact_id)) {
-      throw new IngestError('invalid_morning_brief', 'Morning brief artifact metadata is invalid.', { statusCode: 422 });
-    }
-    let content;
-    try {
-      content = Buffer.from(artifact.content_base64, 'base64');
-    } catch {
-      throw new IngestError('invalid_morning_brief', 'Morning brief artifact encoding is invalid.', { statusCode: 422 });
-    }
-    if (!content.length || content.length > 8 * 1_024 * 1_024 || sha256Buffer(content) !== artifact.sha256) {
-      throw new IngestError('invalid_morning_brief', 'Morning brief artifact content failed integrity validation.', { statusCode: 422 });
-    }
-    totalBytes += content.length;
-    return { artifact_id: artifact.artifact_id, media_type: artifact.media_type, sha256: artifact.sha256, content };
-  });
-  if (totalBytes > 24 * 1_024 * 1_024) {
-    throw new IngestError('invalid_morning_brief', 'Morning brief package exceeds the archive limit.', { statusCode: 422 });
+}
+
+function decodeMorningBriefArtifact(artifact, ids) {
+  if (!isPlainObject(artifact)
+      || !MORNING_BRIEF_ARTIFACT_ID_RE.test(artifact.artifact_id || '')
+      || !/^[-\w.+/;= ]{3,160}$/.test(artifact.media_type || '')
+      || !SHA256_RE.test(artifact.sha256 || '')
+      || typeof artifact.content_base64 !== 'string'
+      || !ids.add(artifact.artifact_id)) {
+    throw new IngestError(
+      'invalid_morning_brief',
+      'Morning brief artifact metadata is invalid.',
+      { statusCode: 422 },
+    );
   }
-  const expectedPackageSha256 = sha256Buffer(canonicalJson({
+  let content;
+  try {
+    content = Buffer.from(artifact.content_base64, 'base64');
+  } catch {
+    throw new IngestError(
+      'invalid_morning_brief',
+      'Morning brief artifact encoding is invalid.',
+      { statusCode: 422 },
+    );
+  }
+  if (!content.length
+      || content.length > 8 * 1_024 * 1_024
+      || sha256Buffer(content) !== artifact.sha256) {
+    throw new IngestError(
+      'invalid_morning_brief',
+      'Morning brief artifact content failed integrity validation.',
+      { statusCode: 422 },
+    );
+  }
+  return {
+    artifact_id: artifact.artifact_id,
+    media_type: artifact.media_type,
+    sha256: artifact.sha256,
+    content,
+  };
+}
+
+function expectedMorningBriefPackageSha(value, artifacts) {
+  return sha256Buffer(canonicalJson({
     schema_version: value.schema_version,
     run_id: value.run_id,
     generated_at: value.generated_at,
     canonical_state_hash: value.canonical_state_hash,
     summary: value.summary,
-    artifacts: artifacts.map(({ artifact_id, media_type, sha256 }) => ({ artifact_id, media_type, sha256 })),
+    artifacts: artifacts.map(({ artifact_id, media_type, sha256 }) => ({
+      artifact_id, media_type, sha256,
+    })),
   }));
-  if (value.package_sha256 !== expectedPackageSha256) {
-    throw new IngestError('invalid_morning_brief', 'Morning brief package hash failed integrity validation.', { statusCode: 422 });
+}
+
+export function validateMorningBrief(value) {
+  validateMorningBriefEnvelope(value);
+  const ids = new Set();
+  const artifacts = value.artifacts.map((artifact) => decodeMorningBriefArtifact(artifact, ids));
+  const totalBytes = artifacts.reduce((total, artifact) => total + artifact.content.length, 0);
+  if (totalBytes > 24 * 1_024 * 1_024) {
+    throw new IngestError(
+      'invalid_morning_brief',
+      'Morning brief package exceeds the archive limit.',
+      { statusCode: 422 },
+    );
+  }
+  if (value.package_sha256 !== expectedMorningBriefPackageSha(value, artifacts)) {
+    throw new IngestError(
+      'invalid_morning_brief',
+      'Morning brief package hash failed integrity validation.',
+      { statusCode: 422 },
+    );
   }
   return {
     schema_version: value.schema_version,
