@@ -146,20 +146,7 @@ function pagePosition(track, direction) {
   });
 }
 
-function renderCarousel(detail, brief, nonce) {
-  const pages = dossierPages(brief);
-  if (!pages.length) return;
-
-  const section = document.createElement('section');
-  section.className = 'brief-pages';
-  const header = document.createElement('div');
-  header.className = 'brief-pages-header';
-  const heading = document.createElement('h3');
-  heading.textContent = 'Rendered field dossier';
-  const count = document.createElement('p');
-  count.textContent = `${pages.length} verified image pages`;
-  header.append(heading, count);
-
+function carouselControls(track) {
   const controls = document.createElement('div');
   controls.className = 'brief-carousel-controls';
   const previous = document.createElement('button');
@@ -172,57 +159,31 @@ function renderCarousel(detail, brief, nonce) {
   next.className = 'btn btn-secondary brief-carousel-control';
   next.textContent = 'Next →';
   next.setAttribute('aria-label', 'Next dossier page');
+  previous.addEventListener('click', () => pagePosition(track, -1));
+  next.addEventListener('click', () => pagePosition(track, 1));
   controls.append(previous, next);
+  return controls;
+}
 
+function carouselTrack(brief) {
   const track = document.createElement('div');
   track.className = 'brief-carousel';
   track.tabIndex = 0;
   track.setAttribute('aria-label', `${brief.run_id} rendered dossier pages`);
-  previous.addEventListener('click', () => pagePosition(track, -1));
-  next.addEventListener('click', () => pagePosition(track, 1));
   track.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowLeft') {
       event.preventDefault();
       pagePosition(track, -1);
-    }
-    if (event.key === 'ArrowRight') {
+    } else if (event.key === 'ArrowRight') {
       event.preventDefault();
       pagePosition(track, 1);
     }
   });
+  return track;
+}
 
-  const loadSlide = async (slide, artifact) => {
-    if (slide.dataset.state) return;
-    slide.dataset.state = 'loading';
-    try {
-      const blob = await fetchArtifact(brief.run_id, artifact);
-      const url = URL.createObjectURL(blob);
-      if (nonce !== selectionNonce || !detail.isConnected) {
-        URL.revokeObjectURL(url);
-        return;
-      }
-      activeObjectUrls.add(url);
-      const image = document.createElement('img');
-      image.alt = `${brief.run_id}, ${artifact.artifact_id}`;
-      image.width = 1200;
-      image.height = 1500;
-      image.decoding = 'async';
-      image.src = url;
-      slide.prepend(image);
-      slide.dataset.state = 'ready';
-    } catch (error) {
-      if (nonce !== selectionNonce || !detail.isConnected) return;
-      const unavailable = document.createElement('p');
-      unavailable.className = 'brief-page-error';
-      unavailable.textContent = 'Page withheld: artifact could not be verified.';
-      slide.append(unavailable);
-      slide.dataset.state = 'error';
-      console.warn('Morning brief page unavailable', error);
-    }
-  };
-
-  const slides = [];
-  for (const [index, artifact] of pages.entries()) {
+function carouselSlides(track, pages) {
+  return pages.map((artifact, index) => {
     const slide = document.createElement('figure');
     slide.className = 'brief-page';
     slide.dataset.artifactId = artifact.artifact_id;
@@ -230,26 +191,77 @@ function renderCarousel(detail, brief, nonce) {
     caption.textContent = `PAGE ${String(index + 1).padStart(2, '0')} / ${String(pages.length).padStart(2, '0')} · ${shortHash(artifact.sha256)}`;
     slide.append(caption);
     track.append(slide);
-    slides.push({ slide, artifact });
+    return { slide, artifact };
+  });
+}
+
+async function loadCarouselSlide(detail, brief, nonce, slide, artifact) {
+  if (slide.dataset.state) return;
+  slide.dataset.state = 'loading';
+  try {
+    const blob = await fetchArtifact(brief.run_id, artifact);
+    const url = URL.createObjectURL(blob);
+    if (nonce !== selectionNonce || !detail.isConnected) {
+      URL.revokeObjectURL(url);
+      return;
+    }
+    activeObjectUrls.add(url);
+    const image = document.createElement('img');
+    image.alt = `${brief.run_id}, ${artifact.artifact_id}`;
+    image.width = 1200;
+    image.height = 1500;
+    image.decoding = 'async';
+    image.src = url;
+    slide.prepend(image);
+    slide.dataset.state = 'ready';
+  } catch (error) {
+    if (nonce !== selectionNonce || !detail.isConnected) return;
+    const unavailable = document.createElement('p');
+    unavailable.className = 'brief-page-error';
+    unavailable.textContent = 'Page withheld: artifact could not be verified.';
+    slide.append(unavailable);
+    slide.dataset.state = 'error';
+    console.warn('Morning brief page unavailable', error);
   }
+}
 
-  section.append(header, controls, track);
-  detail.append(section);
-
+function observeCarouselSlides(detail, brief, nonce, track, slides) {
+  const load = ({ slide, artifact }) => {
+    void loadCarouselSlide(detail, brief, nonce, slide, artifact);
+  };
   if ('IntersectionObserver' in window) {
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
         const item = slides.find((candidate) => candidate.slide === entry.target);
-        if (item) void loadSlide(item.slide, item.artifact);
+        if (item) load(item);
         observer.unobserve(entry.target);
       }
     }, { root: track, rootMargin: '75% 0px', threshold: 0.01 });
     slides.forEach(({ slide }) => observer.observe(slide));
   } else {
-    slides.forEach(({ slide, artifact }) => { void loadSlide(slide, artifact); });
+    slides.forEach(load);
   }
-  if (slides[0]) void loadSlide(slides[0].slide, slides[0].artifact);
+  if (slides[0]) load(slides[0]);
+}
+
+function renderCarousel(detail, brief, nonce) {
+  const pages = dossierPages(brief);
+  if (!pages.length) return;
+  const section = document.createElement('section');
+  section.className = 'brief-pages';
+  const header = document.createElement('div');
+  header.className = 'brief-pages-header';
+  const heading = document.createElement('h3');
+  heading.textContent = 'Rendered field dossier';
+  const count = document.createElement('p');
+  count.textContent = `${pages.length} verified image pages`;
+  header.append(heading, count);
+  const track = carouselTrack(brief);
+  const slides = carouselSlides(track, pages);
+  section.append(header, carouselControls(track), track);
+  detail.append(section);
+  observeCarouselSlides(detail, brief, nonce, track, slides);
 }
 
 function renderDetail(brief, nonce) {
