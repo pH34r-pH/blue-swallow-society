@@ -228,64 +228,67 @@ function renderEventsCalendar() {
   container.append(grid);
 }
 
+function eventCardHeader(event) {
+  const header = document.createElement('header');
+  header.className = 'event-card-header';
+  const titleBlock = document.createElement('div');
+  const category = document.createElement('p');
+  category.className = 'event-category';
+  category.textContent = event.category;
+  const title = document.createElement('h3');
+  title.textContent = event.title;
+  titleBlock.append(category, title);
+  const date = document.createElement('p');
+  date.className = 'event-date';
+  date.textContent = formatEventDateRange(event);
+  header.append(titleBlock, date);
+  return header;
+}
+
+function eventMeta(event) {
+  const meta = document.createElement('dl');
+  meta.className = 'event-meta';
+  appendMeta(meta, 'Location', event.location);
+  appendMeta(meta, 'Site', event.site);
+  return meta;
+}
+
+function eventSupplies(event, claims, currentName) {
+  const supplies = document.createElement('section');
+  supplies.className = 'supplies-panel';
+  supplies.setAttribute('aria-label', `${event.title} needed supplies`);
+  const heading = document.createElement('h4');
+  heading.textContent = 'Needed supplies';
+  const list = document.createElement('ul');
+  list.className = 'supply-list';
+  event.supplies.forEach((supply) => {
+    list.append(createSupplyListItem(event, supply, claims, currentName));
+  });
+  supplies.append(heading, list);
+  return supplies;
+}
+
+function eventCard(event, claims, currentName) {
+  const article = document.createElement('article');
+  article.className = 'event-card';
+  const summary = document.createElement('p');
+  summary.className = 'event-summary';
+  summary.textContent = event.summary;
+  article.append(
+    eventCardHeader(event),
+    summary,
+    eventMeta(event),
+    eventSupplies(event, claims, currentName),
+  );
+  return article;
+}
+
 function renderEventsList() {
   const container = $('eventsList');
-  if (!container) {
-    return;
-  }
-
+  if (!container) return;
   const claims = loadSupplyClaims();
   const currentName = getCurrentClaimName();
-  container.replaceChildren();
-
-  PUBLIC_EVENTS.forEach((event) => {
-    const article = document.createElement('article');
-    article.className = 'event-card';
-
-    const header = document.createElement('header');
-    header.className = 'event-card-header';
-
-    const titleBlock = document.createElement('div');
-    const category = document.createElement('p');
-    category.className = 'event-category';
-    category.textContent = event.category;
-    const title = document.createElement('h3');
-    title.textContent = event.title;
-    titleBlock.append(category, title);
-
-    const date = document.createElement('p');
-    date.className = 'event-date';
-    date.textContent = formatEventDateRange(event);
-    header.append(titleBlock, date);
-
-    const summary = document.createElement('p');
-    summary.className = 'event-summary';
-    summary.textContent = event.summary;
-
-    const meta = document.createElement('dl');
-    meta.className = 'event-meta';
-    appendMeta(meta, 'Location', event.location);
-    appendMeta(meta, 'Site', event.site);
-
-    const supplies = document.createElement('section');
-    supplies.className = 'supplies-panel';
-    supplies.setAttribute('aria-label', `${event.title} needed supplies`);
-
-    const supplyHeading = document.createElement('h4');
-    supplyHeading.textContent = 'Needed supplies';
-    supplies.append(supplyHeading);
-
-    const supplyList = document.createElement('ul');
-    supplyList.className = 'supply-list';
-
-    event.supplies.forEach((supply) => {
-      supplyList.append(createSupplyListItem(event, supply, claims, currentName));
-    });
-
-    supplies.append(supplyList);
-    article.append(header, summary, meta, supplies);
-    container.append(article);
-  });
+  container.replaceChildren(...PUBLIC_EVENTS.map((event) => eventCard(event, claims, currentName)));
 }
 
 function createSupplyListItem(event, supply, claims, currentName) {
