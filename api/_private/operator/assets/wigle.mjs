@@ -210,72 +210,29 @@ function parseCsvRow(line) {
   return cells;
 }
 
-function mapCsvHeader(header) {
-  const normalized = String(header || '').trim().toLowerCase();
-  const compact = normalized.replace(/[^a-z0-9]+/g, '');
+const WIGLE_CSV_HEADERS = Object.freeze({
+  ssid: 'ssid',
+  bssid: 'bssid', mac: 'bssid', macaddress: 'bssid',
+  lat: 'latitude', latitude: 'latitude', currentlatitude: 'latitude',
+  lastlat: 'latitude', bestlat: 'latitude',
+  lon: 'longitude', lng: 'longitude', longitude: 'longitude',
+  currentlongitude: 'longitude', lastlon: 'longitude', bestlon: 'longitude',
+  signaldbm: 'signalDbm', rssi: 'signalDbm', signal: 'signalDbm',
+  level: 'signalDbm', bestlevel: 'signalDbm',
+  frequency: 'frequency', freq: 'frequency',
+  channel: 'channel', chan: 'channel',
+  security: 'security', encryption: 'security', crypto: 'security',
+  authmode: 'security', capabilities: 'security',
+  vendor: 'vendor', manufacturer: 'vendor', mfgr: 'vendor',
+  lastseen: 'lastSeen', timestamp: 'lastSeen', updatedat: 'lastSeen',
+  seenat: 'lastSeen', firstseen: 'lastSeen', lasttime: 'lastSeen', time: 'lastSeen',
+  source: 'source', feedsource: 'source',
+  deviceclass: 'deviceClass', type: 'deviceClass', kind: 'deviceClass',
+});
 
-  switch (compact) {
-    case 'ssid':
-      return 'ssid';
-    case 'bssid':
-    case 'mac':
-    case 'macaddress':
-      return 'bssid';
-    case 'lat':
-    case 'latitude':
-    case 'currentlatitude':
-    case 'lastlat':
-    case 'bestlat':
-      return 'latitude';
-    case 'lon':
-    case 'lng':
-    case 'longitude':
-    case 'currentlongitude':
-    case 'lastlon':
-    case 'bestlon':
-      return 'longitude';
-    case 'signaldbm':
-    case 'rssi':
-    case 'signal':
-    case 'level':
-    case 'bestlevel':
-      return 'signalDbm';
-    case 'frequency':
-    case 'freq':
-      return 'frequency';
-    case 'channel':
-    case 'chan':
-      return 'channel';
-    case 'security':
-    case 'encryption':
-    case 'crypto':
-    case 'authmode':
-    case 'capabilities':
-      return 'security';
-    case 'vendor':
-    case 'manufacturer':
-    case 'mfgr':
-      return 'vendor';
-    case 'lastseen':
-    case 'last_seen':
-    case 'timestamp':
-    case 'updatedat':
-    case 'seenat':
-    case 'firstseen':
-    case 'lasttime':
-    case 'time':
-      return 'lastSeen';
-    case 'source':
-    case 'feedsource':
-      return 'source';
-    case 'deviceclass':
-    case 'device_class':
-    case 'type':
-    case 'kind':
-      return 'deviceClass';
-    default:
-      return header;
-  }
+function mapCsvHeader(header) {
+  const compact = String(header || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return WIGLE_CSV_HEADERS[compact] || header;
 }
 
 export function buildWigleMapState({
