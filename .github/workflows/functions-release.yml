@@ -144,7 +144,7 @@ jobs:
           esac
 
           body="$(jq -r '.body // empty' "$response")"
-          mapfile -t digests < <(printf '%s\\n' "$body" | grep -oE 'sha256:[0-9a-f]{64}' || true)
+          mapfile -t digests < <(printf '%s\n' "$body" | grep -oE 'sha256:[0-9a-f]{64}' || true)
           [[ "${#digests[@]}" -eq 1 ]] || { echo "Existing release does not contain exactly one recorded image digest." >&2; exit 1; }
           recorded_digest="${digests[0]}"
           version_ref="$IMAGE_NAME:$GITHUB_REF_NAME"
