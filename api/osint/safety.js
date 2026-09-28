@@ -106,42 +106,45 @@ function isLikelyIpAddress(value) {
   return net.isIP(normalizeHostForSafety(value)) !== 0;
 }
 
+function isPrivateIpv4(normalized) {
+  const [a, b, c, d] = normalized.split('.').map((segment) => parseInt(segment, 10));
+  const reserved = (
+    a === 0
+    || a === 10
+    || (a === 100 && b >= 64 && b <= 127)
+    || a === 127
+    || (a === 169 && b === 254)
+    || (a === 172 && b >= 16 && b <= 31)
+    || (a === 192 && b === 0 && c === 0)
+    || (a === 192 && b === 0 && c === 2)
+    || (a === 192 && b === 168)
+    || (a === 198 && (b === 18 || b === 19))
+    || (a === 198 && b === 51 && c === 100)
+    || (a === 203 && b === 0 && c === 113)
+    || a >= 224
+  );
+  return reserved || d < 0 || d > 255;
+}
+
+function isPrivateIpv6(normalized) {
+  const lower = normalized.toLowerCase();
+  if (lower === '::' || lower === '::1') return true;
+  if (lower.startsWith('::ffff:')) {
+    const maybeV4 = lower.slice('::ffff:'.length);
+    return net.isIP(maybeV4) === 4 ? isPrivateIpv4(maybeV4) : true;
+  }
+  return [
+    'fe80:', 'fc', 'fd', 'ff', '2001:db8:',
+  ].some((prefix) => lower.startsWith(prefix))
+    || lower === '2001:db8::1'
+    || lower === '2001:db8::';
+}
+
 function isPrivateIp(value) {
   const normalized = normalizeHostForSafety(value);
-  if (net.isIP(normalized) === 4) {
-    const [a, b, c, d] = normalized.split('.').map((segment) => parseInt(segment, 10));
-    if (a === 0) return true;
-    if (a === 10) return true;
-    if (a === 100 && b >= 64 && b <= 127) return true;
-    if (a === 127) return true;
-    if (a === 169 && b === 254) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 0 && c === 0) return true;
-    if (a === 192 && b === 0 && c === 2) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 198 && (b === 18 || b === 19)) return true;
-    if (a === 198 && b === 51 && c === 100) return true;
-    if (a === 203 && b === 0 && c === 113) return true;
-    if (a >= 224) return true;
-    return d < 0 || d > 255;
-  }
-
-  if (net.isIP(normalized) === 6) {
-    const lower = normalized.toLowerCase();
-    if (lower === '::' || lower === '::1') return true;
-    if (lower.startsWith('::ffff:')) {
-      const maybeV4 = lower.slice('::ffff:'.length);
-      return net.isIP(maybeV4) === 4 ? isPrivateIp(maybeV4) : true;
-    }
-    return lower.startsWith('fe80:')
-      || lower.startsWith('fc')
-      || lower.startsWith('fd')
-      || lower.startsWith('ff')
-      || lower.startsWith('2001:db8:')
-      || lower === '2001:db8::1'
-      || lower === '2001:db8::';
-  }
-
+  const family = net.isIP(normalized);
+  if (family === 4) return isPrivateIpv4(normalized);
+  if (family === 6) return isPrivateIpv6(normalized);
   return false;
 }
 
