@@ -127,6 +127,98 @@ export function createCybermapApiServer({
   return server;
 }
 
+async function dispatchViewport(request, response, url, { store, now, mtlsProxySecret }) {
+  if (url.search) {
+    request.resume();
+    throw new IngestError('invalid_viewport', 'Viewport requests must not use URL query parameters.', { statusCode: 400 });
+  }
+  if (singleHeader(request, 'x-blue-swallow-cybermap-read-token')) {
+    requireBackendReadToken(request);
+    return sendJson(response, 200, await handleCybermapViewportPost(request, { store, now }));
+  }
+  const mtlsAssertion = requireMtlsProxyAssertion(request, mtlsProxySecret);
+  const viewport = await handleMtlsViewport(request, {
+    store,
+    now,
+    mtlsAssertion,
+    deviceId: singleHeader(request, 'x-blue-swallow-device-id'),
+  });
+  return sendJson(response, 200, toAggregateViewportResponse(viewport));
+}
+
+async function dispatchPaperState(request, response, { store, now }) {
+  requirePaperStateToken(request);
+  if (request.method === 'GET') return handlePaperStateRead(response, { store, now });
+  return handlePaperStateWrite(request, response, { store, now });
+}
+
+async function dispatchKnownRequest(request, response, url, context) {
+  const { store, now, mtlsProxySecret } = context;
+  if (request.method === 'GET' && url.pathname === '/healthz') {
+    return sendJson(response, 200, { ok: true, service: 'bss-cybermap-api' });
+  }
+  if (request.method === 'GET' && url.pathname === '/echo') {
+    return sendJson(response, 200, buildEchoPayload(url));
+  }
+  if (request.method === 'GET' && url.pathname === '/readyz') {
+    const readiness = await store.ready();
+    return sendJson(response, readiness.ok ? 200 : 503, readiness);
+  }
+  if (request.method === 'POST' && url.pathname === OPERATOR_SIGNALS_PATH) {
+    requireBackendReadToken(request);
+    if (url.search) {
+      request.resume();
+      throw new IngestError(
+        'invalid_operator_signals',
+        'Operator signal requests must not use URL query parameters.',
+        { statusCode: 400 },
+      );
+    }
+    return sendJson(response, 200, await handleOperatorSignalSnapshotPost(request, { store, now }));
+  }
+  if (request.method === 'POST' && url.pathname === VIEWPORT_PATH) {
+    return dispatchViewport(request, response, url, { store, now, mtlsProxySecret });
+  }
+  if (request.method === 'GET' && url.pathname.startsWith('/api/v1/cybermap/tiles/')) {
+    requireBackendReadToken(request);
+    const tile = await handleCybermapTile(url, { store });
+    return sendBinary(
+      response, 200, tile, 'application/vnd.mapbox-vector-tile',
+      { 'Cache-Control': 'no-store' },
+    );
+  }
+  if (request.method === 'POST' && url.pathname === GLOBAL_VIEWPORT_PATH) {
+    requireBackendReadToken(request);
+    return sendJson(response, 200, await handleGlobalViewport(request, { store, now }));
+  }
+  if (url.pathname === PAPER_STATE_PATH && ['GET', 'PUT'].includes(request.method)) {
+    return dispatchPaperState(request, response, { store, now });
+  }
+  if (url.pathname === MORNING_BRIEFS_PATH || url.pathname.startsWith(`${MORNING_BRIEFS_PATH}/`)) {
+    requireMorningBriefToken(request);
+    return handleMorningBriefRequest(request, response, url, { store });
+  }
+  return undefined;
+}
+
+function logRequestError(logger, error) {
+  const diagnosticCode = boundedDiagnosticCode(error?.diagnosticCode);
+  const mtlsRejectionReason = boundedMtlsRejectionReason(error?.mtlsRejectionReason);
+  const record = {
+    code: error?.code ?? 'internal_error',
+    statusCode: error?.statusCode ?? 500,
+  };
+  if (diagnosticCode === 'mtls_credential_rejected') {
+    if (mtlsRejectionReason) {
+      record.diagnostic_code = diagnosticCode;
+      record.mtls_rejection_reason = mtlsRejectionReason;
+    }
+  } else if (diagnosticCode) {
+    record.diagnostic_code = diagnosticCode;
+  }
+  logger?.error?.(record);
+}
+
 export function createRequestHandler({
   store,
   now = Date.now,
@@ -137,78 +229,23 @@ export function createRequestHandler({
   return async function requestHandler(request, response) {
     try {
       const url = new URL(request.url, 'http://127.0.0.1');
-      if (request.method === 'GET' && url.pathname === '/healthz') {
-        return sendJson(response, 200, { ok: true, service: 'bss-cybermap-api' });
-      }
-      if (request.method === 'GET' && url.pathname === '/echo') {
-        return sendJson(response, 200, buildEchoPayload(url));
-      }
-      if (request.method === 'GET' && url.pathname === '/readyz') {
-        const readiness = await store.ready();
-        return sendJson(response, readiness.ok ? 200 : 503, readiness);
-      }
-      if (request.method === 'POST' && url.pathname === OPERATOR_SIGNALS_PATH) {
-        requireBackendReadToken(request);
-        if (url.search) {
-          request.resume();
-          throw new IngestError('invalid_operator_signals', 'Operator signal requests must not use URL query parameters.', { statusCode: 400 });
-        }
-        return sendJson(response, 200, await handleOperatorSignalSnapshotPost(request, { store, now }));
-      }
-      if (request.method === 'POST' && url.pathname === VIEWPORT_PATH) {
-        if (url.search) {
-          request.resume();
-          throw new IngestError('invalid_viewport', 'Viewport requests must not use URL query parameters.', { statusCode: 400 });
-        }
-        if (singleHeader(request, 'x-blue-swallow-cybermap-read-token')) {
-          requireBackendReadToken(request);
-          return sendJson(response, 200, await handleCybermapViewportPost(request, { store, now }));
-        }
-        const mtlsAssertion = requireMtlsProxyAssertion(request, mtlsProxySecret);
-        const viewport = await handleMtlsViewport(request, { store, now, mtlsAssertion, deviceId: singleHeader(request, 'x-blue-swallow-device-id') });
-        return sendJson(response, 200, toAggregateViewportResponse(viewport));
-      }
-      if (request.method === 'GET' && url.pathname.startsWith('/api/v1/cybermap/tiles/')) {
-        requireBackendReadToken(request);
-        const tile = await handleCybermapTile(url, { store });
-        return sendBinary(response, 200, tile, 'application/vnd.mapbox-vector-tile', { 'Cache-Control': 'no-store' });
-      }
-      if (request.method === 'POST' && url.pathname === GLOBAL_VIEWPORT_PATH) {
-        requireBackendReadToken(request);
-        const viewport = await handleGlobalViewport(request, { store, now });
-        return sendJson(response, 200, viewport);
-      }
-      if (url.pathname === PAPER_STATE_PATH && (request.method === 'GET' || request.method === 'PUT')) {
-        requirePaperStateToken(request);
-        if (request.method === 'GET') return await handlePaperStateRead(response, { store, now });
-        return await handlePaperStateWrite(request, response, { store, now });
-      }
-      if (url.pathname === MORNING_BRIEFS_PATH || url.pathname.startsWith(`${MORNING_BRIEFS_PATH}/`)) {
-        requireMorningBriefToken(request);
-        return await handleMorningBriefRequest(request, response, url, { store });
-      }
+      const handled = await dispatchKnownRequest(request, response, url, {
+        store, now, mtlsProxySecret,
+      });
+      if (handled !== undefined || response.writableEnded) return handled;
       if (request.method !== 'POST' || url.pathname !== INGEST_PATH) {
         request.resume();
         return sendJson(response, 404, { ok: false, error: 'not_found' });
       }
-      const mtlsAssertion = mtlsProxyAssertionIfPresent(request, mtlsProxySecret);
-      return await handleObservationBatch(request, response, {
-        store, now, ingestDeadlineMs, mtlsAssertion,
+      return handleObservationBatch(request, response, {
+        store,
+        now,
+        ingestDeadlineMs,
+        mtlsAssertion: mtlsProxyAssertionIfPresent(request, mtlsProxySecret),
       });
     } catch (error) {
       request.resume?.();
-      const diagnosticCode = boundedDiagnosticCode(error?.diagnosticCode);
-      const mtlsRejectionReason = boundedMtlsRejectionReason(error?.mtlsRejectionReason);
-      const record = { code: error?.code ?? 'internal_error', statusCode: error?.statusCode ?? 500 };
-      if (diagnosticCode === 'mtls_credential_rejected') {
-        if (mtlsRejectionReason) {
-          record.diagnostic_code = diagnosticCode;
-          record.mtls_rejection_reason = mtlsRejectionReason;
-        }
-      } else if (diagnosticCode) {
-        record.diagnostic_code = diagnosticCode;
-      }
-      logger?.error?.(record);
+      logRequestError(logger, error);
       return sendError(response, error);
     }
   };
