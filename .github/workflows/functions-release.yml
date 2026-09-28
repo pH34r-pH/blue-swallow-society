@@ -136,6 +136,12 @@ jobs:
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME")"
           case "$status" in
             404)
+              version_ref="$IMAGE_NAME:$GITHUB_REF_NAME"
+              if docker buildx imagetools inspect "$version_ref" >/dev/null 2>&1; then
+                echo "A versioned GHCR image exists without a GitHub Release; refusing to overwrite an unqualified image." >&2
+                exit 1
+              fi
+              echo "release_exists=false" >> "$GITHUB_OUTPUT"
               echo "already_released=false" >> "$GITHUB_OUTPUT"
               exit 0
               ;;
@@ -145,21 +151,33 @@ jobs:
 
           body="$(jq -r '.body // empty' "$response")"
           mapfile -t digests < <(printf '%s\n' "$body" | grep -oE 'sha256:[0-9a-f]{64}' || true)
-          [[ "${#digests[@]}" -eq 1 ]] || { echo "Existing release does not contain exactly one recorded image digest." >&2; exit 1; }
-          recorded_digest="${digests[0]}"
           version_ref="$IMAGE_NAME:$GITHUB_REF_NAME"
-          registry_digest="$(docker buildx imagetools inspect "$version_ref" --format '{{json .Manifest}}' | jq -er '.digest')"
-          [[ "$registry_digest" == "$recorded_digest" ]] || {
-            echo "Existing release digest does not match the versioned GHCR image; refusing to mutate either." >&2
+          if [[ "${#digests[@]}" -eq 1 ]]; then
+            recorded_digest="${digests[0]}"
+            registry_digest="$(docker buildx imagetools inspect "$version_ref" --format '{{json .Manifest}}' | jq -er '.digest')"
+            [[ "$registry_digest" == "$recorded_digest" ]] || {
+              echo "Existing release digest does not match the versioned GHCR image; refusing to mutate either." >&2
+              exit 1
+            }
+            gh attestation verify "oci://$IMAGE_NAME@$recorded_digest" \
+              --repo "$GITHUB_REPOSITORY" \
+              --source-digest "$GITHUB_SHA" \
+              --source-ref "$GITHUB_REF" \
+              --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/functions-release.yml"
+            echo "release_exists=true" >> "$GITHUB_OUTPUT"
+            echo "already_released=true" >> "$GITHUB_OUTPUT"
+            echo "Existing release is complete and matches its immutable GHCR digest and exact source tag; no image tag or attestation will be rewritten." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${#digests[@]}" -eq 0 && "$body" == *"Artifact status: publication pending."* ]]; then
+            if docker buildx imagetools inspect "$version_ref" >/dev/null 2>&1; then
+              echo "The pending release already has a versioned GHCR image but no completed release digest; refusing to overwrite it." >&2
+              exit 1
+            fi
+            echo "release_exists=true" >> "$GITHUB_OUTPUT"
+            echo "already_released=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Existing release is neither a verified release nor an explicitly pending seed release; refusing to publish." >&2
             exit 1
-          }
-          gh attestation verify "oci://$IMAGE_NAME@$recorded_digest" \
-            --repo "$GITHUB_REPOSITORY" \
-            --source-digest "$GITHUB_SHA" \
-            --source-ref "$GITHUB_REF" \
-            --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/functions-release.yml"
-          echo "already_released=true" >> "$GITHUB_OUTPUT"
-          echo "Existing release is complete and matches its immutable GHCR digest; no image tag or attestation will be rewritten." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Build, smoke, and push the public Functions image
         if: steps.existing-release.outputs.already_released != 'true'
         id: image
@@ -253,7 +271,13 @@ jobs:
 
           Private Fleet instances should deploy the immutable Society digest above. Rebuild new Society releases to receive Microsoft's supported Node 24 Functions base-image updates.
           EOF
-          gh release create "$GITHUB_REF_NAME" \
-            --verify-tag \
-            --title "Blue Swallow Society $GITHUB_REF_NAME" \
-            --notes-file "$notes"
+          if [[ "${{ steps.existing-release.outputs.release_exists }}" == "true" ]]; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "Blue Swallow Society $GITHUB_REF_NAME" \
+              --notes-file "$notes"
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --verify-tag \
+              --title "Blue Swallow Society $GITHUB_REF_NAME" \
+              --notes-file "$notes"
+          fi
