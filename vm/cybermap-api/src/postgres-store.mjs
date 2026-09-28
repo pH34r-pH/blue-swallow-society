@@ -208,8 +208,9 @@ async function existingObservationHashes(client, credential, batch) {
     .sort();
   await lockObservationKeys(client, credential, sortedKeys);
   const rows = await scopedObservationRows(client, credential, sortedKeys);
+  const hashes = observationHashMap(rows);
   await assertNoUnscopedLegacyObservations(client, credential, sortedKeys);
-  return observationHashMap(rows);
+  return hashes;
 }
 
 function partitionBatchObservations(batch, existingByKey) {
