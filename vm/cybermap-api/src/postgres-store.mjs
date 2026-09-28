@@ -25,6 +25,224 @@ const GLOBAL_MAX_CELLS = 1_000;
 const GLOBAL_VIEWPORT_SCHEMA_VERSION = 'bss.godeye.global_viewport.v1';
 
 /** Durable PostgreSQL/PostGIS implementation of the authenticated observation store contract. */
+async function assertLiveCredential(client, credential) {
+  const boundMtlsPolicy = credential.mtls_policy ?? null;
+  const mtlsPolicyPredicate = boundMtlsPolicy ? `
+       AND source.source_key = $4
+       AND source.source_class = $5
+       AND source.provenance = $6::jsonb
+       AND credential.metadata = $7::jsonb
+       AND cardinality(credential.scopes) = cardinality($8::text[])
+       AND credential.scopes @> $8::text[]
+       AND credential.scopes <@ $8::text[]` : '';
+  const parameters = [credential.credential_id, credential.device_id, credential.source_id];
+  if (boundMtlsPolicy) {
+    parameters.push(
+      boundMtlsPolicy.sourceKey,
+      boundMtlsPolicy.sourceClass,
+      JSON.stringify(boundMtlsPolicy.sourceProvenance),
+      JSON.stringify(boundMtlsPolicy.credentialMetadata),
+      [...boundMtlsPolicy.scopes],
+    );
+  }
+  const result = await client.query(
+    `SELECT credential.id AS credential_id
+     FROM device_ingest_credentials AS credential
+     JOIN source_catalog AS source ON source.id = credential.source_id
+     WHERE credential.id = $1
+       AND credential.device_id = $2
+       AND credential.source_id = $3
+       AND 'observations:write' = ANY(credential.scopes)
+       AND credential.enabled = true
+       AND (credential.expires_at IS NULL OR credential.expires_at > now())
+       AND source.enabled = true
+       ${mtlsPolicyPredicate}
+     FOR NO KEY UPDATE OF credential, source`,
+    parameters,
+  );
+  if (result.rows.length !== 1) throw forbidden();
+}
+
+async function lockBatchApplication(client, credential, batch) {
+  const key = `${credential.source_id}:${batch.device_id}:${batch.idempotency_key}`;
+  const result = await client.query(
+    'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS locked',
+    [key],
+  );
+  if (result.rows[0]?.locked !== true) {
+    throw new IngestError(
+      'batch_in_progress',
+      'The batch is already being applied.',
+      { statusCode: 409 },
+    );
+  }
+}
+
+async function existingBatchReceipt(client, credential, batch, payloadHash) {
+  const result = await client.query(
+    `SELECT payload_hash, receipt
+     FROM sync_batches
+     WHERE source_id = $1 AND client_id = $2 AND idempotency_key = $3
+     FOR UPDATE`,
+    [credential.source_id, batch.device_id, batch.idempotency_key],
+  );
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  if (row.payload_hash !== payloadHash) {
+    throw new IngestError(
+      'idempotency_key_reused',
+      'Idempotency key was reused with changed content.',
+      { statusCode: 409 },
+    );
+  }
+  if (!row.receipt) {
+    throw new IngestError(
+      'batch_in_progress',
+      'The batch is already being applied.',
+      { statusCode: 409 },
+    );
+  }
+  return parseDurableReceipt(row.receipt, batch);
+}
+
+async function assertSessionOwnership(client, credential, batch) {
+  if (!batch.session_id) return;
+  const session = await client.query(
+    `SELECT id
+     FROM sensorium_sessions
+     WHERE id = $1
+       AND source_id = $2
+       AND ended_at IS NULL
+       AND (device_ref = $3 OR client_id = $3)
+     FOR SHARE`,
+    [batch.session_id, credential.source_id, credential.device_id],
+  );
+  if (session.rows.length !== 1) {
+    throw new IngestError(
+      'session_not_owned',
+      'Session does not belong to the authenticated source.',
+      { statusCode: 422 },
+    );
+  }
+}
+
+async function lockObservationKeys(client, credential, sortedKeys) {
+  await client.query(
+    `SELECT pg_advisory_xact_lock(hashtextextended($1 || ':' || $2 || ':' || observation_key, 1))
+     FROM unnest($3::text[]) AS observation_key
+     ORDER BY observation_key`,
+    [credential.source_id, credential.device_id, sortedKeys],
+  );
+}
+
+async function scopedObservationRows(client, credential, sortedKeys) {
+  const current = await client.query(
+    `SELECT external_observation_key, producer_device_id, content_hash
+     FROM observations
+     WHERE source_id = $1
+       AND producer_device_id = $2
+       AND external_observation_key = ANY($3::text[])`,
+    [credential.source_id, credential.device_id, sortedKeys],
+  );
+  const legacy = await client.query(
+    `SELECT observation.external_observation_key, observation.content_hash
+     FROM observation_identity_scopes AS scope
+     JOIN observations AS observation ON observation.id = scope.observation_id
+     WHERE scope.source_id = $1
+       AND scope.producer_device_id = $2
+       AND scope.external_observation_key = ANY($3::text[])`,
+    [credential.source_id, credential.device_id, sortedKeys],
+  );
+  return [...current.rows, ...legacy.rows];
+}
+
+async function assertNoUnscopedLegacyObservations(client, credential, sortedKeys) {
+  const result = await client.query(
+    `SELECT observation.external_observation_key
+     FROM observations AS observation
+     WHERE observation.source_id = $1
+       AND observation.producer_device_id IS NULL
+       AND observation.external_observation_key = ANY($2::text[])
+       AND NOT EXISTS (
+         SELECT 1
+         FROM observation_identity_scopes AS scope
+         WHERE scope.observation_id = observation.id
+       )`,
+    [credential.source_id, sortedKeys],
+  );
+  if (result.rows.length > 0) {
+    throw new IngestError(
+      'observation_identity_unscoped',
+      'Observation identity ownership is not provable.',
+      { statusCode: 409, publicCode: 'observation_key_reused' },
+    );
+  }
+}
+
+function observationHashMap(rows) {
+  const byKey = new Map();
+  for (const row of rows) {
+    if (typeof row.content_hash !== 'string' || !/^[a-f0-9]{64}$/i.test(row.content_hash)) {
+      throw new IngestError(
+        'observation_identity_unscoped',
+        'Observation identity ownership is not provable.',
+        { statusCode: 409, publicCode: 'observation_key_reused' },
+      );
+    }
+    const existingHash = byKey.get(row.external_observation_key);
+    if (existingHash !== undefined && existingHash !== row.content_hash) {
+      throw new IngestError(
+        'observation_identity_unscoped',
+        'Observation identity ownership is not provable.',
+        { statusCode: 409, publicCode: 'observation_key_reused' },
+      );
+    }
+    byKey.set(row.external_observation_key, row.content_hash);
+  }
+  return byKey;
+}
+
+async function existingObservationHashes(client, credential, batch) {
+  const sortedKeys = batch.observations
+    .map((observation) => observation.external_observation_key)
+    .sort();
+  await lockObservationKeys(client, credential, sortedKeys);
+  const rows = await scopedObservationRows(client, credential, sortedKeys);
+  const hashes = observationHashMap(rows);
+  await assertNoUnscopedLegacyObservations(client, credential, sortedKeys);
+  return hashes;
+}
+
+function partitionBatchObservations(batch, existingByKey) {
+  const pending = [];
+  let duplicateCount = 0;
+  let preservedConflictCount = 0;
+  const progress = batch.schema_version === 'bss.observation_batch.v2'
+    ? Object.freeze({
+      schema_version: 'bss.wardriver_progress.v1',
+      acknowledged_through: deriveWardriverProgress(batch.observations),
+    })
+    : null;
+  for (const observation of batch.observations) {
+    const contentHash = hashPersistedObservation(batch, observation);
+    const existingHash = existingByKey.get(observation.external_observation_key);
+    if (existingHash === undefined) {
+      pending.push({ observation, contentHash });
+    } else if (existingHash === contentHash) {
+      duplicateCount += 1;
+    } else if (progress) {
+      preservedConflictCount += 1;
+    } else {
+      throw new IngestError(
+        'observation_key_reused',
+        'Observation key was reused with changed content.',
+        { statusCode: 409 },
+      );
+    }
+  }
+  return { pending, duplicateCount, preservedConflictCount, progress };
+}
+
 export class PostgresObservationStore {
   #pool;
   #mtlsCredentialPolicy;
@@ -140,176 +358,24 @@ export class PostgresObservationStore {
       await client.query('BEGIN');
       transactionOpen = true;
       await client.query("SET LOCAL lock_timeout TO '2s'; SET LOCAL statement_timeout TO '3s'; SET LOCAL idle_in_transaction_session_timeout TO '10s'");
-
-      const boundMtlsPolicy = credential.mtls_policy ?? null;
-      const mtlsPolicyPredicate = boundMtlsPolicy ? `
-           AND source.source_key = $4
-           AND source.source_class = $5
-           AND source.provenance = $6::jsonb
-           AND credential.metadata = $7::jsonb
-           AND cardinality(credential.scopes) = cardinality($8::text[])
-           AND credential.scopes @> $8::text[]
-           AND credential.scopes <@ $8::text[]` : '';
-      const liveCredentialParameters = [credential.credential_id, credential.device_id, credential.source_id];
-      if (boundMtlsPolicy) {
-        liveCredentialParameters.push(
-          boundMtlsPolicy.sourceKey,
-          boundMtlsPolicy.sourceClass,
-          JSON.stringify(boundMtlsPolicy.sourceProvenance),
-          JSON.stringify(boundMtlsPolicy.credentialMetadata),
-          [...boundMtlsPolicy.scopes],
-        );
-      }
-      const liveCredential = await client.query(
-        `SELECT credential.id AS credential_id
-         FROM device_ingest_credentials AS credential
-         JOIN source_catalog AS source ON source.id = credential.source_id
-         WHERE credential.id = $1
-           AND credential.device_id = $2
-           AND credential.source_id = $3
-           AND 'observations:write' = ANY(credential.scopes)
-           AND credential.enabled = true
-           AND (credential.expires_at IS NULL OR credential.expires_at > now())
-           AND source.enabled = true
-           ${mtlsPolicyPredicate}
-         FOR NO KEY UPDATE OF credential, source`,
-        liveCredentialParameters,
-      );
-      if (liveCredential.rows.length !== 1) throw forbidden();
-
-      const batchLockKey = `${credential.source_id}:${batch.device_id}:${batch.idempotency_key}`;
-      const batchLock = await client.query('SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS locked', [batchLockKey]);
-      if (batchLock.rows[0]?.locked !== true) {
-        throw new IngestError('batch_in_progress', 'The batch is already being applied.', { statusCode: 409 });
-      }
+      await assertLiveCredential(client, credential);
+      await lockBatchApplication(client, credential, batch);
 
       const payloadHash = hashCanonicalJson(batch);
-      const existingBatch = await client.query(
-        `SELECT payload_hash, receipt
-         FROM sync_batches
-         WHERE source_id = $1 AND client_id = $2 AND idempotency_key = $3
-         FOR UPDATE`,
-        [credential.source_id, batch.device_id, batch.idempotency_key],
+      const replayedReceipt = await existingBatchReceipt(
+        client, credential, batch, payloadHash,
       );
-      if (existingBatch.rows.length > 0) {
-        const row = existingBatch.rows[0];
-        if (row.payload_hash !== payloadHash) {
-          throw new IngestError('idempotency_key_reused', 'Idempotency key was reused with changed content.', { statusCode: 409 });
-        }
-        if (!row.receipt) {
-          throw new IngestError('batch_in_progress', 'The batch is already being applied.', { statusCode: 409 });
-        }
-        const receipt = parseDurableReceipt(row.receipt, batch);
+      if (replayedReceipt) {
         await touchCredential(client, credential.credential_id);
         await client.query('COMMIT');
         transactionOpen = false;
-        return { statusCode: 200, replayed: true, receipt };
+        return { statusCode: 200, replayed: true, receipt: replayedReceipt };
       }
 
-      if (batch.session_id) {
-        const session = await client.query(
-          `SELECT id
-           FROM sensorium_sessions
-           WHERE id = $1
-             AND source_id = $2
-             AND ended_at IS NULL
-             AND (device_ref = $3 OR client_id = $3)
-           FOR SHARE`,
-          [batch.session_id, credential.source_id, credential.device_id],
-        );
-        if (session.rows.length !== 1) {
-          throw new IngestError('session_not_owned', 'Session does not belong to the authenticated source.', { statusCode: 422 });
-        }
-      }
-
-      const sortedKeys = batch.observations
-        .map((observation) => observation.external_observation_key)
-        .sort();
-      await client.query(
-        `SELECT pg_advisory_xact_lock(hashtextextended($1 || ':' || $2 || ':' || observation_key, 1))
-         FROM unnest($3::text[]) AS observation_key
-         ORDER BY observation_key`,
-        [credential.source_id, credential.device_id, sortedKeys],
-      );
-
-      const existingObservations = await client.query(
-        `SELECT external_observation_key, producer_device_id, content_hash
-         FROM observations
-         WHERE source_id = $1
-           AND producer_device_id = $2
-           AND external_observation_key = ANY($3::text[])`,
-        [credential.source_id, credential.device_id, sortedKeys],
-      );
-      const scopedLegacyObservations = await client.query(
-        `SELECT observation.external_observation_key, observation.content_hash
-         FROM observation_identity_scopes AS scope
-         JOIN observations AS observation ON observation.id = scope.observation_id
-         WHERE scope.source_id = $1
-           AND scope.producer_device_id = $2
-           AND scope.external_observation_key = ANY($3::text[])`,
-        [credential.source_id, credential.device_id, sortedKeys],
-      );
-      const scopedObservations = [...existingObservations.rows, ...scopedLegacyObservations.rows];
-      if (scopedObservations.some((row) => typeof row.content_hash !== 'string' || !/^[a-f0-9]{64}$/i.test(row.content_hash))) {
-        throw new IngestError('observation_identity_unscoped', 'Observation identity ownership is not provable.', {
-          statusCode: 409,
-          publicCode: 'observation_key_reused',
-        });
-      }
-      const unscopedLegacyObservations = await client.query(
-        `SELECT observation.external_observation_key
-         FROM observations AS observation
-         WHERE observation.source_id = $1
-           AND observation.producer_device_id IS NULL
-           AND observation.external_observation_key = ANY($2::text[])
-           AND NOT EXISTS (
-             SELECT 1
-             FROM observation_identity_scopes AS scope
-             WHERE scope.observation_id = observation.id
-           )`,
-        [credential.source_id, sortedKeys],
-      );
-      if (unscopedLegacyObservations.rows.length > 0) {
-        throw new IngestError('observation_identity_unscoped', 'Observation identity ownership is not provable.', {
-          statusCode: 409,
-          publicCode: 'observation_key_reused',
-        });
-      }
-      const existingByKey = new Map();
-      for (const row of scopedObservations) {
-        const existingHash = existingByKey.get(row.external_observation_key);
-        if (existingHash !== undefined && existingHash !== row.content_hash) {
-          throw new IngestError('observation_identity_unscoped', 'Observation identity ownership is not provable.', {
-            statusCode: 409,
-            publicCode: 'observation_key_reused',
-          });
-        }
-        existingByKey.set(row.external_observation_key, row.content_hash);
-      }
-      const pending = [];
-      let duplicateCount = 0;
-      let preservedConflictCount = 0;
-      const progress = batch.schema_version === 'bss.observation_batch.v2'
-        ? Object.freeze({
-          schema_version: 'bss.wardriver_progress.v1',
-          acknowledged_through: deriveWardriverProgress(batch.observations),
-        })
-        : null;
-      for (const observation of batch.observations) {
-        const contentHash = hashPersistedObservation(batch, observation);
-        if (!existingByKey.has(observation.external_observation_key)) {
-          pending.push({ observation, contentHash });
-          continue;
-        }
-        if (existingByKey.get(observation.external_observation_key) !== contentHash) {
-          if (progress) {
-            preservedConflictCount += 1;
-            continue;
-          }
-          throw new IngestError('observation_key_reused', 'Observation key was reused with changed content.', { statusCode: 409 });
-        }
-        duplicateCount += 1;
-      }
+      await assertSessionOwnership(client, credential, batch);
+      const existingByKey = await existingObservationHashes(client, credential, batch);
+      const { pending, duplicateCount, preservedConflictCount, progress } =
+        partitionBatchObservations(batch, existingByKey);
 
       const insertedBatch = await client.query(
         `INSERT INTO sync_batches (
@@ -338,14 +404,8 @@ export class PostgresObservationStore {
         ],
       );
       const batchId = insertedBatch.rows[0].id;
-
       if (pending.length > 0) {
-        await insertObservations(client, {
-          credential,
-          batch,
-          batchId,
-          entries: pending,
-        });
+        await insertObservations(client, { credential, batch, batchId, entries: pending });
       }
 
       const clockResult = await client.query('SELECT clock_timestamp() AS server_clock');
@@ -358,10 +418,7 @@ export class PostgresObservationStore {
         accepted_count: pending.length,
         rejected_count: 0,
         duplicate_count: duplicateCount,
-        ...(progress ? {
-          preserved_conflict_count: preservedConflictCount,
-          progress,
-        } : {}),
+        ...(progress ? { preserved_conflict_count: preservedConflictCount, progress } : {}),
         validation_errors: [],
         server_clock: serverClock,
       });
@@ -383,7 +440,6 @@ export class PostgresObservationStore {
         ],
       );
       await touchCredential(client, credential.credential_id);
-
       await client.query('COMMIT');
       transactionOpen = false;
       return { statusCode: 201, replayed: false, receipt: structuredClone(receipt) };
@@ -400,6 +456,7 @@ export class PostgresObservationStore {
       client.release();
     }
   }
+
   async putPaperState({ idempotencyKey, state }) {
     const client = await this.#pool.connect();
     let transactionOpen = false;
