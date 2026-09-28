@@ -320,35 +320,38 @@ def _normalize_position(raw: dict[str, Any]) -> dict[str, Any]:
     return position
 
 
+def _ledger_source(raw: dict[str, Any] | None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    if raw is None or raw == {}:
+        return {}, []
+    if not isinstance(raw, dict):
+        raise ValueError("ledger must be an object")
+    source = copy.deepcopy(raw)
+    schema_version = source.get("schema_version")
+    if isinstance(schema_version, bool) or not isinstance(schema_version, int):
+        raise ValueError("nonempty ledger requires an integer schema_version")
+    raw_books = source.get("books")
+    if not isinstance(raw_books, list) or not all(isinstance(book, dict) for book in raw_books):
+        raise ValueError("ledger books must be an array of objects")
+    source_books = list(raw_books)
+    book_ids = [book.get("book_id") for book in source_books]
+    if not all(isinstance(book_id, str) and book_id for book_id in book_ids):
+        raise ValueError("every ledger book requires a book_id")
+    if len(set(book_ids)) != len(book_ids):
+        raise ValueError("ledger book_ids must be unique")
+    if schema_version == 3:
+        if set(book_ids) != set(LEGACY_BOOK_IDS) or len(book_ids) != len(LEGACY_BOOK_IDS):
+            raise ValueError("schema-3 ledger must contain the exact legacy five-book set")
+    elif schema_version == SCHEMA_VERSION:
+        if set(book_ids) != set(BOOK_IDS) or len(book_ids) != len(BOOK_IDS):
+            raise ValueError("schema-4 ledger must contain the exact canonical 24-book matrix")
+    else:
+        raise ValueError(f"unsupported ledger schema_version: {schema_version}")
+    return source, source_books
+
+
 def migrate_ledger(raw: dict[str, Any] | None, now: datetime | None = None) -> dict[str, Any]:
     current = now or datetime.now(timezone.utc)
-    if raw is None or raw == {}:
-        source: dict[str, Any] = {}
-        source_books: list[dict[str, Any]] = []
-    else:
-        if not isinstance(raw, dict):
-            raise ValueError("ledger must be an object")
-        source = copy.deepcopy(raw)
-        schema_version = source.get("schema_version")
-        if isinstance(schema_version, bool) or not isinstance(schema_version, int):
-            raise ValueError("nonempty ledger requires an integer schema_version")
-        raw_books = source.get("books")
-        if not isinstance(raw_books, list) or not all(isinstance(book, dict) for book in raw_books):
-            raise ValueError("ledger books must be an array of objects")
-        source_books = list(raw_books)
-        book_ids = [book.get("book_id") for book in source_books]
-        if not all(isinstance(book_id, str) and book_id for book_id in book_ids):
-            raise ValueError("every ledger book requires a book_id")
-        if len(set(book_ids)) != len(book_ids):
-            raise ValueError("ledger book_ids must be unique")
-        if schema_version == 3:
-            if set(book_ids) != set(LEGACY_BOOK_IDS) or len(book_ids) != len(LEGACY_BOOK_IDS):
-                raise ValueError("schema-3 ledger must contain the exact legacy five-book set")
-        elif schema_version == SCHEMA_VERSION:
-            if set(book_ids) != set(BOOK_IDS) or len(book_ids) != len(BOOK_IDS):
-                raise ValueError("schema-4 ledger must contain the exact canonical 24-book matrix")
-        else:
-            raise ValueError(f"unsupported ledger schema_version: {schema_version}")
+    source, source_books = _ledger_source(raw)
 
     existing = {
         str(book["book_id"]): book
