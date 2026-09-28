@@ -1,0 +1,181 @@
+name: Structural quality audit
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Native + Lizard + jscpd
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python audit tools
+        run: python -m pip install --disable-pip-version-check "ruff==0.16.9" "lizard==1.24.0"
+
+      - name: Native JavaScript structural lint (audit only)
+        shell: bash
+        run: |
+          set +e
+          mkdir -p quality-audit
+          npx --yes eslint@9.38.0 app api vm scripts tests \
+            --no-config-lookup --ext .js,.mjs,.cjs \
+            --ignore-pattern 'api/_private/operator/assets/maplibre-gl*.mjs' \
+            --rule 'max-lines: ["warn", {"max": 500, "skipBlankLines": true, "skipComments": true}]' \
+            --rule 'max-lines-per-function: ["warn", {"max": 75, "skipBlankLines": true, "skipComments": true}]' \
+            --rule 'complexity: ["warn", 15]' \
+            --rule 'max-params: ["warn", 7]' \
+            --rule 'max-depth: ["warn", 4]' \
+            > quality-audit/eslint-structural.txt 2>&1
+          status=$?
+          cat quality-audit/eslint-structural.txt
+          echo "eslint_status=$status" >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: Native Python structural lint (audit only)
+        shell: bash
+        run: |
+          set +e
+          ruff check . \
+            --select C901,PLR0912,PLR0913,PLR0915 \
+            --config "lint.mccabe.max-complexity=15" \
+            --config "lint.pylint.max-args=7" \
+            --output-format concise > quality-audit/ruff-structural.txt 2>&1
+          status=$?
+          cat quality-audit/ruff-structural.txt
+          echo "ruff_status=$status" >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: Lizard structural metrics (audit only)
+        shell: bash
+        run: |
+          set +e
+          lizard app api vm scripts tests -C 15 -L 75 -a 7 -w \
+            -x "*/node_modules/*" -x "*/dist/*" -x "*/build/*" \
+            -x "api/_private/operator/assets/maplibre-gl*.mjs" \
+            > quality-audit/lizard.txt 2>&1
+          status=$?
+          cat quality-audit/lizard.txt
+          echo "lizard_status=$status" >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: Classify structural findings
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path("quality-audit/lizard.txt").read_text(errors="replace") if Path("quality-audit/lizard.txt").exists() else ""
+          warning_lines = [line for line in text.splitlines() if "warning:" in line and " NLOC," in line]
+          categories = [
+            ("tests", r"^((\./)?tests/|.*\/test/)"),
+            ("orchestration", r"^((\./)?scripts/|.*\/scripts/)"),
+            ("production-app", r"^((\./)?app/|(\./)?api/|.*\/src/)"),
+          ]
+          counts = {name: 0 for name, _ in categories}
+          unmatched = 0
+          for line in warning_lines:
+              path_match = re.search(r"(?:Z )?(?:\./)?([^:]+):\d+: warning:", line)
+              path = path_match.group(1) if path_match else line
+              matched = False
+              probe = "./" + path.lstrip("./")
+              for name, pattern in categories:
+                  if re.search(pattern, probe) or re.search(pattern, path):
+                      counts[name] += 1
+                      matched = True
+                      break
+              if not matched:
+                  unmatched += 1
+          with open(Path(__import__("os").environ["GITHUB_STEP_SUMMARY"]), "a", encoding="utf-8") as out:
+              out.write("\n### Structural findings by scope\n\n")
+              for name, _ in categories:
+                  out.write(f"- {name}: {counts[name]}\n")
+              out.write(f"- other/unclassified: {unmatched}\n")
+              out.write(f"- total: {len(warning_lines)}\n")
+          PY
+
+      - name: Copy/paste duplication audit (audit only)
+        shell: bash
+        run: |
+          set +e
+          npx --yes jscpd@5.0.12 app api vm scripts tests \
+            --min-lines 8 --min-tokens 60 \
+            --format python,javascript,typescript \
+            --ignore "**/node_modules/**,**/dist/**,**/build/**,**/*-lock.json,**/api/_private/operator/assets/maplibre-gl*.mjs" \
+            --reporters console,json --output quality-audit/jscpd \
+            > quality-audit/jscpd-console.txt 2>&1
+          status=$?
+          cat quality-audit/jscpd-console.txt
+          echo "jscpd_status=$status" >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: Enforce scoped quality ratchet
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p quality-audit
+          set +e
+          npx --yes eslint@9.38.0 app api vm/cybermap-api/src --no-config-lookup --ext .js,.mjs,.cjs --ignore-pattern 'api/_private/operator/assets/maplibre-gl*.mjs' --rule 'max-lines: ["warn", {"max": 500, "skipBlankLines": true, "skipComments": true}]' --rule 'max-lines-per-function: ["warn", {"max": 75, "skipBlankLines": true, "skipComments": true}]' --rule 'complexity: ["warn", 15]' --rule 'max-params: ["warn", 7]' --rule 'max-depth: ["warn", 4]' > quality-audit/ratchet-head-native.txt 2>&1
+          set -e
+          set +e
+          lizard app api vm/cybermap-api/src -C 15 -L 75 -a 7 -w -x "api/_private/operator/assets/maplibre-gl*.mjs" > quality-audit/ratchet-head-lizard.txt 2>&1
+          npx --yes jscpd@5.0.12 app api vm/cybermap-api/src --min-lines 8 --min-tokens 60 --format python,javascript,typescript --ignore "**/node_modules/**,**/dist/**,**/build/**,**/*-lock.json,**/api/_private/operator/assets/maplibre-gl*.mjs" --reporters console > quality-audit/ratchet-head-jscpd.txt 2>&1
+          set -e
+
+          base_dir="$RUNNER_TEMP/quality-base"
+          git worktree add --detach "$base_dir" "$BASE_SHA"
+          (
+            cd "$base_dir"
+            set +e
+            npx --yes eslint@9.38.0 app api vm/cybermap-api/src --no-config-lookup --ext .js,.mjs,.cjs --ignore-pattern 'api/_private/operator/assets/maplibre-gl*.mjs' --rule 'max-lines: ["warn", {"max": 500, "skipBlankLines": true, "skipComments": true}]' --rule 'max-lines-per-function: ["warn", {"max": 75, "skipBlankLines": true, "skipComments": true}]' --rule 'complexity: ["warn", 15]' --rule 'max-params: ["warn", 7]' --rule 'max-depth: ["warn", 4]' > "$GITHUB_WORKSPACE/quality-audit/ratchet-base-native.txt" 2>&1
+            lizard app api vm/cybermap-api/src -C 15 -L 75 -a 7 -w -x "api/_private/operator/assets/maplibre-gl*.mjs" > "$GITHUB_WORKSPACE/quality-audit/ratchet-base-lizard.txt" 2>&1
+            npx --yes jscpd@5.0.12 app api vm/cybermap-api/src --min-lines 8 --min-tokens 60 --format python,javascript,typescript --ignore "**/node_modules/**,**/dist/**,**/build/**,**/*-lock.json,**/api/_private/operator/assets/maplibre-gl*.mjs" --reporters console > "$GITHUB_WORKSPACE/quality-audit/ratchet-base-jscpd.txt" 2>&1
+            true
+          )
+
+          count_native() { grep -Eo '✖ [0-9]+ problems?' "$1" | tail -1 | grep -Eo '[0-9]+' || echo 0; }
+          head_native="$(count_native quality-audit/ratchet-head-native.txt)"; base_native="$(count_native quality-audit/ratchet-base-native.txt)"
+          count_lizard() { grep -c 'warning: .* NLOC,' "$1" || true; }
+          count_clones() { grep -Eo 'Found [0-9]+ clones?\.' "$1" | tail -1 | grep -Eo '[0-9]+' || echo 0; }
+          head_lizard="$(count_lizard quality-audit/ratchet-head-lizard.txt)"; base_lizard="$(count_lizard quality-audit/ratchet-base-lizard.txt)"
+          head_clones="$(count_clones quality-audit/ratchet-head-jscpd.txt)"; base_clones="$(count_clones quality-audit/ratchet-base-jscpd.txt)"
+
+          {
+            echo; echo "### Scoped quality ratchet"
+            echo "- Enforced scope: app, api, vm/cybermap-api/src"
+            echo "| Signal | Base | Head |"; echo "| --- | ---: | ---: |"
+            echo "| Native structural findings | $base_native | $head_native |"
+            echo "| Lizard structural findings | $base_lizard | $head_lizard |"
+            echo "| jscpd clone blocks | $base_clones | $head_clones |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          test "$head_native" -le "$base_native" || { echo "::error::Native structural findings increased in enforced scope"; exit 1; }
+          test "$head_lizard" -le "$base_lizard" || { echo "::error::Lizard findings increased in enforced scope"; exit 1; }
+          test "$head_clones" -le "$base_clones" || { echo "::error::Clone blocks increased in enforced scope"; exit 1; }
+
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: structural-quality-audit-${{ github.sha }}
+          path: quality-audit/
+          if-no-files-found: warn
+          retention-days: 14
