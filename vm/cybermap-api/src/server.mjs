@@ -237,7 +237,7 @@ export function createRequestHandler({
         request.resume();
         return sendJson(response, 404, { ok: false, error: 'not_found' });
       }
-      return handleObservationBatch(request, response, {
+      return await handleObservationBatch(request, response, {
         store,
         now,
         ingestDeadlineMs,
