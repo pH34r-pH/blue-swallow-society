@@ -264,10 +264,10 @@ jobs:
           cat > "$notes" <<EOF
           Public Node 24 Azure Functions image for Blue Swallow Society.
 
-          - OCI image: `$IMAGE_NAME@$IMAGE_DIGEST`
-          - Version tag: `$IMAGE_NAME:$GITHUB_REF_NAME`
+          - OCI image: $IMAGE_NAME@$IMAGE_DIGEST
+          - Version tag: $IMAGE_NAME:$GITHUB_REF_NAME
           - Build provenance: $ATTESTATION_URL
-          - Functions base: `mcr.microsoft.com/azure-functions/node:4-node24`
+          - Functions base: mcr.microsoft.com/azure-functions/node:4-node24
 
           Private Fleet instances should deploy the immutable Society digest above. Rebuild new Society releases to receive Microsoft's supported Node 24 Functions base-image updates.
           EOF
