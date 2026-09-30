@@ -1371,6 +1371,13 @@ function renderArDetectionLayer() {
 
   const fragment = document.createDocumentFragment();
   detectionPlan.boxes.forEach((box) => {
+    fragment.appendChild(createVisionOverlayNode(box));
+  });
+
+  overlay.replaceChildren(fragment);
+}
+
+function createVisionOverlayNode(box) {
     const detection = document.createElement('article');
     detection.className = `ar-detection ar-detection-${getDetectionConfidenceBand(box.confidence)}`;
     detection.style.left = `${box.x}px`;
@@ -1396,10 +1403,7 @@ function renderArDetectionLayer() {
     detail.textContent = `${box.width}px × ${box.height}px · ${box.x}, ${box.y}`;
     detection.appendChild(detail);
 
-    fragment.appendChild(detection);
-  });
-
-  overlay.replaceChildren(fragment);
+    return detection;
 }
 
 function renderVisionList(container, detections, limit = 6) {

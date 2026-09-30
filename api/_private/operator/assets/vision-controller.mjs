@@ -15,11 +15,7 @@ export function createVisionController({ now = () => new Date().toISOString(), m
   function reduceDataset(payload = {}, { sourceLabel = 'unavailable', previous = null, merge = false, mode = 'live' } = {}) {
     if (!['live', 'historical'].includes(mode)) throw new TypeError('Unsupported vision dataset mode');
     const updatedAt = timestamp(payload.updatedAt) || timestamp(payload.frame?.timestamp);
-    const incoming = mergeVisionDetections(payload.detections || []).map((item) => ({
-      ...item,
-      // An explicitly invalid timestamp must not inherit a newer dataset timestamp.
-      timestamp: item.timestamp ? timestamp(item.timestamp) : updatedAt,
-    }));
+    const incoming = capturedDetections(payload, updatedAt);
     const historicalMerge = mode === 'historical' && previous?.mode === 'historical' && merge;
     return {
       frame: payload.frame || null,
@@ -47,4 +43,12 @@ export function createVisionController({ now = () => new Date().toISOString(), m
       expiresInMs: current.length ? Math.min(...current.map((item) => Date.parse(item.timestamp) + maxAgeMs - nowMs)) : null,
     };
   }
+}
+
+function capturedDetections(payload, updatedAt) {
+  return mergeVisionDetections(payload.detections || []).map((item) => ({
+      ...item,
+      // An explicitly invalid timestamp must not inherit a newer dataset timestamp.
+      timestamp: item.timestamp ? timestamp(item.timestamp) : updatedAt,
+  }));
 }
