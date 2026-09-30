@@ -56,6 +56,7 @@ async function serve(req, res) {
     if (!file) context.res = { status: 404, body: '' };
     else context.res = { status: 200, headers: { 'Content-Type': /\.m?js$/.test(file) ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html' }, body: await readFile(new URL('../app/' + file, import.meta.url), 'utf8') };
   }
+  if (context.res.cookies) context.res.headers['Set-Cookie'] = context.res.cookies.map((cookie) => `${cookie.name}=${cookie.value}; Path=${cookie.path}; Max-Age=${cookie.maxAge}; HttpOnly; Secure; SameSite=${cookie.sameSite}`);
   res.writeHead(context.res.status, context.res.headers || { 'Content-Type': 'application/json' });
   res.end(typeof context.res.body === 'string' ? context.res.body : JSON.stringify(context.res.body));
 }

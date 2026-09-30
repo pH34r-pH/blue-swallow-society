@@ -34,6 +34,9 @@ function openTransaction(value, state, config, now = Date.now()) {
   if (!same(transaction.state, state) || transaction.issuedAt > now || now - transaction.issuedAt >= TRANSACTION_TTL * 1000) throw new Error('owner_denied');
   return transaction;
 }
+function transactionCookieOptions(value = '') {
+  return { name: TRANSACTION_COOKIE, value, path: '/', maxAge: value ? TRANSACTION_TTL : 0, httpOnly: true, secure: true, sameSite: 'Lax' };
+}
 function transactionCookie(value = '') {
   return `${TRANSACTION_COOKIE}=${value}; Path=/; Max-Age=${value ? TRANSACTION_TTL : 0}; HttpOnly; Secure; SameSite=Lax`;
 }
@@ -46,4 +49,4 @@ function newTransaction(returnTo, config, now = Date.now()) {
   return { state: crypto.randomBytes(32).toString('base64url'), nonce: crypto.randomBytes(32).toString('base64url'),
     verifier: crypto.randomBytes(32).toString('base64url'), issuedAt: now, returnTo: safeReturnPath(returnTo, config.origin) };
 }
-module.exports = { loginConfig, msalClient, sealTransaction, openTransaction, transactionCookie, newTransaction, safeReturnPath, TRANSACTION_COOKIE };
+module.exports = { loginConfig, msalClient, sealTransaction, openTransaction, transactionCookie, transactionCookieOptions, newTransaction, safeReturnPath, TRANSACTION_COOKIE };

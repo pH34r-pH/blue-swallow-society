@@ -41,4 +41,6 @@ Before any deployment: approve identities/origin/credential provisioning, valida
 
 The explicit `BLUE_SWALLOW_AUTH_MODE=legacy` retains server compatibility tests but is not a complete UI rollback: the new root page has no passcode form. A full rollback requires the prior app/API revision and matching configuration. Do not remove old mandatory deployment tokens, paper APIs/jobs/stores, applied migrations, or old secrets until approved cutover and rollback validation. No deploy workflow or live auth settings are changed by this PR.
 
+Multiple redirect cookies use the Azure Functions structured `cookies` response; header arrays are stringified by the v3 host adapter. The image smoke asserts separate logout cookie headers.
+
 Microsoft references: [MSAL Node authorization code flow](https://learn.microsoft.com/en-us/entra/msal/javascript/node/acquire-token-requests), [claims validation](https://learn.microsoft.com/en-us/entra/identity-platform/claims-validation).

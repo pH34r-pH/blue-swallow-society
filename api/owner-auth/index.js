@@ -1,12 +1,12 @@
 const crypto = require('node:crypto');
-const { authMode, createOwnerSession, verifyOwnerSession, cookieValue, sessionCookie } = require('../shared/owner-session.cjs');
+const { authMode, createOwnerSession, verifyOwnerSession, cookieValue, sessionCookieOptions } = require('../shared/owner-session.cjs');
 const login = require('../_lib/owner-login');
 const { verifyIdToken } = require('../_lib/owner-id-token');
 const headers = { 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff' };
 
 function json(status, body) { return { status, headers: { ...headers, 'Content-Type': 'application/json' }, body }; }
-function redirect(location, cookies) { return { status: 302, headers: { ...headers, Location: location, 'Set-Cookie': cookies }, body: '' }; }
-function failedLogin(reason) { return redirect(`/?auth=${reason}`, [login.transactionCookie(), sessionCookie()]); }
+function redirect(location, cookies) { return { status: 302, headers: { ...headers, Location: location }, cookies, body: '' }; }
+function failedLogin(reason) { return redirect(`/?auth=${reason}`, [login.transactionCookieOptions(), sessionCookieOptions()]); }
 function readSession(req, now) {
   const result = verifyOwnerSession(cookieValue(req.headers?.cookie), { now });
   return result.ok ? json(200, { ok: true, operatorSession: { token: result.rawToken, expiresAt: new Date(result.token.exp * 1000).toISOString() } })
@@ -20,7 +20,7 @@ async function beginLogin(req, config, clientFactory, now) {
   const cookie = login.transactionCookie(login.sealTransaction(transaction, config));
   return req.headers?.accept === 'application/json'
     ? { ...json(200, { ok: true, authorizationUrl: url }), headers: { ...headers, 'Content-Type': 'application/json', 'Set-Cookie': cookie } }
-    : redirect(url, [cookie]);
+    : redirect(url, [login.transactionCookieOptions(login.sealTransaction(transaction, config))]);
 }
 async function completeLogin(req, config, { clientFactory, verify, now }) {
   let transaction;
@@ -36,7 +36,7 @@ async function completeLogin(req, config, { clientFactory, verify, now }) {
   try {
     const claims = await verify(result.idToken, config, transaction.nonce, { now: now() });
     const session = createOwnerSession(claims, config, now());
-    return redirect(transaction.returnTo, [login.transactionCookie(), sessionCookie(session)]);
+    return redirect(transaction.returnTo, [login.transactionCookieOptions(), sessionCookieOptions(session)]);
   } catch (error) {
     return failedLogin(['ERR_JWKS_TIMEOUT', 'ERR_JOSE_GENERIC', 'ENOTFOUND', 'ECONNRESET'].includes(error.code) ? 'unavailable' : 'denied');
   }

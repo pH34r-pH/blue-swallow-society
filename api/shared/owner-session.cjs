@@ -58,7 +58,10 @@ function cookieValue(header, name = COOKIE) {
   }
   return '';
 }
+function sessionCookieOptions(session) {
+  return { name: COOKIE, value: session?.token || '', path: '/', maxAge: session?.ttlSeconds || 0, httpOnly: true, secure: true, sameSite: 'Strict' };
+}
 function sessionCookie(session) {
   return `${COOKIE}=${session?.token || ''}; Path=/; Max-Age=${session?.ttlSeconds || 0}; HttpOnly; Secure; SameSite=Strict`;
 }
-module.exports = { authMode, ownerConfig, ownerClaims, createOwnerSession, verifyOwnerSession, cookieValue, sessionCookie, same, COOKIE, TTL_MS };
+module.exports = { authMode, ownerConfig, ownerClaims, createOwnerSession, verifyOwnerSession, cookieValue, sessionCookie, sessionCookieOptions, same, COOKIE, TTL_MS };
