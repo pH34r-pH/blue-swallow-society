@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
+import { createCybermapApiServer } from '../vm/cybermap-api/src/server.mjs';
 import { createWorldRoute } from '../vm/cybermap-api/src/world-route.mjs';
 const require = createRequire(import.meta.url);
 const { createWorldContextHandler } = require('../api/world-context/index.js');
@@ -24,4 +25,20 @@ test('World VM hook verifies Owner.Read before snapshot access; rejects filters 
   allow = true; const options = { method: 'POST', body: '{}', headers: { Authorization: 'Bearer synthetic-token' } };
   assert.equal((await fetch(url, options)).status, 200); assert.equal(reads, 1);
   assert.equal((await fetch(url, { ...options, body: '{"lat":1}' })).status, 400); assert.equal(reads, 1);
+});
+
+test('World dispatch mounted in common server preserves route isolation and authorization errors', async (t) => {
+  let reads = 0;
+  const worldRoute = createWorldRoute({ service: { read: () => { reads++; return { version: 'bss.world.v1' }; } }, verify: async (token) => {
+    if (token !== 'synthetic-owner') throw Object.assign(new Error('denied'), { status: 401, code: 'api_token_invalid' });
+  } });
+  const store = new Proxy({}, { get: () => { throw new Error('World must never access the personal store'); } });
+  const server = createCybermapApiServer({ store, worldRoute, logger: { error() {} } });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)); t.after(() => server.close());
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const denied = await fetch(`${origin}/api/v1/world/context`, { method: 'POST', body: '{}' });
+  assert.equal(denied.status, 401); assert.equal(reads, 0);
+  const accepted = await fetch(`${origin}/api/v1/world/context`, { method: 'POST', body: '{}', headers: { Authorization: 'Bearer synthetic-owner' } });
+  assert.equal(accepted.status, 200); assert.equal((await accepted.json()).version, 'bss.world.v1'); assert.equal(reads, 1);
+  assert.equal((await fetch(`${origin}/unrelated-world-path`)).status, 404); assert.equal(reads, 1);
 });

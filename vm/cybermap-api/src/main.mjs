@@ -1,3 +1,6 @@
+import { createWorldService } from './world-service.mjs';
+import { createWorldRoute } from './world-route.mjs';
+import { createWorldAcquisition } from './world-acquisition.mjs';
 import { Pool } from 'pg';
 
 import { PostgresObservationStore } from './postgres-store.mjs';
@@ -20,7 +23,10 @@ const pool = new Pool({
 });
 const mtlsCredentialPolicy = readMtlsCredentialPolicy();
 const store = new PostgresObservationStore({ pool, mtlsCredentialPolicy });
+const worldService = createWorldService();
+const worldAcquisition = createWorldAcquisition(worldService);
 const server = createCybermapApiServer({
+  worldRoute: createWorldRoute({ service: worldService }),
   store,
   entityStore: new PostgresEntityStore({ pool }),
   logger: {
@@ -31,6 +37,7 @@ const server = createCybermapApiServer({
 });
 
 server.listen(port, host, () => {
+  if (process.env.BSS_WORLD_PUBLIC_FEEDS_ENABLED === 'true') worldAcquisition.start();
   process.stdout.write(`${JSON.stringify({ level: 'info', service: 'bss-cybermap-api', event: 'listening', host, port })}\n`);
 });
 
@@ -42,6 +49,7 @@ let shuttingDown = false;
 async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
+  worldAcquisition.stop();
   process.stdout.write(`${JSON.stringify({ level: 'info', service: 'bss-cybermap-api', event: 'shutdown', signal })}\n`);
   server.close(async () => {
     await pool.end();

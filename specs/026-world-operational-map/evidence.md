@@ -1,6 +1,6 @@
 # World first-slice evidence — 2026-09-30
 
-Implemented in isolated modules; shared mounting/production acquisition remain pending per [integration handoff](../../docs/world-operational-map-integration.md). No deployment or database write occurred. Synthetic fixtures are defined only in tests and visibly labelled synthetic in browser screenshots.
+Ground modules merged in #98; narrow shell/server mounting implemented and production acquisition remains pending per [integration handoff](../../docs/world-operational-map-integration.md). No deployment or database write occurred. Synthetic fixtures are defined only in tests and visibly labelled synthetic in browser screenshots.
 
 - Node runtime: v24.19.0.
 - Initial full regressions: 252 root tests passed; VM 222 passed / 5 named infrastructure skips; four Chromium suites passed (companion, owner-login, Travels, World). Final World tests additionally cover the geometry budget; final exact CI results belong to PR #98's head checks.
@@ -13,4 +13,8 @@ Implemented in isolated modules; shared mounting/production acquisition remain p
 - Refactored World files have zero local ESLint structural findings under CI rules and zero Lizard warnings; scoped jscpd adds no World clone blocks. Final hosted quality-ratchet result is required before merge.
 - `graphify update .` is unavailable because Graphify is not installed in this execution environment. No private semantic corpus was routed to a cloud substitute.
 
-Current feature limitations: process-local snapshot loss on restart; single acquisition host needed per outbound IP; parent mounts route/view/assets after shared entity work. EONET/GDACS/DeFlock World transport, aviation/maritime/WSDOT/news and satellites remain explicitly pending. All private personal data and entity stores remain outside World.
+Current feature limitations: process-local snapshot loss on restart; single acquisition host needed per outbound IP; shared route/view/assets now mounted after entity #99. EONET/GDACS/DeFlock World transport, aviation/maritime/WSDOT/news and satellites remain explicitly pending. All private personal data and entity stores remain outside World.
+
+Mount validation on reconciled 895e153 base: 260 root tests passed; VM 227 passed / 6 named infrastructure skips; all four Chromium suites passed. The companion suite exercises the actual private asset sealer, World keyboard selection, local globe, teardown on switching to Entities, and returning to the World list. No page errors. Latest standalone software-WebGL sample: 4,000-record visible page 185 ms; globe 388 ms; rAF median 16.7 ms; JS heap 9,731,611 / 18,039,350 bytes. These remain desktop runner observations only.
+
+The next orbital increment is evaluated in [selected-satellite evaluation](../../docs/world-selected-satellite-evaluation.md), including real archived package sizes, an offline historical OMM propagation/altitude cross-check, and outstanding durable-cache and private Cesium packaging gates. Satellites remain disabled; no GP acquisition or Cesium runtime integration occurred.

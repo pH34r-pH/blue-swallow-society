@@ -1,6 +1,6 @@
-# World #91 integration handoff
+# World #91 integration
 
-Base reconciled with Society `c6e2092` (entity #97, after API #95 and Travels #96). The companion unified patch is [world-operational-map.mount.patch](world-operational-map.mount.patch); `git apply --check` passed against this base. It is proposed only and has not been applied to shared files. This change owns isolated World modules, assets, route wrappers and tests only. Parent/entity owner applies shared edits after reconciling their current branch. No deployment, new identities/scopes/keys or DB writes are part of this handoff.
+Ground modules merged in [#98](https://github.com/pH34r-pH/blue-swallow-society/pull/98) at 895e153 after reconciliation with entity #99. The authorized narrow mount now registers World in the owner shell, private asset sealer and common API VM dispatch. The companion zero-context patch [world-operational-map.mount.patch](world-operational-map.mount.patch) records the exact shared edits against 895e153 (`git apply --unidiff-zero` for an unmounted checkout). No deployment, new identities/scopes/keys or DB writes are part of this change.
 
 ## Interfaces
 
@@ -10,7 +10,7 @@ Base reconciled with Society `c6e2092` (entity #97, after API #95 and Travels #9
 - Process-local cache is intentionally non-durable and lost on restart. Run a single acquisition instance per outbound IP; replicas need a coordinated cache before activation. Provider URLs are fixed; no browser/private coordinate or RF data is transmitted. No fixture fallback.
 - `createWorldView({ root, getHeaders })` exposes `activate()/deactivate()/destroy()`. It lazy-loads the existing MapLibre 6 globe only on explicit Show globe. Public ground context has no actual-altitude satellite implementation.
 
-## Exact small shared integration edits (apply by parent)
+## Mounted shared integration interfaces
 
 1. `api/operator-assets/index.js`: add these entries to `ASSET_MANIFEST` under the existing owner asset guard:
 
@@ -68,8 +68,8 @@ Default unconfigured acquisition shows truthful `unavailable` sources; this PR d
 
 Implemented: existing USGS normalizer reuse, bounded NWS alert adapter, source/event/update/fetch times, explicit freshness/failure/expiry, predicted alerts and historical expired alerts, opt-in ground layers, PNW/WA/US/global preset filters, accessible 50-row pages/details, lazy local globe, list fallback, isolated common-API route wrappers and synthetic tests.
 
-Pending: shared shell/asset/server mounting by parent; acquisition host activation and durable/multi-instance storage; EONET/GDACS provider qualification (existing normalizers reused in World normalization export); existing DeFlock aggregate transport remains separate; satellite epoch/SGP4/actual-altitude support plus durable 2-hour/non-200 stop policy; ADSB.lol production/license steps, AISStream license/backend relay, OpenSky agreement, paid FR24, WSDOT key/terms, optional reported-news layer. No item in this list is presented as completed live integration.
+Pending: acquisition host activation and durable/multi-instance storage; EONET/GDACS provider qualification (existing normalizers reused in World normalization export); existing DeFlock aggregate transport remains separate; satellite epoch/SGP4/actual-altitude support plus durable 2-hour/non-200 stop policy; ADSB.lol production/license steps, AISStream license/backend relay, OpenSky agreement, paid FR24, WSDOT key/terms, optional reported-news layer. No item in this list is presented as completed live integration.
 
 6. `app/operator/loader.js`: the unified patch also registers world.css/world-land.geojson and the three World modules in PRIVATE_ASSETS, places state → map → view before main.js in MODULE_BOOT_ORDER, seals the GeoJSON blob URL before module rewriting, and installs bss-world-styles. This is necessary because the existing operator loader seals a dependency graph rather than importing private relative URLs directly. Existing renderer assets are already prefetched by that loader; World globe creation remains lazy. This patch does not add a renderer.
 
-Disposable full-shell mount verification: the companion navigation/browser suite passed after applying the proposed patch to a detached temporary checkout. Shared production files remained untouched in this module PR. Entity full-shell PostGIS integration requires its dedicated injected database; its local named skip is not evidence of a passed DB test.
+Full-shell mount verification: the companion browser suite loads the real private sealer, selects a synthetic World record with keyboard controls, opens its sealed local globe, switches to Entities to confirm teardown, and returns to the retained World list. Entity PostGIS integration still uses its dedicated hosted CI database; no production database was touched.

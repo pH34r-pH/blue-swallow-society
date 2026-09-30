@@ -123,10 +123,11 @@ export function createCybermapApiServer(options = {}) {
     ingestDeadlineMs = 5_000,
     mtlsProxySecret = process.env.BSS_MTLS_PROXY_SECRET,
     verifyApiRead = apiTokens.verifyApiAccessToken,
+    worldRoute = null,
   } = options;
   if (!store) throw new TypeError('store is required');
   const server = http.createServer(createRequestHandler({
-    store, now, logger, ingestDeadlineMs, mtlsProxySecret, verifyApiRead, entityStore, verifyEntityApiToken,
+    store, now, logger, ingestDeadlineMs, mtlsProxySecret, verifyApiRead, entityStore, verifyEntityApiToken, worldRoute,
   }));
   server.requestTimeout = 30_000;
   server.headersTimeout = 10_000;
@@ -244,12 +245,14 @@ export function createRequestHandler(options) {
     ingestDeadlineMs = 5_000,
     mtlsProxySecret = process.env.BSS_MTLS_PROXY_SECRET,
     verifyApiRead = apiTokens.verifyApiAccessToken,
+    worldRoute = null,
   } = options;
   const entities = entityStore ? createEntityRequestHandler({ store: entityStore, verifyApiAccessToken: verifyEntityApiToken }) : null;
   return async function requestHandler(request, response) {
     try {
       const url = new URL(request.url, 'http://127.0.0.1');
       if (entities && await entities(request, response, url)) return;
+      if (worldRoute && await worldRoute(request, response, url)) return;
       const handled = await dispatchKnownRequest(request, response, url, {
         store, now, mtlsProxySecret, verifyApiRead, entityStore,
       });

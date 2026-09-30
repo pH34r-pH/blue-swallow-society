@@ -1,204 +1,76 @@
 --- a/api/operator-assets/index.js
 +++ b/api/operator-assets/index.js
-@@ -4,6 +4,11 @@
- 
- const PRIVATE_ASSET_DIR = path.join(__dirname, '..', '_private', 'operator', 'assets');
- const ASSET_MANIFEST = Object.freeze({
+@@ -6,0 +7,5 @@
 +  'world-view.mjs': { file: 'world-view.mjs', contentType: 'application/javascript; charset=utf-8' },
 +  'world-state.mjs': { file: 'world-state.mjs', contentType: 'application/javascript; charset=utf-8' },
 +  'world-map.mjs': { file: 'world-map.mjs', contentType: 'application/javascript; charset=utf-8' },
 +  'world.css': { file: 'world.css', contentType: 'text/css; charset=utf-8' },
 +  'world-land.geojson': { file: 'world-land.geojson', contentType: 'application/geo+json; charset=utf-8' },
-   'companion-navigation.mjs': { file: 'companion-navigation.mjs', contentType: 'application/javascript; charset=utf-8' },
-   'main.js': { file: 'main.js', contentType: 'application/javascript; charset=utf-8' },
-   'operator-session.mjs': { file: 'operator-session.mjs', contentType: 'application/javascript; charset=utf-8' },
 --- a/api/_private/operator/shell.html
 +++ b/api/_private/operator/shell.html
-@@ -112,6 +112,7 @@
-         </article></section>
-       </div>
-       <div id="world-tab" class="tab-content" role="region" aria-labelledby="tab-world">
+@@ -114,0 +115 @@
 +        <section data-world-view aria-label="World operational public context"></section>
-         <section class="container"><article class="panel tab-panel">
-           <h2>World</h2><p>Unrelated public context. Aggregate reports are not personal sightings, verified identities, or live tracking.</p>
-             <section class="godeye-global-evidence" aria-label="Global source provenance ledger">
 --- a/api/_private/operator/assets/main.js
 +++ b/api/_private/operator/assets/main.js
-@@ -1,3 +1,4 @@
+@@ -0,0 +1 @@
 +import { createWorldView } from './world-view.mjs';
- import { createTravelsView } from './travels-view.mjs';
- import { createEntityClient } from './entity-client.mjs';
- import { mountEntityWorkbench } from './entity-workbench.mjs';
-@@ -173,7 +174,7 @@
- }
- 
- function resetConsoleToLogin() {
--  travelsView?.deactivate();
-+  travelsView?.deactivate(); worldView?.deactivate();
-   state.authenticated = false;
-   state.activeTab = '';
-   document.body.dataset.mode = 'login';
-@@ -405,9 +406,12 @@
- }
- 
- let travelsView;
+@@ -176,0 +178 @@
++  worldView?.deactivate();
+@@ -407,0 +410 @@
 +let worldView;
- let entityWorkbench;
- 
- function initTabDefaults() {
+@@ -410,0 +414,2 @@
 +  const worldRoot = document.querySelector('[data-world-view]');
 +  if (worldRoot && !worldView) worldView = createWorldView({ root: worldRoot, getHeaders: () => buildOperatorHeaders() });
-   const entityRoot = document.querySelector('[data-entity-workbench]');
-   if (entityRoot && !entityWorkbench) entityWorkbench = mountEntityWorkbench(entityRoot, { request: createEntityClient({ getHeaders: buildOperatorHeaders }) });
-   const historyRoot = document.querySelector('[data-travels-history]');
-@@ -416,7 +420,7 @@
-     if (event.currentTarget.open) { initGodeyeTab(); scheduleGodeyeRender(); }
-     else stopGodeyeFeed();
-   });
+@@ -419 +424 @@
 -  window.addEventListener('pagehide', () => { travelsView?.destroy(); entityWorkbench?.destroy(); }, { once: true });
 +  window.addEventListener('pagehide', () => { travelsView?.destroy(); worldView?.destroy(); entityWorkbench?.destroy(); }, { once: true });
-   initArTab();
-   updateArOrientation();
-   renderArHud();
-@@ -425,7 +429,7 @@
- }
- 
- async function handleLogout() {
--  travelsView?.destroy();
-+  travelsView?.destroy(); worldView?.destroy();
-   entityWorkbench?.destroy();
-   stopArFeed();
-   stopGodeyeFeed();
-@@ -486,8 +490,10 @@
-     stopArFeed();
-   }
- 
+@@ -428,0 +434 @@
++  worldView?.destroy();
+@@ -488,0 +495,2 @@
 +  if (state.activeTab === 'world' && nextTabKey !== 'world') worldView?.deactivate();
 +
-   if (state.activeTab === 'godeye' && nextTabKey !== 'godeye') {
--    travelsView?.deactivate();
-+    travelsView?.deactivate(); worldView?.deactivate();
-     stopGodeyeFeed();
-   }
- 
-@@ -500,6 +506,7 @@
-   }
- 
-   if (nextTabKey === 'godeye') travelsView?.activate();
+@@ -502,0 +511 @@
 +  if (nextTabKey === 'world') worldView?.activate();
- 
-   if (nextTabKey === 'world' || (nextTabKey === 'godeye' && document.querySelector('.history-nearby')?.open)) {
-     initGodeyeTab();
 --- a/vm/cybermap-api/src/server.mjs
 +++ b/vm/cybermap-api/src/server.mjs
-@@ -123,10 +123,11 @@
-     ingestDeadlineMs = 5_000,
-     mtlsProxySecret = process.env.BSS_MTLS_PROXY_SECRET,
-     verifyApiRead = apiTokens.verifyApiAccessToken,
+@@ -125,0 +126 @@
 +    worldRoute = null,
-   } = options;
-   if (!store) throw new TypeError('store is required');
-   const server = http.createServer(createRequestHandler({
+@@ -129 +130 @@
 -    store, now, logger, ingestDeadlineMs, mtlsProxySecret, verifyApiRead, entityStore, verifyEntityApiToken,
 +    store, now, logger, ingestDeadlineMs, mtlsProxySecret, verifyApiRead, entityStore, verifyEntityApiToken, worldRoute,
-   }));
-   server.requestTimeout = 30_000;
-   server.headersTimeout = 10_000;
-@@ -244,12 +245,14 @@
-     ingestDeadlineMs = 5_000,
-     mtlsProxySecret = process.env.BSS_MTLS_PROXY_SECRET,
-     verifyApiRead = apiTokens.verifyApiAccessToken,
+@@ -246,0 +248 @@
 +    worldRoute = null,
-   } = options;
-   const entities = entityStore ? createEntityRequestHandler({ store: entityStore, verifyApiAccessToken: verifyEntityApiToken }) : null;
-   return async function requestHandler(request, response) {
-     try {
-       const url = new URL(request.url, 'http://127.0.0.1');
-       if (entities && await entities(request, response, url)) return;
+@@ -252,0 +255 @@
 +      if (worldRoute && await worldRoute(request, response, url)) return;
-       const handled = await dispatchKnownRequest(request, response, url, {
-         store, now, mtlsProxySecret, verifyApiRead, entityStore,
-       });
 --- a/vm/cybermap-api/src/main.mjs
 +++ b/vm/cybermap-api/src/main.mjs
-@@ -1,3 +1,6 @@
+@@ -0,0 +1,3 @@
 +import { createWorldService } from './world-service.mjs';
 +import { createWorldRoute } from './world-route.mjs';
 +import { createWorldAcquisition } from './world-acquisition.mjs';
- import { Pool } from 'pg';
- 
- import { PostgresObservationStore } from './postgres-store.mjs';
-@@ -20,7 +23,10 @@
- });
- const mtlsCredentialPolicy = readMtlsCredentialPolicy();
- const store = new PostgresObservationStore({ pool, mtlsCredentialPolicy });
+@@ -22,0 +26,2 @@
 +const worldService = createWorldService();
 +const worldAcquisition = createWorldAcquisition(worldService);
- const server = createCybermapApiServer({
+@@ -23,0 +29 @@
 +  worldRoute: createWorldRoute({ service: worldService }),
-   store,
-   entityStore: new PostgresEntityStore({ pool }),
-   logger: {
-@@ -31,6 +37,7 @@
- });
- 
- server.listen(port, host, () => {
+@@ -33,0 +40 @@
 +  if (process.env.BSS_WORLD_PUBLIC_FEEDS_ENABLED === 'true') worldAcquisition.start();
-   process.stdout.write(`${JSON.stringify({ level: 'info', service: 'bss-cybermap-api', event: 'listening', host, port })}\n`);
- });
- 
-@@ -42,6 +49,7 @@
- async function shutdown(signal) {
-   if (shuttingDown) return;
-   shuttingDown = true;
+@@ -44,0 +52 @@
 +  worldAcquisition.stop();
-   process.stdout.write(`${JSON.stringify({ level: 'info', service: 'bss-cybermap-api', event: 'shutdown', signal })}\n`);
-   server.close(async () => {
-     await pool.end();
 --- a/app/operator/loader.js
 +++ b/app/operator/loader.js
-@@ -6,6 +6,8 @@
- const PRIVATE_ASSET_PREFIX = '/api/operator-assets/';
- 
- const PRIVATE_ASSETS = Object.freeze([
+@@ -8,0 +9,2 @@
 +  'world.css',
 +  'world-land.geojson',
-   'styles.css',
-   'theme.css',
-   'maplibre-gl.css',
-@@ -29,6 +31,9 @@
-   'travels-view.mjs',
-   'entity-client.mjs',
-   'entity-workbench.mjs',
+@@ -31,0 +34,3 @@
 +  'world-state.mjs',
 +  'world-map.mjs',
 +  'world-view.mjs',
-   'main.js',
- ]);
- 
-@@ -52,6 +57,9 @@
-   'travels-view.mjs',
-   'entity-client.mjs',
-   'entity-workbench.mjs',
+@@ -54,0 +60,3 @@
 +  'world-state.mjs',
 +  'world-map.mjs',
 +  'world-view.mjs',
-   'main.js',
- ]);
- 
-@@ -141,6 +149,7 @@
-   ]));
-   const sources = Object.fromEntries(entries);
-   const assetUrls = {};
+@@ -143,0 +152 @@
 +  assetUrls['world-land.geojson'] = createPrivateObjectUrl('world-land.geojson', sources['world-land.geojson'], 'application/geo+json');
- 
-   for (const assetName of MODULE_BOOT_ORDER) {
-     assetUrls[assetName] = createPrivateObjectUrl(
-@@ -155,6 +164,7 @@
-     sources['operator-mark.svg'],
-     'image/svg+xml',
-   );
+@@ -157,0 +167 @@
 +  installPrivateStyle('bss-world-styles', sources['world.css']);
-   installPrivateStyle('bss-operator-styles', sources['styles.css']);
-   installPrivateStyle('bss-operator-theme', sources['theme.css']);
-   installPrivateStyle('bss-maplibre-styles', sources['maplibre-gl.css']);
