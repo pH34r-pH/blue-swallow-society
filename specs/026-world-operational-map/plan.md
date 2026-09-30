@@ -1,0 +1,9 @@
+# Plan
+
+Node 24.19.0 observed locally. Keep pure provider normalization and bounded acquisition in `vm/cybermap-api/src/world-*.mjs`; UI in private `world-*.mjs`/CSS/GeoJSON assets; owner-gated Function proxy in `api/world-context/`. Document VM dispatch and shell/asset allowlist integration separately.
+
+Read paths do not fetch providers. A separately invoked `refresh(sourceId)` populates a bounded process-local snapshot, explicitly non-durable. No construction, read-path or implicit startup side effect. A separate host-controlled acquisition lifecycle is available, with a minimum five-minute cadence. A future host must own acquisition scheduling and lifecycle; this PR does not mount or provision it. USGS five-minute minimum, NWS five-minute minimum with bounded failure cooldown; refresh coalesces per source. Do not activate CelesTrak: a per-process cache cannot enforce its stop/retry rule across restarts/replicas.
+
+MapLibre 6.0.0 is already vendored (BSD-3-Clause), with globe projection code and `setProjection`. Verify real globe rendering in Chromium. Use a pinned Natural Earth 110m land GeoJSON (public domain), suitable for orientation only, not road navigation. Do not add Cesium solely for ground layers; true satellite support remains a separate acceptance gate. No continuous animation, reduced-motion transitions, capped device pixel ratio, lazy WebGL initialization and explicit list-only mode.
+
+Public data is kept outside all observation/entity/migration modules. Source metadata includes qualification reasons. UI rendering uses DOM textContent; no provider HTML. Fixed allowlisted upstream URLs with redirects rejected, bounded streaming response and deadline. No source-controlled URL fetches.
