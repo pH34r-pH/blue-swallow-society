@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 const moduleUrl = new URL('../api/_private/operator/assets/morning-brief.mjs', import.meta.url);
 const htmlUrl = new URL('../app/operator/index.html', import.meta.url);
 const operatorStylesUrl = new URL('../api/_private/operator/assets/styles.css', import.meta.url);
-const privateShellUrl = new URL('../api/_private/operator/shell.html', import.meta.url);
+const privateShellUrl = new URL('../api/_private/operator/archive/pre-companion-shell.html', import.meta.url);
 const consoleMainUrl = new URL('../api/_private/operator/assets/main.js', import.meta.url);
 const configUrl = new URL('../app/staticwebapp.config.json', import.meta.url);
 const source = readFileSync(moduleUrl, 'utf8');
@@ -44,24 +44,12 @@ test('morning brief operator surface selects archived runs from a dropdown and p
   assert.match(config, /img-src[^;]*\bblob:/);
 });
 
-test('morning dossier is a protected operator-console tab and returns to that console', () => {
-  assert.match(html, /id="operatorLoader"/);
-  assert.match(html, /\/operator\/loader\.js/);
-  assert.doesNotMatch(html, /brief-shell|brief-header|brief-back/);
-  assert.match(privateShell, /data-tab="morning-brief"/);
+test('morning dossier markup remains archived but cannot join the companion navigation', () => {
   assert.match(privateShell, /id="morning-brief-tab"/);
-  assert.match(privateShell, /id="briefReturnToConsole"/);
-  assert.doesNotMatch(privateShell, /brief-archive-link/);
   assert.match(source, /export function initMorningBrief\(\)/);
-  assert.match(consoleMain, /function initMorningBriefTab\(\)/);
-  assert.match(consoleMain, /function returnToOperatorConsole\(\)/);
-  assert.match(consoleMain, /history\.replaceState\(null, '', '\/operator'\)/);
-  assert.match(consoleMain, /return window\.location\.pathname === '\/operator\/morning-brief\.html' \? 'morning-brief' : 'landing'/);
-  assert.match(consoleMain, /if \(nextTabKey === 'morning-brief'\) \{\s*initMorningBriefTab\(\);/);
-  assert.match(config, /"route": "\/operator\/morning-brief\.html",\s*"rewrite": "\/operator\/index\.html"/);
-  assert.match(operatorStyles, /#morning-brief-tab\s*\{/);
-  assert.doesNotMatch(operatorStyles, /--brief-/);
-  assert.doesNotMatch(operatorStyles, /brief-archive-link/);
+  const activeShell = readFileSync(new URL('../api/_private/operator/shell.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(activeShell, /data-tab="morning-brief"/);
+  assert.doesNotMatch(consoleMain, /if \(nextTabKey === 'morning-brief'\)/);
 });
 
 test('morning dossier tab and panel preserve the console tab-order contract', () => {

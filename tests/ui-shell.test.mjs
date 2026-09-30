@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 const indexHtml = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
 const rootMainJs = readFileSync(new URL('../app/main.js', import.meta.url), 'utf8');
 const operatorHtml = readFileSync(new URL('../app/operator/index.html', import.meta.url), 'utf8');
+const archivedShell = readFileSync(new URL('../api/_private/operator/archive/pre-companion-shell.html', import.meta.url), 'utf8');
 const operatorShell = readFileSync(new URL('../api/_private/operator/shell.html', import.meta.url), 'utf8');
 const operatorLoaderJs = readFileSync(new URL('../app/operator/loader.js', import.meta.url), 'utf8');
 const operatorLoaderCss = readFileSync(new URL('../app/operator/loader.css', import.meta.url), 'utf8');
@@ -172,15 +173,13 @@ test('public cover and private console put controls before explanatory copy', ()
   assert.doesNotMatch(indexHtml, /Enter a name, then mark an open supply as yours/);
 
   for (const operatorControl of [
-    'data-tab="tzeentch"',
+    'data-tab="world"',
     'data-tab="godeye"',
-    'data-tab="morning-brief"',
+    'data-tab="devices"',
     'data-operator-download="apk"',
     'data-operator-release="sha256"',
-    'id="tzeentchStatus"',
     'id="godeyeSourceHealth"',
     'aria-label="Global source provenance ledger"',
-    'id="briefStatus"',
     'aria-live="polite"',
   ]) {
     assert.ok(operatorShell.includes(operatorControl), operatorControl);
@@ -188,11 +187,7 @@ test('public cover and private console put controls before explanatory copy', ()
   for (const operatorCopy of [
     'Signed release. Provenance attached.',
     'Verify the release record before install. Captures stay local.',
-    'Enter a target.',
-    'Method &amp; privacy',
-    'Managed Cybermap observations. Fixed POST /api/cybermap/viewport; no arbitrary endpoint.',
-    'Verified packets. Retention: seven days.',
-    'House terms. Use sparingly.',
+    'Personal observations are evidence of collection, not proof of emitter location or identity.',
   ]) {
     assert.ok(operatorShell.includes(operatorCopy), operatorCopy);
   }
@@ -243,22 +238,22 @@ test('Nacre-Moiré interference mark is a committed accessible vector asset', ()
   assert.match(nacreMark, /class="moire-line"/);
 });
 
-test('tzeentch shell exposes Mosaic before Murmurs and Positions after Actionable Intel', () => {
+test('archived tzeentch shell exposes Mosaic before Murmurs and Positions after Actionable Intel', () => {
   [
     'data-surface="seek"',
     'data-surface="mosaic"',
     'data-surface="murmurs"',
     'data-surface="intel"',
     'data-surface="positions"',
-  ].forEach((needle) => assert.ok(operatorShell.includes(needle), needle));
+  ].forEach((needle) => assert.ok(archivedShell.includes(needle), needle));
 
-  assert.ok(operatorShell.includes('Actionable Intel'));
-  assert.ok(operatorShell.indexOf('data-surface="mosaic"') < operatorShell.indexOf('data-surface="murmurs"'));
-  assert.ok(operatorShell.indexOf('data-surface="intel"') < operatorShell.indexOf('data-surface="positions"'));
-  assert.ok(!operatorShell.includes('data-surface="crypto"'));
-  assert.ok(!operatorShell.includes('data-surface="polymarket"'));
-  assert.ok(!operatorShell.includes('data-surface="markets"'));
-  assert.ok(!operatorShell.includes('tzeentchSurfaceMarkets'));
+  assert.ok(archivedShell.includes('Actionable Intel'));
+  assert.ok(archivedShell.indexOf('data-surface="mosaic"') < archivedShell.indexOf('data-surface="murmurs"'));
+  assert.ok(archivedShell.indexOf('data-surface="intel"') < archivedShell.indexOf('data-surface="positions"'));
+  assert.ok(!archivedShell.includes('data-surface="crypto"'));
+  assert.ok(!archivedShell.includes('data-surface="polymarket"'));
+  assert.ok(!archivedShell.includes('data-surface="markets"'));
+  assert.ok(!archivedShell.includes('tzeentchSurfaceMarkets'));
 });
 
 test('tzeentch client uses one surface manifest and no legacy market carousel state', () => {
@@ -310,16 +305,16 @@ test('AR tab is removed while Godeye remains the hosted viewer', () => {
   assert.ok(!operatorShell.includes('id="ar-tab"'));
   assert.ok(!operatorShell.includes('Camera passthrough'));
   assert.ok(operatorShell.includes('data-tab="godeye"'));
-  assert.ok(operatorShell.includes('Hosted viewer'));
-  assert.ok(operatorShell.includes('Godeye'));
+  assert.ok(operatorShell.includes('Personal observations'));
+  assert.ok(operatorShell.includes('Cybermap'));
 });
 
-test('operator shell exposes the slang dictionary as a top-level tab', () => {
-  assert.ok(operatorShell.includes('data-tab="slang"'));
-  assert.ok(operatorShell.includes('id="slang-tab"'));
-  assert.ok(operatorShell.includes('Blue Swallow Society slang dictionary'));
-  assert.ok(operatorShell.includes('Choom / Choombah'));
-  assert.ok(operatorShell.includes('Wire-digest'));
+test('archived operator shell preserves the slang dictionary as a top-level tab', () => {
+  assert.ok(archivedShell.includes('data-tab="slang"'));
+  assert.ok(archivedShell.includes('id="slang-tab"'));
+  assert.ok(archivedShell.includes('Blue Swallow Society slang dictionary'));
+  assert.ok(archivedShell.includes('Choom / Choombah'));
+  assert.ok(archivedShell.includes('Wire-digest'));
   assert.ok(!indexHtml.includes('Blue Swallow Society slang dictionary'));
 });
 

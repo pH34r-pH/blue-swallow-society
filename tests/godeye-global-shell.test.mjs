@@ -89,9 +89,9 @@ test('Godeye dispatches future explicit Field and Global controls while retainin
   assert.match(operatorMain, /startGodeyeFeed/);
 });
 
-test('authenticated Godeye shell exposes Field and Global controls with bounded provenance regions', () => {
-  assert.match(operatorShell, /data-godeye-mode="field"/);
-  assert.match(operatorShell, /data-godeye-mode="global"/);
+test('authenticated Godeye shell exposes Travels and World routes with bounded provenance regions', () => {
+  assert.match(operatorShell, /href="\/operator\/travels"/);
+  assert.match(operatorShell, /href="\/operator\/world"/);
   assert.match(operatorShell, /data-godeye-global-cells/);
   assert.match(operatorShell, /data-godeye-global-ledger/);
   assert.match(operatorShell, /data-godeye-global-intelligence-gaps/);
