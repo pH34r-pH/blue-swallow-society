@@ -54,13 +54,14 @@ test('vision controller merges explicit imported data without manufacturing dete
     detections: [],
     source: 'unavailable',
     updatedAt: null,
+    mode: 'live',
   });
 
   const imported = controller.reduceDataset({
     frame: { width: 640, height: 480 },
     detections: [{ label: 'person', confidence: 0.88, box: { x: 0.1, y: 0.2, width: 0.3, height: 0.4, normalized: true } }],
     updatedAt: '2026-07-26T17:59:00.000Z',
-  }, { sourceLabel: 'local-file', merge: false });
+  }, { sourceLabel: 'local-file', mode: 'historical', merge: false });
   assert.equal(imported.detections.length, 1);
   assert.equal(imported.source, 'local-file');
   assert.equal(imported.updatedAt, '2026-07-26T17:59:00.000Z');
