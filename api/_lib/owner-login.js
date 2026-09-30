@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const { apiConfig } = require('./api-access-token');
 const { ownerConfig, same } = require('../shared/owner-session.cjs');
 const TRANSACTION_COOKIE = '__Host-bss_owner_login';
 const TRANSACTION_TTL = 300;
@@ -8,7 +9,8 @@ function loginConfig() {
   const origin = new URL(process.env.BLUE_SWALLOW_PUBLIC_ORIGIN || '');
   const clientSecret = process.env.BLUE_SWALLOW_ENTRA_CLIENT_SECRET || '';
   if (origin.protocol !== 'https:' || origin.origin !== process.env.BLUE_SWALLOW_PUBLIC_ORIGIN || !clientSecret) throw new Error('owner_auth_unavailable');
-  return { ...config, origin: origin.origin, clientSecret, redirectUri: `${origin.origin}/api/owner-auth/callback` };
+  const apiClientId = process.env.BLUE_SWALLOW_ENTRA_API_CLIENT_ID ? apiConfig().clientId : null;
+  return { ...config, apiClientId, origin: origin.origin, clientSecret, redirectUri: `${origin.origin}/api/owner-auth/callback` };
 }
 function msalClient(config) {
   const { ConfidentialClientApplication } = require('@azure/msal-node');
@@ -49,4 +51,6 @@ function newTransaction(returnTo, config, now = Date.now()) {
   return { state: crypto.randomBytes(32).toString('base64url'), nonce: crypto.randomBytes(32).toString('base64url'),
     verifier: crypto.randomBytes(32).toString('base64url'), issuedAt: now, returnTo: safeReturnPath(returnTo, config.origin) };
 }
-module.exports = { loginConfig, msalClient, sealTransaction, openTransaction, transactionCookie, transactionCookieOptions, newTransaction, safeReturnPath, TRANSACTION_COOKIE };
+function apiScopes(config) { return config.apiClientId ? [`api://${config.apiClientId}/Owner.Read`] : []; }
+function loginScopes(config) { return ['openid', 'profile', ...apiScopes(config)]; }
+module.exports = { apiScopes, loginScopes, loginConfig, msalClient, sealTransaction, openTransaction, transactionCookie, transactionCookieOptions, newTransaction, safeReturnPath, TRANSACTION_COOKIE };

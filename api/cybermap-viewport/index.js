@@ -1,4 +1,4 @@
-const { requireOperatorToken } = require('../_lib/operator-auth');
+const { requireOwnerRead } = require('../_lib/owner-read-auth');
 const {
   buildViewportPayload,
   hasSensitiveLocationQuery,
@@ -18,7 +18,7 @@ function sendJson(context, status, body) {
 }
 
 module.exports = async function cybermapViewport(context, req) {
-  const auth = requireOperatorToken(context, req);
+  const auth = await requireOwnerRead(context, req);
   if (!auth.ok) return context.res;
 
   if (hasSensitiveLocationQuery(req)) {

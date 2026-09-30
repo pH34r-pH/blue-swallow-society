@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import http from 'node:http';
+import apiTokens from './api-access-token.cjs';
 import { requireOwnerReadProof } from './owner-read-auth.mjs';
 
 import { boundedMtlsRejectionReason, IngestError } from './auth.mjs';
@@ -116,10 +117,11 @@ export function createCybermapApiServer({
   logger = null,
   ingestDeadlineMs = 5_000,
   mtlsProxySecret = process.env.BSS_MTLS_PROXY_SECRET,
+  verifyApiRead = apiTokens.verifyApiAccessToken,
 } = {}) {
   if (!store) throw new TypeError('store is required');
   const server = http.createServer(createRequestHandler({
-    store, now, logger, ingestDeadlineMs, mtlsProxySecret,
+    store, now, logger, ingestDeadlineMs, mtlsProxySecret, verifyApiRead,
   }));
   server.requestTimeout = 30_000;
   server.headersTimeout = 10_000;
@@ -128,13 +130,13 @@ export function createCybermapApiServer({
   return server;
 }
 
-async function dispatchViewport(request, response, url, { store, now, mtlsProxySecret }) {
+async function dispatchViewport(request, response, url, { store, now, mtlsProxySecret, verifyApiRead }) {
   if (url.search) {
     request.resume();
     throw new IngestError('invalid_viewport', 'Viewport requests must not use URL query parameters.', { statusCode: 400 });
   }
-  if (singleHeader(request, 'x-blue-swallow-cybermap-read-token')) {
-    requireBackendReadToken(request);
+  if (singleHeader(request, 'x-blue-swallow-cybermap-read-token') || request.headers.authorization !== undefined) {
+    await requireBackendReadToken(request, verifyApiRead);
     return sendJson(response, 200, await handleCybermapViewportPost(request, { store, now }));
   }
   requireOwnerReadProof(request);
@@ -155,7 +157,7 @@ async function dispatchPaperState(request, response, { store, now }) {
 }
 
 async function dispatchKnownRequest(request, response, url, context) {
-  const { store, now, mtlsProxySecret } = context;
+  const { store, now, mtlsProxySecret, verifyApiRead } = context;
   if (request.method === 'GET' && url.pathname === '/healthz') {
     return sendJson(response, 200, { ok: true, service: 'bss-cybermap-api' });
   }
@@ -167,7 +169,7 @@ async function dispatchKnownRequest(request, response, url, context) {
     return sendJson(response, readiness.ok ? 200 : 503, readiness);
   }
   if (request.method === 'POST' && url.pathname === OPERATOR_SIGNALS_PATH) {
-    requireBackendReadToken(request);
+    await requireBackendReadToken(request, verifyApiRead);
     if (url.search) {
       request.resume();
       throw new IngestError(
@@ -179,10 +181,10 @@ async function dispatchKnownRequest(request, response, url, context) {
     return sendJson(response, 200, await handleOperatorSignalSnapshotPost(request, { store, now }));
   }
   if (request.method === 'POST' && url.pathname === VIEWPORT_PATH) {
-    return dispatchViewport(request, response, url, { store, now, mtlsProxySecret });
+    return dispatchViewport(request, response, url, { store, now, mtlsProxySecret, verifyApiRead });
   }
   if (request.method === 'GET' && url.pathname.startsWith('/api/v1/cybermap/tiles/')) {
-    requireBackendReadToken(request);
+    await requireBackendReadToken(request, verifyApiRead);
     const tile = await handleCybermapTile(url, { store });
     return sendBinary(
       response, 200, tile, 'application/vnd.mapbox-vector-tile',
@@ -190,7 +192,7 @@ async function dispatchKnownRequest(request, response, url, context) {
     );
   }
   if (request.method === 'POST' && url.pathname === GLOBAL_VIEWPORT_PATH) {
-    requireBackendReadToken(request);
+    await requireBackendReadToken(request, verifyApiRead);
     return sendJson(response, 200, await handleGlobalViewport(request, { store, now }));
   }
   if (url.pathname === PAPER_STATE_PATH && ['GET', 'PUT'].includes(request.method)) {
@@ -227,12 +229,13 @@ export function createRequestHandler({
   logger = null,
   ingestDeadlineMs = 5_000,
   mtlsProxySecret = process.env.BSS_MTLS_PROXY_SECRET,
+  verifyApiRead = apiTokens.verifyApiAccessToken,
 }) {
   return async function requestHandler(request, response) {
     try {
       const url = new URL(request.url, 'http://127.0.0.1');
       const handled = await dispatchKnownRequest(request, response, url, {
-        store, now, mtlsProxySecret,
+        store, now, mtlsProxySecret, verifyApiRead,
       });
       if (handled !== undefined || response.writableEnded) return handled;
       if (request.method !== 'POST' || url.pathname !== INGEST_PATH) {
@@ -1138,7 +1141,11 @@ function requireMorningBriefToken(request) {
   }
 }
 
-function requireBackendReadToken(request) {
+async function requireBackendReadToken(request, verifyApiRead) {
+  if (request.headers.authorization !== undefined && process.env.BLUE_SWALLOW_AUTH_MODE !== 'legacy') {
+    try { return await verifyApiRead(apiTokens.bearerToken(request), 'Owner.Read'); }
+    catch (error) { throw new IngestError(error.code || 'api_owner_denied', 'Owner API authorization required.', { statusCode: error.status || 403 }); }
+  }
   requireOwnerReadProof(request);
   const expected = String(process.env.BSS_CYBERMAP_READ_TOKEN || '').trim();
   if (!expected) {

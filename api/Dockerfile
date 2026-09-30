@@ -11,3 +11,6 @@ COPY api/package.json api/package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --engine-strict
 
 COPY api/ ./
+
+# Include the canonical host-neutral delegated API validator.
+COPY vm/cybermap-api/src/api-access-token.cjs ./shared/api-access-token.cjs
