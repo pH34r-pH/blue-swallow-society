@@ -57,7 +57,8 @@ test('Chromium companion navigation, Back, mobile layout and gated release state
   await page.goto(`${origin}/?selected=cell-1`);
   await page.locator('#godeye-tab.active').waitFor();
   await page.getByRole('link', { name: 'Devices / Utilities' }).click();
-  assert.match(page.url(), /\/operator\/devices\?selected=cell-1$/);
+  assert.equal(new URL(page.url()).pathname, '/operator/devices');
+  assert.equal(new URL(page.url()).searchParams.get('selected'), 'cell-1');
   await page.getByText('test-release / 1', { exact: true }).waitFor();
   assert.equal(await page.locator('[data-operator-download="apk"]').getAttribute('aria-disabled'), null);
   await page.route('https://test.blob.core.windows.net/**', (route) => route.fulfill({ status: 200, headers: { 'Content-Disposition': 'attachment; filename=test.apk' }, contentType: 'application/octet-stream', body: 'test APK fixture' }));
