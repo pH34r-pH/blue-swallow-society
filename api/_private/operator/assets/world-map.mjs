@@ -1,3 +1,4 @@
+import { worldGeometryBudget } from './world-state.mjs';
 const EMPTY = { type: 'FeatureCollection', features: [] };
 export async function createWorldMap({ container, onSelect = () => {}, onFailure = () => {} }) {
   if (!document.querySelector('[data-world-map-css]')) {
@@ -27,9 +28,11 @@ export async function createWorldMap({ container, onSelect = () => {}, onFailure
     map.getCanvas().addEventListener('webglcontextlost', onFailure);
     map.on('error', onFailure);
     return { set(items, preset) {
-      map.getSource('context').setData({ type: 'FeatureCollection', features: items.filter((item) => item.geometry).map((item) => ({
+      const budget = worldGeometryBudget(items);
+      map.getSource('context').setData({ type: 'FeatureCollection', features: budget.items.map((item) => ({
         type: 'Feature', geometry: item.geometry, properties: { id: item.id, freshness: item.freshness } })) });
       map.jumpTo({ center: preset.center, zoom: preset.zoom });
+      return { geometries: budget.items.length, vertices: budget.vertices };
     }, resize: () => map.resize(), destroy: () => map.remove(), projection: () => map.getProjection().type };
   } catch (error) { map?.remove(); throw error; }
 }

@@ -54,3 +54,24 @@ export function safeWorldLink(value) {
   } catch {}
   return null;
 }
+
+export function worldGeometryBudget(items) {
+  const features = []; let vertices = 0;
+  for (const item of items) {
+    const count = coordinates(item.geometry).length;
+    if (!count || vertices + count > 20000) continue;
+    if (features.length >= 1000) break;
+    vertices += count; features.push(item);
+  }
+  return { items: features, vertices };
+}
+
+export function sourceFreshness(source, at = Date.now()) {
+  if (!source.enabled) return 'disabled';
+  if (source.error) return 'failure';
+  if (!source.fetchedAt) return 'unavailable';
+  const age = at - Date.parse(source.fetchedAt);
+  if (age > source.maxAgeMs) return 'expired';
+  if (age > source.staleMs) return 'stale';
+  return source.state;
+}

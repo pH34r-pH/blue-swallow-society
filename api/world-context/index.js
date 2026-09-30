@@ -9,7 +9,7 @@ function createWorldContextHandler({ authorize = requireOwnerRead, read = (auth)
     if (!auth?.ok) return;
     // Public-feed access uses the common API token; legacy/custom proof cannot authorize this new route.
     if (!auth.apiAccessToken || !auth.principal) { send(context, 403, { ok: false, error: 'api_owner_denied' }); return; }
-    if (req.method !== 'GET' || Object.keys(req.query || {}).length || req.body != null) {
+    if (req.method !== 'GET' || Object.keys(req.query || {}).length || new URL(req.url || '/', 'https://operator.invalid').search || req.body != null) {
       send(context, 400, { ok: false, error: 'world_request_invalid' }); return;
     }
     try { send(context, 200, await read(auth)); }

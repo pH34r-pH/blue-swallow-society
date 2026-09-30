@@ -1,4 +1,4 @@
-import { WORLD_SOURCES, WORLD_LIMITS, normalizeExistingWorldSource, normalizeNws } from './world-sources.mjs';
+import { WORLD_SOURCES, WORLD_LIMITS, normalizeExistingWorldSource, normalizeNws, iso } from './world-sources.mjs';
 
 async function boundedJson(response) {
   if (Number(response.headers.get('content-length')) > WORLD_LIMITS.bytes) throw new Error('response_too_large');
@@ -25,18 +25,8 @@ export function createWorldService({ fetchImpl = globalThis.fetch, now = Date.no
   function read() {
     const at = now(); const items = [];
     const sources = WORLD_SOURCES.map((source) => {
-      const state = states.get(source.id);
-      const age = state?.fetchedAt ? at - Date.parse(state.fetchedAt) : null;
-      const expired = age !== null && age > source.maxAgeMs;
-      const stale = age !== null && age > source.staleMs;
-      const retained = !expired ? state?.items || [] : [];
-      items.push(...retained.map((item) => ({ ...item,
-        semantics: item.expiresAt && Date.parse(item.expiresAt) <= at ? 'historical' : item.semantics,
-        freshness: state?.error || stale ? 'stale' : 'fresh' })));
-      return { ...source, state: !source.enabled ? 'disabled' : state?.error ? 'failure' : !state?.fetchedAt ? 'unavailable' : expired ? 'expired' : stale ? 'stale' : retained.length ? 'fresh' : 'empty',
-        fetchedAt: state?.fetchedAt || null, attemptedAt: state?.attemptedAt || null,
-        nextAttemptAt: state?.nextAttemptAt ? new Date(state.nextAttemptAt).toISOString() : null,
-        error: state?.error || null, rejected: state?.rejected || 0, expired, count: retained.length };
+      const view = sourceView(source, states.get(source.id), at);
+      items.push(...view.items); return view.metadata;
     });
     return structuredClone({ version: 'bss.world.v1', generatedAt: new Date(at).toISOString(), sources, items,
       storage: 'process-local; lost on restart', boundary: 'public_context_not_entity_evidence' });
@@ -59,7 +49,7 @@ export function createWorldService({ fetchImpl = globalThis.fetch, now = Date.no
       const normalized = source.id === 'nws-alerts' ? normalizeNws(payload, fetchedAt) : normalizeExistingWorldSource(source.id, payload, fetchedAt);
       // A malformed nonempty response cannot erase the last successful context as an 'empty' success.
       if (normalized.rejected && !normalized.items.length) throw new Error('invalid_payload');
-      states.set(source.id, { ...state, ...normalized, fetchedAt, error: null });
+      states.set(source.id, { ...state, ...normalized, fetchedAt, providerUpdatedAt: providerUpdate(payload), error: null });
     } catch (error) {
       state.error = /^http_\d{3}$/.test(error.message) ? error.message : ['response_too_large', 'invalid_payload', 'invalid_or_oversize_items'].includes(error.message) ? error.message : 'source_unavailable';
     }
@@ -75,3 +65,30 @@ export function createWorldService({ fetchImpl = globalThis.fetch, now = Date.no
   }
   return Object.freeze({ read, refresh });
 }
+
+function sourceView(source, state, at) {
+  const age = state?.fetchedAt ? at - Date.parse(state.fetchedAt) : null;
+  const expired = age !== null && age > source.maxAgeMs;
+  const stale = age !== null && age > source.staleMs;
+  const retained = expired ? [] : state?.items || [];
+  return { items: retained.map((item) => ({ ...item,
+    semantics: item.expiresAt && Date.parse(item.expiresAt) <= at ? 'historical' : item.semantics,
+    freshness: state?.error || stale ? 'stale' : 'fresh' })),
+    metadata: sourceMetadata(source, state, { expired, stale, count: retained.length }) };
+}
+function sourceMetadata(source, state, { expired, stale, count }) {
+  return { ...source, state: sourceStatus(source, state, expired, stale, count),
+    fetchedAt: state?.fetchedAt || null, providerUpdatedAt: state?.providerUpdatedAt || null, attemptedAt: state?.attemptedAt || null,
+    nextAttemptAt: state?.nextAttemptAt ? new Date(state.nextAttemptAt).toISOString() : null,
+    error: state?.error || null, rejected: state?.rejected || 0, expired, count };
+}
+function sourceStatus(source, state, expired, stale, count) {
+  if (!source.enabled) return 'disabled';
+  if (state?.error) return 'failure';
+  if (!state?.fetchedAt) return 'unavailable';
+  if (expired) return 'expired';
+  if (stale) return 'stale';
+  return count ? 'fresh' : 'empty';
+}
+
+function providerUpdate(payload) { return iso(payload?.metadata?.generated ?? payload?.updated); }

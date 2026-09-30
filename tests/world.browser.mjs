@@ -68,8 +68,16 @@ test('World mobile keyboard/reduced-motion, empty/stale/failure, 4000 records an
   t.diagnostic(`Synthetic 4000-record reload to visible page: ${Math.round(performance.now() - before)} ms (headless desktop runner, not phone performance).`);
   assert.equal(await page.locator('.world-items button').count(), 50);
   await page.getByRole('button', { name: 'Next page' }).click(); await page.getByText(/page 2 of 80/).waitFor();
+  await page.getByRole('combobox', { name: 'Region', exact: true }).selectOption('global');
+  const globeBefore = performance.now(); const heapBefore = await page.evaluate(() => performance.memory?.usedJSHeapSize || null);
   await page.getByRole('button', { name: 'Show globe' }).click(); await page.getByText(/Ground context globe\. Made with/).waitFor({ timeout: 20000 });
   assert.equal(await page.evaluate(() => window.world.diagnostics().projection), 'globe');
+  const frames = await page.evaluate(async () => {
+    const values = []; let last = performance.now();
+    for (let i = 0; i < 30; i++) await new Promise((resolve) => requestAnimationFrame((now) => { values.push(now - last); last = now; resolve(); }));
+    return { intervals: values, heap: performance.memory?.usedJSHeapSize || null };
+  });
+  t.diagnostic(`Local globe ready: ${Math.round(performance.now() - globeBefore - frames.intervals.reduce((a,b) => a+b,0))} ms; 30 rAF intervals median ${frames.intervals.sort((a,b) => a-b)[15].toFixed(1)} ms; JS heap before/after ${heapBefore}/${frames.heap} bytes. Headless Chromium software WebGL; excludes GPU memory and is not phone performance or map FPS.`);
   assert.ok(h.urls.some((url) => url.endsWith('world-land.geojson')));
   assert.equal(h.urls.some((url) => !url.startsWith(h.origin) && !url.startsWith('blob:')), false);
   await page.screenshot({ path: process.env.WORLD_SCREENSHOT_PATH || '/tmp/world-mobile.png', fullPage: true });

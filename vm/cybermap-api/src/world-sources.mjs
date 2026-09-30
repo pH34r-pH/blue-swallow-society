@@ -51,19 +51,31 @@ export function normalizeExistingWorldSource(id, payload, fetchedAt) {
     try {
       const one = id === 'nasa-eonet-events' ? { events: [entry] } : { features: [entry] };
       const [record] = adapter.normalize(one, { source: { id, layer_id: id, source_class: 'green_public' } });
-      items.push({ id: `${id}:${record.provider_event_id}`, sourceId: id,
-        title: text(entry?.properties?.title || entry?.title || record.summary.classification),
-        semantics: id === 'usgs-earthquakes' ? 'observed' : 'reported',
-        eventAt: record.observed_at, updatedAt: iso(entry?.properties?.updated), fetchedAt,
-        expiresAt: null, geometry: { type: 'Point', coordinates: [record.location.longitude, record.location.latitude] },
-        sourceUrl: sourceLink(entry?.properties?.url, source.url, 'earthquake.usgs.gov'), attribution: source.attribution,
-        uncertainty: 'Provider report; location and magnitude may be revised. Not a local observation or entity evidence.',
-        detail: JSON.stringify(record.summary), regions: [] });
+      items.push(existingItem(id, record, entry, source, fetchedAt));
     } catch { rejected++; }
   }
   return { items, rejected };
 }
 
+function existingItem(id, record, entry, source, fetchedAt) {
+  return { id: `${id}:${record.provider_event_id}`, sourceId: id,
+    title: text(entry?.properties?.title || entry?.title || record.summary.classification),
+    semantics: id === 'usgs-earthquakes' ? 'observed' : 'reported',
+    eventAt: record.observed_at, updatedAt: iso(entry?.properties?.updated), fetchedAt,
+    expiresAt: null, geometry: { type: 'Point', coordinates: [record.location.longitude, record.location.latitude] },
+    sourceUrl: sourceLink(entry?.properties?.url, source.url, 'earthquake.usgs.gov'), attribution: source.attribution,
+    uncertainty: 'Provider report; location and magnitude may be revised. Not a local observation or entity evidence.',
+    detail: JSON.stringify(record.summary), regions: [] };
+}
+function validateRing(ring) {
+  if (!Array.isArray(ring) || ring.length < 4) throw new Error('invalid_geometry');
+  for (const point of ring) {
+    if (!Array.isArray(point) || point.length !== 2 || !point.every(Number.isFinite)
+      || Math.abs(point[0]) > 180 || Math.abs(point[1]) > 90) throw new Error('invalid_geometry');
+  }
+  if (ring[0][0] !== ring.at(-1)[0] || ring[0][1] !== ring.at(-1)[1]) throw new Error('invalid_geometry');
+  return ring.length;
+}
 function alertGeometry(value) {
   if (value == null) return null;
   if (!['Polygon', 'MultiPolygon'].includes(value.type)) throw new Error('invalid_geometry');
@@ -72,14 +84,8 @@ function alertGeometry(value) {
   if (!Array.isArray(polygons) || !polygons.length) throw new Error('invalid_geometry');
   for (const polygon of polygons) {
     if (!Array.isArray(polygon) || !polygon.length) throw new Error('invalid_geometry');
-    for (const ring of polygon) {
-      if (!Array.isArray(ring) || ring.length < 4) throw new Error('invalid_geometry');
-      for (const point of ring) {
-        if (++vertices > WORLD_LIMITS.vertices || !Array.isArray(point) || point.length !== 2 || !point.every(Number.isFinite)
-          || Math.abs(point[0]) > 180 || Math.abs(point[1]) > 90) throw new Error('invalid_geometry');
-      }
-      if (ring[0][0] !== ring.at(-1)[0] || ring[0][1] !== ring.at(-1)[1]) throw new Error('invalid_geometry');
-    }
+    for (const ring of polygon) vertices += validateRing(ring);
+    if (vertices > WORLD_LIMITS.vertices) throw new Error('invalid_geometry');
   }
   return structuredClone(value);
 }
@@ -91,13 +97,18 @@ export function normalizeNws(payload, fetchedAt) {
       const id = text(p?.id || feature?.id, 240);
       const sent = iso(p?.sent); const expiresAt = iso(p?.expires);
       if (!id || !sent || !expiresAt || p.status !== 'Actual') throw new Error('invalid_alert');
-      items.push({ id: `nws-alerts:${id}`, sourceId: 'nws-alerts', title: text(p.headline || p.event),
+      items.push(nwsItem(feature, p, id, sent, expiresAt, fetchedAt));
+    } catch { rejected++; }
+  }
+  return { items, rejected };
+}
+
+function nwsItem(feature, p, id, sent, expiresAt, fetchedAt) {
+  return { id: `nws-alerts:${id}`, sourceId: 'nws-alerts', title: text(p.headline || p.event),
         semantics: p.certainty === 'Observed' ? 'observed' : 'predicted', eventAt: iso(p.onset) || iso(p.effective), updatedAt: sent,
         fetchedAt, expiresAt, geometry: alertGeometry(feature.geometry), sourceUrl: sourceLink(p.id, 'https://www.weather.gov/', 'api.weather.gov'),
         attribution: 'NOAA / National Weather Service', uncertainty: `${text(p.certainty)} certainty; ${text(p.severity)} severity. ${text(p.areaDesc)}. Boundaries are alert areas, not measured event positions.`,
         detail: text(p.description, 1500),
-        regions: [...new Set((Array.isArray(p.geocode?.UGC) ? p.geocode.UGC : []).map((code) => String(code).slice(0, 2)).filter((code) => /^[A-Z]{2}$/.test(code)))] });
-    } catch { rejected++; }
-  }
-  return { items, rejected };
+        regions: [...new Set((Array.isArray(p.geocode?.UGC) ? p.geocode.UGC : []).map((code) => String(code).slice(0, 2)).filter((code) => /^[A-Z]{2}$/.test(code)))] };
+
 }
