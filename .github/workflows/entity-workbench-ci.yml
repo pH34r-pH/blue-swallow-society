@@ -1,0 +1,43 @@
+name: Entity workbench PostGIS
+on:
+  pull_request:
+    paths:
+      - 'vm/cybermap-api/**'
+      - 'api/_private/operator/assets/entity-workbench.mjs'
+      - 'tests/entity-workbench.browser.mjs'
+      - '.github/workflows/entity-workbench-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  entity-postgis:
+    name: entity-postgis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5@sha256:01a6a70e41e6c4467c8f55f6063555ed72db2d6662cd0d571040d42eadaeb6f6
+        env:
+          POSTGRES_PASSWORD: synthetic-test-only
+          POSTGRES_DB: entity_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: vm/cybermap-api/package-lock.json
+      - run: npm ci --prefix vm/cybermap-api --ignore-scripts --engine-strict
+      - run: node --test vm/cybermap-api/test/entity-workbench*.test.mjs
+        env:
+          BSS_ENTITY_TEST_DATABASE_URL: postgresql://postgres:synthetic-test-only@127.0.0.1:5432/entity_test
+      - run: npm ci --prefix api --ignore-scripts --engine-strict
+      - run: npm exec --prefix api -- playwright install --with-deps chromium
+      - run: node --test tests/entity-workbench.browser.mjs
