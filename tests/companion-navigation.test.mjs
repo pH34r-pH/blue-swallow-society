@@ -21,7 +21,7 @@ test('primary companion shell has four links, existing release card in Devices a
   assert.doesNotMatch(shell, /data-tab="(?:landing|tzeentch|morning-brief|slang)"/);
   assert.match(shell, /id="devices-tab"[\s\S]*data-operator-release-card/);
   assert.match(shell, /data-check-release/);
-  assert.match(shell, /Entity review is unavailable/);
+  assert.match(shell, /data-entity-workbench/);
   assert.match(shell, /unrelated public context/i);
 });
 
