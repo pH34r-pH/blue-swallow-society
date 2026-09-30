@@ -5,6 +5,7 @@ import { requireOwnerReadProof } from './owner-read-auth.mjs';
 
 import { boundedMtlsRejectionReason, IngestError } from './auth.mjs';
 import { ContractError, validateObservationBatch } from './contracts.mjs';
+import { readHistory } from './history-query.mjs';
 import { readOperatorSignalSnapshotFromBody, readViewportFromBody } from './viewport.mjs';
 import {
   GlobalViewportContractError,
@@ -167,6 +168,11 @@ async function dispatchKnownRequest(request, response, url, context) {
   if (request.method === 'GET' && url.pathname === '/readyz') {
     const readiness = await store.ready();
     return sendJson(response, readiness.ok ? 200 : 503, readiness);
+  }
+  if (request.method === 'POST' && url.pathname === '/api/v1/cybermap/history') {
+    await requireBackendReadToken(request, verifyApiRead);
+    if (url.search) throw new IngestError('invalid_history', 'History filters must use the POST body.', { statusCode: 400 });
+    return sendJson(response, 200, await readHistory(await readJsonRequestBody(request), { store, now }));
   }
   if (request.method === 'POST' && url.pathname === OPERATOR_SIGNALS_PATH) {
     await requireBackendReadToken(request, verifyApiRead);

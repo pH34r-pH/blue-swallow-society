@@ -1,3 +1,4 @@
+import { queryHistory } from './history-store.mjs';
 import { latLngToCell } from 'h3-js';
 
 import { forbidden, forbiddenWithMtlsRejectionReason, hashToken, IngestError } from './auth.mjs';
@@ -885,6 +886,8 @@ export class PostgresObservationStore {
     const row = result.rows[0];
     return { artifact_id: row.artifact_id, media_type: row.media_type, sha256: row.sha256, content: Buffer.from(row.content) };
   }
+
+  async queryHistory(query) { return queryHistory(this.#pool, query); }
 
   async queryViewport({ lat, lon, radiusMeters = 100, limit = 100, maxAgeMs = null, now = new Date() } = {}) {
     const center = { lat, lon };

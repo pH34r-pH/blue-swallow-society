@@ -3461,4 +3461,4 @@ strong {
 .history-map { height: 22rem; margin: 1rem 0; }
 .history-map[hidden] { display: none; }
 .history-nearby { margin-top: 2rem; }
-.travels-history [data-history-state="stale"] { color: #e0bd7c; }
+.travels-history[data-history-state="stale"] [data-history-status] { color: #e0bd7c; }

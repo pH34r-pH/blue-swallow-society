@@ -34,7 +34,7 @@ export function createHistoryController({ fetchPage, render, now = Date.now }) {
       try {
         const data = await fetchPage(query, abort.signal);
         if (current !== generation) return;
-        if (data?.schemaVersion !== 'bss.observation_history.v1' || !Array.isArray(data.observations)
+        if (data?.ok !== true || data?.schemaVersion !== 'bss.observation_history.v1' || !Array.isArray(data.observations)
           || data.observations.length > 200 || !Number.isFinite(Date.parse(data.retrievedAt))) throw new Error('Invalid history');
         state = { phase: 'ready', data }; render(state);
       } catch {
@@ -44,7 +44,7 @@ export function createHistoryController({ fetchPage, render, now = Date.now }) {
     },
     select(id) {
       if (!state.data) return;
-      state = { ...state, data: { ...state.data, selected: state.data.observations.find((row) => row.id === id) || null } };
+      state = { ...state, data: { ...state.data, selected: state.data.observations.find((row) => row.id === id) || (state.data.selected?.id === id ? state.data.selected : null) } };
       render(state);
     },
     tick() { render(state, now()); },

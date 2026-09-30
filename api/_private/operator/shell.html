@@ -36,7 +36,7 @@
               <label>Until (UTC, exclusive)<input type="datetime-local" name="to" required></label>
               <label>Installation ID<input name="deviceId" maxlength="128" autocomplete="off" placeholder="All personal installations"></label>
               <label>Stored session ID<input name="sessionId" maxlength="36" autocomplete="off" placeholder="All stored sessions and ungrouped"></label>
-              <label>Radio<select name="kind"><option value="">All radios</option value="wifi_ap">Wi-Fi</option><option value="ble_device">Bluetooth LE</option><option value="cell_signal">Cellular</option></select></label>
+              <label>Radio<select name="kind" aria-label="Radio"><option value="">All radios</option><option value="wifi_ap">Wi-Fi</option><option value="ble_device">Bluetooth LE</option><option value="cell_signal">Cellular</option></select></label>
               <button type="submit" class="btn">Apply history filters</button>
             </form>
             <p data-history-status role="status" aria-live="polite">Choose a time interval to load observation history.</p>

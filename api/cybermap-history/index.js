@@ -1,10 +1,10 @@
-const { requireOperatorToken } = require('../_lib/operator-auth');
+const { requireOwnerRead } = require('../_lib/owner-read-auth');
 const { postCybermapJson } = require('../_lib/cybermap-backend');
 function respond(context, status, body) {
   context.res = { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' }, body };
 }
 module.exports = async function history(context, req) {
-  const auth = requireOperatorToken(context, req);
+  const auth = await requireOwnerRead(context, req);
   if (!auth.ok) return;
   if (req.method !== 'POST' || Object.keys(req.query || {}).length) {
     respond(context, 400, { ok: false, error: 'History requires POST filters without URL query parameters.' }); return;

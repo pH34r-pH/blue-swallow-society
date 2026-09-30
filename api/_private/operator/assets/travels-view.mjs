@@ -59,7 +59,7 @@ class TravelsView {
     }
     this.inspector.replaceChildren(...detail(data?.selected));
     this.root.querySelector('[data-history-groups]').textContent = groups(data?.observations || []);
-    this.map?.set(data?.observations || [], data?.selected?.id);
+    this.updateMap(data);
   }
   select(id) {
     this.query = { ...this.query, selectedId: id };
@@ -96,10 +96,18 @@ class TravelsView {
     try {
       const instance = await createTravelsMap(this.canvas, (id) => this.select(id));
       if (!this.active || generation !== this.mapGeneration) { instance.destroy(); return; }
-      this.map = instance; this.map.set(this.controller.getState().data?.observations || [], this.query.selectedId);
+      this.map = instance; this.updateMap(this.controller.getState().data);
+      if (!this.map) return;
       this.mapButton.textContent = 'Hide capture map'; this.mapButton.setAttribute('aria-expanded', 'true');
     } catch { this.canvas.hidden = true; this.root.querySelector('[data-history-map-status]').textContent = 'Map unavailable. The observation list and detail remain available.'; }
     finally { this.mapButton.disabled = false; }
+  }
+  updateMap(data) {
+    if (!this.map) return;
+    const rows = [...(data?.observations || [])];
+    if (data?.selected && !rows.some((row) => row.id === data.selected.id)) rows.push(data.selected);
+    try { this.map.set(rows, data?.selected?.id); }
+    catch { this.hideMap(); this.root.querySelector('[data-history-map-status]').textContent = 'Map unavailable. The observation list and detail remain available.'; }
   }
   hideMap() {
     this.mapGeneration++; this.map?.destroy(); this.map = null; this.canvas.hidden = true;
