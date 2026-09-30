@@ -1,8 +1,9 @@
 /** Isolated private UI. The shell injects an owner-authorized same-origin request adapter. */
-export function mountEntityWorkbench(root, { request } = {}) {
+export function mountEntityWorkbench(root, { request, editing } = {}) {
   if (!root || typeof request !== 'function') throw new TypeError('Root and authorized request adapter required');
-  const workbench = new EntityWorkbench(root, request);
+  const workbench = new EntityWorkbench(root, request, editing);
   workbench.refresh();
+  if (editing) workbench.checkEditing();
   return { reload: () => workbench.refresh(), destroy: () => workbench.destroy() };
 }
 function element(root, tag, text = '') {
@@ -50,14 +51,45 @@ function createView(root, workbench) {
   return v;
 }
 class EntityWorkbench {
-  constructor(root, request) {
+  constructor(root, request, editing) {
     this.root = root; this.request = request; this.selected = null; this.pending = null; this.offset = 0;
     this.generation = 0; this.detailGeneration = 0; this.previewGeneration = 0; this.destroyed = false;
     this.v = createView(root, this);
+    this.editing = editing; this.canEdit = !editing;
+    if (editing) this.installEditing();
+  }
+  installEditing() {
+    this.editStatus = element(this.root, 'p', 'Read-only access. Checking editing availability…');
+    this.editStatus.setAttribute('role', 'status');
+    this.enableButton = button(this.root, 'Enable editing', async () => {
+      this.enableButton.disabled = true;
+      this.editStatus.textContent = 'Opening Microsoft authorization…';
+      try { await this.editing.enable(); }
+      catch { if (!this.destroyed) { this.enableButton.disabled = false; this.editStatus.textContent = 'Editing could not be enabled. You still have read-only access.'; } }
+    });
+    this.root.insertBefore(this.editStatus, this.v.filters);
+    this.root.insertBefore(this.enableButton, this.v.filters);
+    this.setEditing(false);
+  }
+  setEditing(enabled) {
+    this.canEdit = enabled;
+    for (const control of this.v.editor.querySelectorAll('input,select,button')) control.disabled = !enabled;
+    this.invalidate();
+  }
+  async checkEditing() {
+    try {
+      const status = await this.editing.status();
+      if (this.destroyed) return;
+      this.setEditing(status.editing === true);
+      this.enableButton.disabled = status.editing || !status.configured;
+      this.editStatus.textContent = status.editing ? 'Editing enabled for this session.' : 'Read-only access. Enable editing to request permission for corrections.';
+      if (!status.configured) this.editStatus.textContent = 'Read-only access. Editing authorization is unavailable.';
+    } catch { if (!this.destroyed) { this.setEditing(false); this.editStatus.textContent = 'Read-only access. Editing authorization is unavailable.'; } }
   }
   destroy() { this.destroyed = true; ++this.generation; this.root.replaceChildren(); }
   invalidate() { ++this.previewGeneration; this.pending = null; this.v.confirm.disabled = true; this.v.previewText.textContent = ''; }
   fail(error) {
+    if (this.editing && [401, 403].includes(error?.status)) { this.setEditing(false); this.enableButton.disabled = false; this.editStatus.textContent = 'Read-only access. Editing authorization expired or was denied.'; }
     if (error?.code === 'api_scope_denied') { this.v.status.textContent = 'This session has read access only. Corrections are unavailable.'; return; }
     this.v.status.textContent = ['stale_revision', 'undo_conflict'].includes(error?.code)
       ? 'This entity changed. Reload it and review a new preview before confirming.' : 'Entity request failed. Reload to try again.';
@@ -142,15 +174,17 @@ class EntityWorkbench {
     return command;
   }
   async previewCorrection() {
+    if (!this.canEdit) return;
     this.invalidate(); this.v.previewButton.disabled = true; const token = this.previewGeneration;
     try {
       const command = await this.buildCommand(), result = await this.request('preview', command);
       if (this.destroyed || token !== this.previewGeneration) return;
       this.pending = command; this.v.previewText.textContent = `${command.action}: ${command.reason}\n${result.entities.map(describePreview).join('\n')}`;
       this.v.confirm.disabled = false; this.v.status.textContent = 'Review the preview, then confirm.';
-    } catch (error) { this.fail(error); } finally { this.v.previewButton.disabled = false; }
+    } catch (error) { this.fail(error); } finally { this.v.previewButton.disabled = !this.canEdit; }
   }
   async confirmCorrection() {
+    if (!this.canEdit) return;
     if (!this.pending) return;
     this.v.confirm.disabled = true; const command = this.pending;
     try {

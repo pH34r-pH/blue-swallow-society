@@ -4,7 +4,9 @@
 - [x] Implement strict contracts, projection and fail-closed integration interface.
 - [x] Implement inert migration and transactional entity store.
 - [x] Verify with synthetic isolated PostGIS and focused browser tests.
-- [ ] Complete remote exact-commit regression CI.
-- [ ] Prepare draft PR and complete exact CI gates before any permitted merge.
+- [x] Complete remote exact-commit regression CI for core PR97.
+- [x] Prepare draft PR97 and merge core after all exact-head checks passed.
 - [x] Integrate scoped VM/Functions routes and private shell with synthetic end-to-end browser proof.
-- [ ] Follow-up: explicit Web edit-scope acquisition, offline sync, scoring/evaluation and live acceptance.
+- [x] Implement explicit Web edit-scope acquisition with synthetic token/browser tests.
+- [ ] Complete separate edit-flow PR exact-head CI and permitted merge.
+- [ ] Follow-up: live grants/provider acceptance, offline sync, scoring/evaluation and live deployment.

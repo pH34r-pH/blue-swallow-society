@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const { authMode, createOwnerSession, verifyOwnerSession, cookieValue, sessionCookieOptions } = require('../shared/owner-session.cjs');
 const login = require('../_lib/owner-login');
 const apiCache = require('../_lib/owner-api-token-cache');
+const edit = require('../_lib/owner-entity-edit');
 const { verifyIdToken } = require('../_lib/owner-id-token');
 const headers = { 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff' };
 
@@ -23,10 +24,12 @@ async function beginLogin(req, config, clientFactory, now) {
     ? { ...json(200, { ok: true, authorizationUrl: url }), headers: { ...headers, 'Content-Type': 'application/json', 'Set-Cookie': cookie } }
     : redirect(url, [login.transactionCookieOptions(login.sealTransaction(transaction, config))]);
 }
-async function completeLogin(req, config, { clientFactory, verify, now }) {
+async function completeLogin(req, config, deps) {
+  const { clientFactory, verify, now } = deps;
   let transaction;
   try {
     transaction = login.openTransaction(cookieValue(req.headers?.cookie, login.TRANSACTION_COOKIE), req.query?.state, config, now());
+    if (transaction.purpose === 'entity-edit') return edit.completeEdit(req, transaction, config, deps);
     if (typeof req.query?.code !== 'string' || !req.query.code || req.query.error) throw new Error();
   } catch { return failedLogin('denied'); }
   let result;
@@ -44,17 +47,18 @@ async function completeLogin(req, config, { clientFactory, verify, now }) {
     return failedLogin(['ERR_JWKS_TIMEOUT', 'ERR_JOSE_GENERIC', 'ENOTFOUND', 'ECONNRESET'].includes(error.code) ? 'unavailable' : 'denied');
   }
 }
-function createOwnerAuthHandler({ getConfig = login.loginConfig, clientFactory = login.msalClient, verify = verifyIdToken, now = Date.now } = {}) {
+function createOwnerAuthHandler({ getConfig = login.loginConfig, clientFactory = login.msalClient, verify = verifyIdToken, verifyApi, now = Date.now } = {}) {
   return async function ownerAuth(context, req) {
-    if (req.method && req.method !== 'GET') { context.res = json(405, { ok: false, error: 'method_not_allowed' }); return; }
+    if (req.method && req.method !== 'GET' && !(req.method === 'POST' && req.params?.action === 'edit')) { context.res = json(405, { ok: false, error: 'method_not_allowed' }); return; }
     if (authMode() !== 'entra') { context.res = json(503, { ok: false, error: 'owner_auth_unavailable' }); return; }
     const action = req.params?.action;
     if (action === 'logout') { apiCache.forget(cookieValue(req.headers?.cookie)); context.res = failedLogin('signed-out'); return; }
     if (action === 'session') { context.res = readSession(req, now()); return; }
     try {
       const config = getConfig();
-      if (action === 'login') context.res = await beginLogin(req, config, clientFactory, now());
-      else if (action === 'callback') context.res = await completeLogin(req, config, { clientFactory, verify, now });
+      if (action === 'edit') context.res = await edit.beginEdit(req, config, clientFactory, now());
+      else if (action === 'login') context.res = await beginLogin(req, config, clientFactory, now());
+      else if (action === 'callback') context.res = await completeLogin(req, config, { clientFactory, verify, verifyApi, now });
       else context.res = json(404, { ok: false, error: 'not_found' });
     } catch { context.res = json(503, { ok: false, error: 'owner_auth_unavailable' }); }
   };

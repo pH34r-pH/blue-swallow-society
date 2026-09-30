@@ -16,8 +16,8 @@ return async function requireEntityOwner(context, req, scope) {
     context.res = denial(403, 'api_owner_denied'); return null;
   }
   let token;
-  try { token = await acquire(session.rawToken); }
-  catch { context.res = denial(401, 'session_expired'); return null; }
+  try { token = await acquire(session.rawToken, Date.now(), scope); }
+  catch (error) { context.res = denial(error.status === 403 ? 403 : 401, error.status === 403 ? 'api_scope_denied' : 'session_expired'); return null; }
   const principal = await apiGuard(context, { ...req, headers: { authorization: `Bearer ${token}` } }, scope);
   return principal ? { principal, apiAccessToken: token } : null;
 };
