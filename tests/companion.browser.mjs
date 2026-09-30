@@ -9,6 +9,7 @@ const { chromium } = require('@playwright/test');
 const { createOperatorToken, requireOperatorToken } = require('./_lib/operator-auth.js');
 const shellHandler = require('./operator-shell/index.js');
 const assetsHandler = require('./operator-assets/index.js');
+const rendererAssets = require('./operator-renderer-assets/index.js');
 
 process.env.BLUE_SWALLOW_PASSCODE_SHA256 = 'a'.repeat(64);
 process.env.BLUE_SWALLOW_OPERATOR_TOKEN_SIGNING_KEY = 'companion-browser-test-signing-key-not-production';
@@ -22,6 +23,7 @@ async function serve(req, res) {
   const context = {};
   const request = { method: req.method, headers: req.headers, query: {}, params: { asset: url.pathname.split('/').at(-1) } };
   if (url.pathname === '/api/operator-shell') await shellHandler(context, request);
+  else if (url.pathname.startsWith('/api/operator-renderer-assets/cesium/')) await rendererAssets(context, { ...request, params:{asset:url.pathname.replace('/api/operator-renderer-assets/cesium/','')} });
   else if (url.pathname.startsWith('/api/operator-assets/')) await assetsHandler(context, request);
   else if (url.pathname.startsWith('/api/operator-downloads/')) {
     if (requireOperatorToken(context, request).ok) {
@@ -40,7 +42,7 @@ async function serve(req, res) {
   else if (['/operator/loader.js', '/operator/operator-session.mjs'].includes(url.pathname)) {
     context.res = { status: 200, headers: { 'Content-Type': 'text/javascript' }, body: await readFile(new URL(`../app${url.pathname}`, import.meta.url), 'utf8') };
   } else {
-    context.res = { status: 200, headers: { 'Content-Type': 'text/html' }, body: `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><script type="module">
+    context.res = { status: 200, headers: { 'Content-Type': 'text/html', 'Set-Cookie': `bss_operator_session=${session.token}; Path=/; HttpOnly; SameSite=Strict` }, body: `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><script type="module">
       import {activateOperatorSession} from '/operator/operator-session.mjs';
       import {bootOperatorSurface} from '/operator/loader.js';
       activateOperatorSession(${JSON.stringify(session)});
@@ -48,7 +50,7 @@ async function serve(req, res) {
     </script></body></html>` };
   }
   res.writeHead(context.res.status, context.res.headers || { 'Content-Type': 'application/json' });
-  res.end(typeof context.res.body === 'string' ? context.res.body : JSON.stringify(context.res.body));
+  res.end(Buffer.isBuffer(context.res.body) ? context.res.body : typeof context.res.body === 'string' ? context.res.body : JSON.stringify(context.res.body));
 }
 
 test('Chromium companion navigation, Back, mobile layout and gated release states', async (t) => {
@@ -93,10 +95,10 @@ test('Chromium companion navigation, Back, mobile layout and gated release state
   await page.getByRole('region', { name: 'Selected report details' }).waitFor();
   await page.getByRole('button', { name: 'Show globe' }).click();
   await page.getByText(/Ground context globe\. Made with/).waitFor({ timeout: 20000 });
-  assert.equal(await page.locator('#world-tab .maplibregl-canvas').count(), 1);
+  assert.equal(await page.locator('#world-tab .cesium-widget canvas').count(), 1);
   assert.equal(await page.evaluate(() => !!document.querySelector('#bss-world-styles')), true);
   await page.getByRole('link', { name: 'Entities', exact: true }).click();
-  assert.equal(await page.locator('#world-tab .maplibregl-canvas').count(), 0);
+  assert.equal(await page.locator('#world-tab .cesium-widget canvas').count(), 0);
   await page.getByRole('link', { name: 'World', exact: true }).click();
   await page.getByRole('button', { name: /Synthetic sealed-shell fixture/ }).waitFor();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);

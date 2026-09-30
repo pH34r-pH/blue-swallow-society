@@ -15,7 +15,7 @@ export function createWorldRoute({ service, verify = apiTokens.verifyApiAccessTo
     const bad = invalid || (body && body !== '{}');
     if (bad) request.resume();
     response.writeHead(bad ? 400 : 200, { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' });
-    response.end(JSON.stringify(bad ? { ok: false, error: 'world_request_invalid' } : service.read()));
+    response.end(JSON.stringify(bad ? { ok: false, error: 'world_request_invalid' } : await service.read()));
     return true;
   };
 }

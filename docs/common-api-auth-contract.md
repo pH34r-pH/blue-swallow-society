@@ -1,6 +1,6 @@
 # Common Society API resource contract (code only)
 
-One single-tenant Microsoft Entra resource uses v2 access tokens, application ID URI `api://<API_CLIENT_ID>`, and exactly the proposed scopes `Owner.Read`, `Observations.Upload`, `Entities.Write`. These names require owner-approved scope provisioning and consent; this source change creates no registration, role, grant, secret, permission, hosting resource or deployment.
+One single-tenant Microsoft Entra resource uses v2 access tokens, application ID URI `api://<API_CLIENT_ID>`, and the proposed scopes `Owner.Read`, `Observations.Upload`, `Entities.Write`, plus `World.Manage` for explicit orbital source maintenance. These names require owner-approved scope provisioning and consent; this source change creates no registration, role, grant, secret, permission, hosting resource or deployment.
 
 ## Stable runtime-neutral interface
 
@@ -23,3 +23,5 @@ When BLUE_SWALLOW_ENTRA_API_CLIENT_ID is configured, the normal confidential aut
 Microsoft access-token expiry is whatever validated exp declares (commonly 60–90 minutes), distinct from the five-minute application session and 30-second transitional read proof. Logout clears the Web cookie/cache, but does not revoke a copied access token; it can remain usable until expiry unless upstream policy invalidates it. Existing issued APK SAS links last five minutes and downloaded artifacts cannot be revoked. Android captures/retry queues must remain independent of token expiry. No refresh-token persistence or offline queue erasure is introduced here.
 
 Deployment remains on hold for approved exact identities/redirects/scopes/consent, isolated real Microsoft owner/wrong-owner validation, Android installation-bound upload migration, direct-backend tests, and the pending hosting choice. Synthetic signed-token tests prove code behavior only.
+
+World orbital source reset is a separate maintenance CLI operation requiring canonical exact-owner World.Manage validation, the current failed acquisition attempt ID, and a review reason. Owner.Read and Entities.Write cannot reset it. This source change does not provision or consent World.Manage, expose a browser mutation, or activate acquisition/migration. See world-selected-orbits.md.

@@ -23,3 +23,11 @@
 .world-view a { color: #b8d9ed; }
 @media(max-width:650px) { .world-results { grid-template-columns: 1fr; } .world-controls label { min-width: 100%; } }
 @media(prefers-reduced-motion:reduce) { .world-view * { scroll-behavior: auto; transition: none; animation: none; } }
+.world-orbits { margin-top: 1rem; padding: 1rem; border: 1px solid #49615c; }
+.world-orbits label { display: inline-flex; gap: .5rem; align-items: center; margin: .5rem; }
+.world-orbit-details dd { overflow-wrap: anywhere; }
+.world-map .cesium-viewer, .world-map .cesium-viewer-cesiumWidgetContainer, .world-map .cesium-widget { width: 100%; height: 100%; }
+.world-map .cesium-widget canvas { width: 100%; height: 100%; touch-action: none; }
+.world-map .cesium-widget-credits { position: absolute; bottom: 0; padding: .3rem; background: #101923; font-size: .7rem; }
+
+.world-map { position: relative; }
