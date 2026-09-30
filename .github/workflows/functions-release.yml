@@ -84,7 +84,7 @@ jobs:
 
           # Missing Entra configuration must never expose private data, even
           # through the direct Functions host with forged platform identity.
-          for route in operator-shell profile wardriver/release/current owner-auth/session; do
+          for route in operator-shell profile wardriver-release/current owner-auth/session; do
             status=$(curl --silent --show-error -o "$response" -w '%{http_code}' \
               -H 'x-ms-client-principal: forged-owner' \
               "http://127.0.0.1:8080/api/$route")
