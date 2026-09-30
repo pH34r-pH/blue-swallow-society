@@ -120,6 +120,7 @@ const state = {
   wigleSourceLabel: 'cybermap-postgis',
   visionBound: false,
   visionRenderFrame: 0,
+  visionExpiryId: 0,
   visionData: visionController.emptyDataset(),
   visionEndpoint: '',
   visionStatus: 'Live object detections are not connected yet.',
@@ -227,6 +228,8 @@ function resetConsoleToLogin() {
   state.wigleSourceLabel = 'cybermap-postgis';
   state.godeyeLayerState = defaultGodeyeLayerState();
   state.godeyeSessionAnalysis = clearGodeyeSessionAnalysis();
+  window.clearTimeout(state.visionExpiryId);
+  state.visionExpiryId = 0;
   state.visionData = visionController.emptyDataset();
   state.visionEndpoint = '';
   state.visionStatus = 'Live object detections are not connected yet.';
@@ -1262,12 +1265,11 @@ async function loadVisionEndpoint(endpoint) {
     applyVisionDataset(parsed, {
       sourceLabel: target,
       message: `Loaded ${parsed.detections.length} detections from ${target}.`,
-      merge: true,
+      mode: 'live',
     });
   } catch (error) {
     console.error('Failed to load object detections', error);
-    setVisionStatus('Live object detections are not connected yet.');
-    renderVisionViews();
+    applyVisionDataset({}, { sourceLabel: target, mode: 'live', message: 'Live object detections unavailable.' });
   }
 }
 
@@ -1283,6 +1285,7 @@ async function handleVisionFileChange(event) {
     applyVisionDataset(parsed, {
       sourceLabel: file.name,
       message: `Loaded ${parsed.detections.length} detections from ${file.name}.`,
+      mode: 'historical',
       merge: true,
     });
   } catch (error) {
@@ -1293,7 +1296,7 @@ async function handleVisionFileChange(event) {
   }
 }
 
-function applyVisionDataset(payload, { sourceLabel = 'unavailable', message = '', merge = true } = {}) {
+function applyVisionDataset(payload, { sourceLabel = 'unavailable', message = '', merge = false, mode = 'live' } = {}) {
   const parsed = payload && typeof payload === 'object' && Array.isArray(payload.detections)
     ? payload
     : parseVisionPayload(payload, { source: sourceLabel });
@@ -1302,6 +1305,7 @@ function applyVisionDataset(payload, { sourceLabel = 'unavailable', message = ''
     sourceLabel,
     previous: state.visionData,
     merge,
+    mode,
   });
   state.visionSourceLabel = sourceLabel;
 
@@ -1325,8 +1329,14 @@ function renderArDetectionLayer() {
   const frame = $('arFrame');
   const records = state.visionData?.detections || [];
   const sourceLabel = state.visionSourceLabel || state.visionData?.source || 'unavailable';
+  const view = visionController.getView(state.visionData);
+  window.clearTimeout(state.visionExpiryId);
+  state.visionExpiryId = 0;
+  if (overlay && view.expiresInMs !== null) {
+    state.visionExpiryId = window.setTimeout(renderVisionViews, view.expiresInMs);
+  }
   const summary = records.length
-    ? `${state.visionStatus} · ${records.length} detection${records.length === 1 ? '' : 's'} · ${sourceLabel}`
+    ? `${state.visionStatus} · ${view.status} · ${records.length} detection${records.length === 1 ? '' : 's'} · ${sourceLabel}`
     : state.visionStatus;
 
   if (status) {
@@ -1341,10 +1351,10 @@ function renderArDetectionLayer() {
     return;
   }
 
-  if (!records.length) {
+  if (!view.overlayDetections.length) {
     const empty = document.createElement('p');
     empty.className = 'dashboard-empty-state';
-    empty.textContent = 'Object detections will populate here.';
+    empty.textContent = records.length ? `No current overlay: ${view.status}.` : 'Object detections will populate here.';
     overlay.replaceChildren(empty);
     return;
   }
@@ -1352,7 +1362,7 @@ function renderArDetectionLayer() {
   const width = frame?.clientWidth || 1080;
   const height = frame?.clientHeight || 1920;
   const detectionPlan = buildArDetectionBoxes({
-    detections: records,
+    detections: view.overlayDetections,
     viewportWidth: width,
     viewportHeight: height,
     orientationAngle: state.arOrientationAngle,
@@ -1361,6 +1371,13 @@ function renderArDetectionLayer() {
 
   const fragment = document.createDocumentFragment();
   detectionPlan.boxes.forEach((box) => {
+    fragment.appendChild(createVisionOverlayNode(box));
+  });
+
+  overlay.replaceChildren(fragment);
+}
+
+function createVisionOverlayNode(box) {
     const detection = document.createElement('article');
     detection.className = `ar-detection ar-detection-${getDetectionConfidenceBand(box.confidence)}`;
     detection.style.left = `${box.x}px`;
@@ -1371,7 +1388,7 @@ function renderArDetectionLayer() {
 
     const meta = document.createElement('div');
     meta.className = 'detection-meta';
-    meta.textContent = `${box.confidence}% confidence · ${box.source || 'live'}`;
+    meta.textContent = `${Number.isFinite(box.confidence) ? `${box.confidence}% confidence` : 'unknown confidence'} · ${box.source || 'live'}`;
     detection.appendChild(meta);
 
     const label = document.createElement('strong');
@@ -1386,10 +1403,7 @@ function renderArDetectionLayer() {
     detail.textContent = `${box.width}px × ${box.height}px · ${box.x}, ${box.y}`;
     detection.appendChild(detail);
 
-    fragment.appendChild(detection);
-  });
-
-  overlay.replaceChildren(fragment);
+    return detection;
 }
 
 function renderVisionList(container, detections, limit = 6) {
@@ -1421,7 +1435,7 @@ function renderVisionList(container, detections, limit = 6) {
     meta.textContent = [
       Number.isFinite(detection.confidence) ? `${detection.confidence}% confidence` : null,
       detection.source || null,
-      detection.box?.normalized ? 'normalized' : 'pixel',
+      detection.timestamp || 'capture time unknown',
     ].filter(Boolean).join(' · ') || 'Vision detection';
     item.appendChild(meta);
 
@@ -1431,7 +1445,7 @@ function renderVisionList(container, detections, limit = 6) {
       detection.detail || null,
       detection.box ? `${detection.box.normalized ? 'normalized' : 'pixel'} box` : null,
       detection.trackId ? `track ${detection.trackId}` : null,
-    ].filter(Boolean).join(' · ') || 'Camera overlay ready';
+    ].filter(Boolean).join(' · ') || 'Geometry unavailable';
     item.appendChild(detail);
 
     fragment.appendChild(item);

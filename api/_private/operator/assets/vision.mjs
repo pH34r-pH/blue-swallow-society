@@ -108,28 +108,28 @@ export function buildArDetectionBoxes({
   maxBoxes = 6,
 } = {}) {
   const normalizedAngle = normalizeAngle(orientationAngle);
-  const normalizedDetections = mergeVisionDetections(detections).slice(0, maxBoxes);
+  const normalizedDetections = mergeVisionDetections(detections).filter((item) => item.box).slice(0, maxBoxes);
 
-  const boxes = normalizedDetections.map((detection, index) => {
+  const boxes = normalizedDetections.map((detection) => {
     const box = detection.box || {};
     const width = box.normalized ? box.width * viewportWidth : box.width;
     const height = box.normalized ? box.height * viewportHeight : box.height;
     const left = box.normalized ? box.x * viewportWidth : box.x;
     const top = box.normalized ? box.y * viewportHeight : box.y;
-    const safeWidth = clamp(numberOrFallback(width, viewportWidth * 0.18), 72, Math.max(72, viewportWidth - 16));
-    const safeHeight = clamp(numberOrFallback(height, viewportHeight * 0.12), 58, Math.max(58, viewportHeight - 16));
-    const safeLeft = clamp(numberOrFallback(left, viewportWidth * (0.12 + index * 0.08)), 8, Math.max(8, viewportWidth - safeWidth - 8));
-    const safeTop = clamp(numberOrFallback(top, viewportHeight * (0.1 + index * 0.06)), 8, Math.max(8, viewportHeight - safeHeight - 8));
+    const safeLeft = clamp(left, 0, viewportWidth);
+    const safeTop = clamp(top, 0, viewportHeight);
+    const safeWidth = clamp(left + width, 0, viewportWidth) - safeLeft;
+    const safeHeight = clamp(top + height, 0, viewportHeight) - safeTop;
 
     return {
       id: detection.id,
       label: detection.label,
       className: detection.className,
       confidence: detection.confidence,
-      x: Math.round(safeLeft),
-      y: Math.round(safeTop),
-      width: Math.round(safeWidth),
-      height: Math.round(safeHeight),
+      x: safeLeft,
+      y: safeTop,
+      width: safeWidth,
+      height: safeHeight,
       source: detection.source,
       trackId: detection.trackId,
       timestamp: detection.timestamp,
@@ -140,7 +140,7 @@ export function buildArDetectionBoxes({
         .join(' · '),
       detail: detection.box?.normalized ? 'normalized frame box' : 'pixel frame box',
     };
-  });
+  }).filter((box) => box.width > 0 && box.height > 0);
 
   return {
     orientationAngle: normalizedAngle,
@@ -214,7 +214,7 @@ function parseVisionCsv(lines, source) {
 }
 
 function emptyDetectionBox() {
-  return { x: null, y: null, width: null, height: null, normalized: false };
+  return null;
 }
 
 function normalizedArrayBox(box, detection) {
@@ -270,9 +270,11 @@ function normalizedObjectBox(box, detection) {
 }
 
 function normalizeDetectionBox(box, detection) {
-  if (Array.isArray(box) && box.length >= 4) return normalizedArrayBox(box, detection);
-  if (!box || typeof box !== 'object') return emptyDetectionBox();
-  return normalizedObjectBox(box, detection);
+  if (!box || typeof box !== 'object') return null;
+  const normalized = Array.isArray(box)
+    ? (box.length >= 4 ? normalizedArrayBox(box, detection) : null)
+    : normalizedObjectBox(box, detection);
+  return normalized && normalized.width > 0 && normalized.height > 0 ? normalized : null;
 }
 
 function normalizeFrame(frame) {
@@ -325,7 +327,7 @@ function confidenceLabel(confidence) {
 
 function buildDetectionDetail({ label, className, confidence, box, source }) {
   const geometry = box?.normalized ? 'normalized' : 'pixel';
-  return [label || className || 'object', confidenceLabel(confidence), source || null, `${geometry} box`]
+  return [label || className || 'object', confidenceLabel(confidence), source || null, box ? `${geometry} box` : 'geometry unavailable']
     .filter(Boolean)
     .join(' · ');
 }
