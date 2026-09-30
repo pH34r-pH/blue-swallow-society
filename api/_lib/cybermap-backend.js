@@ -1,3 +1,4 @@
+const { ownerBackendHeaders } = require('./owner-backend-proof');
 const SENSITIVE_LOCATION_QUERY_KEYS = new Set(['lat', 'lon', 'latitude', 'longitude']);
 
 function hasSensitiveLocationQuery(req) {
@@ -49,7 +50,7 @@ function buildBackendUrl(path) {
   return url;
 }
 
-async function postCybermapJson(path, payload) {
+async function postCybermapJson(path, payload, auth) {
   const readToken = String(process.env.BSS_CYBERMAP_READ_TOKEN || '').trim();
   if (!readToken) {
     const error = new Error('BSS_CYBERMAP_READ_TOKEN is not configured.');
@@ -64,6 +65,7 @@ async function postCybermapJson(path, payload) {
       method: 'POST',
       signal: controller.signal,
       headers: {
+        ...ownerBackendHeaders(auth),
         accept: 'application/json',
         'content-type': 'application/json',
         'x-blue-swallow-cybermap-read-token': readToken,

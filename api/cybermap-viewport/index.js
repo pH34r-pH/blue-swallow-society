@@ -31,7 +31,7 @@ module.exports = async function cybermapViewport(context, req) {
   }
 
   try {
-    const payload = await postCybermapJson('api/v1/cybermap/viewport', buildViewportPayload(req));
+    const payload = await postCybermapJson('api/v1/cybermap/viewport', buildViewportPayload(req), auth);
     return sendJson(context, 200, payload);
   } catch (error) {
     const status = Number.isFinite(error.status) ? error.status : 502;

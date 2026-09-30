@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const ownerAuth = require('../shared/owner-session.cjs');
 
 const DEFAULT_TOKEN_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_TOKEN_VERSION = 1;
@@ -84,6 +85,7 @@ function requireOperatorToken(context, req) {
 }
 
 function verifyOperatorRequest(req, { now = Date.now() } = {}) {
+  if (ownerAuth.authMode() !== 'legacy') return verifyOwnerRequest(req, now);
   const tokens = extractOperatorTokens(req);
   if (tokens.length === 0) {
     return { ok: false, status: 403, error: 'Operator session required.' };
@@ -104,6 +106,18 @@ function verifyOperatorRequest(req, { now = Date.now() } = {}) {
   }
 
   return failure;
+}
+
+function verifyOwnerRequest(req, now) {
+  if (ownerAuth.authMode() !== 'entra') return { ok: false, status: 503, error: 'owner_auth_unavailable' };
+  const explicit = toHeader(req, 'x-blue-swallow-operator-token').trim();
+  const cookie = ownerAuth.cookieValue(toHeader(req, 'cookie'));
+  const rawToken = explicit || cookie || toHeader(req, 'authorization').match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+  if (!explicit && cookie && !['GET', 'HEAD'].includes(String(req.method || 'GET').toUpperCase())
+    && toHeader(req, 'origin') !== process.env.BLUE_SWALLOW_PUBLIC_ORIGIN) {
+    return { ok: false, status: 403, error: 'owner_denied' };
+  }
+  return ownerAuth.verifyOwnerSession(rawToken, { now });
 }
 
 function verifyOperatorToken(token, signingKey, now) {

@@ -1,85 +1,22 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="color-scheme" content="light" />
-    <meta name="theme-color" content="#f8fafc" />
-    <meta name="description" content="Blue Swallow Society private entry." />
-    <title>Blue Swallow Society</title>
-    <link rel="stylesheet" href="/styles.css" />
-    <link rel="stylesheet" href="/loader.css" />
-  </head>
-  <body data-mode="login">
-    <main id="terminalScreen" class="terminal-screen active" aria-label="Private access login">
-      <div class="terminal-container">
-        <section class="terminal-panel panel login-panel" aria-label="Authentication portal">
-          <h1 class="terminal-title">Blue Swallow Society</h1>
-          <div id="loginControls" class="login-controls">
-            <input
-              id="passcodeInput"
-              class="input terminal-input-field"
-              type="password"
-              autocomplete="off"
-              autocapitalize="none"
-              spellcheck="false"
-              enterkeyhint="go"
-              maxlength="128"
-              aria-label="Passcode"
-            />
-
-            <div class="terminal-actions">
-              <button id="loginBtn" class="btn login-btn" type="button">login</button>
-            </div>
-          </div>
-          <p id="operatorHandoff" class="operator-handoff" role="status" aria-live="polite" hidden>Authenticating operator session…</p>
-        </section>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blue Swallow</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/main.js"></script>
+</head>
+<body data-mode="login">
+  <main class="terminal-screen active" aria-labelledby="loginTitle">
+    <section class="terminal-container">
+      <div class="terminal-panel panel login-panel">
+        <h1 id="loginTitle" class="terminal-title">Blue Swallow</h1>
+        <p>Personal sensing companion</p>
+        <p id="authStatus" role="status" aria-live="polite">Checking your session…</p>
+        <button id="signInBtn" class="btn login-btn" type="button">Sign in with Microsoft</button>
       </div>
-    </main>
-
-    <main id="standardSite" class="standard-site" aria-label="Standard personal site" aria-hidden="true">
-      <section class="standard-hero panel">
-        <p class="eyebrow">Event Planning</p>
-        <h1>Gatherings, dates, supplies.</h1>
-        <p>Dates, venues, and supply claims.</p>
-      </section>
-
-      <section class="claim-panel panel" aria-labelledby="supplyClaimHeading">
-        <div>
-          <p class="eyebrow">Supply claims</p>
-          <h2 id="supplyClaimHeading">Claim needed supplies</h2>
-          <p>Name required to claim or release supplies.</p>
-        </div>
-        <label class="name-entry" for="eventClaimName">
-          <span>Your name</span>
-          <input id="eventClaimName" class="input" type="text" autocomplete="name" placeholder="Name for supply claims" />
-        </label>
-        <p id="eventClaimNameStatus" class="claim-status" aria-live="polite">No name selected yet.</p>
-      </section>
-
-      <section class="events-layout" aria-label="Public events">
-        <section class="events-calendar-panel panel" aria-labelledby="eventsCalendarHeading">
-          <div class="section-heading">
-            <p class="eyebrow">Events calendar</p>
-            <h2 id="eventsCalendarHeading">Calendar view</h2>
-          </div>
-          <div id="eventsCalendar" class="events-calendar" aria-live="polite">
-            <p class="loading-note">Loading calendar…</p>
-          </div>
-        </section>
-
-        <section class="events-list-panel panel" aria-labelledby="eventsListHeading">
-          <div class="section-heading">
-            <p class="eyebrow">List view</p>
-            <h2 id="eventsListHeading">Upcoming events</h2>
-          </div>
-          <div id="eventsList" class="events-list" aria-live="polite">
-            <p class="loading-note">Loading events…</p>
-          </div>
-        </section>
-      </section>
-    </main>
-
-    <script src="/main.js" type="module"></script>
-  </body>
+    </section>
+  </main>
+</body>
 </html>

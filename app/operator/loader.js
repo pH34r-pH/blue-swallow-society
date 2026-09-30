@@ -54,10 +54,11 @@ function clearPrivateObjectUrls() {
   activeObjectUrls = [];
 }
 
-function redirectHome() {
+function redirectHome(reason = 'signed-out') {
   clearPrivateObjectUrls();
   clearOperatorSession();
-  window.location.replace('/');
+  const returnTo = window.location.pathname + window.location.search;
+  window.location.replace(`/?auth=${reason}&returnTo=${encodeURIComponent(returnTo)}`);
 }
 
 function operatorHeaders(session, headers = {}) {
@@ -170,7 +171,7 @@ export async function bootOperatorSurface() {
     cache: 'no-store',
   });
   if (!response.ok) {
-    redirectHome();
+    redirectHome(response.status === 503 ? 'unavailable' : response.status === 403 ? 'denied' : 'expired');
     return;
   }
 
@@ -195,5 +196,6 @@ function isDirectOperatorRoute() {
 
 window.addEventListener('pagehide', clearPrivateObjectUrls, { once: true });
 if (isDirectOperatorRoute()) {
-  redirectHome();
+  const returnTo = window.location.pathname + window.location.search;
+  window.location.replace(`/?returnTo=${encodeURIComponent(returnTo)}`);
 }

@@ -1,3 +1,4 @@
+process.env.BLUE_SWALLOW_AUTH_MODE = 'legacy';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';

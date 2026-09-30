@@ -1,3 +1,5 @@
+// Existing device/service-token contract tests exercise explicit legacy rollback.
+process.env.BLUE_SWALLOW_AUTH_MODE = 'legacy';
 export const INGEST_TOKEN = 'test-ingest-token-32-bytes-minimum-value';
 export const DEVICE_ID = 'wardriver-test-device';
 

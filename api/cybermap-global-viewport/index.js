@@ -1,3 +1,4 @@
+const { ownerBackendHeaders } = require('../_lib/owner-backend-proof');
 const { requireOperatorToken } = require('../_lib/operator-auth');
 
 const BACKEND_PATH = 'api/v1/cybermap/global-viewport';
@@ -40,7 +41,7 @@ function requestBody(req) {
   return undefined;
 }
 
-async function fetchGlobalViewport(url, body) {
+async function fetchGlobalViewport(url, body, auth) {
   const readToken = String(process.env.BSS_CYBERMAP_READ_TOKEN || '').trim();
   if (!readToken) throw new Error('backend_unavailable');
 
@@ -51,6 +52,7 @@ async function fetchGlobalViewport(url, body) {
       method: 'POST',
       signal: controller.signal,
       headers: {
+        ...ownerBackendHeaders(auth),
         accept: 'application/json',
         'content-type': 'application/json',
         'x-blue-swallow-cybermap-read-token': readToken,
@@ -79,7 +81,7 @@ module.exports = async function cybermapGlobalViewport(context, req) {
   }
 
   try {
-    const payload = await fetchGlobalViewport(backendUrl(), requestBody(req));
+    const payload = await fetchGlobalViewport(backendUrl(), requestBody(req), auth);
     return sendJson(context, 200, payload);
   } catch {
     context?.log?.error?.('Cybermap global viewport API unavailable.');

@@ -1,3 +1,4 @@
+const { ownerBackendHeaders } = require('../_lib/owner-backend-proof');
 const { requireOperatorToken } = require('../_lib/operator-auth');
 
 const MAX_ZOOM = 12;
@@ -76,7 +77,7 @@ function buildBackendUrl({ z, x, y }) {
   return url;
 }
 
-async function fetchBackendTile(url) {
+async function fetchBackendTile(url, auth) {
   const readToken = String(process.env.BSS_CYBERMAP_READ_TOKEN || '').trim();
   if (!readToken) {
     const error = new Error('BSS_CYBERMAP_READ_TOKEN is not configured.');
@@ -90,6 +91,7 @@ async function fetchBackendTile(url) {
       method: 'GET',
       signal: controller.signal,
       headers: {
+        ...ownerBackendHeaders(auth),
         accept: 'application/vnd.mapbox-vector-tile',
         'x-blue-swallow-cybermap-read-token': readToken,
       },
@@ -110,7 +112,7 @@ module.exports = async function cybermapTiles(context, req) {
   if (!auth.ok) return context.res;
   try {
     const params = parseTileParams(req);
-    const tile = await fetchBackendTile(buildBackendUrl(params));
+    const tile = await fetchBackendTile(buildBackendUrl(params), auth);
     return sendTile(context, tile);
   } catch (error) {
     const status = Number.isFinite(error.status) ? error.status : 502;

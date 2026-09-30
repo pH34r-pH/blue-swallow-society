@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import http from 'node:http';
+import { requireOwnerReadProof } from './owner-read-auth.mjs';
 
 import { boundedMtlsRejectionReason, IngestError } from './auth.mjs';
 import { ContractError, validateObservationBatch } from './contracts.mjs';
@@ -136,6 +137,7 @@ async function dispatchViewport(request, response, url, { store, now, mtlsProxyS
     requireBackendReadToken(request);
     return sendJson(response, 200, await handleCybermapViewportPost(request, { store, now }));
   }
+  requireOwnerReadProof(request);
   const mtlsAssertion = requireMtlsProxyAssertion(request, mtlsProxySecret);
   const viewport = await handleMtlsViewport(request, {
     store,
@@ -1137,6 +1139,7 @@ function requireMorningBriefToken(request) {
 }
 
 function requireBackendReadToken(request) {
+  requireOwnerReadProof(request);
   const expected = String(process.env.BSS_CYBERMAP_READ_TOKEN || '').trim();
   if (!expected) {
     throw new IngestError('read_token_unconfigured', 'Cybermap read token is not configured.', { statusCode: 503 });

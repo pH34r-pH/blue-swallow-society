@@ -45,7 +45,7 @@ jobs:
           cache-dependency-path: api/package-lock.json
       - run: npm ci --prefix api --ignore-scripts --engine-strict
       - run: npm exec --prefix api -- playwright install --with-deps chromium
-      - run: node --test tests/companion.browser.mjs
+      - run: node --test tests/companion.browser.mjs tests/owner-login.browser.mjs
 
   cybermap-api:
     name: cybermap-api

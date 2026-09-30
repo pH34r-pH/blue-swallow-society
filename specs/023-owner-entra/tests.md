@@ -1,0 +1,3 @@
+# Validation
+
+Owner-auth tests verify signed tokens, exact issuer/audience/tenant/object/nonce/expiry, tampering, state/PKCE, bounded sessions, cookie origin, private Function gates and real HTTP VM denial before store access. Chromium exercises owner/wrong-owner login, reload, deep links, lock, expiry and unavailable state with local signed tokens and intercepted IDP transport. Existing root and VM suites retain explicit legacy fixtures to prove compatibility; they do not prove a live deployment. CI also runs companion/browser flows and the Functions image contract. Live Microsoft login and Android migration remain separate cutover gates.

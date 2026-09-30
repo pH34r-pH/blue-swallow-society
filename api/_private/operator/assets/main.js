@@ -420,7 +420,7 @@ async function handleLogout() {
     // The in-memory bearer is already cleared; any legacy server session expires by TTL.
   }
 
-  window.location.replace('/');
+  window.location.replace('/?auth=signed-out');
 }
 
 function getTabButtons() {
