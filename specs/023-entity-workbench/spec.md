@@ -1,6 +1,6 @@
 # Anonymous entity workbench (#44)
 
-Status: integrated source with synthetic end-to-end validation; live migration/deployment and Web edit-scope acquisition remain separate.
+Status: integrated source with synthetic end-to-end validation; live migration/deployment remain separate; explicit Web edit authorization is implemented in source.
 
 An exact-owner authenticated operator can inspect anonymous clusters, create and label them,
 correct device membership, reject associations, split, merge and undo. These are assertions,
@@ -18,3 +18,11 @@ same projection, with measured evidence, machine hypothesis and operator asserti
 
 Full #44 acceptance still requires longitudinal scoring/evaluation, offline sync wiring,
 production scoring and offline synchronization; HTTP/private UI are integrated and browser tested in source. Do not close #44 here.
+
+An owner starts with read-only Web access. Choosing Enable editing performs a same-origin POST
+with a valid owner session and starts incremental Entra authorization for Entities.Write on the
+configured Society API. State, nonce and PKCE bind the callback to that session. Only validated
+ID/API tokens with Owner.Read and Entities.Write enable correction controls. Cached token claims
+alone cannot elevate a read-only session. Cancellation, denied scopes, wrong owner/nonce and
+provider failure preserve a valid read-only session; expiry/logout require a new sign-in.
+Live registration, grants/provider acceptance and physical deployment remain separate.

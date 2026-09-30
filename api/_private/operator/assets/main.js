@@ -1,5 +1,5 @@
 import { createTravelsView } from './travels-view.mjs';
-import { createEntityClient } from './entity-client.mjs';
+import { createEntityClient, createEntityEditingClient } from './entity-client.mjs';
 import { mountEntityWorkbench } from './entity-workbench.mjs';
 import {
   clamp,
@@ -409,7 +409,7 @@ let entityWorkbench;
 
 function initTabDefaults() {
   const entityRoot = document.querySelector('[data-entity-workbench]');
-  if (entityRoot && !entityWorkbench) entityWorkbench = mountEntityWorkbench(entityRoot, { request: createEntityClient({ getHeaders: buildOperatorHeaders }) });
+  if (entityRoot && !entityWorkbench) entityWorkbench = mountEntityWorkbench(entityRoot, { request: createEntityClient({ getHeaders: buildOperatorHeaders }), editing: createEntityEditingClient({ getHeaders: buildOperatorHeaders }) });
   const historyRoot = document.querySelector('[data-travels-history]');
   if (historyRoot && !travelsView) travelsView = createTravelsView({ root: historyRoot, getHeaders: () => buildOperatorHeaders() });
   document.querySelector('.history-nearby')?.addEventListener('toggle', (event) => {

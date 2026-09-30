@@ -29,7 +29,10 @@ Remote exact-commit CI results belong to the PR rather than being inferred from 
 The scoped HTTP/private UI are integrated in source. The full private shell→Functions→VM→
 PostGIS browser test uses synthetic sessions, signed API tokens and a disposable schema.
 Readiness checks migration 0007. No migration runner is activated. Ordinary Web login remains
-read-only pending explicit edit-scope coordination.
+read-only until the explicit Enable editing flow succeeds; see entity-edit-authorization.md.
 No deployment, live migration, personal corpus read/export or credential setup was performed.
-#44 remains open for explicit Web edit-scope acquisition, scoring/evaluation, offline model sync
+#44 remains open for live grants/provider acceptance, scoring/evaluation, offline model sync
 and separately approved live acceptance.
+
+Core PR97 merged as c6e20922382bac069749bfa82582b9a6b248c9af after all visible checks
+passed on exact head 2cee28e0e41dd4067b6b8afdde44a040f8761db2. No deploy workflow was triggered.

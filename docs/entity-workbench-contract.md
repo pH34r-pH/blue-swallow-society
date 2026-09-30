@@ -78,10 +78,11 @@ use this same machine/operator/effective-membership projection for later offline
 to the authorized same-origin adapter. The module/client are allowlisted private assets and mounted in the existing Entities tab. It has filters/pagination, evidence/history, reason/preview/confirm controls and
 exact-key replay after uncertain confirmation failure. Chromium tests exercise keyboard/mobile,
 empty/error/stale states and safe text. The private shell integration is tested through Functions, VM and real isolated PostGIS.
-The current ordinary Web login requests only Owner.Read. Web edit-scope acquisition is pending
-parent auth coordination; read-only sessions receive api_scope_denied for previews/writes.
+The ordinary Web login requests only Owner.Read. Explicit Enable editing acquisition extends
+the existing owner-auth callback; see [entity-edit-authorization.md](entity-edit-authorization.md).
+Read-only cache intent receives api_scope_denied for previews/writes even with a broader token.
 Direct scoped API bearers and explicitly scoped cached tokens are supported. No live Microsoft
 login/consent or deployed workbench is claimed.
 
 #44 stays open: longitudinal scoring/precision-recall evaluation, offline synchronization,
-Web edit-scope acquisition and separately approved live deployment remain.
+Live grants/provider acceptance and separately approved live deployment remain.

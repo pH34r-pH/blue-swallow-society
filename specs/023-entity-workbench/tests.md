@@ -11,3 +11,8 @@
 
 Canonical signed-token adapter and optional HTTP dispatch tests reject wrong scope/owner,
 forged actor/principal headers, read proofs, malformed/oversized bodies and unsupported methods.
+
+Incremental editing tests use signed synthetic ID/API tokens: approved scope requests, PKCE,
+state/nonce/owner checks, exact origin, cancellation, missing grant, provider error, expiry,
+logout and tampering. Chromium proves read-only/Enable editing/cancel/success and disabled
+correction controls through the private shell. Live Microsoft consent is not exercised.
