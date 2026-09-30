@@ -16,7 +16,7 @@ function link(text, url) {
 }
 export function createWorldView(options) { return new WorldView(options); }
 function buildLayout(root) {
-  if (!document.querySelector('[data-world-css]')) {
+  if (!document.querySelector('[data-world-css]') && !document.getElementById('bss-world-styles')) {
     const style = el('link', undefined, { rel: 'stylesheet', href: '/api/operator-assets/world.css', 'data-world-css': '' }); document.head.append(style);
   }
   root.classList.add('world-view');

@@ -155,3 +155,50 @@
    process.stdout.write(`${JSON.stringify({ level: 'info', service: 'bss-cybermap-api', event: 'shutdown', signal })}\n`);
    server.close(async () => {
      await pool.end();
+--- a/app/operator/loader.js
++++ b/app/operator/loader.js
+@@ -6,6 +6,8 @@
+ const PRIVATE_ASSET_PREFIX = '/api/operator-assets/';
+ 
+ const PRIVATE_ASSETS = Object.freeze([
++  'world.css',
++  'world-land.geojson',
+   'styles.css',
+   'theme.css',
+   'maplibre-gl.css',
+@@ -29,6 +31,9 @@
+   'travels-view.mjs',
+   'entity-client.mjs',
+   'entity-workbench.mjs',
++  'world-state.mjs',
++  'world-map.mjs',
++  'world-view.mjs',
+   'main.js',
+ ]);
+ 
+@@ -52,6 +57,9 @@
+   'travels-view.mjs',
+   'entity-client.mjs',
+   'entity-workbench.mjs',
++  'world-state.mjs',
++  'world-map.mjs',
++  'world-view.mjs',
+   'main.js',
+ ]);
+ 
+@@ -141,6 +149,7 @@
+   ]));
+   const sources = Object.fromEntries(entries);
+   const assetUrls = {};
++  assetUrls['world-land.geojson'] = createPrivateObjectUrl('world-land.geojson', sources['world-land.geojson'], 'application/geo+json');
+ 
+   for (const assetName of MODULE_BOOT_ORDER) {
+     assetUrls[assetName] = createPrivateObjectUrl(
+@@ -155,6 +164,7 @@
+     sources['operator-mark.svg'],
+     'image/svg+xml',
+   );
++  installPrivateStyle('bss-world-styles', sources['world.css']);
+   installPrivateStyle('bss-operator-styles', sources['styles.css']);
+   installPrivateStyle('bss-operator-theme', sources['theme.css']);
+   installPrivateStyle('bss-maplibre-styles', sources['maplibre-gl.css']);

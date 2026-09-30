@@ -1,7 +1,7 @@
 import { worldGeometryBudget } from './world-state.mjs';
 const EMPTY = { type: 'FeatureCollection', features: [] };
 export async function createWorldMap({ container, onSelect = () => {}, onFailure = () => {} }) {
-  if (!document.querySelector('[data-world-map-css]')) {
+  if (!document.querySelector('[data-world-map-css]') && !document.getElementById('bss-maplibre-styles')) {
     const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = '/api/operator-assets/maplibre-gl.css'; link.dataset.worldMapCss = ''; document.head.append(link);
   }
   const module = await import('./maplibre-gl.mjs'); const lib = module.default || module;
