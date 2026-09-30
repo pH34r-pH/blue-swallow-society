@@ -1,4 +1,6 @@
 import { createTravelsView } from './travels-view.mjs';
+import { createEntityClient } from './entity-client.mjs';
+import { mountEntityWorkbench } from './entity-workbench.mjs';
 import {
   clamp,
   formatCoordinatePair,
@@ -403,15 +405,18 @@ function bindTabSystem() {
 }
 
 let travelsView;
+let entityWorkbench;
 
 function initTabDefaults() {
+  const entityRoot = document.querySelector('[data-entity-workbench]');
+  if (entityRoot && !entityWorkbench) entityWorkbench = mountEntityWorkbench(entityRoot, { request: createEntityClient({ getHeaders: buildOperatorHeaders }) });
   const historyRoot = document.querySelector('[data-travels-history]');
   if (historyRoot && !travelsView) travelsView = createTravelsView({ root: historyRoot, getHeaders: () => buildOperatorHeaders() });
   document.querySelector('.history-nearby')?.addEventListener('toggle', (event) => {
     if (event.currentTarget.open) { initGodeyeTab(); scheduleGodeyeRender(); }
     else stopGodeyeFeed();
   });
-  window.addEventListener('pagehide', () => travelsView?.destroy(), { once: true });
+  window.addEventListener('pagehide', () => { travelsView?.destroy(); entityWorkbench?.destroy(); }, { once: true });
   initArTab();
   updateArOrientation();
   renderArHud();
@@ -421,6 +426,7 @@ function initTabDefaults() {
 
 async function handleLogout() {
   travelsView?.destroy();
+  entityWorkbench?.destroy();
   stopArFeed();
   stopGodeyeFeed();
   clearOperatorSession();
