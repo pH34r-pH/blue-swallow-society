@@ -39,7 +39,7 @@ jobs:
           cache: npm
           cache-dependency-path: vm/cybermap-api/package-lock.json
       - run: npm ci --prefix vm/cybermap-api --ignore-scripts --engine-strict
-      - run: node --test vm/cybermap-api/test/entity-workbench*.test.mjs vm/cybermap-api/test/entity-api-adapter.test.mjs
+      - run: node --test vm/cybermap-api/test/entity-workbench*.test.mjs vm/cybermap-api/test/entity-api-adapter.test.mjs vm/cybermap-api/test/world-orbit-postgres.test.mjs
         env:
           BSS_ENTITY_TEST_DATABASE_URL: postgresql://postgres:synthetic-test-only@127.0.0.1:5432/entity_test
       - run: npm ci --prefix api --ignore-scripts --engine-strict

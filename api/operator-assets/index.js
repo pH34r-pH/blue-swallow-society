@@ -4,6 +4,10 @@ const { verifyOperatorRequest } = require('../_lib/operator-auth');
 
 const PRIVATE_ASSET_DIR = path.join(__dirname, '..', '_private', 'operator', 'assets');
 const ASSET_MANIFEST = Object.freeze({
+  'satellite-sgp4.mjs': { file: 'satellite-sgp4.mjs', contentType: 'application/javascript; charset=utf-8' },
+  'world-orbit-state.mjs': { file: 'world-orbit-state.mjs', contentType: 'application/javascript; charset=utf-8' },
+  'world-orbits-view.mjs': { file: 'world-orbits-view.mjs', contentType: 'application/javascript; charset=utf-8' },
+
   'world-view.mjs': { file: 'world-view.mjs', contentType: 'application/javascript; charset=utf-8' },
   'world-state.mjs': { file: 'world-state.mjs', contentType: 'application/javascript; charset=utf-8' },
   'world-map.mjs': { file: 'world-map.mjs', contentType: 'application/javascript; charset=utf-8' },

@@ -1,3 +1,4 @@
+import { createOrbitView } from './world-orbits-view.mjs';
 import { WORLD_PRESETS, filterWorld, validateWorldSnapshot, safeWorldLink, sourceFreshness } from './world-state.mjs';
 
 function el(tag, text, attrs = {}) {
@@ -30,10 +31,10 @@ function buildLayout(root) {
   const refresh = el('button', 'Reload context', { type: 'button' });
   const mapButton = el('button', 'Show globe', { type: 'button', 'aria-pressed': 'false' });
   controls.append(presetLabel, semanticLabel, sortLabel, searchLabel, refresh, mapButton);
-  const note = el('p', 'Region presets use approximate geographic bounds (PNW: WA, OR, ID; US includes Alaska and Hawaii). Zone-only alerts stay in the list. Map is for broad orientation, with no roads or altitude tracks. Globe budget: up to 1,000 geometries / 20,000 vertices; the list retains all matching reports.');
+  const note = el('p', 'Region presets use approximate geographic bounds (PNW: WA, OR, ID; US includes Alaska and Hawaii). Zone-only alerts stay in the list. Ground map is for broad orientation, with no roads. Selected orbital predictions use actual ellipsoid altitude separately. Globe budget: up to 1,000 geometries / 20,000 vertices; the list retains all matching reports.');
   const ledger = el('ul', undefined, { class: 'world-ledger', 'aria-label': 'Source health and layer controls' });
   const mapStatus = el('p', 'Globe is off. The complete filtered list is available below.', { role: 'status' });
-  const canvas = el('div', undefined, { class: 'world-map', 'aria-label': 'World ground context globe', hidden: '' });
+  const canvas = el('div', undefined, { class: 'world-map', 'aria-label': 'World ground and selected orbital context globe', hidden: '' });
   const results = el('div', undefined, { class: 'world-results' });
   const listSection = el('section', undefined, { 'aria-label': 'Filtered reports' });
   const count = el('p'); const list = el('ol', undefined, { class: 'world-items' });
@@ -50,6 +51,7 @@ class WorldView {
     this.data = null; this.active = false; this.destroyed = false; this.request = null; this.selectedId = null; this.page = 0;
     this.selectedSources = new Set(); this.map = null; this.mapGeneration = 0; this.wantedMap = false;
     this.freshnessTimer = null; this.receivedAt = null; this.events = new AbortController();
+    this.orbitView = createOrbitView({ root, onChange: () => this.render() });
     this.bind(); this.render();
   }
   bind() {
@@ -86,6 +88,7 @@ class WorldView {
   }
   render() {
     const snapshot = this.currentData();
+    this.orbitView.set(this.data?.orbits);
     for (const source of this.data?.sources || []) {
       const label = this.ledgerLabels.get(source.id);
       if (label) label.textContent = `${source.name} · ${sourceFreshness(source)}`;
@@ -101,13 +104,14 @@ class WorldView {
     if (!filtered.total) this.nodes.list.append(el('li', this.selectedSources.size ? 'No matching reports. Empty results do not establish absence of events.' : 'Select a source to inspect its reports.'));
     const selected = filtered.all.find((item) => item.id === this.selectedId);
     if (this.selectedId) this.showDetail(selected);
-    const mapped = this.map?.set(filtered.all, WORLD_PRESETS[this.nodes.preset.value]);
-    if (mapped) this.nodes.mapStatus.textContent = `Ground context globe. Made with Natural Earth (public domain). ${mapped.geometries} geometries / ${mapped.vertices} vertices shown; the list remains complete.`;
+    const mapped = this.map?.set(filtered.all, WORLD_PRESETS[this.nodes.preset.value], this.orbitView.predictions());
+    if (mapped) this.nodes.mapStatus.textContent = `Ground context globe. Made with Natural Earth (public domain). Selected propagated orbits: ${mapped.orbits}. ${mapped.geometries} geometries / ${mapped.vertices} vertices shown; the list remains complete.`;
     if (this.receivedAt && Date.now() - this.receivedAt >= 60000 && !this.request) this.nodes.status.textContent = 'Cached context; reload to check for newer source state. Provider freshness is shown per report.';
   }
   renderLedger() {
     this.nodes.ledger.replaceChildren(); this.ledgerLabels.clear();
     for (const source of this.data?.sources || []) {
+      if (source.id === 'celestrak' && this.data?.orbits) continue;
       const row = el('li'); const label = el('label'); const input = el('input', undefined, { type: 'checkbox', 'aria-label': source.name });
       input.checked = this.selectedSources.has(source.id); input.disabled = !source.enabled;
       input.addEventListener('change', () => { input.checked ? this.selectedSources.add(source.id) : this.selectedSources.delete(source.id); this.page = 0; this.render(); });
@@ -132,7 +136,7 @@ class WorldView {
     } catch {
       if (!controller.signal.aborted && !this.destroyed) {
         // A failed read cannot keep last-known records labelled fresh.
-        if (this.data) this.data = { ...this.data, items: this.data.items.map((item) => ({ ...item, freshness: 'stale' })), sources: this.data.sources.map((source) => source.enabled ? { ...source, state: 'failure', error: 'context_read_failed' } : source) };
+        if (this.data) this.data = { ...this.data, orbits: failedOrbitContext(this.data.orbits), items: this.data.items.map((item) => ({ ...item, freshness: 'stale' })), sources: this.data.sources.map((source) => source.enabled ? { ...source, state: 'failure', error: 'context_read_failed' } : source) };
         this.nodes.status.textContent = this.data ? 'Context reload failed; retained reports are stale.' : 'World context is unavailable. No substitute data is shown.';
         this.renderLedger(); this.render();
       }
@@ -150,7 +154,7 @@ class WorldView {
     try {
       const module = await this.loadMap();
       if (!this.wantedMap || this.destroyed || generation !== this.mapGeneration) return;
-      const nextMap = await module.createWorldMap({ container: this.nodes.canvas, onSelect: (id) => { const item = this.currentData()?.items.find((item) => item.id === id); if (item) { this.showDetail(item, true); this.render(); } }, onFailure: fail });
+      const nextMap = await module.createWorldMap({ container: this.nodes.canvas, getHeaders: this.getHeaders, onSelect: (id) => { const item = this.currentData()?.items.find((item) => item.id === id); if (item) { this.showDetail(item, true); this.render(); } }, onFailure: fail });
       if (!this.wantedMap || this.destroyed || generation !== this.mapGeneration) { nextMap.destroy(); return; }
       this.map = nextMap; this.nodes.mapStatus.textContent = 'Ground context globe. Made with Natural Earth (public domain).'; this.render();
     } catch { if (generation === this.mapGeneration) fail(); }
@@ -159,6 +163,10 @@ class WorldView {
     if (this.destroyed || this.active) return; this.active = true; void this.reload(); this.freshnessTimer = setInterval(() => this.render(), 60000);
   }
   deactivate() { this.active = false; this.request?.abort(); clearInterval(this.freshnessTimer); this.stopMap(); }
-  destroy() { this.destroyed = true; this.active = false; this.request?.abort(); this.events.abort(); clearInterval(this.freshnessTimer); this.stopMap(); }
-  diagnostics() { return { projection: this.map?.projection?.() || null, renderedRows: this.nodes.list.children.length, sourceCount: this.data?.sources.length || 0 }; }
+  destroy() { this.destroyed = true; this.active = false; this.request?.abort(); this.events.abort(); this.orbitView.destroy(); clearInterval(this.freshnessTimer); this.stopMap(); }
+  diagnostics() { return { projection: this.map?.projection?.() || null, renderedRows: this.nodes.list.children.length, sourceCount: this.data?.sources.length || 0, orbits: this.map?.orbitDiagnostics?.() || [] }; }
+}
+
+function failedOrbitContext(orbits) {
+  return orbits ? { ...orbits,source:{ ...orbits.source,state:'failure',error:'context_read_failed',reason:'Context read failed; retained elements are stale.' } } : undefined;
 }

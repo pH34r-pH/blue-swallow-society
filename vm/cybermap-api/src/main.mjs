@@ -1,3 +1,6 @@
+import { PostgresWorldOrbitStore } from './world-orbit-postgres-store.mjs';
+import { createWorldOrbitService } from './world-orbit-service.mjs';
+import { createOrbitAcquisition } from './world-orbit-acquisition.mjs';
 import { createWorldService } from './world-service.mjs';
 import { createWorldRoute } from './world-route.mjs';
 import { createWorldAcquisition } from './world-acquisition.mjs';
@@ -25,8 +28,15 @@ const mtlsCredentialPolicy = readMtlsCredentialPolicy();
 const store = new PostgresObservationStore({ pool, mtlsCredentialPolicy });
 const worldService = createWorldService();
 const worldAcquisition = createWorldAcquisition(worldService);
+const orbitEnabled = process.env.BSS_WORLD_ORBITS_ENABLED === 'true';
+const orbitService = createWorldOrbitService({ store:new PostgresWorldOrbitStore({ pool }), enabled:orbitEnabled });
+const orbitAcquisition = createOrbitAcquisition(orbitService);
+const worldSnapshot = { async read() {
+  const ground = worldService.read(), orbits = await orbitService.read();
+  return { ...ground, orbits, sources:ground.sources.map((source) => source.id==='celestrak' ? orbits.source : source) };
+} };
 const server = createCybermapApiServer({
-  worldRoute: createWorldRoute({ service: worldService }),
+  worldRoute: createWorldRoute({ service: worldSnapshot }),
   store,
   entityStore: new PostgresEntityStore({ pool }),
   logger: {
@@ -38,6 +48,7 @@ const server = createCybermapApiServer({
 
 server.listen(port, host, () => {
   if (process.env.BSS_WORLD_PUBLIC_FEEDS_ENABLED === 'true') worldAcquisition.start();
+  if (orbitEnabled && process.env.BSS_WORLD_ORBIT_ACQUISITION_ENABLED === 'true') orbitAcquisition.start();
   process.stdout.write(`${JSON.stringify({ level: 'info', service: 'bss-cybermap-api', event: 'listening', host, port })}\n`);
 });
 
@@ -50,6 +61,7 @@ async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   worldAcquisition.stop();
+  orbitAcquisition.stop();
   process.stdout.write(`${JSON.stringify({ level: 'info', service: 'bss-cybermap-api', event: 'shutdown', signal })}\n`);
   server.close(async () => {
     await pool.end();

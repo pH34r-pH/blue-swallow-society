@@ -1,4 +1,6 @@
-# Selected satellite increment — evaluation, not enabled integration
+# Selected satellite increment — historical evaluation
+
+The subsequent implementation is documented in [world-selected-orbits.md](world-selected-orbits.md). This evaluation records the earlier feasibility evidence; acquisition/production activation remains disabled.
 
 World ground context uses the existing MapLibre 6.0.0 globe. Its current standard point/polygon contract has no satellite altitude or time/reference-frame input. Reusing that path would draw surface locations. A custom GL path would introduce substantial coordinate/rendering work. Recommend replacing only World's renderer with a lazy CesiumJS renderer when this increment is implemented; retain Cybermap's MapLibre. That makes two engines total. Do not load both World renderers, or introduce another engine.
 

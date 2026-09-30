@@ -1,5 +1,5 @@
 'use strict';
-const SCOPES = Object.freeze(['Owner.Read', 'Observations.Upload', 'Entities.Write']);
+const SCOPES = Object.freeze(['Owner.Read', 'Observations.Upload', 'Entities.Write', 'World.Manage']);
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 class ApiTokenError extends Error {
   constructor(code, status = 403) { super(code); this.code = code; this.status = status; }

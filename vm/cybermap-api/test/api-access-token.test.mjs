@@ -11,7 +11,7 @@ const pair = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
 const jwk = await exportJWK(pair.publicKey); jwk.kid = 'synthetic';
 const verify = common.createApiTokenValidator({ getConfig: () => config, keySet: createLocalJWKSet({ keys: [jwk] }), now: () => now });
 const claims = { ver: '2.0', tid: config.tenantId, oid: config.objectId, iss: config.issuer, aud: config.clientId,
-  iat: now / 1000, nbf: now / 1000, exp: now / 1000 + 3600, scp: 'Owner.Read Observations.Upload Entities.Write' };
+  iat: now / 1000, nbf: now / 1000, exp: now / 1000 + 3600, scp: 'Owner.Read Observations.Upload Entities.Write World.Manage' };
 async function token(patch = {}) { return new SignJWT({ ...claims, ...patch }).setProtectedHeader({ alg: 'RS256', kid: 'synthetic' }).sign(pair.privateKey); }
 
 test('common API token returns frozen immutable owner and checks each exact operation scope', async () => {
@@ -22,6 +22,7 @@ test('common API token returns frozen immutable owner and checks each exact oper
     assert.equal(Object.isFrozen(owner), true); assert.equal(Object.isFrozen(owner.scopes), true);
   }
   await assert.rejects(verify(await token({ scp: 'Owner.Read' }), 'Entities.Write'), /api_scope_denied/);
+  await assert.rejects(verify(await token({ scp: 'Owner.Read Entities.Write' }), 'World.Manage'), /api_scope_denied/);
   await assert.rejects(verify(raw, 'Entities.Read'), /api_auth_unavailable/);
 });
 
