@@ -1,6 +1,6 @@
 # World #91 integration handoff
 
-Base: Society `1bb156b599ed353a1f1f151930b6846baae9689e`. This change owns isolated World modules, assets, route wrappers and tests only. Parent/entity owner applies shared edits after reconciling their current branch. No deployment, new identities/scopes/keys or DB writes are part of this handoff.
+Base reconciled with Society `c6e2092` (entity #97, after API #95 and Travels #96). The companion unified patch is [world-operational-map.mount.patch](world-operational-map.mount.patch); `git apply --check` passed against this base. It is proposed only and has not been applied to shared files. This change owns isolated World modules, assets, route wrappers and tests only. Parent/entity owner applies shared edits after reconciling their current branch. No deployment, new identities/scopes/keys or DB writes are part of this handoff.
 
 ## Interfaces
 
