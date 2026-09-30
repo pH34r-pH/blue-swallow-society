@@ -46,6 +46,7 @@ function createOwnerAuthHandler({ getConfig = login.loginConfig, clientFactory =
     if (req.method && req.method !== 'GET') { context.res = json(405, { ok: false, error: 'method_not_allowed' }); return; }
     if (authMode() !== 'entra') { context.res = json(503, { ok: false, error: 'owner_auth_unavailable' }); return; }
     const action = req.params?.action;
+    if (action === 'logout') { context.res = failedLogin('signed-out'); return; }
     if (action === 'session') { context.res = readSession(req, now()); return; }
     try {
       const config = getConfig();

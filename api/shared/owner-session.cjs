@@ -5,6 +5,7 @@ const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function authMode() { return process.env.BLUE_SWALLOW_AUTH_MODE || 'entra'; }
 function ownerConfig() {
+  if (authMode() !== 'entra') throw new Error('owner_auth_unavailable');
   const tenant = process.env.BLUE_SWALLOW_ENTRA_TENANT_ID || '';
   const audience = process.env.BLUE_SWALLOW_ENTRA_CLIENT_ID || '';
   const owner = process.env.BLUE_SWALLOW_ENTRA_OWNER_OBJECT_ID || '';

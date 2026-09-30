@@ -94,6 +94,10 @@ test('Chromium owner login, wrong user, unavailable config, deep-link restoratio
   await page.locator('#godeye-tab.active').waitFor();
   await page.clock.fastForward(300000);
   await page.getByText('Your session expired. Sign in again.', { exact: true }).waitFor();
+  await page.route('**/api/owner-auth/session', (route) => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'session_expired' }) }));
+  await page.goto(origin);
+  await page.getByText('Your session expired. Sign in again.', { exact: true }).waitFor();
+  await page.unroute('**/api/owner-auth/session');
   delete process.env.BLUE_SWALLOW_ENTRA_OWNER_OBJECT_ID;
   await page.goto(origin);
   await page.getByText('Sign-in is unavailable.', { exact: false }).waitFor();

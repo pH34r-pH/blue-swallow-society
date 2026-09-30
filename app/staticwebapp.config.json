@@ -182,7 +182,7 @@
     },
     {
       "route": "/logout",
-      "redirect": "/?auth=signed-out"
+      "redirect": "/api/owner-auth/logout"
     }
   ],
   "navigationFallback": {

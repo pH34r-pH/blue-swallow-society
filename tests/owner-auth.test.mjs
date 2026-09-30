@@ -88,7 +88,7 @@ test('direct backend reads need a short-lived signed owner proof, not just a ser
   const session = owner.createOwnerSession(claims, config, now);
   const auth = owner.verifyOwnerSession(session.token, { config, now });
   const headers = ownerBackendHeaders(auth, now);
-  assert.doesNotThrow(() => requireOwnerReadProof({ headers }, now));
+  assert.deepEqual(requireOwnerReadProof({ headers }, now), { tenantId: config.tenant, objectId: config.owner, operatorId: `${config.tenant}:${config.owner}` });
   assert.throws(() => requireOwnerReadProof({ headers }, now + 30000));
   assert.throws(() => requireOwnerReadProof({ headers: { 'x-blue-swallow-cybermap-read-token': 'valid-service-token', 'x-ms-client-principal': 'owner' } }, now));
   for (const key of ['oid', 'tid', 'iss']) {
@@ -163,4 +163,15 @@ test('profile and release metadata reject a forged platform principal before dat
   let reads = 0;
   await require('./wardriver-release-current')._internals.handle(context, { method: 'GET', headers: {} }, { getRelease() { reads++; } });
   assert.equal(reads, 0);
+});
+
+test('unknown auth modes fail closed and logout clears both owner cookies', async () => {
+  process.env.BLUE_SWALLOW_AUTH_MODE = 'misspelled';
+  assert.equal(verifyOperatorRequest({ headers: {} }).status, 503);
+  process.env.BLUE_SWALLOW_AUTH_MODE = 'entra';
+  const context = {};
+  await createOwnerAuthHandler()(context, { method: 'GET', headers: {}, params: { action: 'logout' } });
+  assert.equal(context.res.headers.Location, '/?auth=signed-out');
+  assert.equal(context.res.headers['Set-Cookie'].length, 2);
+  assert.ok(context.res.headers['Set-Cookie'].every((cookie) => cookie.includes('Max-Age=0')));
 });

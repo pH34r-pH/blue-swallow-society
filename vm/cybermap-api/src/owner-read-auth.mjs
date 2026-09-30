@@ -32,5 +32,6 @@ export function requireOwnerReadProof(request, now = Date.now()) {
     if (extra !== undefined || !crypto.verify(null, Buffer.from(encoded), config.key, Buffer.from(signature, 'base64url'))) throw new Error();
     const claims = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
     if (!validIdentity(claims, config) || !validTime(claims, now)) throw new Error();
+    return Object.freeze({ tenantId: claims.tid, objectId: claims.oid, operatorId: `${claims.tid}:${claims.oid}` });
   } catch { throw new IngestError('owner_denied', 'Owner authorization is required.', { statusCode: 403 }); }
 }

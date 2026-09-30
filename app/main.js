@@ -23,8 +23,11 @@ async function restoreSession() {
   if (Object.hasOwn(messages, params.get('auth'))) { showState(params.get('auth')); return; }
   try {
     const response = await fetch('/api/owner-auth/session', { credentials: 'same-origin', cache: 'no-store' });
-    if (!response.ok) { showState(response.status === 503 ? 'unavailable' : response.status === 403 ? 'denied' : 'signed-out'); return; }
     const data = await response.json();
+    if (!response.ok) {
+      showState(data.error === 'session_expired' ? 'expired' : response.status === 503 ? 'unavailable' : response.status === 403 ? 'denied' : 'signed-out');
+      return;
+    }
     if (!activateOperatorSession(data.operatorSession)) { showState('expired'); return; }
     const destination = new URL(returnTo, window.location.origin);
     const path = destination.origin === window.location.origin && /^\/operator\/(travels|entities|world|devices)$/.test(destination.pathname)
