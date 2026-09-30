@@ -28,6 +28,25 @@
 
       <div id="godeye-tab" class="tab-content" role="region" aria-labelledby="tab-godeye">
         <section class="container">
+          <article class="panel tab-panel travels-history" data-travels-history aria-labelledby="historyTitle">
+            <h2 id="historyTitle">Travels — observation history</h2>
+            <p>Personal capture evidence, not inferred emitter locations or complete trips. Times are UTC; each query covers at most 31 days.</p>
+            <form class="history-filters" aria-label="History filters">
+              <label>From (UTC)<input type="datetime-local" name="from" required></label>
+              <label>Until (UTC, exclusive)<input type="datetime-local" name="to" required></label>
+              <label>Installation ID<input name="deviceId" maxlength="128" autocomplete="off" placeholder="All personal installations"></label>
+              <label>Stored session ID<input name="sessionId" maxlength="36" autocomplete="off" placeholder="All stored sessions and ungrouped"></label>
+              <label>Radio<select name="kind" aria-label="Radio"><option value="">All radios</option><option value="wifi_ap">Wi-Fi</option><option value="ble_device">Bluetooth LE</option><option value="cell_signal">Cellular</option></select></label>
+              <button type="submit" class="btn">Apply history filters</button>
+            </form>
+            <p data-history-status role="status" aria-live="polite">Choose a time interval to load observation history.</p>
+            <p data-history-groups></p>
+            <div class="history-actions"><button type="button" class="btn" data-history-refresh>Refresh history</button><button type="button" class="btn" data-history-next disabled>Next history page</button><button type="button" class="btn" data-history-map-toggle aria-expanded="false">Show capture map</button></div>
+            <p data-history-map-status role="status">List mode saves graphics power. The optional map shows capture points only, without inferred emitter positions or connecting trajectories.</p>
+            <div data-history-map class="history-map" aria-label="Capture-point map; equivalent observations are listed below" hidden></div>
+            <div class="history-columns"><section aria-label="Historical observations"><ol data-history-list></ol></section><section aria-label="Selected observation"><h3>Observation detail</h3><div data-history-detail tabindex="-1"></div></section></div>
+          </article>
+          <details class="history-nearby"><summary>Nearby capture context — not travel history</summary>
           <article class="panel tab-panel godeye-shell">
             <div class="panel-heading">
               <div>
@@ -68,7 +87,7 @@
                 </div>
 
                 <div class="geo-card">
-                  <p class="sensor-label">Session timeline</p>
+                  <p class="sensor-label">Nearby response chronology (not session history)</p>
                   <div id="godeyeTimeline" class="godeye-timeline">No transient context in this session.</div>
                 </div>
 
@@ -83,6 +102,7 @@
             </div>
 
           </article>
+          </details>
         </section>
       </div>
 
