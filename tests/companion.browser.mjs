@@ -29,6 +29,13 @@ async function serve(req, res) {
       const body = url.pathname.endsWith('/apk') ? { ok: true, downloadUrl: 'https://test.blob.core.windows.net/releases/test.apk?sp=r&spr=https' } : { ok: true, artifact };
       context.res = releaseUnavailable ? { status: 503, body: { ok: false } } : { status: 200, body };
     }
+  } else if (url.pathname === '/api/world/context') {
+    const at = new Date().toISOString();
+    // Synthetic test-only public snapshot: no runtime fixtures or personal observations.
+    context.res = { status: 200, body: { version: 'bss.world.v1', boundary: 'public_context_not_entity_evidence', generatedAt: at,
+      sources: [{ id: 'usgs-earthquakes', name: 'USGS earthquakes', enabled: true, state: 'fresh', fetchedAt: at, staleMs: 900000, maxAgeMs: 86400000, attribution: 'Synthetic fixture', url: 'https://earthquake.usgs.gov/' }],
+      items: [{ id: 'synthetic-shell', sourceId: 'usgs-earthquakes', title: 'Synthetic sealed-shell fixture', semantics: 'observed', freshness: 'fresh', eventAt: at, fetchedAt: at, updatedAt: null, expiresAt: null,
+        geometry: { type: 'Point', coordinates: [-122, 47] }, detail: 'Synthetic test fixture only', sourceUrl: 'https://earthquake.usgs.gov/', attribution: 'Synthetic fixture', uncertainty: 'Test only', regions: [] }] } };
   } else if (url.pathname.startsWith('/api/')) context.res = { status: 503, body: { ok: false } };
   else if (['/operator/loader.js', '/operator/operator-session.mjs'].includes(url.pathname)) {
     context.res = { status: 200, headers: { 'Content-Type': 'text/javascript' }, body: await readFile(new URL(`../app${url.pathname}`, import.meta.url), 'utf8') };
@@ -49,7 +56,7 @@ test('Chromium companion navigation, Back, mobile layout and gated release state
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   t.after(() => server.close());
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) });
+  const browser = await chromium.launch({ headless: true, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'], ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) });
   t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
   const errors = [];
@@ -78,6 +85,20 @@ test('Chromium companion navigation, Back, mobile layout and gated release state
   await page.getByRole('link', { name: 'World', exact: true }).click();
   await page.locator('#world-tab.active').waitFor();
   assert.match(await page.locator('#world-tab').textContent(), /Unrelated public context/);
+  await page.getByText(/Public context loaded at/).waitFor();
+  await page.getByRole('checkbox', { name: 'USGS earthquakes', exact: true }).focus();
+  await page.keyboard.press('Space');
+  await page.getByRole('button', { name: /Synthetic sealed-shell fixture/ }).focus();
+  await page.keyboard.press('Enter');
+  await page.getByRole('region', { name: 'Selected report details' }).waitFor();
+  await page.getByRole('button', { name: 'Show globe' }).click();
+  await page.getByText(/Ground context globe\. Made with/).waitFor({ timeout: 20000 });
+  assert.equal(await page.locator('#world-tab .maplibregl-canvas').count(), 1);
+  assert.equal(await page.evaluate(() => !!document.querySelector('#bss-world-styles')), true);
+  await page.getByRole('link', { name: 'Entities', exact: true }).click();
+  assert.equal(await page.locator('#world-tab .maplibregl-canvas').count(), 0);
+  await page.getByRole('link', { name: 'World', exact: true }).click();
+  await page.getByRole('button', { name: /Synthetic sealed-shell fixture/ }).waitFor();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   assert.equal(overflow, false);
   const denied = await fetch(`${origin}/api/operator-shell`);

@@ -1,3 +1,4 @@
+import { createWorldView } from './world-view.mjs';
 import { createTravelsView } from './travels-view.mjs';
 import { createEntityClient, createEntityEditingClient } from './entity-client.mjs';
 import { mountEntityWorkbench } from './entity-workbench.mjs';
@@ -174,6 +175,7 @@ function unlockConsole() {
 
 function resetConsoleToLogin() {
   travelsView?.deactivate();
+  worldView?.deactivate();
   state.authenticated = false;
   state.activeTab = '';
   document.body.dataset.mode = 'login';
@@ -405,9 +407,12 @@ function bindTabSystem() {
 }
 
 let travelsView;
+let worldView;
 let entityWorkbench;
 
 function initTabDefaults() {
+  const worldRoot = document.querySelector('[data-world-view]');
+  if (worldRoot && !worldView) worldView = createWorldView({ root: worldRoot, getHeaders: () => buildOperatorHeaders() });
   const entityRoot = document.querySelector('[data-entity-workbench]');
   if (entityRoot && !entityWorkbench) entityWorkbench = mountEntityWorkbench(entityRoot, { request: createEntityClient({ getHeaders: buildOperatorHeaders }), editing: createEntityEditingClient({ getHeaders: buildOperatorHeaders }) });
   const historyRoot = document.querySelector('[data-travels-history]');
@@ -416,7 +421,7 @@ function initTabDefaults() {
     if (event.currentTarget.open) { initGodeyeTab(); scheduleGodeyeRender(); }
     else stopGodeyeFeed();
   });
-  window.addEventListener('pagehide', () => { travelsView?.destroy(); entityWorkbench?.destroy(); }, { once: true });
+  window.addEventListener('pagehide', () => { travelsView?.destroy(); worldView?.destroy(); entityWorkbench?.destroy(); }, { once: true });
   initArTab();
   updateArOrientation();
   renderArHud();
@@ -426,6 +431,7 @@ function initTabDefaults() {
 
 async function handleLogout() {
   travelsView?.destroy();
+  worldView?.destroy();
   entityWorkbench?.destroy();
   stopArFeed();
   stopGodeyeFeed();
@@ -486,6 +492,8 @@ function activateTabByIndex(index, { focus = false, tabButtons = getTabButtons()
     stopArFeed();
   }
 
+  if (state.activeTab === 'world' && nextTabKey !== 'world') worldView?.deactivate();
+
   if (state.activeTab === 'godeye' && nextTabKey !== 'godeye') {
     travelsView?.deactivate();
     stopGodeyeFeed();
@@ -500,6 +508,7 @@ function activateTabByIndex(index, { focus = false, tabButtons = getTabButtons()
   }
 
   if (nextTabKey === 'godeye') travelsView?.activate();
+  if (nextTabKey === 'world') worldView?.activate();
 
   if (nextTabKey === 'world' || (nextTabKey === 'godeye' && document.querySelector('.history-nearby')?.open)) {
     initGodeyeTab();
