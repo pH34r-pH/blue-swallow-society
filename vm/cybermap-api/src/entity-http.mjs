@@ -3,7 +3,7 @@ import { entityError } from './entity-contract.mjs';
 
 const PATH = /^\/api\/v1\/entities\/(list|detail|preview|mutate)$/;
 const MAX_BYTES = 64 * 1024;
-/** Optional dispatch seam. Production server does not mount it in this change. */
+/** Entity dispatch mounted when the server receives an entity store. */
 export function createEntityRequestHandler(options) {
   const adapter = createEntityApiAdapter(options);
   return async (request, response, url) => {
