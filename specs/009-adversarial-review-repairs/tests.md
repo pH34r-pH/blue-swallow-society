@@ -37,3 +37,7 @@ graphify update .
 4. A limiter conflict retries boundedly; a limiter outage returns 503; the public root remains a static route.
 5. A `hash_only` batch produces a projection with no raw or HMAC SSID/BSSID fields.
 6. `/api/wigle` cannot import or resolve any `app/operator` path.
+
+## Nullable measurement repair (2026-09-30)
+
+Repair #87: `node --test vm/cybermap-api/test/viewport-measurements.test.mjs` covers a legitimate nullable PostgreSQL row through the real store mapper and operator projection, plus null/absent/empty/whitespace/nonfinite/zero/valid and wrong-type cases at both boundaries. The pool is scripted; this is not a live PostgreSQL integration run.

@@ -1123,6 +1123,8 @@ function aggregateCaveats(value) {
 }
 
 function finiteOrNull(value) {
+  // Keep numeric-string compatibility without coercing missing data or other types.
+  if (typeof value !== 'number' && (typeof value !== 'string' || value.trim() === '')) return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }

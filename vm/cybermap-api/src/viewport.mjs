@@ -105,7 +105,8 @@ function parseFiniteNumber(value) {
 }
 
 function finiteOrNull(value) {
-  return Number.isFinite(Number(value)) ? Number(value) : null;
+  // Store adapters own conversion; projection must not invent measurements.
+  return Number.isFinite(value) ? value : null;
 }
 
 function stringOrNull(value) {
