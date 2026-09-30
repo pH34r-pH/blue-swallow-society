@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const { authMode, createOwnerSession, verifyOwnerSession, cookieValue, sessionCookieOptions } = require('../shared/owner-session.cjs');
 const login = require('../_lib/owner-login');
+const apiCache = require('../_lib/owner-api-token-cache');
 const { verifyIdToken } = require('../_lib/owner-id-token');
 const headers = { 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff' };
 
@@ -14,7 +15,7 @@ function readSession(req, now) {
 }
 async function beginLogin(req, config, clientFactory, now) {
   const transaction = login.newTransaction(req.query?.returnTo, config, now);
-  const url = await clientFactory(config).getAuthCodeUrl({ scopes: ['openid', 'profile'], redirectUri: config.redirectUri,
+  const url = await clientFactory(config).getAuthCodeUrl({ scopes: login.loginScopes(config), redirectUri: config.redirectUri,
     state: transaction.state, nonce: transaction.nonce, prompt: 'select_account', responseMode: 'query',
     codeChallenge: crypto.createHash('sha256').update(transaction.verifier).digest('base64url'), codeChallengeMethod: 'S256' });
   const cookie = login.transactionCookie(login.sealTransaction(transaction, config));
@@ -29,13 +30,15 @@ async function completeLogin(req, config, { clientFactory, verify, now }) {
     if (typeof req.query?.code !== 'string' || !req.query.code || req.query.error) throw new Error();
   } catch { return failedLogin('denied'); }
   let result;
+  const client = clientFactory(config);
   try {
-    result = await clientFactory(config).acquireTokenByCode({ code: req.query.code, codeVerifier: transaction.verifier,
-      scopes: ['openid', 'profile'], redirectUri: config.redirectUri });
+    result = await client.acquireTokenByCode({ code: req.query.code, codeVerifier: transaction.verifier,
+      scopes: login.loginScopes(config), redirectUri: config.redirectUri });
   } catch { return failedLogin('unavailable'); }
   try {
     const claims = await verify(result.idToken, config, transaction.nonce, { now: now() });
     const session = createOwnerSession(claims, config, now());
+    if (config.apiClientId) apiCache.store(session, client, result.account, login.apiScopes(config), now());
     return redirect(transaction.returnTo, [login.transactionCookieOptions(), sessionCookieOptions(session)]);
   } catch (error) {
     return failedLogin(['ERR_JWKS_TIMEOUT', 'ERR_JOSE_GENERIC', 'ENOTFOUND', 'ECONNRESET'].includes(error.code) ? 'unavailable' : 'denied');
@@ -46,7 +49,7 @@ function createOwnerAuthHandler({ getConfig = login.loginConfig, clientFactory =
     if (req.method && req.method !== 'GET') { context.res = json(405, { ok: false, error: 'method_not_allowed' }); return; }
     if (authMode() !== 'entra') { context.res = json(503, { ok: false, error: 'owner_auth_unavailable' }); return; }
     const action = req.params?.action;
-    if (action === 'logout') { context.res = failedLogin('signed-out'); return; }
+    if (action === 'logout') { apiCache.forget(cookieValue(req.headers?.cookie)); context.res = failedLogin('signed-out'); return; }
     if (action === 'session') { context.res = readSession(req, now()); return; }
     try {
       const config = getConfig();

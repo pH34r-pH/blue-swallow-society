@@ -107,7 +107,7 @@ test('anonymous echo-lab route is retired without weakening Cybermap token route
       `${route} must still reach its Function token guard`,
     );
   }
-  assert.match(read('api/cybermap-viewport/index.js'), /requireOperatorToken/);
+  assert.match(read('api/cybermap-viewport/index.js'), /require(?:OperatorToken|OwnerRead)/);
   const observationBatch = read('api/cybermap-observations-batch/index.js');
   assert.match(observationBatch, /x-blue-swallow-ingest-token/);
   assert.match(observationBatch, /requiredHeader\(req, header\)/);

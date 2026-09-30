@@ -24,7 +24,7 @@ test('operator APIs reach explicit application guards rather than SWA AAD', () =
     assert.deepEqual(route(path)?.allowedRoles, ['anonymous', 'authenticated'], path);
   }
   for (const source of [wigleApi, viewportApi, signalsApi]) {
-    assert.match(source, /requireOperatorToken/);
+    assert.match(source, /require(?:OperatorToken|OwnerRead)/);
   }
 });
 

@@ -52,7 +52,7 @@ function buildBackendUrl(path) {
 
 async function postCybermapJson(path, payload, auth) {
   const readToken = String(process.env.BSS_CYBERMAP_READ_TOKEN || '').trim();
-  if (!readToken) {
+  if (!readToken && !auth?.apiAccessToken) {
     const error = new Error('BSS_CYBERMAP_READ_TOKEN is not configured.');
     error.status = 503;
     throw error;
@@ -65,10 +65,9 @@ async function postCybermapJson(path, payload, auth) {
       method: 'POST',
       signal: controller.signal,
       headers: {
-        ...ownerBackendHeaders(auth),
+        ...(auth?.apiAccessToken ? { authorization: `Bearer ${auth.apiAccessToken}` } : { ...ownerBackendHeaders(auth), 'x-blue-swallow-cybermap-read-token': readToken }),
         accept: 'application/json',
         'content-type': 'application/json',
-        'x-blue-swallow-cybermap-read-token': readToken,
       },
       body: JSON.stringify(payload),
     });
