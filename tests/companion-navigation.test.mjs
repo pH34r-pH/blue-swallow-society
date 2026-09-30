@@ -24,3 +24,19 @@ test('primary companion shell has four links, existing release card in Devices a
   assert.match(shell, /Entity review is unavailable/);
   assert.match(shell, /unrelated public context/i);
 });
+
+
+test('experiment routes, startup hooks and asset grants are retired without deleting backend APIs', () => {
+  const read = (path) => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
+  const main = read('api/_private/operator/assets/main.js');
+  const loader = read('app/operator/loader.js');
+  const assets = read('api/operator-assets/index.js');
+  for (const name of ['tzeentch.mjs', 'morning-brief.mjs', 'tzeentch-dashboard.mjs', 'chained-daemon.mjs']) {
+    assert.equal(main.includes(name), false);
+    assert.equal(loader.includes(name), false);
+    assert.equal(assets.includes(name), false);
+  }
+  assert.deepEqual(JSON.parse(read('app/staticwebapp.config.json')).routes.find((route) => route.route === '/operator/morning-brief.html'), { route: '/operator/morning-brief.html', statusCode: 404 });
+  assert.match(read('api/morning-brief/index.js'), /requireOperatorToken/);
+  assert.match(read('api/tzeentch/index.js'), /requireOperatorToken/);
+});

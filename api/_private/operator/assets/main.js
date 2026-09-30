@@ -69,8 +69,6 @@ const state = {
   authenticated: false,
   activeTab: 'landing',
   tabSystemBound: false,
-  morningBriefInitialized: false,
-  morningBriefLoading: null,
   arBound: false,
   arReady: false,
   arEnabled: false,
@@ -129,7 +127,6 @@ const state = {
 
 function init() {
   bindTabSystem();
-  bindMorningBriefReturn();
   bindOperatorDownloads();
 
   if (!getOperatorSession()) {
@@ -146,18 +143,6 @@ function isOperatorEntrypoint() {
 
 function initialOperatorTab() {
   return companionRoute(window.location.pathname);
-}
-
-function bindMorningBriefReturn() {
-  const returnButton = $('briefReturnToConsole');
-  if (returnButton) {
-    returnButton.addEventListener('click', returnToOperatorConsole);
-  }
-}
-
-function returnToOperatorConsole() {
-  history.replaceState(null, '', '/operator');
-  activateTab('godeye', { focus: true });
 }
 
 function unlockConsole() {
@@ -422,21 +407,6 @@ function initTabDefaults() {
   renderArHud();
   renderGodeyeMap();
   renderWigleViews();
-}
-
-function initMorningBriefTab() {
-  if (state.morningBriefInitialized || state.morningBriefLoading) return;
-  state.morningBriefLoading = import('./morning-brief.mjs')
-    .then(({ initMorningBrief }) => {
-      initMorningBrief();
-      state.morningBriefInitialized = true;
-    })
-    .catch((error) => {
-      console.error('Morning dossier module failed to load', error);
-    })
-    .finally(() => {
-      state.morningBriefLoading = null;
-    });
 }
 
 async function handleLogout() {

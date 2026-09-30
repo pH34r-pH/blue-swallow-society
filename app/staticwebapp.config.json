@@ -49,11 +49,7 @@
     },
     {
       "route": "/operator/morning-brief.html",
-      "rewrite": "/operator/index.html",
-      "allowedRoles": [
-        "anonymous",
-        "authenticated"
-      ]
+      "statusCode": 404
     },
     {
       "route": "/account/*",
