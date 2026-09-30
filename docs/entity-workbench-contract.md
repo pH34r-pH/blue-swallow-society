@@ -27,8 +27,8 @@ legacy sessions/read proofs never grant access. No migration is run automaticall
 service seam. Callbacks must verify exact owner and their respective operation scope before
 returning `{exact_owner: true, actor_id}`. Missing mutation callback always denies preview/write,
 even when read verification succeeds. Never wire this lower-level seam to unverified JSON.
-Cookie/session auth is not supported by the new entity API adapter; any future browser/BFF
-integration must preserve exact-origin protection and explicitly obtain Entities.Write.
+The VM adapter accepts delegated API tokens. The Functions Web-session adapter preserves the
+existing exact-origin checks and revalidates its server-cached delegated token for Entities.Write.
 
 ## Store and command shapes
 
@@ -75,7 +75,7 @@ use this same machine/operator/effective-membership projection for later offline
 
 `api/_private/operator/assets/entity-workbench.mjs` exports
 `mountEntityWorkbench(root, {request})`. The injected request function maps `(operation,input)`
-to the future authorized same-origin adapter. The module/client are allowlisted private assets and mounted in the existing Entities tab. It has filters/pagination, evidence/history, reason/preview/confirm controls and
+to the authorized same-origin adapter. The module/client are allowlisted private assets and mounted in the existing Entities tab. It has filters/pagination, evidence/history, reason/preview/confirm controls and
 exact-key replay after uncertain confirmation failure. Chromium tests exercise keyboard/mobile,
 empty/error/stale states and safe text. The private shell integration is tested through Functions, VM and real isolated PostGIS.
 The current ordinary Web login requests only Owner.Read. Web edit-scope acquisition is pending
