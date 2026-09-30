@@ -82,6 +82,22 @@ jobs:
             exit 1
           fi
 
+          curl --silent --show-error -D "$RUNNER_TEMP/logout-headers" \
+            -o /dev/null http://127.0.0.1:8080/api/owner-auth/logout
+          test "$(grep -ic '^Set-Cookie:' "$RUNNER_TEMP/logout-headers")" = 2
+          grep -qi '^Set-Cookie: __Host-bss_owner_session=.*max-age=0' "$RUNNER_TEMP/logout-headers"
+          grep -qi '^Set-Cookie: __Host-bss_owner_login=.*max-age=0' "$RUNNER_TEMP/logout-headers"
+
+          # Missing Entra configuration must never expose private data, even
+          # through the direct Functions host with forged platform identity.
+          for route in operator-shell profile wardriver-release/current owner-auth/session; do
+            status=$(curl --silent --show-error -o "$response" -w '%{http_code}' \
+              -H 'x-ms-client-principal: forged-owner' \
+              "http://127.0.0.1:8080/api/$route")
+            test "$status" = 503
+            jq -e '.ok == false' "$response" >/dev/null
+          done
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: validate

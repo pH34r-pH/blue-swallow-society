@@ -8,7 +8,9 @@
   },
   "dependencies": {
     "@azure/data-tables": "13.3.2",
-    "@azure/storage-blob": "^12.28.0"
+    "@azure/msal-node": "7.0.0",
+    "@azure/storage-blob": "^12.28.0",
+    "jose": "6.2.12"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0"

@@ -53,13 +53,12 @@
     },
     {
       "route": "/account/*",
-      "allowedRoles": [
-        "authenticated"
-      ]
+      "statusCode": 404
     },
     {
       "route": "/api/profile",
       "allowedRoles": [
+        "anonymous",
         "authenticated"
       ]
     },
@@ -179,11 +178,11 @@
     },
     {
       "route": "/login",
-      "redirect": "/.auth/login/aad"
+      "redirect": "/api/owner-auth/login"
     },
     {
       "route": "/logout",
-      "redirect": "/.auth/logout"
+      "redirect": "/api/owner-auth/logout"
     }
   ],
   "navigationFallback": {

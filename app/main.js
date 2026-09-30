@@ -1,423 +1,56 @@
-import {
-  PUBLIC_EVENTS,
-  buildEventCalendarMonth,
-  claimSupplyItem,
-  formatEventDateRange,
-  getSupplyClaimLabel,
-  normalizeClaimName,
-  releaseSupplyItem,
-} from './public-events.mjs';
-
-import {
-  activateOperatorSession,
-} from './operator/operator-session.mjs';
+import { activateOperatorSession } from './operator/operator-session.mjs';
 import { bootOperatorSurface } from './operator/loader.js';
 
-const CLAIM_NAME_KEY = 'blue-swallow-society:event-claim-name';
-const SUPPLY_CLAIMS_KEY = 'blue-swallow-society:event-supply-claims';
-let operatorHandoffStarted = false;
-let operatorLoginInFlight = false;
+const messages = Object.freeze({
+  'signed-out': 'Sign in with the approved owner account.',
+  denied: 'This account is not authorized. Sign in with the approved owner account.',
+  unavailable: 'Sign-in is unavailable. Configuration or the identity service needs attention.',
+  expired: 'Your session expired. Sign in again.',
+});
+const params = new URLSearchParams(window.location.search);
+const status = document.getElementById('authStatus');
+const button = document.getElementById('signInBtn');
+const returnTo = params.get('returnTo') || '/operator/travels';
+let sessionTimer;
 
-const $ = (id) => document.getElementById(id);
-
-function init() {
-  const loginBtn = $('loginBtn');
-  const passcodeInput = $('passcodeInput');
-
-  if (loginBtn) {
-    loginBtn.addEventListener('click', handleLogin);
-  }
-
-  if (passcodeInput) {
-    passcodeInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        handleLogin();
-      }
-    });
-    passcodeInput.focus();
-  }
-
-  initPublicEvents();
+function showState(state) {
+  status.textContent = messages[state] || messages['signed-out'];
+  document.body.dataset.authState = state;
+  button.disabled = false;
 }
 
-async function handleLogin() {
-  if (operatorHandoffStarted || operatorLoginInFlight) {
-    return;
-  }
-
-  const passcodeInput = $('passcodeInput');
-  const loginBtn = $('loginBtn');
-  const passcode = passcodeInput ? passcodeInput.value.trim() : '';
-
-  if (!passcode) {
-    return;
-  }
-
-  operatorLoginInFlight = true;
-
-  if (loginBtn) {
-    loginBtn.disabled = true;
-  }
-
+async function restoreSession() {
+  if (Object.hasOwn(messages, params.get('auth'))) { showState(params.get('auth')); return; }
   try {
-    const session = await requestOperatorSession(passcode);
-    if (session && activateOperatorSession(session)) {
-      await bootOperatorSurface();
+    const response = await fetch('/api/owner-auth/session', { credentials: 'same-origin', cache: 'no-store' });
+    const data = await response.json();
+    if (!response.ok) {
+      showState(data.error === 'session_expired' ? 'expired' : response.status === 503 ? 'unavailable' : response.status === 403 ? 'denied' : 'signed-out');
       return;
     }
-
-    showStandardSite();
-  } catch (error) {
-    console.warn('Standard site fallback selected.', error);
-    showStandardSite();
-  } finally {
-    if (loginBtn && !operatorHandoffStarted) {
-      loginBtn.disabled = false;
-    }
-    if (!operatorHandoffStarted) {
-      operatorLoginInFlight = false;
-    }
-  }
+    if (!activateOperatorSession(data.operatorSession)) { showState('expired'); return; }
+    const destination = new URL(returnTo, window.location.origin);
+    const path = destination.origin === window.location.origin && /^\/operator\/(travels|entities|world|devices)$/.test(destination.pathname)
+      ? destination.pathname + destination.search : '/operator/travels';
+    history.replaceState(null, '', path);
+    await bootOperatorSurface();
+    sessionTimer = window.setTimeout(() => window.location.replace('/?auth=expired'), Math.max(0, Date.parse(data.operatorSession.expiresAt) - Date.now()));
+  } catch { showState('unavailable'); }
 }
 
-async function requestOperatorSession(passcode) {
-  const response = await fetch('/api/validate-passcode', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ passcode }),
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const data = await response.json();
-  return data?.ok === true && data.operatorSession?.token ? data.operatorSession : null;
-}
-
-function showOperatorHandoff() {
-  document.body.dataset.mode = 'operator-handoff';
-
-  const loginControls = $('loginControls');
-  const operatorHandoff = $('operatorHandoff');
-  const passcodeInput = $('passcodeInput');
-
-  if (loginControls) {
-    loginControls.hidden = true;
-  }
-
-  if (passcodeInput) {
-    passcodeInput.value = '';
-  }
-
-  if (operatorHandoff) {
-    operatorHandoff.hidden = false;
-  }
-}
-
-function showStandardSite() {
-  document.body.dataset.mode = 'standard';
-
-  const terminalScreen = $('terminalScreen');
-  const standardSite = $('standardSite');
-  const passcodeInput = $('passcodeInput');
-
-  if (terminalScreen) {
-    terminalScreen.classList.remove('active');
-    terminalScreen.setAttribute('aria-hidden', 'true');
-  }
-
-  if (standardSite) {
-    standardSite.classList.add('active');
-    standardSite.removeAttribute('aria-hidden');
-  }
-
-  if (passcodeInput) {
-    passcodeInput.value = '';
-  }
-}
-
-function initPublicEvents() {
-  const eventsCalendar = $('eventsCalendar');
-  const eventsList = $('eventsList');
-  const claimNameInput = $('eventClaimName');
-
-  if (!eventsCalendar && !eventsList) {
-    return;
-  }
-
-  if (claimNameInput) {
-    claimNameInput.value = readStoredClaimName();
-    claimNameInput.addEventListener('input', () => {
-      const claimName = normalizeClaimName(claimNameInput.value);
-      writeStoredClaimName(claimName);
-      updateClaimNameStatus();
-      renderEventsList();
+button.addEventListener('click', async () => {
+  button.disabled = true;
+  status.textContent = 'Opening Microsoft sign-in…';
+  try {
+    const response = await fetch(`/api/owner-auth/login?returnTo=${encodeURIComponent(returnTo)}`, {
+      credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' },
     });
-    claimNameInput.addEventListener('change', () => {
-      claimNameInput.value = normalizeClaimName(claimNameInput.value);
-    });
-  }
-
-  if (eventsList) {
-    eventsList.addEventListener('click', handleSupplyClaim);
-  }
-
-  renderEventsCalendar();
-  renderEventsList();
-  updateClaimNameStatus();
-}
-
-function renderEventsCalendar() {
-  const container = $('eventsCalendar');
-  if (!container) {
-    return;
-  }
-
-  const firstEventMonth = PUBLIC_EVENTS[0]?.startDate.slice(0, 7) || '2026-07';
-  const calendar = buildEventCalendarMonth(PUBLIC_EVENTS, firstEventMonth);
-  container.replaceChildren();
-
-  const heading = document.createElement('div');
-  heading.className = 'calendar-heading';
-  const monthLabel = document.createElement('h3');
-  monthLabel.textContent = calendar.monthLabel;
-  const legend = document.createElement('p');
-  legend.textContent = 'Event dates marked.';
-  heading.append(monthLabel, legend);
-  container.append(heading);
-
-  const grid = document.createElement('div');
-  grid.className = 'calendar-grid';
-  grid.setAttribute('role', 'grid');
-  grid.setAttribute('aria-label', `${calendar.monthLabel} events calendar`);
-
-  ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach((dayName) => {
-    const label = document.createElement('div');
-    label.className = 'calendar-weekday';
-    label.textContent = dayName;
-    grid.append(label);
-  });
-
-  calendar.weeks.flat().forEach((day) => {
-    const cell = document.createElement('div');
-    cell.className = ['calendar-day', day.inMonth ? '' : 'is-outside', day.events.length ? 'has-event' : '']
-      .filter(Boolean)
-      .join(' ');
-    cell.setAttribute('role', 'gridcell');
-    cell.setAttribute('aria-label', `${day.date}${day.events.length ? `: ${day.events.map((event) => event.title).join(', ')}` : ''}`);
-
-    const number = document.createElement('span');
-    number.className = 'calendar-day-number';
-    number.textContent = String(day.dayNumber);
-    cell.append(number);
-
-    day.events.forEach((event) => {
-      const eventPill = document.createElement('span');
-      eventPill.className = 'calendar-event-pill';
-      eventPill.textContent = event.calendarLabel || event.title;
-      cell.append(eventPill);
-    });
-
-    grid.append(cell);
-  });
-
-  container.append(grid);
-}
-
-function eventCardHeader(event) {
-  const header = document.createElement('header');
-  header.className = 'event-card-header';
-  const titleBlock = document.createElement('div');
-  const category = document.createElement('p');
-  category.className = 'event-category';
-  category.textContent = event.category;
-  const title = document.createElement('h3');
-  title.textContent = event.title;
-  titleBlock.append(category, title);
-  const date = document.createElement('p');
-  date.className = 'event-date';
-  date.textContent = formatEventDateRange(event);
-  header.append(titleBlock, date);
-  return header;
-}
-
-function eventMeta(event) {
-  const meta = document.createElement('dl');
-  meta.className = 'event-meta';
-  appendMeta(meta, 'Location', event.location);
-  appendMeta(meta, 'Site', event.site);
-  return meta;
-}
-
-function eventSupplies(event, claims, currentName) {
-  const supplies = document.createElement('section');
-  supplies.className = 'supplies-panel';
-  supplies.setAttribute('aria-label', `${event.title} needed supplies`);
-  const heading = document.createElement('h4');
-  heading.textContent = 'Needed supplies';
-  const list = document.createElement('ul');
-  list.className = 'supply-list';
-  event.supplies.forEach((supply) => {
-    list.append(createSupplyListItem(event, supply, claims, currentName));
-  });
-  supplies.append(heading, list);
-  return supplies;
-}
-
-function eventCard(event, claims, currentName) {
-  const article = document.createElement('article');
-  article.className = 'event-card';
-  const summary = document.createElement('p');
-  summary.className = 'event-summary';
-  summary.textContent = event.summary;
-  article.append(
-    eventCardHeader(event),
-    summary,
-    eventMeta(event),
-    eventSupplies(event, claims, currentName),
-  );
-  return article;
-}
-
-function renderEventsList() {
-  const container = $('eventsList');
-  if (!container) return;
-  const claims = loadSupplyClaims();
-  const currentName = getCurrentClaimName();
-  container.replaceChildren(...PUBLIC_EVENTS.map((event) => eventCard(event, claims, currentName)));
-}
-
-function createSupplyListItem(event, supply, claims, currentName) {
-  const claimant = normalizeClaimName(claims?.[event.id]?.[supply.id]);
-  const statusLabel = getSupplyClaimLabel(event.id, supply.id, claims);
-  const claimedByCurrentName = Boolean(currentName) && claimant === currentName;
-  const isClaimedByOther = Boolean(claimant) && !claimedByCurrentName;
-
-  const item = document.createElement('li');
-  item.className = ['supply-item', claimant ? 'is-claimed' : 'is-needed'].join(' ');
-
-  const text = document.createElement('div');
-  text.className = 'supply-copy';
-  const label = document.createElement('strong');
-  label.textContent = supply.label;
-  const status = document.createElement('span');
-  status.className = 'supply-status';
-  status.textContent = statusLabel;
-  text.append(label, status);
-
-  const action = document.createElement('button');
-  action.type = 'button';
-  action.className = 'supply-action btn';
-  action.dataset.eventId = event.id;
-  action.dataset.supplyId = supply.id;
-
-  if (claimedByCurrentName) {
-    action.dataset.supplyAction = 'release';
-    action.textContent = 'Release';
-  } else if (isClaimedByOther) {
-    action.disabled = true;
-    action.textContent = 'Claimed';
-    action.title = 'Use this name to edit this claim.';
-  } else {
-    action.dataset.supplyAction = 'claim';
-    action.textContent = 'Claim';
-  }
-
-  item.append(text, action);
-  return item;
-}
-
-function handleSupplyClaim(event) {
-  const button = event.target.closest('button[data-supply-action]');
-  if (!button) {
-    return;
-  }
-
-  const claimName = getCurrentClaimName();
-  if (!claimName) {
-    updateClaimNameStatus('Enter a name to claim supplies.');
-    $('eventClaimName')?.focus();
-    return;
-  }
-
-  const eventId = button.dataset.eventId;
-  const supplyId = button.dataset.supplyId;
-  const action = button.dataset.supplyAction;
-  const claims = loadSupplyClaims();
-  const nextClaims = action === 'release'
-    ? releaseSupplyItem(claims, eventId, supplyId, claimName)
-    : claimSupplyItem(claims, eventId, supplyId, claimName);
-
-  saveSupplyClaims(nextClaims);
-  renderEventsList();
-  updateClaimNameStatus(`Active name: ${claimName}.`);
-}
-
-function appendMeta(meta, label, value) {
-  const term = document.createElement('dt');
-  term.textContent = label;
-  const detail = document.createElement('dd');
-  detail.textContent = value;
-  meta.append(term, detail);
-}
-
-function getCurrentClaimName() {
-  return normalizeClaimName($('eventClaimName')?.value || readStoredClaimName());
-}
-
-function updateClaimNameStatus(message) {
-  const status = $('eventClaimNameStatus');
-  if (!status) {
-    return;
-  }
-
-  status.textContent = message || (getCurrentClaimName()
-    ? `Active name: ${getCurrentClaimName()}.`
-    : 'No active claim name.');
-}
-
-function readStoredClaimName() {
-  try {
-    return normalizeClaimName(localStorage.getItem(CLAIM_NAME_KEY));
-  } catch {
-    return '';
-  }
-}
-
-function writeStoredClaimName(claimName) {
-  try {
-    if (claimName) {
-      localStorage.setItem(CLAIM_NAME_KEY, claimName);
-    } else {
-      localStorage.removeItem(CLAIM_NAME_KEY);
-    }
-  } catch {
-    // Claim names are a POC convenience; ignore storage failures.
-  }
-}
-
-function loadSupplyClaims() {
-  try {
-    return JSON.parse(localStorage.getItem(SUPPLY_CLAIMS_KEY) || '{}') || {};
-  } catch {
-    return {};
-  }
-}
-
-function saveSupplyClaims(claims) {
-  try {
-    localStorage.setItem(SUPPLY_CLAIMS_KEY, JSON.stringify(claims));
-  } catch {
-    // Claims are local-only in this POC; ignore storage failures.
-  }
-}
-
-if (document.readyState === 'loading') {
-  window.addEventListener('DOMContentLoaded', init, { once: true });
-} else {
-  init();
-}
+    if (!response.ok) throw new Error('unavailable');
+    const result = await response.json();
+    const url = new URL(result.authorizationUrl);
+    if (url.protocol !== 'https:' || url.hostname !== 'login.microsoftonline.com') throw new Error('unavailable');
+    window.location.assign(url.href);
+  } catch { showState('unavailable'); }
+});
+window.addEventListener('pagehide', () => window.clearTimeout(sessionTimer), { once: true });
+void restoreSession();

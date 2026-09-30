@@ -1,3 +1,4 @@
+process.env.BLUE_SWALLOW_AUTH_MODE = 'legacy'; // Explicit rollback contract.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';

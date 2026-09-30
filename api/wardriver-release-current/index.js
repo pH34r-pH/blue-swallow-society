@@ -1,8 +1,12 @@
 'use strict';
 
+const { authMode } = require('../shared/owner-session.cjs');
+const { requireOperatorToken } = require('../_lib/operator-auth');
+
 const { createReleaseStore, toCurrentReleaseMetadata } = require('../_lib/wardriver-release-store');
 
 async function handler(context, req) {
+  if (authMode() !== 'legacy' && !requireOperatorToken(context, req).ok) return;
   let dependencies;
   try {
     dependencies = createReleaseStore();
@@ -16,6 +20,7 @@ async function handler(context, req) {
 }
 
 async function handle(context, req, dependencies) {
+  if (authMode() !== 'legacy' && !requireOperatorToken(context, req).ok) return;
   if (String(req.method || 'GET').toUpperCase() !== 'GET') {
     context.res = response(405, { ok: false, error: 'Method not allowed.' });
     return;

@@ -24,7 +24,7 @@ module.exports = async function operatorSignals(context, req) {
     return sendJson(context, 400, { ok: false, error: 'location_query_forbidden' });
   }
   try {
-    const snapshot = await postCybermapJson('api/v1/cybermap/operator-signals', buildViewportPayload(req));
+    const snapshot = await postCybermapJson('api/v1/cybermap/operator-signals', buildViewportPayload(req), auth);
     return sendJson(context, 200, snapshot);
   } catch (error) {
     return sendJson(context, Number.isInteger(error.status) ? error.status : 502, {

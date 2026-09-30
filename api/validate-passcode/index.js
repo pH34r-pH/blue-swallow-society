@@ -1,3 +1,4 @@
+const { authMode } = require('../shared/owner-session.cjs');
 const {
   createOperatorToken,
   getConfiguredDigest,
@@ -14,6 +15,10 @@ const {
 let limiterOverrideForTests = null;
 
 module.exports = async function validatePasscode(context, req) {
+  if (authMode() !== 'legacy') {
+    context.res = jsonResponse(410, { ok: false, error: 'passcode_retired' });
+    return;
+  }
   const passcode = typeof req.body?.passcode === 'string' ? req.body.passcode : '';
 
   if (!getConfiguredDigest()) {

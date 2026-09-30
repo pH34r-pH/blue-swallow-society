@@ -1,3 +1,5 @@
+// Explicit legacy rollback coverage; default production auth is Entra.
+process.env.BLUE_SWALLOW_AUTH_MODE = 'legacy';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
