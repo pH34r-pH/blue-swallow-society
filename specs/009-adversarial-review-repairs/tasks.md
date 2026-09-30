@@ -33,3 +33,7 @@
 - [x] T018 Update API/VM/architecture/repair guidance documentation for contracts, migration, rollback, and operational boundaries.
 - [x] T019 Run full Node, Python, VM, diff, Markdown, and Graphify verification.
 - [x] T020 Record local evidence and unperformed live Azure acceptance gates in the daily note and final report.
+
+## Nullable measurement repair (2026-09-30)
+
+- [x] Repair #87: reproduce nullable measurements becoming zero (23 focused failures), repair both conversion boundaries, and add focused regression coverage. Validation and CI evidence are recorded in the repair PR.

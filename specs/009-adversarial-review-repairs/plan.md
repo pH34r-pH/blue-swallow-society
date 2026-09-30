@@ -77,3 +77,7 @@ specs/009-adversarial-review-repairs/
 - Existing browser-persisted bearer data is ignored; users re-enter the passcode after deployment.
 - Global session revocation increments `BLUE_SWALLOW_OPERATOR_TOKEN_VERSION` manually in the SWA app setting; deployment automation intentionally does not reset it.
 - A limiter storage outage gives only `/api/validate-passcode` a controlled 503; it does not make the cover site unavailable.
+
+## Nullable measurement repair (2026-09-30)
+
+Repair #87 updates the PostgreSQL numeric adapter and the operator projection together: preserve unknowns at the earliest conversion, retain numeric-string database compatibility, and require finite numbers at projection. No transport or schema change.

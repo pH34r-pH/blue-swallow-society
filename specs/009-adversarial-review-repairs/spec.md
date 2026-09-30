@@ -81,6 +81,7 @@ A maintainer can change session handling, upstream proxying, legacy WiGLE parsin
 - **FR-009**: The passcode route MUST fail closed with 503 if the limiter cannot be used; the public cover MUST not depend on that route succeeding.
 - **FR-010**: The limiter storage account and table MUST be dedicated to rate-limiting state; its connection string MUST be masked in workflow output and set only as an SWA app setting.
 - **FR-011**: The VM MUST provide a token-gated `bss.operator_signal_snapshot.v1` POST projection derived from canonical observations.
+- **FR-011a** (repair #87): Unknown operator measurements MUST remain `null`. Projection accepts only finite numbers (including zero); null, absent, empty/whitespace strings, numeric strings, nonfinite values and other types project to `null`. PostgreSQL adapters retain nonempty finite numeric-string compatibility but MUST NOT coerce null, absence, empty/whitespace strings, booleans, arrays or objects into measurements.
 - **FR-012**: The signal projection MUST omit SSID, BSSID, and HMAC radio identifiers when the source observation is `hash_only`.
 - **FR-013**: The browser MUST use the operator-signal projection for Godeye/AR signal rendering.
 - **FR-014**: API code MUST NOT import from `app/operator/**`. Legacy WiGLE parsing belongs to an API-owned compatibility seam with explicit `legacy_wigle` provenance.
