@@ -50,38 +50,46 @@ export function validateCommand(input) {
   requireEntity(expected.length >= 1 && expected.length <= 2);
   expected.forEach(([id, rev]) => { uuid(id); revision(rev); });
   requireEntity(Object.hasOwn(c.expected_revisions, c.entity_id));
-  if (c.action === 'create') {
-    c.device_ids = ids(c.device_ids);
-    c.label = c.label === null || c.label === undefined ? null : boundedText(c.label);
-    requireEntity(c.expected_revisions[c.entity_id] === 0);
-  }
-  if (c.action === 'label') {
-    requireEntity(Object.hasOwn(c, 'label') && Array.isArray(c.labels) && c.labels.length <= 20);
-    if (c.label !== null) boundedText(c.label);
-    c.labels.forEach((label) => boundedText(label, 80));
-    requireEntity(new Set(c.labels).size === c.labels.length);
-    c.labels.sort();
-  }
-  if (c.action === 'membership') {
-    c.add = ids(c.add); c.remove = ids(c.remove);
-    requireEntity(c.add.length + c.remove.length > 0 && !c.add.some((id) => c.remove.includes(id)));
-  }
-  if (c.action === 'reject' || c.action === 'split') {
-    c.device_ids = ids(c.device_ids);
-    requireEntity(c.device_ids.length > 0);
-  }
-  if (c.action === 'split') {
-    uuid(c.new_entity_id);
-    requireEntity(c.new_entity_id !== c.entity_id && c.expected_revisions[c.new_entity_id] === 0);
-  }
-  if (c.action === 'merge') {
-    uuid(c.source_entity_id);
-    requireEntity(c.source_entity_id !== c.entity_id && Object.hasOwn(c.expected_revisions, c.source_entity_id));
-  }
-  if (c.action === 'undo') uuid(c.assertion_id);
+  validateAction(c);
   if (!['undo', 'merge', 'split'].includes(c.action)) requireEntity(expected.length === 1);
   if (['merge', 'split'].includes(c.action)) requireEntity(expected.length === 2);
   return c;
+}
+function validateAction(c) {
+  const checks = {
+    create: validateCreate, label: validateLabel, membership: validateMembership,
+    reject: validateDeviceSelection, split: validateSplit, merge: validateMerge,
+    undo: (value) => uuid(value.assertion_id),
+  };
+  checks[c.action](c);
+}
+function validateCreate(c) {
+  c.device_ids = ids(c.device_ids);
+  c.label = c.label === null || c.label === undefined ? null : boundedText(c.label);
+  requireEntity(c.expected_revisions[c.entity_id] === 0);
+}
+function validateLabel(c) {
+  requireEntity(Object.hasOwn(c, 'label') && Array.isArray(c.labels) && c.labels.length <= 20);
+  if (c.label !== null) boundedText(c.label);
+  c.labels.forEach((label) => boundedText(label, 80));
+  requireEntity(new Set(c.labels).size === c.labels.length);
+  c.labels.sort();
+}
+function validateMembership(c) {
+  c.add = ids(c.add); c.remove = ids(c.remove);
+  requireEntity(c.add.length + c.remove.length > 0 && !c.add.some((id) => c.remove.includes(id)));
+}
+function validateDeviceSelection(c) {
+  c.device_ids = ids(c.device_ids);
+  requireEntity(c.device_ids.length > 0);
+}
+function validateSplit(c) {
+  validateDeviceSelection(c); uuid(c.new_entity_id);
+  requireEntity(c.new_entity_id !== c.entity_id && c.expected_revisions[c.new_entity_id] === 0);
+}
+function validateMerge(c) {
+  uuid(c.source_entity_id);
+  requireEntity(c.source_entity_id !== c.entity_id && Object.hasOwn(c.expected_revisions, c.source_entity_id));
 }
 export function validateList(input = {}) {
   fields(input, ['search', 'device_id', 'modality', 'since', 'until', 'min_confidence', 'review_state', 'sort', 'direction', 'limit', 'offset']);
@@ -90,16 +98,25 @@ export function validateList(input = {}) {
   requireEntity(Number.isInteger(q.offset) && q.offset >= 0 && q.offset <= 10000);
   requireEntity(['updated_at', 'first_seen_at', 'last_seen_at', 'confidence', 'label'].includes(q.sort));
   requireEntity(['asc', 'desc'].includes(q.direction));
+  validateListFilters(q);
+  validateTimeRange(q);
+  return q;
+}
+function validateListFilters(q) {
   if (q.search !== undefined) boundedText(q.search, 200);
   if (q.device_id !== undefined) uuid(q.device_id);
   if (q.modality !== undefined) requireEntity(['wifi_ap', 'ble_device', 'cell_signal'].includes(q.modality));
   if (q.review_state !== undefined) requireEntity(['unreviewed', 'reviewed', 'needs_review', 'retired'].includes(q.review_state));
-  if (q.min_confidence !== undefined) requireEntity(typeof q.min_confidence === 'number' && Number.isFinite(q.min_confidence) && q.min_confidence >= 0 && q.min_confidence <= 1);
+  if (q.min_confidence !== undefined) validateConfidence(q.min_confidence);
+}
+function validateConfidence(value) {
+  requireEntity(typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1);
+}
+function validateTimeRange(q) {
   for (const field of ['since', 'until']) if (q[field] !== undefined) {
     requireEntity(typeof q[field] === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(q[field]) && Number.isFinite(Date.parse(q[field])));
   }
   if (q.since && q.until) requireEntity(Date.parse(q.since) <= Date.parse(q.until));
-  return q;
 }
 export function validateDetail(input) {
   fields(input, ['entity_id', 'limit', 'history_offset', 'evidence_offset', 'hypothesis_offset'], ['entity_id']);

@@ -1,65 +1,83 @@
 # Entity workbench integration contract
 
-Source-only extension for Society #44; no HTTP routes or migration activation are installed.
-The entity work is isolated from the owner-Entra/shell integration task.
+Source extension for Society #44; production routes, shell integration and migration activation
+remain separate. No live data, settings, registration, grants or deployment are part of this work.
 
-`createEntityService({ store, authorizeOwner, authorizeMutation })` returns `handle(request)`.
-`authorizeOwner(request)` must verify the exact configured owner through trusted middleware,
-and return `{ exact_owner: true, actor_id: <stable verified subject> }`. It must never derive
-that result from unverified client JSON, a display name, or a forwarded actor header. Missing
-verifier or missing/invalid owner context denies every operation. The service accepts an
-already bounded/parsed request `{ operation, input }`; the adapter must cap HTTP bodies at
-64 KiB and apply the existing same-origin/session/CSRF policy before invoking it.
+## Shared authorization and dispatch
 
-Operations: `list`, `detail`, `preview`, `mutate`. Store methods: `list(input)`, `detail(input)`,
-`preview({actor_id, command})`, `mutate({actor_id, command})`. Trusted model code may call
+`createEntityApiAdapter({store})` in `vm/cybermap-api/src/entity-api-adapter.mjs` calls the
+canonical `api-access-token.cjs` validator and uses its immutable principal. List/detail require
+`Owner.Read`; preview/mutate require `Entities.Write`. Actor is exactly validated
+`principal.operatorId` (`tid + ':' + oid`). `Observations.Upload`, transitional read proofs,
+application sessions and caller actor/principal headers cannot authorize corrections. Trusted
+server tests may inject `verifyApiAccessToken`; request input cannot replace the validator.
+See [common-api-auth-contract.md](common-api-auth-contract.md) for issuer/audience/owner/scope
+checks and token lifetime. Logout does not revoke a copied API access token before expiry.
+
+`createEntityRequestHandler({store})` in `entity-http.mjs` is an optional dispatch callback for
+POST `/api/v1/entities/{list|detail|preview|mutate}`. It accepts JSON input up to 64 KiB,
+rejects URL queries/other methods, returns private no-store JSON and maps bounded errors.
+It is tested with synthetic signed tokens, but is not mounted in the production server here.
+The proposed shared-server seam only adds optional `entityRequestHandler = null` injection to
+`createCybermapApiServer`/`createRequestHandler`; no store/main wiring or activation is implied.
+Parent coordination owns that patch and the same-origin Functions/private-shell integration.
+
+`createEntityService({store, authorizeOwner, authorizeMutation})` is the lower-level trusted
+service seam. Callbacks must verify exact owner and their respective operation scope before
+returning `{exact_owner: true, actor_id}`. Missing mutation callback always denies preview/write,
+even when read verification succeeds. Never wire this lower-level seam to unverified JSON.
+Cookie/session auth is not supported by the new entity API adapter; any future browser/BFF
+integration must preserve exact-origin protection and explicitly obtain Entities.Write.
+
+## Store and command shapes
+
+`PostgresEntityStore({pool})` exposes `list(input)`, `detail(input)`,
+`preview({actor_id, command})`, `mutate({actor_id, command})`. These are internal methods,
+not authentication boundaries. Trusted machine code may call
 `publishHypothesis({entity_id, expected_revision, version, device_ids, evidence_ids,
-confidence, algorithm})`; this is deliberately not a service operation.
+confidence, algorithm})`; there is deliberately no public model-write operation.
 
-Mutation command: `{ action, entity_id, expected_revisions, idempotency_key, reason,
-evidence_ids, ...action fields }`. Allowed actions: create, label, membership, reject,
-split, merge, undo. Actor/time/provenance are server-owned. A preview executes the same
-validation and transaction, then rolls back; confirmation sends the same command to mutate.
-A preview is not authorization to bypass revision checks. Errors expose bounded code/status.
+All correction commands contain `{action, entity_id, expected_revisions, idempotency_key,
+reason, evidence_ids}` plus action fields:
 
-HTTP wiring is reserved for the parent integration task. Recommended private same-origin
-adapter uses POST bodies for queries to keep labels/signatures out of URL/access logs.
-Do not expose routes until exact-owner verification is connected and denial tests pass.
-Do not claim UI or offline model synchronization complete from this store alone.
+| Action | Additional fields |
+| --- | --- |
+| create | device_ids, optional label; new entity expected revision 0 |
+| label | label (text or null), labels (up to 20 tags) |
+| membership | add, remove device ID arrays |
+| reject | device_ids |
+| split | new_entity_id with expected revision 0, device_ids proper subset |
+| merge | source_entity_id and its expected revision |
+| undo | assertion_id and expected revisions for all affected entities |
 
-## Mutation authorization proposal for parent review (not implemented)
+Commands affect at most two entities, each with at most 100 devices and 200 linked evidence
+IDs. IDs are existing canonical cyber_entities device IDs and observations IDs; public/DeFlock
+context is excluded. Unknown confidence and observation time remain null. Labels remain explicit
+operator assertions. Immutable machine versions and assertions are separately inspectable.
+Every assertion records database time, verified actor, reason/evidence/affected IDs, expected
+revisions, before/after operator state and replay receipt. Original observations remain immutable.
+Undo appends compensation only when the event's resulting revisions are still current. It cannot
+rewind through intervening edits/model refreshes; an undo event can itself be compensated.
+Merged/undone-created IDs remain resolvable tombstones with aliases/history. Model refresh retains
+membership overrides/rejections and marks corrections for review; retired IDs reject refresh.
 
-Following Society #94, owner-read proof is READ ONLY. The factory has a separate
-`authorizeMutation(request)` callback for preview/mutate, with no fallback to the read
-callback. Leave it absent until the parent chooses the hosting/auth topology. Legacy mode
-must never supply an actor. The verified actor is exactly `tid + ':' + oid` from the
-Functions owner session or a separately validated delegated access token.
+Preview validates/executes the same transaction then rolls back. Confirmation uses the same
+command and expected revisions. Exact replay returns its original receipt; changed-key content
+and stale revisions return 409. A preview never bypasses optimistic checks.
 
-Proposed narrow standard-token boundary if Functions continues proxying VM writes: use a
-separate approved API resource audience and delegated write scope, with exact issuer,
-audience, expiry and immutable owner tenant/object validation at the VM. A read scope,
-service credential, owner-read proof, ID token, or caller actor header cannot grant writes.
-Functions first calls requireOperatorToken and retains exact-origin protection for cookie
-writes. App grants/audience/scope provisioning and route wiring require parent decision;
-this domain code defines none. Avoid adding another signing-key protocol to this feature.
+List supports search by operator label/tag or stable signature, device, modality, time range,
+minimum confidence, review state, whitelisted sort/direction, limit 1–100 and offset 0–10000.
+Detail uses independently bounded history/evidence/hypothesis pages with next_offset. Consumers
+use this same machine/operator/effective-membership projection for later offline model wiring.
 
-Parent's finalized code-only scope contract: `Owner.Read` for list/detail and
-`Entities.Write` for preview/mutate (supersedes tentative Entities.Read). The future token
-adapter receives immutable `{tenantId, objectId, operatorId, scopes}` and checks the required
-operation scope before constructing `{exact_owner: true, actor_id: principal.operatorId}`.
-The single Society resource uses v2 audience equal to API client ID and application ID URI
-`api://<API_CLIENT_ID>`. Required signature/issuer/audience/lifetime/owner validation stays in
-the shared adapter, never in this store. `Observations.Upload` alone cannot access entities.
-No grants or registration are created by this change. Standard API token lifetime is distinct
-from the five-minute application session and 30-second transitional read proof; logout does
-not revoke a previously issued API token before its expiry.
-
-## Isolated private UI module
+## Isolated private UI
 
 `api/_private/operator/assets/entity-workbench.mjs` exports
-`mountEntityWorkbench(root, {request})`. The injected request function maps
-`(operation, input)` to the future owner-gated same-origin adapter. No endpoint, asset
-allowlist, shell import or navigation link is added here. Do not serve this module publicly.
-It has list filters/pagination, detail/evidence/history, preview/confirm/reason controls,
-and reuses the same idempotency key on an uncertain confirmation retry. Integration remains
-blocked on the final shared adapter and private shell work; this module is not a live UI.
+`mountEntityWorkbench(root, {request})`. The injected request function maps `(operation,input)`
+to the future authorized same-origin adapter. No asset allowlist, shell import or navigation
+link is added. It has filters/pagination, evidence/history, reason/preview/confirm controls and
+exact-key replay after uncertain confirmation failure. Chromium tests exercise keyboard/mobile,
+empty/error/stale states and safe text. This is an isolated module, not an integrated live UI.
+
+#44 stays open: longitudinal scoring/precision-recall evaluation, offline synchronization,
+shared route/BFF/private-shell integration and separately approved live deployment remain.

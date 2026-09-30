@@ -8,3 +8,6 @@
   observations reject update/delete; raw observation hashes remain unchanged.
 - Run node runtime, root source tests, API npm test, companion browser and remote required CI.
 - No live corpus, deployment or production migration; record missing integration honestly.
+
+Canonical signed-token adapter and optional HTTP dispatch tests reject wrong scope/owner,
+forged actor/principal headers, read proofs, malformed/oversized bodies and unsupported methods.

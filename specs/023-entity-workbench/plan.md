@@ -15,3 +15,6 @@ Tests use synthetic fixtures in an isolated disposable PostGIS database only.
 
 The optional isolated private UI module uses an injected same-origin request adapter and native
 keyboard-accessible forms; it is not asset-allowlisted or mounted by the shared shell.
+
+The isolated API adapter reuses the merged common api-access-token.cjs validator with Owner.Read
+and Entities.Write. The optional HTTP dispatch is tested independently and remains unmounted.
