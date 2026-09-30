@@ -72,7 +72,7 @@ test('Chromium companion navigation, Back, mobile layout and gated release state
   assert.ok(releaseRequests > before);
   assert.equal(await page.locator('[data-operator-download="apk"]').getAttribute('aria-disabled'), 'true');
   await page.getByRole('link', { name: 'Entities', exact: true }).click();
-  await page.getByText('Entity review is unavailable', { exact: false }).waitFor();
+  await page.getByText('Entity request failed', { exact: false }).waitFor();
   await page.goBack();
   await page.locator('#devices-tab.active').waitFor();
   await page.getByRole('link', { name: 'World', exact: true }).click();

@@ -27,6 +27,8 @@ const PRIVATE_ASSETS = Object.freeze([
   'travels-state.mjs',
   'travels-map.mjs',
   'travels-view.mjs',
+  'entity-client.mjs',
+  'entity-workbench.mjs',
   'main.js',
 ]);
 
@@ -48,6 +50,8 @@ const MODULE_BOOT_ORDER = Object.freeze([
   'travels-state.mjs',
   'travels-map.mjs',
   'travels-view.mjs',
+  'entity-client.mjs',
+  'entity-workbench.mjs',
   'main.js',
 ]);
 

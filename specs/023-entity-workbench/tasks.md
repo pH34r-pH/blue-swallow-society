@@ -6,4 +6,5 @@
 - [x] Verify with synthetic isolated PostGIS and focused browser tests.
 - [ ] Complete remote exact-commit regression CI.
 - [ ] Prepare draft PR and complete exact CI gates before any permitted merge.
-- [ ] Follow-up: exact-owner route wiring, private UI integration, offline sync, evaluation.
+- [x] Integrate scoped VM/Functions routes and private shell with synthetic end-to-end browser proof.
+- [ ] Follow-up: explicit Web edit-scope acquisition, offline sync, scoring/evaluation and live acceptance.

@@ -38,14 +38,10 @@ test('entity adapter uses canonical owner validation and exact read/write scopes
 });
 
 test('optional entity HTTP dispatch is bounded, token gated and ignores actor headers', async (t) => {
-  const { createServer } = await import('node:http');
-  const { createEntityRequestHandler } = await import('../src/entity-http.mjs');
+  const { createCybermapApiServer } = await import('../src/server.mjs');
   const calls = [];
-  const handler = createEntityRequestHandler({ verifyApiAccessToken: verify,
-    store: { async mutate(input) { calls.push(input); return { actor_id: input.actor_id }; } } });
-  const server = createServer(async (req, res) => {
-    if (!await handler(req, res, new URL(req.url, 'http://localhost'))) { res.writeHead(404); res.end(); }
-  });
+  const server = createCybermapApiServer({ verifyEntityApiToken: verify, store: { async ready() { return { ok: true }; } },
+    entityStore: { async mutate(input) { calls.push(input); return { actor_id: input.actor_id }; } } });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)); t.after(() => server.close());
   const url = `http://127.0.0.1:${server.address().port}/api/v1/entities/mutate`;
   const send = (raw, body = '{}', extra = {}) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(raw ? { Authorization: `Bearer ${raw}` } : {}), 'x-actor-id': 'forged', ...extra }, body });
@@ -61,4 +57,15 @@ test('optional entity HTTP dispatch is bounded, token gated and ignores actor he
   assert.equal((await send(await token('Entities.Write'), '{}', { 'Content-Type': 'text/plain' })).status, 415);
   assert.equal((await fetch(url)).status, 405);
   assert.equal(calls.length, 1);
+});
+
+test('wired entity readiness stays pending until its migration is present', async (t) => {
+  const { createCybermapApiServer } = await import('../src/server.mjs');
+  let ready = false;
+  const server = createCybermapApiServer({ store: { async ready() { return { ok: true }; } }, entityStore: { async ready() { return ready; } } });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)); t.after(() => server.close());
+  const url = `http://127.0.0.1:${server.address().port}/readyz`;
+  assert.equal((await fetch(url)).status, 503);
+  ready = true;
+  const result = await fetch(url); assert.equal(result.status, 200); assert.equal((await result.json()).entities, 'ready');
 });

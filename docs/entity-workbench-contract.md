@@ -1,7 +1,7 @@
 # Entity workbench integration contract
 
-Source extension for Society #44; production routes, shell integration and migration activation
-remain separate. No live data, settings, registration, grants or deployment are part of this work.
+Source extension for Society #44 with scoped VM/Functions routes and private shell integration.
+Migration application and live deployment remain separate. No live data, settings, registration, grants or deployment are part of this work.
 
 ## Shared authorization and dispatch
 
@@ -17,10 +17,11 @@ checks and token lifetime. Logout does not revoke a copied API access token befo
 `createEntityRequestHandler({store})` in `entity-http.mjs` is an optional dispatch callback for
 POST `/api/v1/entities/{list|detail|preview|mutate}`. It accepts JSON input up to 64 KiB,
 rejects URL queries/other methods, returns private no-store JSON and maps bounded errors.
-It is tested with synthetic signed tokens, but is not mounted in the production server here.
-The proposed shared-server seam only adds optional `entityRequestHandler = null` injection to
-`createCybermapApiServer`/`createRequestHandler`; no store/main wiring or activation is implied.
-Parent coordination owns that patch and the same-origin Functions/private-shell integration.
+The server accepts optional entityStore injection; main constructs PostgresEntityStore on the
+existing pool. Readiness requires migration 0007 when entities are wired. The same-origin
+Functions adapter is POST `/api/cybermap/entities/{operation}` and revalidates API tokens before
+proxying. Web sessions require a server-cached delegated API token with the operation scope;
+legacy sessions/read proofs never grant access. No migration is run automatically.
 
 `createEntityService({store, authorizeOwner, authorizeMutation})` is the lower-level trusted
 service seam. Callbacks must verify exact owner and their respective operation scope before
@@ -74,10 +75,13 @@ use this same machine/operator/effective-membership projection for later offline
 
 `api/_private/operator/assets/entity-workbench.mjs` exports
 `mountEntityWorkbench(root, {request})`. The injected request function maps `(operation,input)`
-to the future authorized same-origin adapter. No asset allowlist, shell import or navigation
-link is added. It has filters/pagination, evidence/history, reason/preview/confirm controls and
+to the future authorized same-origin adapter. The module/client are allowlisted private assets and mounted in the existing Entities tab. It has filters/pagination, evidence/history, reason/preview/confirm controls and
 exact-key replay after uncertain confirmation failure. Chromium tests exercise keyboard/mobile,
-empty/error/stale states and safe text. This is an isolated module, not an integrated live UI.
+empty/error/stale states and safe text. The private shell integration is tested through Functions, VM and real isolated PostGIS.
+The current ordinary Web login requests only Owner.Read. Web edit-scope acquisition is pending
+parent auth coordination; read-only sessions receive api_scope_denied for previews/writes.
+Direct scoped API bearers and explicitly scoped cached tokens are supported. No live Microsoft
+login/consent or deployed workbench is claimed.
 
 #44 stays open: longitudinal scoring/precision-recall evaluation, offline synchronization,
-shared route/BFF/private-shell integration and separately approved live deployment remain.
+Web edit-scope acquisition and separately approved live deployment remain.

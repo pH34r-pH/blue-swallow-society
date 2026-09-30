@@ -1,6 +1,6 @@
 # Anonymous entity workbench (#44)
 
-Status: source implementation; activation, owner-auth integration, UI and deployment remain separate.
+Status: integrated source with synthetic end-to-end validation; live migration/deployment and Web edit-scope acquisition remain separate.
 
 An exact-owner authenticated operator can inspect anonymous clusters, create and label them,
 correct device membership, reject associations, split, merge and undo. These are assertions,
@@ -17,4 +17,4 @@ preserves corrections while requesting review. List, detail and model consumers 
 same projection, with measured evidence, machine hypothesis and operator assertion separate.
 
 Full #44 acceptance still requires longitudinal scoring/evaluation, offline sync wiring,
-owner-gated HTTP integration and a keyboard/browser-tested workbench. Do not close #44 here.
+production scoring and offline synchronization; HTTP/private UI are integrated and browser tested in source. Do not close #44 here.

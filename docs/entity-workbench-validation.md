@@ -4,11 +4,11 @@ Local source qualification on Node 24.19.0, synthetic fixtures only:
 
 - Isolated PostGIS 17/3.5 image digest `sha256:01a6a70e41e6c4467c8f55f6063555ed72db2d6662cd0d571040d42eadaeb6f6`.
   All migrations apply in a fresh randomly named schema inside local disposable `entity_test`.
-  Focused suite: 12 passed, zero skipped, including canonical token adapter/HTTP tests.
+  Focused suite: 13 passed, zero skipped, including canonical token adapter/HTTP tests.
 - API regression: 216 passed; six pre-existing environment-dependent skips. The isolated
   entity PostGIS case runs without skips in its dedicated CI/local command.
-- Root source contracts: 244 passed, zero failed/skipped.
-- Pinned Playwright 1.63.0 Chromium: entity UI, companion and owner-login suites, three passed.
+- Root source contracts: 250 passed, zero failed/skipped.
+- Pinned Playwright 1.63.0 Chromium: isolated/full entity UI, companion, Travels and owner-login suites, five passed.
 - New production modules: no native structural or Lizard findings at repository thresholds;
   no new-module duplicate blocks in the scoped jscpd report.
 
@@ -26,8 +26,10 @@ execution environment. No cloud/private-corpus fallback was used. Branch-protect
 lookup returned GitHub integration 403; visible PR checks must all pass before merging.
 Remote exact-commit CI results belong to the PR rather than being inferred from these local runs.
 
-The private UI and token-gated HTTP dispatch are isolated seams. Production server, store
-readiness, migration runner, shell and Functions routes are not activated by this source slice.
+The scoped HTTP/private UI are integrated in source. The full private shell→Functions→VM→
+PostGIS browser test uses synthetic sessions, signed API tokens and a disposable schema.
+Readiness checks migration 0007. No migration runner is activated. Ordinary Web login remains
+read-only pending explicit edit-scope coordination.
 No deployment, live migration, personal corpus read/export or credential setup was performed.
 #44 remains open for scoring/evaluation, offline model sync, shared route/private UI integration
 and separately approved live acceptance.

@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import http from 'node:http';
+import { createEntityRequestHandler } from './entity-http.mjs';
 import apiTokens from './api-access-token.cjs';
 import { requireOwnerReadProof } from './owner-read-auth.mjs';
 
@@ -114,6 +115,8 @@ const RFC3339_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\
 
 export function createCybermapApiServer({
   store,
+  entityStore = null,
+  verifyEntityApiToken = apiTokens.verifyApiAccessToken,
   now = Date.now,
   logger = null,
   ingestDeadlineMs = 5_000,
@@ -122,7 +125,7 @@ export function createCybermapApiServer({
 } = {}) {
   if (!store) throw new TypeError('store is required');
   const server = http.createServer(createRequestHandler({
-    store, now, logger, ingestDeadlineMs, mtlsProxySecret, verifyApiRead,
+    store, now, logger, ingestDeadlineMs, mtlsProxySecret, verifyApiRead, entityStore, verifyEntityApiToken,
   }));
   server.requestTimeout = 30_000;
   server.headersTimeout = 10_000;
@@ -158,7 +161,7 @@ async function dispatchPaperState(request, response, { store, now }) {
 }
 
 async function dispatchKnownRequest(request, response, url, context) {
-  const { store, now, mtlsProxySecret, verifyApiRead } = context;
+  const { store, now, mtlsProxySecret, verifyApiRead, entityStore } = context;
   if (request.method === 'GET' && url.pathname === '/healthz') {
     return sendJson(response, 200, { ok: true, service: 'bss-cybermap-api' });
   }
@@ -167,6 +170,7 @@ async function dispatchKnownRequest(request, response, url, context) {
   }
   if (request.method === 'GET' && url.pathname === '/readyz') {
     const readiness = await store.ready();
+    if (entityStore) { readiness.entities = await entityStore.ready() ? 'ready' : 'pending'; readiness.ok = readiness.ok && readiness.entities === 'ready'; }
     return sendJson(response, readiness.ok ? 200 : 503, readiness);
   }
   if (request.method === 'POST' && url.pathname === '/api/v1/cybermap/history') {
@@ -231,17 +235,21 @@ function logRequestError(logger, error) {
 
 export function createRequestHandler({
   store,
+  entityStore = null,
+  verifyEntityApiToken = apiTokens.verifyApiAccessToken,
   now = Date.now,
   logger = null,
   ingestDeadlineMs = 5_000,
   mtlsProxySecret = process.env.BSS_MTLS_PROXY_SECRET,
   verifyApiRead = apiTokens.verifyApiAccessToken,
 }) {
+  const entities = entityStore ? createEntityRequestHandler({ store: entityStore, verifyApiAccessToken: verifyEntityApiToken }) : null;
   return async function requestHandler(request, response) {
     try {
       const url = new URL(request.url, 'http://127.0.0.1');
+      if (entities && await entities(request, response, url)) return;
       const handled = await dispatchKnownRequest(request, response, url, {
-        store, now, mtlsProxySecret, verifyApiRead,
+        store, now, mtlsProxySecret, verifyApiRead, entityStore,
       });
       if (handled !== undefined || response.writableEnded) return handled;
       if (request.method !== 'POST' || url.pathname !== INGEST_PATH) {

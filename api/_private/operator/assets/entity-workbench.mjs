@@ -58,6 +58,7 @@ class EntityWorkbench {
   destroy() { this.destroyed = true; ++this.generation; this.root.replaceChildren(); }
   invalidate() { ++this.previewGeneration; this.pending = null; this.v.confirm.disabled = true; this.v.previewText.textContent = ''; }
   fail(error) {
+    if (error?.code === 'api_scope_denied') { this.v.status.textContent = 'This session has read access only. Corrections are unavailable.'; return; }
     this.v.status.textContent = ['stale_revision', 'undo_conflict'].includes(error?.code)
       ? 'This entity changed. Reload it and review a new preview before confirming.' : 'Entity request failed. Reload to try again.';
   }

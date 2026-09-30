@@ -18,6 +18,12 @@ export class PostgresEntityStore {
     if (!pool?.connect || !pool?.query) throw new TypeError('A pg-compatible pool is required');
     this.pool = pool;
   }
+  async ready() {
+    try {
+      const result = await this.pool.query("SELECT 1 FROM schema_migrations WHERE version='0007_entity_workbench'");
+      return result.rows.length === 1;
+    } catch { return false; }
+  }
   async transaction(fn, { rollback = false, readOnly = false } = {}) {
     const client = await this.pool.connect();
     try {

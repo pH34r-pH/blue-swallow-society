@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 
 import { PostgresObservationStore } from './postgres-store.mjs';
+import { PostgresEntityStore } from './entity-postgres-store.mjs';
 import { createCybermapApiServer } from './server.mjs';
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -21,6 +22,7 @@ const mtlsCredentialPolicy = readMtlsCredentialPolicy();
 const store = new PostgresObservationStore({ pool, mtlsCredentialPolicy });
 const server = createCybermapApiServer({
   store,
+  entityStore: new PostgresEntityStore({ pool }),
   logger: {
     error(event) {
       process.stderr.write(`${JSON.stringify({ level: 'error', service: 'bss-cybermap-api', ...event })}\n`);
