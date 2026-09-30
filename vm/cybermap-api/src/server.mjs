@@ -113,16 +113,17 @@ const MORNING_BRIEF_ARTIFACT_ID_RE = /^[a-z0-9][a-z0-9-]{1,120}$/;
 const SHA256_RE = /^[a-f0-9]{64}$/;
 const RFC3339_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 
-export function createCybermapApiServer({
-  store,
-  entityStore = null,
-  verifyEntityApiToken = apiTokens.verifyApiAccessToken,
-  now = Date.now,
-  logger = null,
-  ingestDeadlineMs = 5_000,
-  mtlsProxySecret = process.env.BSS_MTLS_PROXY_SECRET,
-  verifyApiRead = apiTokens.verifyApiAccessToken,
-} = {}) {
+export function createCybermapApiServer(options = {}) {
+  const {
+    store,
+    entityStore = null,
+    verifyEntityApiToken = apiTokens.verifyApiAccessToken,
+    now = Date.now,
+    logger = null,
+    ingestDeadlineMs = 5_000,
+    mtlsProxySecret = process.env.BSS_MTLS_PROXY_SECRET,
+    verifyApiRead = apiTokens.verifyApiAccessToken,
+  } = options;
   if (!store) throw new TypeError('store is required');
   const server = http.createServer(createRequestHandler({
     store, now, logger, ingestDeadlineMs, mtlsProxySecret, verifyApiRead, entityStore, verifyEntityApiToken,
@@ -233,16 +234,17 @@ function logRequestError(logger, error) {
   logger?.error?.(record);
 }
 
-export function createRequestHandler({
-  store,
-  entityStore = null,
-  verifyEntityApiToken = apiTokens.verifyApiAccessToken,
-  now = Date.now,
-  logger = null,
-  ingestDeadlineMs = 5_000,
-  mtlsProxySecret = process.env.BSS_MTLS_PROXY_SECRET,
-  verifyApiRead = apiTokens.verifyApiAccessToken,
-}) {
+export function createRequestHandler(options) {
+  const {
+    store,
+    entityStore = null,
+    verifyEntityApiToken = apiTokens.verifyApiAccessToken,
+    now = Date.now,
+    logger = null,
+    ingestDeadlineMs = 5_000,
+    mtlsProxySecret = process.env.BSS_MTLS_PROXY_SECRET,
+    verifyApiRead = apiTokens.verifyApiAccessToken,
+  } = options;
   const entities = entityStore ? createEntityRequestHandler({ store: entityStore, verifyApiAccessToken: verifyEntityApiToken }) : null;
   return async function requestHandler(request, response) {
     try {
