@@ -51,6 +51,9 @@ function newTransaction(returnTo, config, now = Date.now()) {
   return { state: crypto.randomBytes(32).toString('base64url'), nonce: crypto.randomBytes(32).toString('base64url'),
     verifier: crypto.randomBytes(32).toString('base64url'), issuedAt: now, returnTo: safeReturnPath(returnTo, config.origin) };
 }
-function apiScopes(config) { return config.apiClientId ? [`api://${config.apiClientId}/Owner.Read`] : []; }
-function loginScopes(config) { return ['openid', 'profile', ...apiScopes(config)]; }
+function apiScopes(config, editing = false) {
+  if (!config.apiClientId) return [];
+  return ['Owner.Read', ...(editing ? ['Entities.Write'] : [])].map((scope) => `api://${config.apiClientId}/${scope}`);
+}
+function loginScopes(config, editing = false) { return ['openid', 'profile', ...apiScopes(config, editing)]; }
 module.exports = { apiScopes, loginScopes, loginConfig, msalClient, sealTransaction, openTransaction, transactionCookie, transactionCookieOptions, newTransaction, safeReturnPath, TRANSACTION_COOKIE };

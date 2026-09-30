@@ -14,3 +14,19 @@ export function createEntityClient({ getHeaders, fetchImpl = fetch } = {}) {
     } finally { clearTimeout(timer); }
   };
 }
+
+export function createEntityEditingClient({ getHeaders, fetchImpl = fetch, navigate = (url) => location.assign(url) } = {}) {
+  async function call(method) {
+    const response = await fetchImpl('/api/owner-auth/edit', { method, credentials: 'same-origin',
+      headers: getHeaders({ Accept: 'application/json' }) });
+    const result = await response.json();
+    if (!response.ok) throw Object.assign(new Error('Editing authorization unavailable'), { status: response.status });
+    return result;
+  }
+  return { status: () => call('GET'), async enable() {
+    const result = await call('POST');
+    const url = new URL(result.authorizationUrl);
+    if (url.protocol !== 'https:' || url.hostname !== 'login.microsoftonline.com') throw new Error('Invalid authorization destination');
+    navigate(url.href);
+  } };
+}

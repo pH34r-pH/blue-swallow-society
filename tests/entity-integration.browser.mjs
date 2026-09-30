@@ -33,7 +33,7 @@ test('private shell → scoped Functions → VM → synthetic PostGIS: label, sp
   const apiConfig = { tenantId: config.tenant, objectId: config.owner, clientId: process.env.BLUE_SWALLOW_ENTRA_API_CLIENT_ID, issuer: config.issuer };
   const verify = common.createApiTokenValidator({ getConfig: () => apiConfig, keySet: createLocalJWKSet({ keys: [jwk] }) });
   const apiToken = await new SignJWT({ ...claims, aud: apiConfig.clientId, ver: '2.0', nbf: now, scp: 'Owner.Read Entities.Write' }).setProtectedHeader({ alg: 'RS256', kid: jwk.kid }).sign(pair.privateKey);
-  cache.store(session, { async acquireTokenSilent() { return { accessToken: apiToken }; } }, { homeAccountId: 'synthetic' }, ['Owner.Read', 'Entities.Write']);
+  cache.store(session, { async acquireTokenSilent() { return { accessToken: apiToken }; } }, { homeAccountId: 'synthetic' }, ['api://synthetic/Owner.Read', 'api://synthetic/Entities.Write']);
   t.after(() => cache.forget(session.token));
   const schema = `entity_browser_${crypto.randomUUID().replaceAll('-', '')}`, admin = new Pool({ connectionString: databaseUrl });
   await admin.query(`CREATE SCHEMA ${schema}`);
@@ -62,7 +62,8 @@ test('private shell → scoped Functions → VM → synthetic PostGIS: label, sp
   async function serve(req, res) {
     const path = new URL(req.url, 'http://localhost').pathname, context = {};
     const request = { method: req.method, headers: req.headers, params: { asset: path.split('/').at(-1), operation: path.split('/').at(-1) }, query: {} };
-    if (path.startsWith('/api/cybermap/entities/')) { const chunks = []; for await (const chunk of req) chunks.push(chunk); request.body = JSON.parse(Buffer.concat(chunks)); await proxy(context, request); }
+    if (path === '/api/owner-auth/edit') context.res = { status: 200, body: { ok: true, configured: true, editing: true } };
+    else if (path.startsWith('/api/cybermap/entities/')) { const chunks = []; for await (const chunk of req) chunks.push(chunk); request.body = JSON.parse(Buffer.concat(chunks)); await proxy(context, request); }
     else if (path === '/api/operator-shell') await shell(context, request);
     else if (path.startsWith('/api/operator-assets/')) await assets(context, request);
     else if (path.startsWith('/api/')) context.res = { status: 503, body: { ok: false } };

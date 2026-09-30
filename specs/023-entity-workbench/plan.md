@@ -9,8 +9,8 @@ JSON projection and store before/after values in append-only assertion records.
 
 Parent transferred shared integration ownership after history PR96. Wire entityStore through
 main/server and expose scoped Functions POST routes, with private asset allowlist/loader/shell
-integration. No startup migration runner or live auth/deployment configuration. Existing auth
-login flow remains unchanged until explicit edit-scope coordination.
+integration. No startup migration runner or live auth/deployment configuration. Explicit edit-scope coordination authorizes extending the existing owner-auth action/callback.
+Use its sealed transaction cookie and MSAL cache; no new proof/token infrastructure.
 The handler factory requires separate injected exact-owner read and mutation verifiers and defaults to denial; actor
 identity never comes from body/header parsing in these modules. No startup migration runner.
 Tests use synthetic fixtures in an isolated disposable PostGIS database only.
@@ -20,3 +20,7 @@ keyboard-accessible forms; it is now asset-allowlisted and mounted only through 
 
 The isolated API adapter reuses the merged common api-access-token.cjs validator with Owner.Read
 and Entities.Write. The HTTP dispatch is mounted through the entityStore seam and tested end to end.
+
+Bind edit transactions to the existing owner session and cache lifetime. Revalidate the API
+token with the common validator and record the explicitly requested scopes in the server cache.
+Reject Web writes when cache intent lacks Entities.Write even if MSAL returns broader claims.
