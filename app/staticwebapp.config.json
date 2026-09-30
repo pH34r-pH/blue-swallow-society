@@ -8,6 +8,38 @@
       "statusCode": 404
     },
     {
+      "route": "/operator/devices",
+      "rewrite": "/operator/index.html",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/operator/world",
+      "rewrite": "/operator/index.html",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/operator/entities",
+      "rewrite": "/operator/index.html",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/operator/travels",
+      "rewrite": "/operator/index.html",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
       "route": "/operator",
       "rewrite": "/operator/index.html",
       "allowedRoles": [
@@ -44,7 +76,10 @@
     },
     {
       "route": "/api/operator-signals",
-      "allowedRoles": ["anonymous", "authenticated"]
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
     },
     {
       "route": "/api/cybermap/viewport",

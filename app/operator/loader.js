@@ -12,10 +12,8 @@ const PRIVATE_ASSETS = Object.freeze([
   'operator-mark.svg',
   'operator-session.mjs',
   'map-math.mjs',
-  'chained-daemon.mjs',
-  'tzeentch-dashboard.mjs',
-  'tzeentch.mjs',
   'wigle.mjs',
+  'companion-navigation.mjs',
   'godeye-controller.mjs',
   'vision.mjs',
   'vision-controller.mjs',
@@ -26,18 +24,14 @@ const PRIVATE_ASSETS = Object.freeze([
   'maplibre-gl-worker.mjs',
   'maplibre-gl.mjs',
   'godeye-map.mjs',
-  'morning-brief.mjs',
-  'osint-applications.mjs',
   'main.js',
 ]);
 
 const MODULE_BOOT_ORDER = Object.freeze([
   'operator-session.mjs',
   'map-math.mjs',
-  'chained-daemon.mjs',
-  'tzeentch-dashboard.mjs',
-  'tzeentch.mjs',
   'wigle.mjs',
+  'companion-navigation.mjs',
   'godeye-controller.mjs',
   'vision.mjs',
   'vision-controller.mjs',
@@ -48,8 +42,6 @@ const MODULE_BOOT_ORDER = Object.freeze([
   'maplibre-gl-worker.mjs',
   'maplibre-gl.mjs',
   'godeye-map.mjs',
-  'morning-brief.mjs',
-  'osint-applications.mjs',
   'main.js',
 ]);
 

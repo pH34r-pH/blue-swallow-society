@@ -2,7 +2,7 @@ import {
   clamp,
   formatCoordinatePair,
 } from './map-math.mjs';
-import { initTzeentchDashboard, stopTzeentchDashboard } from './tzeentch.mjs';
+import { companionRoute, companionUrl } from './companion-navigation.mjs';
 import {
   buildArCandidateBoxes,
   filterWigleRecordsByRadius,
@@ -145,7 +145,7 @@ function isOperatorEntrypoint() {
 }
 
 function initialOperatorTab() {
-  return window.location.pathname === '/operator/morning-brief.html' ? 'morning-brief' : 'landing';
+  return companionRoute(window.location.pathname);
 }
 
 function bindMorningBriefReturn() {
@@ -157,12 +157,12 @@ function bindMorningBriefReturn() {
 
 function returnToOperatorConsole() {
   history.replaceState(null, '', '/operator');
-  activateTab('landing', { focus: true });
+  activateTab('godeye', { focus: true });
 }
 
 function unlockConsole() {
   state.authenticated = true;
-  state.activeTab = 'landing';
+  state.activeTab = '';
 
   document.body.dataset.mode = 'operator';
 
@@ -186,7 +186,7 @@ function unlockConsole() {
 
 function resetConsoleToLogin() {
   state.authenticated = false;
-  state.activeTab = 'landing';
+  state.activeTab = '';
   document.body.dataset.mode = 'login';
 
   const terminalScreen = $('terminalScreen');
@@ -213,7 +213,6 @@ function resetConsoleToLogin() {
     loginBtn.disabled = false;
   }
 
-  stopTzeentchDashboard();
   stopArFeed();
   stopGodeyeFeed();
   state.godeyeGlobalRenderer?.cancel();
@@ -259,6 +258,7 @@ function resetConsoleToLogin() {
 }
 
 function bindOperatorDownloads() {
+  document.querySelector('[data-check-release]')?.addEventListener('click', () => void hydrateWardriverRelease());
   document.querySelectorAll('[data-operator-download]').forEach((link) => {
     link.addEventListener('click', handleOperatorDownload);
   });
@@ -396,7 +396,12 @@ function bindTabSystem() {
   const tabPanels = getTabPanels();
 
   tabButtons.forEach((button, index) => {
-    button.addEventListener('click', () => activateTabByIndex(index, { focus: false }));
+    button.addEventListener('click', (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      history.pushState(null, '', companionUrl(button.dataset.tab, window.location.href));
+      activateTabByIndex(index, { focus: false });
+    });
     button.addEventListener('keydown', (event) => handleTabKeydown(event, index));
   });
 
@@ -405,6 +410,7 @@ function bindTabSystem() {
     logoutBtn.addEventListener('click', handleLogout);
   }
 
+  window.addEventListener('popstate', () => activateTab(initialOperatorTab()));
   state.tabSystemBound = true;
   setTabAria(tabButtons, tabPanels, 0);
 }
@@ -434,7 +440,6 @@ function initMorningBriefTab() {
 }
 
 async function handleLogout() {
-  stopTzeentchDashboard();
   stopArFeed();
   stopGodeyeFeed();
   clearOperatorSession();
@@ -498,13 +503,6 @@ function activateTabByIndex(index, { focus = false, tabButtons = getTabButtons()
     stopGodeyeFeed();
   }
 
-  if (nextTabKey === 'tzeentch') {
-    initTzeentchDashboard();
-  }
-
-  if (nextTabKey === 'morning-brief') {
-    initMorningBriefTab();
-  }
 
   setTabAria(tabButtons, tabPanels, normalizedIndex);
   state.activeTab = nextTabKey;
@@ -513,8 +511,9 @@ function activateTabByIndex(index, { focus = false, tabButtons = getTabButtons()
     initArTab();
   }
 
-  if (nextTabKey === 'godeye') {
+  if (nextTabKey === 'godeye' || nextTabKey === 'world') {
     initGodeyeTab();
+    activateGodeyeMode(nextTabKey === 'world' ? 'global' : 'field');
     scheduleGodeyeRender();
   }
 
@@ -527,13 +526,17 @@ function setTabAria(tabButtons, tabPanels, activeIndex) {
   tabButtons.forEach((button, index) => {
     const isActive = index === activeIndex;
     button.classList.toggle('active', isActive);
-    button.setAttribute('aria-selected', isActive ? 'true' : 'false');
-    button.tabIndex = isActive ? 0 : -1;
+    if (isActive) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+    button.tabIndex = 0;
   });
 
-  tabPanels.forEach((panel, index) => {
-    panel.classList.toggle('active', index === activeIndex);
-    panel.setAttribute('aria-hidden', index === activeIndex ? 'false' : 'true');
+  const activePanel = tabButtons[activeIndex]?.getAttribute('aria-controls');
+  tabPanels.forEach((panel) => {
+    const active = panel.id === activePanel;
+    panel.classList.toggle('active', active);
+    panel.hidden = !active;
+    panel.setAttribute('aria-hidden', active ? 'false' : 'true');
   });
 }
 
@@ -562,6 +565,7 @@ function handleTabKeydown(event, index) {
       break;
     case 'Enter':
     case ' ':
+      history.pushState(null, '', companionUrl(tabButtons[index].dataset.tab, window.location.href));
       activateTabByIndex(index, { focus: true, tabButtons });
       event.preventDefault();
       return;
@@ -570,6 +574,7 @@ function handleTabKeydown(event, index) {
   }
 
   event.preventDefault();
+  history.pushState(null, '', companionUrl(tabButtons[nextIndex].dataset.tab, window.location.href));
   activateTabByIndex(nextIndex, { focus: true, tabButtons });
 }
 
