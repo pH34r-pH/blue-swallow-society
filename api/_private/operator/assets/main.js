@@ -1,3 +1,4 @@
+import { createTravelsView } from './travels-view.mjs';
 import {
   clamp,
   formatCoordinatePair,
@@ -170,6 +171,7 @@ function unlockConsole() {
 }
 
 function resetConsoleToLogin() {
+  travelsView?.deactivate();
   state.authenticated = false;
   state.activeTab = '';
   document.body.dataset.mode = 'login';
@@ -400,7 +402,11 @@ function bindTabSystem() {
   setTabAria(tabButtons, tabPanels, 0);
 }
 
+let travelsView;
+
 function initTabDefaults() {
+  const historyRoot = document.querySelector('[data-travels-history]');
+  if (historyRoot && !travelsView) travelsView = createTravelsView({ root: historyRoot, getHeaders: () => buildOperatorHeaders() });
   initArTab();
   initGodeyeTab();
   updateArOrientation();
@@ -410,6 +416,7 @@ function initTabDefaults() {
 }
 
 async function handleLogout() {
+  travelsView?.destroy();
   stopArFeed();
   stopGodeyeFeed();
   clearOperatorSession();
@@ -470,6 +477,7 @@ function activateTabByIndex(index, { focus = false, tabButtons = getTabButtons()
   }
 
   if (state.activeTab === 'godeye' && nextTabKey !== 'godeye') {
+    travelsView?.deactivate();
     stopGodeyeFeed();
   }
 
@@ -480,6 +488,8 @@ function activateTabByIndex(index, { focus = false, tabButtons = getTabButtons()
   if (nextTabKey === 'ar') {
     initArTab();
   }
+
+  if (nextTabKey === 'godeye') travelsView?.activate();
 
   if (nextTabKey === 'godeye' || nextTabKey === 'world') {
     initGodeyeTab();

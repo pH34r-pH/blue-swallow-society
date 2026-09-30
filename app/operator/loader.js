@@ -24,6 +24,9 @@ const PRIVATE_ASSETS = Object.freeze([
   'maplibre-gl-worker.mjs',
   'maplibre-gl.mjs',
   'godeye-map.mjs',
+  'travels-state.mjs',
+  'travels-map.mjs',
+  'travels-view.mjs',
   'main.js',
 ]);
 
@@ -42,6 +45,9 @@ const MODULE_BOOT_ORDER = Object.freeze([
   'maplibre-gl-worker.mjs',
   'maplibre-gl.mjs',
   'godeye-map.mjs',
+  'travels-state.mjs',
+  'travels-map.mjs',
+  'travels-view.mjs',
   'main.js',
 ]);
 

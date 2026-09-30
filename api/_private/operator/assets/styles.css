@@ -3445,3 +3445,20 @@ strong {
     overflow: auto;
   }
 }
+
+/* Persistent history keeps a complete list alternative to the optional map. */
+.history-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: 1rem; margin: 1rem 0; }
+.history-filters label { display: grid; gap: .4rem; }
+.history-filters input, .history-filters select { min-width: 0; max-width: 100%; padding: .6rem; color: inherit; background: #191c24; border: 1px solid #596374; border-radius: .3rem; }
+.history-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+.history-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: 1.5rem; }
+.history-columns > section { min-width: 0; }
+.history-columns ol { padding-left: 1.5rem; }
+.history-columns button { width: 100%; text-align: left; overflow-wrap: anywhere; padding: .7rem; color: inherit; background: #191c24; border: 1px solid #596374; margin: .3rem 0; }
+.history-columns button[aria-pressed="true"] { border: 2px solid #ced9ee; }
+.history-columns dd { margin: 0 0 .8rem; overflow-wrap: anywhere; }
+.history-columns dt { font-weight: 700; }
+.history-map { height: 22rem; margin: 1rem 0; }
+.history-map[hidden] { display: none; }
+.history-nearby { margin-top: 2rem; }
+.travels-history [data-history-state="stale"] { color: #e0bd7c; }
