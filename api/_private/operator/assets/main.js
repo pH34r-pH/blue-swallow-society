@@ -407,8 +407,12 @@ let travelsView;
 function initTabDefaults() {
   const historyRoot = document.querySelector('[data-travels-history]');
   if (historyRoot && !travelsView) travelsView = createTravelsView({ root: historyRoot, getHeaders: () => buildOperatorHeaders() });
+  document.querySelector('.history-nearby')?.addEventListener('toggle', (event) => {
+    if (event.currentTarget.open) { initGodeyeTab(); scheduleGodeyeRender(); }
+    else stopGodeyeFeed();
+  });
+  window.addEventListener('pagehide', () => travelsView?.destroy(), { once: true });
   initArTab();
-  initGodeyeTab();
   updateArOrientation();
   renderArHud();
   renderGodeyeMap();
@@ -491,7 +495,7 @@ function activateTabByIndex(index, { focus = false, tabButtons = getTabButtons()
 
   if (nextTabKey === 'godeye') travelsView?.activate();
 
-  if (nextTabKey === 'godeye' || nextTabKey === 'world') {
+  if (nextTabKey === 'world' || (nextTabKey === 'godeye' && document.querySelector('.history-nearby')?.open)) {
     initGodeyeTab();
     activateGodeyeMode(nextTabKey === 'world' ? 'global' : 'field');
     scheduleGodeyeRender();

@@ -17,8 +17,11 @@ function device(value) { if (typeof value !== 'string' || (!value.trim() || valu
 function fingerprint(query) {
   return createHash('sha256').update(JSON.stringify([query.from, query.to, query.deviceId, query.sessionId, query.kind, query.limit])).digest('hex');
 }
-export function parseHistoryQuery(body, now = Date.now()) {
+function validateBody(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some((key) => !FIELDS.has(key))) invalid();
+}
+export function parseHistoryQuery(body, now = Date.now()) {
+  validateBody(body);
   const to = timestamp(body.to ?? new Date(now).toISOString());
   const from = timestamp(body.from ?? new Date(Date.parse(to) - WINDOW).toISOString());
   if (Date.parse(from) >= Date.parse(to) || Date.parse(to) - Date.parse(from) > WINDOW) invalid();

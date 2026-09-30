@@ -45,18 +45,21 @@ class TravelsView {
     this.next.disabled = !state.data?.nextCursor || state.phase !== 'ready';
     if (this.renderedData === state.data) return;
     this.renderedData = state.data;
+    this.renderRows(state.data);
+  }
+  renderRows(data) {
     this.list.replaceChildren();
-    for (const row of state.data?.observations || []) {
+    for (const row of data?.observations || []) {
       const item = element('li');
       const button = element('button', `${row.observedAt} · ${row.kind} · ${row.id.slice(0, 8)}`);
       button.type = 'button'; button.dataset.observationId = row.id;
-      button.setAttribute('aria-pressed', String(state.data.selected?.id === row.id));
+      button.setAttribute('aria-pressed', String(data.selected?.id === row.id));
       button.addEventListener('click', () => this.select(row.id));
       item.append(button); this.list.append(item);
     }
-    this.inspector.replaceChildren(...detail(state.data?.selected));
-    this.root.querySelector('[data-history-groups]').textContent = groups(state.data?.observations || []);
-    this.map?.set(state.data?.observations || [], state.data?.selected?.id);
+    this.inspector.replaceChildren(...detail(data?.selected));
+    this.root.querySelector('[data-history-groups]').textContent = groups(data?.observations || []);
+    this.map?.set(data?.observations || [], data?.selected?.id);
   }
   select(id) {
     this.query = { ...this.query, selectedId: id };
