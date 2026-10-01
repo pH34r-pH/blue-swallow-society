@@ -10,6 +10,7 @@ Important relationships:
 - `travels-view.mjs`/`travels-state.mjs` call `/api/cybermap/history` and render
   capture evidence; they must not infer emitter position or complete trips.
 - `godeye-*`, `wigle.mjs`, and `travels-map.mjs` render bounded owner context;
+  `godeye-live-feed.mjs` owns the bounded viewport response preparation, while
   current GPS is sent to a same-origin POST proxy.
 - `entity-client.mjs`/`entity-workbench.mjs` call the four entity operations.
   Reads use the owner-read boundary; preview/mutate remain disabled until the

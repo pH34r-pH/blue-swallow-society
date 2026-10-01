@@ -15,6 +15,7 @@ const ASSET_MANIFEST = Object.freeze({
   'world-land.geojson': { file: 'world-land.geojson', contentType: 'application/geo+json; charset=utf-8' },
   'companion-navigation.mjs': { file: 'companion-navigation.mjs', contentType: 'application/javascript; charset=utf-8' },
   'companion-tabs.mjs': { file: 'companion-tabs.mjs', contentType: 'application/javascript; charset=utf-8' },
+  'godeye-live-feed.mjs': { file: 'godeye-live-feed.mjs', contentType: 'application/javascript; charset=utf-8' },
   'main.js': { file: 'main.js', contentType: 'application/javascript; charset=utf-8' },
   'operator-session.mjs': { file: 'operator-session.mjs', contentType: 'application/javascript; charset=utf-8' },
   'map-math.mjs': { file: 'map-math.mjs', contentType: 'application/javascript; charset=utf-8' },
