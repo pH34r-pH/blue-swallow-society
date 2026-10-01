@@ -61,7 +61,7 @@ test('Godeye live feed preserves the authenticated bounded viewport request and 
   assert.match(result.message, /connected/);
 });
 
-test('Godeye live feed accepts JSON and line-oriented payloads from text responses', async () => {
+test('Godeye live feed accepts JSON text responses', async () => {
   const textPayload = JSON.stringify({
     source: 'managed-text',
     accessPoints: [{ bssid: 'aa:bb:cc:dd:ee:01', lat: 47.62, lon: -122.34 }],
@@ -79,6 +79,61 @@ test('Godeye live feed accepts JSON and line-oriented payloads from text respons
   assert.equal(result.sourceLabel, 'managed-text');
   assert.equal(result.parsed.accessPoints.length, 1);
   assert.match(result.message, /no recent observations/);
+});
+
+test('Godeye live feed parses genuine line-oriented CSV text without promoting it to live state', async () => {
+  const client = createGodeyeLiveFeedClient({
+    fetchImpl: async () => new Response([
+      'ssid,bssid,lat,lon,signalDbm',
+      'Managed AP,aa:bb:cc:dd:ee:02,47.62,-122.34,-48',
+    ].join('\n'), {
+      status: 200,
+      headers: { 'content-type': 'text/plain' },
+    }),
+  });
+
+  const result = await client.read(location);
+
+  assert.equal(result.current, false);
+  assert.equal(result.parsed.accessPoints.length, 1);
+  assert.equal(result.parsed.accessPoints[0].ssid, 'Managed AP');
+  assert.equal(result.parsed.accessPoints[0].signalDbm, -48);
+});
+
+test('Godeye live feed keeps null JSON as an unavailable current snapshot', async () => {
+  const client = createGodeyeLiveFeedClient({
+    fetchImpl: async () => new Response('null', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }),
+  });
+
+  const result = await client.read(location);
+
+  assert.equal(result.current, false);
+  assert.deepEqual(result.parsed.accessPoints, []);
+  assert.equal(result.sourceLabel, 'cybermap-postgis');
+});
+
+test('Godeye live feed surfaces malformed JSON responses', async () => {
+  const client = createGodeyeLiveFeedClient({
+    fetchImpl: async () => new Response('{malformed', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }),
+  });
+
+  await assert.rejects(() => client.read(location), SyntaxError);
+});
+
+test('Godeye live feed preserves transport failures for the retained caller boundary', async () => {
+  const client = createGodeyeLiveFeedClient({
+    fetchImpl: async () => {
+      throw new Error('network offline');
+    },
+  });
+
+  await assert.rejects(() => client.read(location), /network offline/);
 });
 
 test('Godeye live feed surfaces proxy HTTP failures for the retained caller boundary', async () => {

@@ -65,6 +65,9 @@ test('Chromium companion navigation, Back, mobile layout and gated release state
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(`${origin}/?selected=cell-1`);
   await page.locator('#godeye-tab.active').waitFor();
+  assert.equal(await page.locator('#geoLat').textContent(), '—');
+  assert.equal(await page.locator('#geoLon').textContent(), '—');
+  assert.equal(await page.locator('#godeyeCoords').textContent(), 'No GPS fix yet. Managed Cybermap requests use the fixed operator route.');
   await page.getByRole('link', { name: 'Devices / Utilities' }).click();
   assert.equal(new URL(page.url()).pathname, '/operator/devices');
   assert.equal(new URL(page.url()).searchParams.get('selected'), 'cell-1');
