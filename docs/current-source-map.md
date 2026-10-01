@@ -92,9 +92,9 @@ promise request cancellation for that workbench.
 Issue #78 is bounded to behavior-preserving reliability and structural cleanup of
 the retained companion: navigation, Travels/history and personal map rendering,
 Entities, and Devices/Utilities. The current slices extract route lifecycle
- coordination, the Godeye live-feed request/response boundary, focused Godeye
- render helpers, and the retained public aggregate request/renderer while
- preserving the existing browser contract. Follow-up slices
+coordination, the Godeye live-feed request/response boundary, focused Godeye
+render helpers, and the retained public aggregate request/renderer while
+preserving the existing browser contract. Follow-up slices
 may extract remaining retained render/data helpers with browser evidence. Tzeentch and
 Morning-dossier surfaces are retained only as paper-only contracts and are not part
 of this backlog; dormant AR correctness, hosting, authentication provisioning, and
