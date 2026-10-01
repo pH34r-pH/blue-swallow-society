@@ -1,7 +1,8 @@
 # Private companion surface map
 
-`shell.html` is the authenticated companion dashboard markup. `assets/main.js`
-owns route activation and teardown; `companion-navigation.mjs` maps `godeye →
+`shell.html` is the authenticated companion dashboard markup. `app/operator/loader.js`
+owns private asset boot; `assets/main.js` owns view teardown; `companion-tabs.mjs`
+owns route activation and lifecycle transitions, while `companion-navigation.mjs` maps `godeye →
 travels`, `entities → entities`, `world → world`, and `devices → devices`.
 
 Important relationships:
