@@ -47,7 +47,7 @@ validates the owner/scopes before proxying. A source implementation or passing
 test does not prove that Azure resources, migrations, identity settings, or
 device flows are deployed.
 
-The [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-system-implementation-delta.md) is a dated historical audit with explicit source reconciliations; it is not deployment proof. Current source-state documentation is [`docs/current-source-map.md`](docs/current-source-map.md) and [`docs/static-web-app-functionality.md`](docs/static-web-app-functionality.md), with Cybermap route contracts in the Functions and their tests.
+The [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-system-implementation-delta.md) is a dated historical audit with explicit source reconciliations; it is not deployment proof. Current source-state documentation is `docs/static-web-app-functionality.md`; the current implementation map is [`docs/current-source-map.md`](docs/current-source-map.md), with Cybermap route contracts in the Functions and their tests.
 
 ---
 
