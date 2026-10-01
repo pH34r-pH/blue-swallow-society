@@ -33,7 +33,7 @@ RECORD_DOC_MARKERS = (
 )
 LIVING_NAME_EXCEPTIONS = {"README.md", "AGENTS.md"}
 BAD_LIVING_STEMS = {"cache", "draft", "new", "notes", "scratch", "temp", "tmp", "untitled"}
-DESCRIPTIVE_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*$")
+DESCRIPTIVE_NAME = re.compile(r"^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$")
 ISSUE_NUMBER_ONLY = re.compile(r"^(?:issue[-_]?)?\d+$", re.IGNORECASE)
 SUSPICIOUS_PARTS = {
     ".cache",
@@ -140,11 +140,16 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--changed-since", required=True, help="Git revision used as the comparison base")
     parser.add_argument("--list-living-docs", action="store_true")
+    parser.add_argument("--root", type=Path, help="Repository root; defaults to the checkout containing this script")
     args = parser.parse_args()
-    root = Path(__file__).resolve().parents[1]
+    root = args.root.resolve() if args.root else Path(__file__).resolve().parents[1]
     paths = _git_paths(root, args.changed_since)
     if args.list_living_docs:
-        print("\n".join(changed_living_docs(paths)))
+        # stdout must be byte-empty when there are no selected docs so mapfile
+        # and the workflow's -s/count checks cannot manufacture one empty path.
+        living_docs = changed_living_docs(paths)
+        if living_docs:
+            print("\n".join(living_docs))
         return 0
     errors = check_paths(paths)
     if errors:
