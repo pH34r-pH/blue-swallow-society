@@ -1,5 +1,6 @@
 export function renderGodeyeFieldState({
   location = null,
+  currentLocation = null,
   authenticated = false,
   setText,
   getElement,
@@ -19,7 +20,7 @@ export function renderGodeyeFieldState({
       : 'No GPS fix yet · tap enable to query managed Cybermap data';
   }
 
-  if (!location && authenticated) {
+  if (!currentLocation && authenticated) {
     updateStatus('Tap enable to request GPS and query managed Cybermap observations around your current fix.');
   }
 }

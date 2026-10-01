@@ -46,6 +46,13 @@ test('Godeye field renderer preserves authenticated location values and status p
   renderGodeyeFieldState({
     ...fixture,
     authenticated: true,
+    currentLocation: {
+      lat: 47.6205,
+      lon: -122.3493,
+      accuracy: 12.4,
+      heading: 91.2,
+      speed: 3.14,
+    },
     location: {
       lat: 47.6205,
       lon: -122.3493,
@@ -62,6 +69,26 @@ test('Godeye field renderer preserves authenticated location values and status p
     geoHeading: '91°',
     geoSpeed: '3.1 m/s',
   });
+  assert.equal(fixture.coords.textContent, '47.6205,-122.3493 · ±12m · 100m Cybermap radius');
+  assert.equal(fixture.status.length, 1);
+});
+
+test('Godeye field renderer keeps the authenticated GPS prompt when only fallback dataset coordinates exist', () => {
+  const fixture = renderFixture();
+
+  renderGodeyeFieldState({
+    ...fixture,
+    authenticated: true,
+    currentLocation: null,
+    location: {
+      lat: 47.6205,
+      lon: -122.3493,
+      accuracy: 12.4,
+      heading: 91.2,
+      speed: 3.14,
+    },
+  });
+
   assert.equal(fixture.coords.textContent, '47.6205,-122.3493 · ±12m · 100m Cybermap radius');
   assert.equal(fixture.status.length, 1);
 });

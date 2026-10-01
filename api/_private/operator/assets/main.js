@@ -1856,6 +1856,7 @@ function scheduleGodeyeRender() {
 function renderGodeyeFields() {
   renderGodeyeFieldState({
     location: state.currentLocation || state.wigleData?.location || null,
+    currentLocation: state.currentLocation,
     authenticated: state.authenticated,
     setText,
     getElement: $,
