@@ -1,7 +1,10 @@
 # Society Cybermap API map
 
-`src/server.mjs`/`src/main.mjs` compose the VM HTTP service and stores. The
-boundary is:
+[`src/server.mjs`](src/server.mjs) and [`src/main.mjs`](src/main.mjs) compose
+the VM HTTP service and stores. [`src/auth.mjs`](src/auth.mjs),
+[`src/api-access-token.cjs`](src/api-access-token.cjs), and
+[`src/owner-read-auth.mjs`](src/owner-read-auth.mjs) own token and owner-scope
+authentication. The boundary is:
 
 ```text
 Functions or authenticated device client
@@ -11,12 +14,15 @@ Functions or authenticated device client
   -> append-only observations, derived cells, entities, receipts, and progress
 ```
 
-`src/contracts.mjs` owns the observation/receipt/idempotency invariants;
-`src/postgres-store.mjs` owns device ingest persistence; `src/history-*` owns
-bounded capture history; `src/entity-*` owns the entity projection and scoped
-optimistic corrections; `src/world-*` and `src/greenfeed-*` own separate public
-aggregate materialization. `db/migrations/` is ordered schema authority and is
-not run implicitly by the application.
+[`src/contracts.mjs`](src/contracts.mjs) owns the observation/receipt/idempotency
+invariants; [`src/postgres-store.mjs`](src/postgres-store.mjs) owns device ingest
+persistence; [`src/history-store.mjs`](src/history-store.mjs) and
+[`src/history-query.mjs`](src/history-query.mjs) own bounded capture history;
+`src/entity-*` plus [`src/entity-postgres-store.mjs`](src/entity-postgres-store.mjs)
+own the entity projection and scoped optimistic corrections; `src/world-*` and
+`src/greenfeed-*` own separate public aggregate materialization.
+[`db/migrations/`](db/migrations/) is ordered schema authority and is not run
+implicitly by the application.
 
 Preserve immutable observations, device/source/idempotency binding, exact durable
 receipt validation, owner scope checks, no raw-token logging, and the distinction

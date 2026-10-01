@@ -18,15 +18,18 @@ Directory maps narrow these rules without replacing them:
 - [`docs/AGENTS.md`](docs/AGENTS.md) — source-state versus historical documentation routing.
 
 When a change crosses a boundary, update the narrowest map and the current source map
-in the same change. The smallest CI integration is
-`.github/workflows/documentation-artifact.yml`; it reuses the reviewed Fleet `#1032`,
-DSL `#586`, and Portfolio `#84` approach for changed living Markdown, pinned
-markdownlint-cli2/lychee, and relative links. It uses hosted read-only CI and adds
-no secrets, private runner admission, or duplicate architecture-map inventory.
+in the same change. `.github/workflows/documentation-artifact.yml` derives changed
+paths from Git, always runs the artifact guard, and runs pinned markdownlint-cli2 and
+lychee only when changed living Markdown is selected. It uses hosted read-only CI;
+the empty selection must be byte-empty so code-only changes skip doc tools cleanly.
 
 ## Purpose and source of truth
 
-This repository delivers the Blue Swallow Society web system: public cover surface, authenticated operator surface, Azure Static Web Apps Functions, VM/API integration, and the planned Cybermap PostGIS store.
+This repository delivers the Blue Swallow Society web system: a public owner
+sign-in surface, a separately loaded authenticated companion dashboard, Azure
+Static Web Apps Functions, VM/API integration, and the planned Cybermap PostGIS
+store. The browser never receives the private companion shell anonymously, and
+checked-in source does not by itself prove deployment.
 
 - Start with `docs/blue-swallow-system-implementation-delta.md` to distinguish deployed, working-tree, prototype, schema-only, and designed-only behavior.
 - Read the active feature package under `specs/<NNN-feature>/` before implementation. Preserve the prior Spec Kit instruction from `CLAUDE.md`: the current plan owns project-specific technologies, paths, and commands.

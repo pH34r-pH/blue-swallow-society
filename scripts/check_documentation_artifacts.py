@@ -19,18 +19,25 @@ RECORD_PREFIXES = (
     "specs/",
 )
 RECORD_DOC_NAMES = {
+    "docs/anti-surveillance-style-research.md",
     "docs/blue-swallow-system-implementation-delta.md",
     "docs/crypto-paper-trading-strategy-research.md",
+    "docs/kismet-wardriving-sensor-spine-research.md",
+    "docs/microsoft-layoff-risk-radar.md",
+    "docs/mosaic-and-murmurs-autonomous-paper-engine.md",
+    "docs/mosaic-and-murmurs-dream-consolidation-proposal.md",
+    "docs/mosaic-and-murmurs-dream-design-cyber-augmentation-proposal.md",
+    "docs/mosaic-and-murmurs-morning-brief-implementation.md",
+    "docs/mosaic-and-murmurs-morning-brief-proposal.md",
+    "docs/mosaic-and-murmurs-operating-doctrine.md",
+    "docs/mosaic-and-murmurs-paper-memory-loop.md",
+    "docs/mosaic-and-murmurs-s0-sensorium-proposal.md",
+    "docs/mosaic-and-murmurs-self-pentest-proposal.md",
+    "docs/mosaic-and-murmurs-source-expansion-research.md",
+    "docs/public-official-political-signal-radar.md",
+    "docs/tzeentch-paper-api-status.md",
     "docs/wardriver-raid-backend-repair-plan.md",
 }
-RECORD_DOC_MARKERS = (
-    "-research.md",
-    "-proposal.md",
-    "-proposals.md",
-    "-paper-",
-    "-dream-",
-    "-operating-doctrine.md",
-)
 LIVING_NAME_EXCEPTIONS = {"README.md", "AGENTS.md"}
 BAD_LIVING_STEMS = {"cache", "draft", "new", "notes", "scratch", "temp", "tmp", "untitled"}
 DESCRIPTIVE_NAME = re.compile(r"^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$")
@@ -39,6 +46,7 @@ SUSPICIOUS_PARTS = {
     ".cache",
     ".gradle",
     ".pytest_cache",
+    ".venv",
     "__pycache__",
     "build",
     "cache",
@@ -82,12 +90,7 @@ def _git_paths(root: Path, since: str) -> list[tuple[str, str]]:
 
 def is_record(path: str | Path) -> bool:
     relative = Path(path).as_posix()
-    name = Path(relative).name.lower()
-    return (
-        relative.startswith(RECORD_PREFIXES)
-        or relative in RECORD_DOC_NAMES
-        or any(name.endswith(marker) or marker in name for marker in RECORD_DOC_MARKERS)
-    )
+    return relative.startswith(RECORD_PREFIXES) or relative in RECORD_DOC_NAMES
 
 
 def is_living_doc(path: str | Path) -> bool:

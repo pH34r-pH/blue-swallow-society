@@ -128,11 +128,21 @@ checkout currently has no `graphify` executable; do not regenerate or claim a
 semantic refresh until the tool is available. Documentation-only changes do not
 require a Graphify refresh under the repository instructions.
 
-## Smallest CI integration proposal (deferred)
+## Documentation and artifact CI
 
-Do not add a new custom guard in this wave. After Fleet #1032, DSL #586, and
-Portfolio #84 finish coherence review, the smallest integration is one step in
-the existing public/structural documentation job that checks only the relative
-links and fenced command syntax in the scoped `AGENTS.md` maps. Reuse an existing
-job and its runner; do not create a second workflow or duplicate an existing
-quality guard. Until then, review the maps manually with the commands above.
+`.github/workflows/documentation-artifact.yml` is the current lightweight CI
+boundary for documentation changes. Its Python guard always checks changed paths
+for incidental artifacts and new living-document names. It writes no bytes when
+the changed set contains no living Markdown; the workflow then skips markdownlint
+and lychee while still running the guard and its regression tests. When living
+Markdown is selected, the job runs pinned markdownlint-cli2 0.18.1 and lychee
+0.20.1 against actual relative links. It does not maintain a duplicate inventory
+of these maps or alter the public/structural job admission.
+
+The focused local checks are:
+
+```bash
+python3 scripts/check_documentation_artifacts.py --changed-since HEAD^
+python3 scripts/check_documentation_artifacts.py --changed-since HEAD^ --list-living-docs
+python3 -m unittest discover -s scripts -p 'test_docs_hygiene.py' -v
+```

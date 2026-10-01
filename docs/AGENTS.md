@@ -14,7 +14,11 @@ Important local records:
 - `public-ci-handoff.md` — public validation versus private deployment authority.
 - `cybermap-geospatial-backend.md` — design and dated implementation notes; not deployment proof.
 - `blue-swallow-system-implementation-delta.md` and `wardriver-raid-backend-repair-plan.md` — historical records; preserve their dates and status vocabulary.
-- `mosaic-and-murmurs-*`, `crypto-paper-trading-strategy-research.md`, and `tzeentch-paper-api-status.md` — paper/scientific records; never reinterpret them as live execution.
+- The explicit paper/scientific retained paths listed in
+  [`scripts/check_documentation_artifacts.py`](../scripts/check_documentation_artifacts.py)
+  — never reinterpret them as live execution. A future filename containing
+  `-proposal`, `-research`, or `-paper-` remains a checkable living document
+  until it is separately classified.
 
 Route changes to the earliest authoritative artifact (`spec.md → plan.md →
 tests.md → tasks.md`), then reconcile this map or the current source map. For

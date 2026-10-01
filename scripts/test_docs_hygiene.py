@@ -66,6 +66,7 @@ class DocumentationHygieneTests(unittest.TestCase):
         self.assertEqual([], changed_living_docs([("A", "specs/033-owner-upload-adapter/spec.md")]))
         self.assertEqual([], changed_living_docs([("A", "graphify-out/GRAPH_REPORT.md")]))
         self.assertEqual([], changed_living_docs([("A", "docs/crypto-paper-trading-strategy-research.md")]))
+        self.assertEqual(["docs/future-proposal.md"], changed_living_docs([("A", "docs/future-proposal.md")]))
 
     def test_real_git_rename_checks_destination_and_preserves_spaced_paths(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
