@@ -12,19 +12,27 @@ This repository gives you:
 
 - A **publicly accessible website** on **Azure Static Web Apps**
 - **Credential-free public GitHub Actions CI** for the frontend, managed API, and Cybermap runtime
-- **Azure Functions** for the passcode split, protected operator APIs, and Cybermap proxy routes
+- **Azure Functions** for owner authentication, protected operator APIs, and Cybermap proxy routes
 - An **Ubuntu VM API gateway** for the authenticated/idempotent Cybermap ingest service
 - A **Cybermap-first geospatial backend design and P0 ingest implementation** using Azure Database for PostgreSQL Flexible Server B1MS + PostGIS
 - A clean place to add **local model experiments** later on the VM
 - An optional **Azure OpenAI** account, gated by a single Bicep parameter
 - Documentation to evolve toward **Microsoft Entra External ID** for customer sign-up/sign-in later
 
+## Current source map
+
+Read [`docs/current-source-map.md`](docs/current-source-map.md) before changing
+the companion dashboard, entity workbench, observation ingest, release delivery,
+or paper runtime. It separates implemented source from deployment evidence and
+physical-device acceptance. The dated implementation delta remains an immutable
+historical audit, not current deployment proof.
+
 ## Architecture
 
 ```text
-Browser
+Browser / Wardriver
   ↓
-Azure Static Web App (public face + protected /operator console)
+Azure Static Web App (owner sign-in + private /operator companion)
   ↓
 /api/* (managed Azure Functions proxy)
   ↓
@@ -33,9 +41,13 @@ VM API gateway on Ubuntu (authenticated Cybermap ingest)
 Azure Database for PostgreSQL Flexible Server B1MS + PostGIS (target Cybermap store)
 ```
 
-The browser never calls the VM directly. The frontend calls the Static Web App API, and the API proxies the request to the VM.
+The browser never calls the VM directly. Owner sessions use Microsoft Entra
+authorization-code/PKCE and a short-lived Secure HttpOnly cookie; Functions
+validates the owner/scopes before proxying. A source implementation or passing
+test does not prove that Azure resources, migrations, identity settings, or
+device flows are deployed.
 
-The [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-system-implementation-delta.md) is a dated historical audit with explicit source reconciliations; it is not deployment proof. Current source-state documentation is `docs/static-web-app-functionality.md`, with Cybermap route contracts in the Functions and their tests.
+The [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-system-implementation-delta.md) is a dated historical audit with explicit source reconciliations; it is not deployment proof. Current source-state documentation is [`docs/current-source-map.md`](docs/current-source-map.md) and [`docs/static-web-app-functionality.md`](docs/static-web-app-functionality.md), with Cybermap route contracts in the Functions and their tests.
 
 ---
 
@@ -56,8 +68,7 @@ The [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-syste
 │   ├── operator-downloads/
 │   ├── operator-shell/
 │   └── _private/
-│       ├── downloads/
-│       └── operator/assets/
+│       └── operator/                   # shell/assets; release bytes stay in private Blob storage
 ├── app/
 │   ├── index.html
 │   ├── main.js
@@ -113,41 +124,54 @@ The [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-syste
 
 ## What the website does
 
-The root home page is the **Blue Swallow Society passcode split**: a title, one passcode field, and a lowercase `login` button.
-It does not link to, embed, or name the operator console, Wardriver APK, operator APIs, or download artifacts.
+The root home page is the **Blue Swallow owner sign-in**: a title, session status,
+and Microsoft sign-in button. `/api/owner-auth` verifies the exact configured
+tenant, client audience, and owner object before issuing a five-minute signed
+owner session. The legacy passcode handler remains only as a retired compatibility
+route and returns `410` in Entra mode; it is not the current login flow.
 
-The split behavior is server-side:
-- the canonical operator passcode is configured only as the GitHub/Azure secret `BLUE_SWALLOW_PASSCODE_SHA256`;
-- a matching passcode receives a signed operator session token and opens `/operator`;
-- any non-matching passcode falls through to the standard event-planning personal page;
-- the standard page currently renders an events calendar, list view, and local-browser supply-claim POC seeded with **The Great Northern Hoot** camping trip at Penrose Point State Park, site 83, July 17–20, 2026;
-- no browser bundle contains the canonical passcode literal or hash.
+The private companion half lives under `/operator`:
 
-The hidden operator half lives under `/operator`:
-- `/operator` ships only a token-aware loader; the real operator shell is served by `/api/operator-shell` from `api/_private/operator/shell.html` after `X-Blue-Swallow-Operator-Token` validation, then loads allowlisted private assets from `/api/operator-assets/{asset}` with a short-lived cookie grant;
-- operator data APIs (`/api/wigle`, `/api/osint`, `/api/tzeentch`) fail closed inside the Functions layer with `requireOperatorToken`;
-- the Wardriver APK is no longer a public static asset and is served only by `/api/operator-downloads/wardriver/*` after the same operator-token check;
-- Godeye, Tzeentch, and WiGLE surfaces are lazy-loaded from token-gated operator assets only.
+- the public route ships only a loader; the shell comes from
+  `api/_private/operator/shell.html` after owner-session validation, then the
+  loader fetches a fixed allowlist from `/api/operator-assets/{asset}`;
+- Travels/history, nearby Cybermap, Entities, World, and Devices have separate
+  controllers and teardown paths;
+- entity reads require `Owner.Read`, while corrections require the explicit
+  Entra `Entities.Write` flow with preview and optimistic revision checks;
+- operator data APIs fail closed inside Functions before any VM/private read.
 
 The WiGLE proxy at `/api/wigle` supports:
+
 - `mode=current` → AR current-state path. Reads the device-local WiGLE database/export through `WIGLE_LOCAL_DB_PATH` or `WIGLE_LOCAL_DB_URL`, filters to recent rows (`maxAgeSeconds`, default 45), and orders candidates by signal strength.
 - `mode=database` → Godeye/local snapshot path. Reads the same local database/export without AR recency gating.
 - `mode=live` → bridge/global fallback. Uses `WIGLE_LIVE_BRIDGE_URL`; direct public WiGLE API lookup is disabled because its search endpoint requires coordinate-bearing URLs.
 
-## Android APK download
+## Android release delivery
 
-The branded Blue Swallow Wardriver debug APK is stored under [`api/_private/downloads/`](./api/_private/downloads/) so it is packaged with Functions, not published as a public static file. Static `/downloads/*` requests return `404`. Operator sessions download through:
+The current release is not stored in this repository or under a public static
+path. The authenticated Devices surface reads a private `latest.json` release
+manifest and exposes only:
 
 - `/api/operator-downloads/wardriver/apk`
 - `/api/operator-downloads/wardriver/metadata`
 
-Artifact details:
+The manifest must validate as a release build for
+`co.blueswallow.wardriver`, bind `sourceTag` to `versionName`, bind the immutable
+Blob path to source commit and filename, and carry artifact/signer SHA-256,
+source commit, source tag, build run, and publication time. The APK route returns
+a five-minute HTTPS read-only Blob SAS or a redirect; it never serves tracked
+bytes. Wardriver’s Android settings client reads metadata only and does not
+download or install an update automatically. Live manifest/artifact state and
+physical installation remain separate acceptance evidence.
 
-- Package: `co.blueswallow.wardriver`
-- Version: `2.109-bss.1` / versionCode `310`
-- SHA-256: `f50d2dcf726ef52297968e1a0af9119c7569b7692e1813d70a1ed0274ba95a0e`
+The browser does **not** scan Wi-Fi directly or read an Android app-private
+SQLite database. Wardriver owns local radio collection, authenticated upload,
+and its ARCore/LiteRT camera feature. Society’s browser helpers parse/render
+bounded data only; they do not establish physical AR, RF association, or device
+behavior.
 
-The browser does **not** scan Wi-Fi directly and cannot read WiGLE's Android app-private sqlite database by itself. For AR, run a device-local process with file permission and expose JSON to the app, for example:
+For a separate local lab bridge, the historical helper remains available:
 
 ```bash
 python3 scripts/wigle-local-bridge.py --db /path/to/wiglewifi.sqlite --host 127.0.0.1 --port 8787
@@ -172,9 +196,13 @@ The VM API gateway exposes HTTPS only; the retired echo service is not deployed 
 - `allowedSourceIp` parameter restricts SSH to your CIDR.
 - Daily auto-shutdown schedule (DevTestLab) caps idle cost.
 - SWA `globalHeaders` set CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy`.
-- Operator access uses the passcode-issued token, not SWA Easy Auth, for `/api/wigle`, `/api/osint`, `/api/tzeentch`, and `/api/operator-downloads/wardriver/*`. `/api/operator-assets/{asset}` additionally requires a short-lived asset-grant cookie. `/api/profile` and `/account/*` remain SWA-authenticated.
+- Operator access uses the short-lived owner/operator session, not anonymous SWA
+  route roles, for `/api/operator-signals`, `/api/cybermap/*`, `/api/osint`,
+  `/api/tzeentch`, and release routes. `/api/operator-assets/{asset}` is a fixed
+  private allowlist; owner/API scopes are revalidated before backend reads.
 
 Next hardening to consider:
+
 - remove the VM public IP and reach it via private link / VNet integration on the SWA
 - swap to Microsoft Entra External ID for customer sign-up/sign-in
 - rotate the SWA deployment token quarterly
@@ -182,6 +210,7 @@ Next hardening to consider:
 ## AI path
 
 If you want to keep **everything under Azure credits only**, the lowest-risk approach is:
+
 1. **Use local/open models on the VM** for experimentation.
 2. **Use Azure OpenAI pay-as-you-go** only for selective calls (`deployOpenAi: true`).
 3. Avoid provisioned throughput and fine-tuned hosting early.

@@ -1,0 +1,78 @@
+name: Documentation and artifact hygiene
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: Changed documentation and artifact guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Resolve changed files
+        id: files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="$BASE_SHA"
+          if [[ -z "$base" || "$base" == "0000000000000000000000000000000000000000" ]]; then
+            base="HEAD^"
+          fi
+          python3 scripts/check_documentation_artifacts.py --changed-since "$base"
+          python3 scripts/check_documentation_artifacts.py --changed-since "$base" --list-living-docs > "$RUNNER_TEMP/changed-living-docs.txt"
+          count="$(awk 'END { print NR + 0 }' "$RUNNER_TEMP/changed-living-docs.txt")"
+          echo "changed_docs=$count" >> "$GITHUB_OUTPUT"
+      - name: Markdown style (pinned markdownlint-cli2)
+        if: steps.files.outputs.changed_docs != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t docs < "$RUNNER_TEMP/changed-living-docs.txt"
+          npx --yes markdownlint-cli2@0.18.1 --config .markdownlint-cli2.yaml "${docs[@]}"
+      - name: Install pinned lychee
+        if: steps.files.outputs.changed_docs != '0'
+        uses: lycheeverse/lychee-action@v2.4.1
+        with:
+          lycheeVersion: v0.20.1
+          args: --version
+          failIfEmpty: false
+      - name: Prove lychee rejects a broken local link
+        if: steps.files.outputs.changed_docs != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          fixture_dir="$RUNNER_TEMP/docs hygiene"
+          mkdir -p "$fixture_dir"
+          fixture="$fixture_dir/broken link.md"
+          printf '%s\n' '[broken](missing-target.md)' > "$fixture"
+          if lychee --offline --no-progress --include-fragments --root-dir "$fixture_dir" "$fixture"; then
+            echo 'lychee unexpectedly accepted the broken local-link fixture' >&2
+            exit 1
+          fi
+      - name: Check relative links in changed living docs
+        if: steps.files.outputs.changed_docs != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t docs < "$RUNNER_TEMP/changed-living-docs.txt"
+          lychee --offline --no-progress --include-fragments --root-dir "$GITHUB_WORKSPACE" "${docs[@]}"
+      - name: Run guard regression tests
+        run: python3 -m unittest discover -s scripts -p 'test_docs_hygiene.py' -v
