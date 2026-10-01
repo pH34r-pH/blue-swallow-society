@@ -8,6 +8,7 @@ import {
 } from './map-math.mjs';
 import { companionRoute, companionUrl } from './companion-navigation.mjs';
 import { createCompanionTabController } from './companion-tabs.mjs';
+import { renderGodeyeFieldState } from './godeye-fields.mjs';
 import {
   buildArCandidateBoxes,
   filterWigleRecordsByRadius,
@@ -19,6 +20,7 @@ import {
 } from './vision.mjs';
 import { createGodeyeController } from './godeye-controller.mjs';
 import { createGodeyeLiveFeedClient } from './godeye-live-feed.mjs';
+import { renderWigleList as renderWigleListView } from './wigle-list.mjs';
 import { createVisionController } from './vision-controller.mjs';
 import {
   DEFAULT_GODEYE_GLOBAL_VIEWPORT,
@@ -1760,54 +1762,12 @@ function renderWigleViews() {
 }
 
 function renderWigleList(container, records, limit = 6) {
-  if (!container) {
-    return;
-  }
-
-  const limitedRecords = records.slice(0, limit);
-  if (!limitedRecords.length) {
-    const empty = document.createElement('p');
-    empty.className = 'dashboard-empty-state';
-    empty.textContent = 'Cybermap observations will appear here when available.';
-    container.replaceChildren(empty);
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-  limitedRecords.forEach((record, index) => {
-    const item = document.createElement('article');
-    item.className = 'wigle-item';
-
-    const title = document.createElement('strong');
-    title.className = 'wigle-item-title';
-    title.textContent = `${index + 1}. ${record.ssid || record.bssid || 'Unknown network'}`;
-    item.appendChild(title);
-
-    const meta = document.createElement('div');
-    meta.className = 'wigle-item-meta';
-    meta.textContent = [
-      record.signalDbm === null || record.signalDbm === undefined ? null : `${record.signalDbm} dBm`,
-      record.channel ? `ch ${record.channel}` : null,
-      record.signalBand || null,
-      record.source || null,
-    ].filter(Boolean).join(' · ') || 'Cybermap observation';
-    item.appendChild(meta);
-
-    const detail = document.createElement('p');
-    detail.className = 'wigle-item-detail';
-    detail.textContent = [
-      record.vendor || null,
-      record.security || null,
-      record.estimatedRange?.label || null,
-      Number.isFinite(record.lat) && Number.isFinite(record.lon) ? formatCoordinatePair(record.lat, record.lon) : null,
-      Number.isFinite(record.distanceMeters) ? `${Math.round(record.distanceMeters)} m away` : null,
-    ].filter(Boolean).join(' · ') || 'Signal hint only';
-    item.appendChild(detail);
-
-    fragment.appendChild(item);
+  renderWigleListView({
+    container,
+    records,
+    limit,
+    formatCoordinates: formatCoordinatePair,
   });
-
-  container.replaceChildren(fragment);
 }
 
 function renderGodeyeWigleList() {
@@ -1894,24 +1854,15 @@ function scheduleGodeyeRender() {
 }
 
 function renderGodeyeFields() {
-  const location = state.currentLocation || state.wigleData?.location || null;
-
-  setText('geoLat', location ? location.lat.toFixed(6) : '—');
-  setText('geoLon', location ? location.lon.toFixed(6) : '—');
-  setText('geoAccuracy', location ? `${Math.round(location.accuracy || 0)} m` : '—');
-  setText('geoHeading', location && location.heading !== null ? `${Math.round(location.heading)}°` : '—');
-  setText('geoSpeed', location && location.speed !== null ? `${location.speed.toFixed(1)} m/s` : '—');
-
-  const coords = $('godeyeCoords');
-  if (coords) {
-    coords.textContent = location
-      ? `${formatCoordinatePair(location.lat, location.lon)} · ±${Math.round(location.accuracy || 0)}m · 100m Cybermap radius`
-      : 'No GPS fix yet · tap enable to query managed Cybermap data';
-  }
-
-  if (!state.currentLocation && state.authenticated) {
-    updateGodeyeStatus('Tap enable to request GPS and query managed Cybermap observations around your current fix.');
-  }
+  renderGodeyeFieldState({
+    location: state.currentLocation || state.wigleData?.location || null,
+    currentLocation: state.currentLocation,
+    authenticated: state.authenticated,
+    setText,
+    getElement: $,
+    formatCoordinates: formatCoordinatePair,
+    updateStatus: updateGodeyeStatus,
+  });
 }
 
 function renderGodeyeMap() {
