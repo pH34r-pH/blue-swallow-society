@@ -12,6 +12,7 @@ const MODULE_BOOT_ORDER = Object.freeze([
   'companion-navigation.mjs',
   'companion-tabs.mjs',
   'godeye-fields.mjs',
+  'deflock-global.mjs',
   'godeye-live-feed.mjs',
   'godeye-controller.mjs',
   'wigle-list.mjs',

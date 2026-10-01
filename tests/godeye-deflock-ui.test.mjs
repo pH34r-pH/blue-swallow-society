@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const shell = readFileSync(new URL('../api/_private/operator/shell.html', import.meta.url), 'utf8');
 const main = readFileSync(new URL('../api/_private/operator/assets/main.js', import.meta.url), 'utf8');
+const deflock = readFileSync(new URL('../api/_private/operator/assets/deflock-global.mjs', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../api/_private/operator/assets/styles.css', import.meta.url), 'utf8');
 
 test('Godeye embeds a separate attributed public-reports aggregate panel', () => {
@@ -27,8 +28,8 @@ test('Global panel is fixed-viewport and does not couple to Field geolocation st
   assert.equal(requestBuilder.includes('currentLocation'), false);
   assert.equal(requestBuilder.includes('navigator.geolocation'), false);
   assert.equal(refresh.includes('navigator.geolocation'), false);
-  assert.ok(main.includes('Public-reports layer is disabled by catalog configuration'));
-  assert.ok(main.includes('Public-reports layer is stale'));
+  assert.ok(deflock.includes('Public-reports layer is disabled by catalog configuration'));
+  assert.ok(deflock.includes('Public-reports layer is stale'));
   assert.ok(main.includes('Public-reports aggregate unavailable'));
 });
 
