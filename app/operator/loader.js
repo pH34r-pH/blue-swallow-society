@@ -5,13 +5,7 @@ import {
 
 const PRIVATE_ASSET_PREFIX = '/api/operator-assets/';
 
-const PRIVATE_ASSETS = Object.freeze([
-  'world.css',
-  'world-land.geojson',
-  'styles.css',
-  'theme.css',
-  'maplibre-gl.css',
-  'operator-mark.svg',
+const MODULE_BOOT_ORDER = Object.freeze([
   'operator-session.mjs',
   'map-math.mjs',
   'wigle.mjs',
@@ -44,37 +38,14 @@ const PRIVATE_ASSETS = Object.freeze([
   'main.js',
 ]);
 
-const MODULE_BOOT_ORDER = Object.freeze([
-  'operator-session.mjs',
-  'map-math.mjs',
-  'wigle.mjs',
-  'companion-navigation.mjs',
-  'companion-tabs.mjs',
-  'godeye-fields.mjs',
-  'godeye-live-feed.mjs',
-  'godeye-controller.mjs',
-  'wigle-list.mjs',
-  'vision.mjs',
-  'vision-controller.mjs',
-  'godeye-global.mjs',
-  'godeye-layers.mjs',
-  'godeye-session-analysis.mjs',
-  'maplibre-gl-shared.mjs',
-  'maplibre-gl-worker.mjs',
-  'maplibre-gl.mjs',
-  'godeye-map.mjs',
-  'travels-state.mjs',
-  'travels-map.mjs',
-  'travels-view.mjs',
-  'entity-client.mjs',
-  'entity-workbench.mjs',
-  'world-state.mjs',
-  'satellite-sgp4.mjs',
-  'world-orbit-state.mjs',
-  'world-orbits-view.mjs',
-  'world-map.mjs',
-  'world-view.mjs',
-  'main.js',
+const PRIVATE_ASSETS = Object.freeze([
+  'world.css',
+  'world-land.geojson',
+  'styles.css',
+  'theme.css',
+  'maplibre-gl.css',
+  'operator-mark.svg',
+  ...MODULE_BOOT_ORDER,
 ]);
 
 let activeObjectUrls = [];
