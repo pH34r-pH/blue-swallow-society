@@ -7,6 +7,7 @@ import {
   formatCoordinatePair,
 } from './map-math.mjs';
 import { companionRoute, companionUrl } from './companion-navigation.mjs';
+import { createCompanionTabController } from './companion-tabs.mjs';
 import {
   buildArCandidateBoxes,
   filterWigleRecordsByRadius,
@@ -169,7 +170,7 @@ function unlockConsole() {
   }
 
   initTabDefaults();
-  activateTab(initialOperatorTab(), { focus: false });
+  getCompanionTabController().activate(initialOperatorTab(), { focus: false });
   void hydrateWardriverRelease();
 }
 
@@ -245,7 +246,7 @@ function resetConsoleToLogin() {
   renderWigleViews();
   updateArFullscreenState(false);
   clearOperatorSession();
-  resetTabSelection();
+  getCompanionTabController().reset();
 }
 
 function bindOperatorDownloads() {
@@ -391,7 +392,7 @@ function bindTabSystem() {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       event.preventDefault();
       history.pushState(null, '', companionUrl(button.dataset.tab, window.location.href));
-      activateTabByIndex(index, { focus: false });
+      getCompanionTabController().activateByIndex(index, { focus: false });
     });
     button.addEventListener('keydown', (event) => handleTabKeydown(event, index));
   });
@@ -401,7 +402,7 @@ function bindTabSystem() {
     logoutBtn.addEventListener('click', handleLogout);
   }
 
-  window.addEventListener('popstate', () => activateTab(initialOperatorTab()));
+  window.addEventListener('popstate', () => getCompanionTabController().activate(initialOperatorTab()));
   state.tabSystemBound = true;
   setTabAria(tabButtons, tabPanels, 0);
 }
@@ -409,6 +410,32 @@ function bindTabSystem() {
 let travelsView;
 let worldView;
 let entityWorkbench;
+let companionTabController;
+
+function getCompanionTabController() {
+  if (!companionTabController) {
+    companionTabController = createCompanionTabController({
+      state,
+      getTabButtons,
+      getTabPanels,
+      setTabAria,
+      lifecycle: {
+        stopArFeed,
+        deactivateWorld: () => worldView?.deactivate(),
+        deactivateTravels: () => travelsView?.deactivate(),
+        stopGodeyeFeed,
+        initArTab,
+        activateTravels: () => travelsView?.activate(),
+        activateWorld: () => worldView?.activate(),
+        isNearbyOpen: () => document.querySelector('.history-nearby')?.open,
+        initGodeyeTab,
+        activateGodeyeMode,
+        scheduleGodeyeRender,
+      },
+    });
+  }
+  return companionTabController;
+}
 
 function initTabDefaults() {
   const worldRoot = document.querySelector('[data-world-view]');
@@ -452,73 +479,6 @@ function getTabButtons() {
 
 function getTabPanels() {
   return Array.from($$('.tab-content'));
-}
-
-function resetTabSelection() {
-  const tabButtons = getTabButtons();
-  const tabPanels = getTabPanels();
-  setTabAria(tabButtons, tabPanels, 0);
-}
-
-function activateTab(tabKey, { focus = false } = {}) {
-  const tabButtons = getTabButtons();
-  const tabPanels = getTabPanels();
-  const nextIndex = tabButtons.findIndex((button) => button.dataset.tab === tabKey);
-
-  if (nextIndex === -1) {
-    return;
-  }
-
-  activateTabByIndex(nextIndex, { focus, tabButtons, tabPanels });
-}
-
-function activateTabByIndex(index, { focus = false, tabButtons = getTabButtons(), tabPanels = getTabPanels() } = {}) {
-  if (!tabButtons.length) {
-    return;
-  }
-
-  const normalizedIndex = ((index % tabButtons.length) + tabButtons.length) % tabButtons.length;
-  const nextButton = tabButtons[normalizedIndex];
-  const nextTabKey = nextButton?.dataset.tab || 'landing';
-
-  if (nextTabKey === state.activeTab && state.authenticated) {
-    if (focus && nextButton) {
-      nextButton.focus();
-    }
-    return;
-  }
-
-  if (state.activeTab === 'ar' && nextTabKey !== 'ar') {
-    stopArFeed();
-  }
-
-  if (state.activeTab === 'world' && nextTabKey !== 'world') worldView?.deactivate();
-
-  if (state.activeTab === 'godeye' && nextTabKey !== 'godeye') {
-    travelsView?.deactivate();
-    stopGodeyeFeed();
-  }
-
-
-  setTabAria(tabButtons, tabPanels, normalizedIndex);
-  state.activeTab = nextTabKey;
-
-  if (nextTabKey === 'ar') {
-    initArTab();
-  }
-
-  if (nextTabKey === 'godeye') travelsView?.activate();
-  if (nextTabKey === 'world') worldView?.activate();
-
-  if (nextTabKey === 'world' || (nextTabKey === 'godeye' && document.querySelector('.history-nearby')?.open)) {
-    initGodeyeTab();
-    activateGodeyeMode(nextTabKey === 'world' ? 'global' : 'field');
-    scheduleGodeyeRender();
-  }
-
-  if (focus && nextButton) {
-    nextButton.focus();
-  }
 }
 
 function setTabAria(tabButtons, tabPanels, activeIndex) {
@@ -565,7 +525,7 @@ function handleTabKeydown(event, index) {
     case 'Enter':
     case ' ':
       history.pushState(null, '', companionUrl(tabButtons[index].dataset.tab, window.location.href));
-      activateTabByIndex(index, { focus: true, tabButtons });
+      getCompanionTabController().activateByIndex(index, { focus: true, tabButtons });
       event.preventDefault();
       return;
     default:
@@ -574,7 +534,7 @@ function handleTabKeydown(event, index) {
 
   event.preventDefault();
   history.pushState(null, '', companionUrl(tabButtons[nextIndex].dataset.tab, window.location.href));
-  activateTabByIndex(nextIndex, { focus: true, tabButtons });
+  getCompanionTabController().activateByIndex(nextIndex, { focus: true, tabButtons });
 }
 
 function initArTab() {
