@@ -11,7 +11,6 @@ import { createCompanionTabController } from './companion-tabs.mjs';
 import {
   buildArCandidateBoxes,
   filterWigleRecordsByRadius,
-  isLiveWigleSnapshot,
   parseWiglePayload,
 } from './wigle.mjs';
 import {
@@ -19,6 +18,7 @@ import {
   parseVisionPayload,
 } from './vision.mjs';
 import { createGodeyeController } from './godeye-controller.mjs';
+import { createGodeyeLiveFeedClient } from './godeye-live-feed.mjs';
 import { createVisionController } from './vision-controller.mjs';
 import {
   DEFAULT_GODEYE_GLOBAL_VIEWPORT,
@@ -69,6 +69,21 @@ function getOperatorSession() {
 function buildOperatorHeaders(headers = {}) {
   return operatorRequestHeaders(headers);
 }
+
+const godeyeLiveFeed = createGodeyeLiveFeedClient({
+  endpoint: GODEYE_VIEWPORT_ENDPOINT,
+  getHeaders: () => buildOperatorHeaders({
+    Accept: 'application/json, text/plain, */*',
+    'Content-Type': 'application/json',
+  }),
+  buildRequestPayload: (location) => godeyeController.buildRequestPayload({
+    lat: location.lat,
+    lon: location.lon,
+    radiusMeters: 100,
+    limit: 100,
+    maxAgeMs: 45_000,
+  }),
+});
 
 const state = {
   authenticated: false,
@@ -694,46 +709,7 @@ async function refreshLiveWigleFeed({ quiet = false } = {}) {
   }
 
   try {
-    const requestPayload = godeyeController.buildRequestPayload({
-      lat: location.lat,
-      lon: location.lon,
-      radiusMeters: 100,
-      limit: 100,
-      maxAgeMs: 45_000,
-    });
-
-    const response = await fetch(GODEYE_VIEWPORT_ENDPOINT, {
-      method: 'POST',
-      headers: buildOperatorHeaders({
-        Accept: 'application/json, text/plain, */*',
-        'Content-Type': 'application/json',
-      }),
-      body: JSON.stringify(requestPayload),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const contentType = response.headers.get('content-type') || '';
-    let payload;
-    if (contentType.includes('application/json')) {
-      payload = await response.json();
-    } else {
-      const text = await response.text();
-      try {
-        payload = JSON.parse(text);
-      } catch {
-        payload = text;
-      }
-    }
-
-    const current = payload?.live === true || isLiveWigleSnapshot(payload);
-    const parsed = parseWiglePayload(payload, { source: 'cybermap-postgis' });
-    const sourceLabel = parsed.source || payload?.source || 'cybermap-postgis';
-    const message = current
-      ? `Godeye Cybermap viewport connected from ${sourceLabel}.`
-      : `Godeye Cybermap viewport from ${sourceLabel} returned no recent observations.`;
+    const { current, parsed, sourceLabel, message } = await godeyeLiveFeed.read(location);
 
     applyWigleDataset(parsed, {
       target: 'local',
