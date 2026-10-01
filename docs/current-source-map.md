@@ -81,8 +81,11 @@ surface; it does not reveal the companion shell or Wardriver artifacts.
 `app/operator/loader.js` owns private asset boot and
 `api/_private/operator/assets/main.js` owns view teardown;
 `companion-tabs.mjs` coordinates route activation and lifecycle transitions, and
-`companion-navigation.mjs` is the route vocabulary. Travels, World, and Entities
-are separate controllers so leaving a surface aborts/deactivates its requests.
+`companion-navigation.mjs` is the route vocabulary. Travels and World use
+separate controllers with explicit deactivation when their surfaces are left.
+The eagerly mounted Entity workbench guards asynchronous responses with
+generation tokens and is destroyed on logout/pagehide; switching tabs does not
+promise request cancellation for that workbench.
 
 ## Retained companion stabilization backlog
 
