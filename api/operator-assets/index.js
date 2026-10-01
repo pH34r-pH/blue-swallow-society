@@ -16,6 +16,7 @@ const ASSET_MANIFEST = Object.freeze({
   'companion-navigation.mjs': { file: 'companion-navigation.mjs', contentType: 'application/javascript; charset=utf-8' },
   'companion-tabs.mjs': { file: 'companion-tabs.mjs', contentType: 'application/javascript; charset=utf-8' },
   'godeye-fields.mjs': { file: 'godeye-fields.mjs', contentType: 'application/javascript; charset=utf-8' },
+  'deflock-global.mjs': { file: 'deflock-global.mjs', contentType: 'application/javascript; charset=utf-8' },
   'godeye-live-feed.mjs': { file: 'godeye-live-feed.mjs', contentType: 'application/javascript; charset=utf-8' },
   'wigle-list.mjs': { file: 'wigle-list.mjs', contentType: 'application/javascript; charset=utf-8' },
   'main.js': { file: 'main.js', contentType: 'application/javascript; charset=utf-8' },
