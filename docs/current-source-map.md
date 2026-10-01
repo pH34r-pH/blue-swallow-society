@@ -78,9 +78,25 @@ surface; it does not reveal the companion shell or Wardriver artifacts.
 - **Devices / Utilities** (`/operator/devices`) exposes the current Wardriver
   release card and other device utilities. It does not make the APK public.
 
-`api/_private/operator/assets/main.js` owns route activation and lifecycle teardown;
-`companion-navigation.mjs` is the route vocabulary. Travels, World, and Entities
-are separate controllers so leaving a surface aborts/deactivates its requests.
+`app/operator/loader.js` owns private asset boot and
+`api/_private/operator/assets/main.js` owns view teardown;
+`companion-tabs.mjs` coordinates route activation and lifecycle transitions, and
+`companion-navigation.mjs` is the route vocabulary. Travels and World use
+separate controllers with explicit deactivation when their surfaces are left.
+The eagerly mounted Entity workbench guards asynchronous responses with
+generation tokens and is destroyed on logout/pagehide; switching tabs does not
+promise request cancellation for that workbench.
+
+## Retained companion stabilization backlog
+
+Issue #78 is bounded to behavior-preserving reliability and structural cleanup of
+the retained companion: navigation, Travels/history and personal map rendering,
+Entities, and Devices/Utilities. The current slice extracts route lifecycle
+coordination while preserving the existing browser contract. Follow-up slices may
+extract remaining retained render/data helpers with browser evidence. Tzeentch and
+Morning-dossier surfaces are retained only as paper-only contracts and are not part
+of this backlog; dormant AR correctness, hosting, authentication provisioning, and
+new product features remain separate work.
 
 ## Implemented code versus unverified operation
 
