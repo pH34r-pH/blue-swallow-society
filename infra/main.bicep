@@ -92,14 +92,14 @@ param cybermapSourceTarballSha256 string
 param cybermapDeploymentVersion string = utcNow()
 
 /*
- * Static Web App (Standard SKU so we can use app settings + linked APIs)
+ * Static Web App (Free SKU; current production fits one custom domain and two previews)
  */
 resource swa 'Microsoft.Web/staticSites@2023-01-01' = {
   name: staticWebAppName
   location: location
   sku: {
-    name: 'Standard'
-    tier: 'Standard'
+    name: 'Free'
+    tier: 'Free'
   }
   properties: {}
   tags: {
