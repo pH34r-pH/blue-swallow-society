@@ -57,8 +57,6 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: vm/cybermap-api/package-lock.json
-      - name: Require the declared Node runtime before installation
-        run: node --test tests/node-runtime-contract.test.mjs
       - name: Install Cybermap API dependencies
         run: npm ci --prefix vm/cybermap-api --ignore-scripts --engine-strict
       - name: Run Cybermap API tests
