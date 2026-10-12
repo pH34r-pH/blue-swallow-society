@@ -1,5 +1,7 @@
 # Blue Swallow Society on Azure Static Web Apps + Cybermap Backend
 
+![Blue Swallow Society — Expand awareness into digital space.](docs/assets/hero.png)
+
 Deployment ownership is moving to the private Wardriver repository. The new
 [public CI and source handoff](docs/public-ci-handoff.md) validates Society code
 for that path. The legacy public Azure workflow is manual and main-only during
