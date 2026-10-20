@@ -24,5 +24,5 @@ Route changes to the earliest authoritative artifact (`spec.md → plan.md →
 tests.md → tasks.md`), then reconcile this map or the current source map. For
 documentation-only work, run `git diff --check`, the relevant link/command
 inspection, and the focused source tests named by the changed boundary. Do not
-edit secrets, private corpora, generated Graphify output, or historical records
+edit secrets, private corpora, or historical records
 to make a current map pass.

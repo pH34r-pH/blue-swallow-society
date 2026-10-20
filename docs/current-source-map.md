@@ -141,10 +141,9 @@ npm test --prefix vm/cybermap-api
 git diff --check
 ```
 
-The checked-in Graphify report is a navigation aid, not a current proof. The
-checkout currently has no `graphify` executable; do not regenerate or claim a
-semantic refresh until the tool is available. Documentation-only changes do not
-require a Graphify refresh under the repository instructions.
+Use this maintained Markdown map and the scoped `AGENTS.md` files for navigation,
+then verify claims in source with `rg`. Update the affected map when a boundary
+changes. Generated topology is not a development or validation dependency.
 
 ## Documentation and artifact CI
 
