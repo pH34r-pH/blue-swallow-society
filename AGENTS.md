@@ -70,7 +70,7 @@ spec.md → plan.md → tests.md → tasks.md
 - Run focused tests first, then relevant regressions. Root contract tests use `node --test tests/*.test.mjs` when applicable. The Cybermap API has its own `npm test` workflow in `vm/cybermap-api/`.
 - Treat infrastructure, workflow, deployment, and release changes as separate verification surfaces. Record what was actually exercised.
 - Do not deploy, publish, rotate credentials, or make external writes unless the task explicitly authorizes that action.
-- After source changes, run `graphify update .` from the repository root. Keep semantic/private corpus content local unless cloud routing is explicitly approved.
+- Navigate through `docs/current-source-map.md` and the scoped maps, then search source with `rg`. Update the relevant Markdown map when changing a source boundary; no generated navigation index is required.
 
 ## Repository hygiene
 

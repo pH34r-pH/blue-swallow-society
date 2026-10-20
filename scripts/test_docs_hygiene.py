@@ -64,7 +64,6 @@ class DocumentationHygieneTests(unittest.TestCase):
 
     def test_historical_scientific_and_generated_docs_are_not_living_docs(self) -> None:
         self.assertEqual([], changed_living_docs([("A", "specs/033-owner-upload-adapter/spec.md")]))
-        self.assertEqual([], changed_living_docs([("A", "graphify-out/GRAPH_REPORT.md")]))
         self.assertEqual([], changed_living_docs([("A", "docs/crypto-paper-trading-strategy-research.md")]))
         self.assertEqual(["docs/future-proposal.md"], changed_living_docs([("A", "docs/future-proposal.md")]))
 

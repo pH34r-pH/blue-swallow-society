@@ -13,7 +13,7 @@ Remove the material deployment, location-privacy, session, rate-limit, and depen
 - Do not claim a live Azure repair without deployment receipts.
 - Do not redesign the public cover, Wardriver protocol, or Cybermap schema as part of a boundary repair.
 - Do not replace the existing tests with broad integration claims. Add a focused test at each changed boundary.
-- Do not migrate a secret into browser storage, source control, documentation, or generated Graphify output.
+- Do not migrate a secret into browser storage, source control, documentation, or generated diagnostics.
 
 ## Repair order
 
@@ -196,7 +196,7 @@ PYTHONPATH=scripts python3 -m unittest discover -s tests -p '*_test.py'
 git diff --check
 ```
 
-After code changes, run `graphify update .` from the repository root and verify the generated graph loads at the repaired commit. For documentation-only edits, retain the local code graph and state that semantic documentation extraction was not run.
+After source-boundary changes, update `docs/current-source-map.md` and the affected scoped map. Search those Markdown guides and source with `rg`; generated topology is not a validation gate.
 
 ## Promotion gate
 

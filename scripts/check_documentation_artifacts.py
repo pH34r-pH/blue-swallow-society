@@ -15,7 +15,6 @@ import subprocess
 from pathlib import Path
 
 RECORD_PREFIXES = (
-    "graphify-out/",
     "specs/",
 )
 RECORD_DOC_NAMES = {

@@ -10,4 +10,3 @@ ignores:
   - "node_modules/**"
   - "api/node_modules/**"
   - "vm/cybermap-api/node_modules/**"
-  - "graphify-out/**"
