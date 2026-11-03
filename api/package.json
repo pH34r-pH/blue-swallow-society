@@ -8,8 +8,9 @@
   },
   "dependencies": {
     "@azure/data-tables": "13.3.2",
+    "@azure/identity": "4.14.1",
     "@azure/msal-node": "7.0.0",
-    "@azure/storage-blob": "^12.28.0",
+    "@azure/storage-blob": "12.33.0",
     "jose": "6.2.12"
   },
   "devDependencies": {
