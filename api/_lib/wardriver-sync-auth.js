@@ -54,36 +54,58 @@ function displayName(value) {
   return value.trim();
 }
 
+function readEndpoint(endpoint) {
+  const url = new URL(endpoint);
+  if (url.protocol !== 'https:' || url.port || url.username || url.password || url.search || url.hash
+    || url.pathname !== '/api/wardriver-sync' || url.href !== endpoint) fail(503, 'sync_unavailable');
+  return endpoint;
+}
+
+function readStorageLocation(env) {
+  const accountName = env.BSS_WARDRIVER_SYNC_ACCOUNT_NAME;
+  const container = env.BSS_WARDRIVER_SYNC_CONTAINER;
+  if (!/^[a-z0-9]{3,24}$/.test(accountName || '')
+    || !/^[a-z0-9](?:[a-z0-9-]{1,61})[a-z0-9]$/.test(container || '') || container.includes('--')) {
+    fail(503, 'sync_unavailable');
+  }
+  return { accountName, container };
+}
+
+function readRosterSigner(pem, owner) {
+  if (typeof pem !== 'string' || pem.length > 8192 || !pem.startsWith('-----BEGIN PRIVATE KEY-----')) {
+    fail(503, 'sync_unavailable');
+  }
+  const signingKey = createPrivateKey({ key: pem, format: 'pem', type: 'pkcs8' });
+  const signer = publicIdentity(createPublicKey(signingKey).export({ format: 'der', type: 'spki' }).toString('base64url'));
+  if (signer.deviceId === owner.deviceId) fail(503, 'sync_unavailable');
+  return { signer, signingKey };
+}
+
+function readMaxDevices(value) {
+  const text = value || '5';
+  const maxDevices = Number(text);
+  if (!/^[1-5]$/.test(text) || maxDevices < 1 || maxDevices > 5) fail(503, 'sync_unavailable');
+  return maxDevices;
+}
+
+function readManagedIdentity(value) {
+  if (value !== undefined && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value)) {
+    fail(503, 'sync_unavailable');
+  }
+  return value;
+}
+
 function readConfig(env = process.env) {
   try {
     if (env.BSS_WARDRIVER_SYNC_ENABLED !== 'true') fail(503, 'sync_unavailable');
     const groupId = env.BSS_WARDRIVER_SYNC_GROUP_ID;
-    const endpoint = env.BSS_WARDRIVER_SYNC_ENDPOINT;
-    const url = new URL(endpoint);
-    const accountName = env.BSS_WARDRIVER_SYNC_ACCOUNT_NAME;
-    const container = env.BSS_WARDRIVER_SYNC_CONTAINER;
-    if (!GROUP_ID.test(groupId || '') || url.protocol !== 'https:' || url.port || url.username || url.password
-      || url.search || url.hash || url.pathname !== '/api/wardriver-sync' || url.href !== endpoint
-      || !/^[a-z0-9]{3,24}$/.test(accountName || '')
-      || !/^[a-z0-9](?:[a-z0-9-]{1,61})[a-z0-9]$/.test(container || '') || container.includes('--')) {
-      fail(503, 'sync_unavailable');
-    }
+    if (!GROUP_ID.test(groupId || '')) fail(503, 'sync_unavailable');
+    const endpoint = readEndpoint(env.BSS_WARDRIVER_SYNC_ENDPOINT);
+    const { accountName, container } = readStorageLocation(env);
     const owner = publicIdentity(env.BSS_WARDRIVER_SYNC_OWNER_PUBLIC_KEY_SPKI);
-    const pem = env.BSS_WARDRIVER_SYNC_ROSTER_PRIVATE_KEY_PEM;
-    if (typeof pem !== 'string' || pem.length > 8192 || !pem.startsWith('-----BEGIN PRIVATE KEY-----')) {
-      fail(503, 'sync_unavailable');
-    }
-    const signingKey = createPrivateKey({ key: pem, format: 'pem', type: 'pkcs8' });
-    const signer = publicIdentity(createPublicKey(signingKey).export({ format: 'der', type: 'spki' }).toString('base64url'));
-    if (signer.deviceId === owner.deviceId) fail(503, 'sync_unavailable');
-    const maxDevicesText = env.BSS_WARDRIVER_SYNC_MAX_DEVICES || '5';
-    const maxDevices = Number(maxDevicesText);
-    if (!/^[1-5]$/.test(maxDevicesText) || maxDevices < 1 || maxDevices > 5) fail(503, 'sync_unavailable');
-    const managedIdentityClientId = env.BSS_WARDRIVER_SYNC_MANAGED_IDENTITY_CLIENT_ID;
-    if (managedIdentityClientId !== undefined
-      && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(managedIdentityClientId)) {
-      fail(503, 'sync_unavailable');
-    }
+    const { signer, signingKey } = readRosterSigner(env.BSS_WARDRIVER_SYNC_ROSTER_PRIVATE_KEY_PEM, owner);
+    const maxDevices = readMaxDevices(env.BSS_WARDRIVER_SYNC_MAX_DEVICES);
+    const managedIdentityClientId = readManagedIdentity(env.BSS_WARDRIVER_SYNC_MANAGED_IDENTITY_CLIENT_ID);
     return Object.freeze({ groupId, endpoint, accountName, container, owner, signer, signingKey, maxDevices,
       managedIdentityClientId, ownerDisplayName: displayName(env.BSS_WARDRIVER_SYNC_OWNER_NAME || 'Owner device'),
       containerUrl: `https://${accountName}.blob.core.windows.net/${container}` });
@@ -144,6 +166,30 @@ async function challenge(body, config, now = Math.floor(Date.now() / 1000)) {
     rosterPublicKeySpki: config.signer.publicKeySpki };
 }
 
+function enrollmentFields(payload) {
+  if (typeof payload.invitation !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(payload.invitation)
+    || decodeBase64Url(payload.invitation, 32).length !== 32) fail(400, 'invalid_request');
+  return { invitation: payload.invitation, displayName: displayName(payload.displayName) };
+}
+
+function invitationFields(payload) {
+  const expiresInSeconds = payload.expiresInSeconds ?? 86400;
+  if (!Number.isSafeInteger(expiresInSeconds) || expiresInSeconds < 300
+    || expiresInSeconds > 604800) fail(400, 'invalid_request');
+  return { expiresInSeconds };
+}
+
+function revocationFields(payload) {
+  const cutoff = payload.acceptedThrough;
+  if (!DEVICE_ID.test(payload.targetDeviceId || '') || !exactKeys(cutoff, ['sequence', 'commitHash'])
+    || !Number.isSafeInteger(cutoff.sequence) || cutoff.sequence < 0
+    || (cutoff.sequence === 0 ? cutoff.commitHash !== null : !DEVICE_ID.test(cutoff.commitHash || ''))) {
+    fail(400, 'invalid_request');
+  }
+  return { targetDeviceId: payload.targetDeviceId,
+    acceptedThrough: { sequence: cutoff.sequence, commitHash: cutoff.commitHash } };
+}
+
 function validateFields(payload, action) {
   const common = ['version', 'groupId', 'action', 'publicKeySpki', 'challenge'];
   const required = { enroll: ['invitation', 'displayName'], grants: [], invite: [], rename: ['displayName'],
@@ -151,28 +197,22 @@ function validateFields(payload, action) {
   if (!exactKeys(payload, [...common, ...required], action === 'invite' ? ['expiresInSeconds'] : [])) {
     fail(400, 'invalid_request');
   }
-  if (action === 'enroll' && (typeof payload.invitation !== 'string'
-    || !/^[A-Za-z0-9_-]{43}$/.test(payload.invitation)
-    || decodeBase64Url(payload.invitation, 32).length !== 32)) fail(400, 'invalid_request');
-  const fields = {};
-  if (action === 'enroll') fields.invitation = payload.invitation;
-  if (['enroll', 'rename'].includes(action)) fields.displayName = displayName(payload.displayName);
-  if (action === 'invite') {
-    fields.expiresInSeconds = payload.expiresInSeconds ?? 86400;
-    if (!Number.isSafeInteger(fields.expiresInSeconds) || fields.expiresInSeconds < 300
-      || fields.expiresInSeconds > 604800) fail(400, 'invalid_request');
+  switch (action) {
+    case 'enroll': return enrollmentFields(payload);
+    case 'invite': return invitationFields(payload);
+    case 'rename': return { displayName: displayName(payload.displayName) };
+    case 'revoke': return revocationFields(payload);
+    default: return {};
   }
-  if (action === 'revoke') {
-    const cutoff = payload.acceptedThrough;
-    if (!DEVICE_ID.test(payload.targetDeviceId || '') || !exactKeys(cutoff, ['sequence', 'commitHash'])
-      || !Number.isSafeInteger(cutoff.sequence) || cutoff.sequence < 0
-      || (cutoff.sequence === 0 ? cutoff.commitHash !== null : !DEVICE_ID.test(cutoff.commitHash || ''))) {
-      fail(400, 'invalid_request');
-    }
-    fields.targetDeviceId = payload.targetDeviceId;
-    fields.acceptedThrough = { sequence: cutoff.sequence, commitHash: cutoff.commitHash };
-  }
-  return fields;
+}
+
+function validateChallengeTicket(ticket, config, identity, now) {
+  if (!exactKeys(ticket, ['version', 'groupId', 'audience', 'deviceId', 'nonce', 'issuedAt', 'expiresAt'])
+    || ticket.version !== 1 || ticket.groupId !== config.groupId || ticket.audience !== config.endpoint
+    || ticket.deviceId !== identity.deviceId || typeof ticket.nonce !== 'string'
+    || !/^[A-Za-z0-9_-]{43}$/.test(ticket.nonce) || decodeBase64Url(ticket.nonce, 32).length !== 32
+    || !Number.isSafeInteger(ticket.issuedAt) || !Number.isSafeInteger(ticket.expiresAt)
+    || ticket.expiresAt - ticket.issuedAt !== CHALLENGE_SECONDS || ticket.issuedAt > now + 5) fail(401, 'invalid_proof');
 }
 
 async function verifyProof(body, action, config, now = Math.floor(Date.now() / 1000)) {
@@ -189,12 +229,7 @@ async function verifyProof(body, action, config, now = Math.floor(Date.now() / 1
     payload = await verifyJson(body.proof, identity.key, REQUEST_TYPE, identity.deviceId);
     if (payload.version !== 1 || payload.groupId !== config.groupId || payload.action !== action) fail(401, 'invalid_proof');
     ticket = await verifyJson(payload.challenge, config.signer.key, CHALLENGE_TYPE, config.signer.deviceId);
-    if (!exactKeys(ticket, ['version', 'groupId', 'audience', 'deviceId', 'nonce', 'issuedAt', 'expiresAt'])
-      || ticket.version !== 1 || ticket.groupId !== config.groupId || ticket.audience !== config.endpoint
-      || ticket.deviceId !== identity.deviceId || typeof ticket.nonce !== 'string'
-      || !/^[A-Za-z0-9_-]{43}$/.test(ticket.nonce) || decodeBase64Url(ticket.nonce, 32).length !== 32
-      || !Number.isSafeInteger(ticket.issuedAt) || !Number.isSafeInteger(ticket.expiresAt)
-      || ticket.expiresAt - ticket.issuedAt !== CHALLENGE_SECONDS || ticket.issuedAt > now + 5) fail(401, 'invalid_proof');
+    validateChallengeTicket(ticket, config, identity, now);
   } catch { fail(401, 'invalid_proof'); }
   if (ticket.expiresAt <= now) fail(401, 'challenge_expired');
   return { action, deviceId: identity.deviceId, publicKeySpki: identity.publicKeySpki,

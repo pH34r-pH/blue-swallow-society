@@ -14,6 +14,15 @@ function response(status, body, headers = {}) {
   return { status, headers: { ...PRIVATE_HEADERS, ...headers }, body };
 }
 
+function errorResponse(context, error) {
+  const status = error instanceof SyncAccessError ? error.status : 503;
+  const code = error instanceof SyncAccessError ? error.code : 'sync_unavailable';
+  // Never pass exceptions, request bodies, invitations, identities, or SDK
+  // URLs to logs; SDK errors may contain bearer capabilities in their URL.
+  if (status >= 500) context.log?.error?.('Wardriver sync access is unavailable.');
+  return response(status, { error: { code } });
+}
+
 async function handle(context, req, { env = process.env, createStore = createSyncStore,
   now = () => Math.floor(Date.now() / 1000) } = {}) {
   if (String(req?.method || '').toUpperCase() !== 'POST') {
@@ -36,12 +45,7 @@ async function handle(context, req, { env = process.env, createStore = createSyn
     const result = await createStore({ config, now }).execute(proof);
     context.res = response(200, result);
   } catch (error) {
-    const status = error instanceof SyncAccessError ? error.status : 503;
-    const code = error instanceof SyncAccessError ? error.code : 'sync_unavailable';
-    // Never pass exceptions, request bodies, invitations, identities, or SDK
-    // URLs to logs; SDK errors may contain bearer capabilities in their URL.
-    if (status >= 500) context.log?.error?.('Wardriver sync access is unavailable.');
-    context.res = response(status, { error: { code } });
+    context.res = errorResponse(context, error);
   }
 }
 
