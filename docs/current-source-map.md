@@ -110,6 +110,7 @@ new product features remain separate work.
 | Observation upload | Functions batch proxy validates method/body/HTTPS backend and forwards device, token, and idempotency headers; Wardriver source owns encrypted V2 staging and receipt handling | A production Wardriver-to-VM upload, deployed PostGIS persistence, and device certificate/token acceptance |
 | AR/vision | Society contains parser/geometry/rendering helpers and the hosted dashboard has no browser AR tab; Wardriver owns the actual ARCore/LiteRT camera feature | Physical camera/ARCore behavior, model accuracy, depth availability, and any RF/visual association |
 | Release delivery | Private manifest validation, operator-only metadata, five-minute HTTPS read-only Blob SAS, and Android metadata-only update client contracts | Current Blob manifest, live artifact provenance, installed-device update, and real release acceptance |
+| vNext development updates | Separate bearer-gated HTML index, signer-pinned immutable receipt validation, and fresh five-minute APK/FAP grants under `api/wardriver-development/`; independent reader hashes allow per-device update-read revocation | Protected reader/storage/signer configuration, qualified Node 24 deployment, publisher integration, Obtainium updates, and physical Bluetooth installation |
 | Paper trading | Tzeentch routes and paper ledger remain read-only/paper-only; research and ledger records are retained | No live exchange, broker, wallet, or prediction-market execution is implied or authorized |
 
 Do not turn a test fixture, local proof, source route, or historical deployment
@@ -117,6 +118,15 @@ observation into a live claim. In particular, `docs/azure-resources.md`,
 `docs/cybermap-geospatial-backend.md`, and `docs/owner-entra-cutover.md` contain
 design or cutover constraints that must be reconciled with private deployment
 evidence before use as operations guidance.
+
+The vNext feed contract is in
+[`specs/028-vnext-private-update-feed/`](../specs/028-vnext-private-update-feed/spec.md).
+It uses a stable authenticated index and immutable versioned download paths;
+expiring Blob grants are issued at download time. Its credentials do not authorize
+owner APIs, observation upload, or shared-map access. Current Society source
+requires Node 24 and is packaged by the public Functions OCI release workflow;
+Wardriver's retained Node 22 managed-SWA promoter cannot deploy this source.
+Runtime qualification and live configuration remain separate work.
 
 ## Change routing and focused validation
 
