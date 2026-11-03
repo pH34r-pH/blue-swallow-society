@@ -111,6 +111,7 @@ new product features remain separate work.
 | AR/vision | Society contains parser/geometry/rendering helpers and the hosted dashboard has no browser AR tab; Wardriver owns the actual ARCore/LiteRT camera feature | Physical camera/ARCore behavior, model accuracy, depth availability, and any RF/visual association |
 | Release delivery | Private manifest validation, operator-only metadata, five-minute HTTPS read-only Blob SAS, and Android metadata-only update client contracts | Current Blob manifest, live artifact provenance, installed-device update, and real release acceptance |
 | vNext development updates | Separate bearer-gated HTML index, signer-pinned immutable receipt validation, and fresh five-minute APK/FAP grants under `api/wardriver-development/`; independent reader hashes allow per-device update-read revocation | Protected reader/storage/signer configuration, qualified Node 24 deployment, publisher integration, Obtainium updates, and physical Bluetooth installation |
+| Private device dataset sync | `api/wardriver-sync/` validates RS256 device proofs, atomically claims invitations and replay nonces, publishes a versioned signed roster, and grants group reads / own immutable creates / exact own head writes through managed identity | Protected group/owner/signer settings, private container and managed-identity roles, live prefix enforcement, qualified Node 24 deployment, and phone onboarding/sync |
 | Paper trading | Tzeentch routes and paper ledger remain read-only/paper-only; research and ledger records are retained | No live exchange, broker, wallet, or prediction-market execution is implied or authorized |
 
 Do not turn a test fixture, local proof, source route, or historical deployment
@@ -128,6 +129,15 @@ requires Node 24 and is packaged by the public Functions OCI release workflow;
 Wardriver's retained Node 22 managed-SWA promoter cannot deploy this source.
 Runtime qualification and live configuration remain separate work.
 
+The private dataset access contract is
+[`docs/wardriver-device-sync-access.md`](wardriver-device-sync-access.md), with
+source acceptance in
+[`specs/029-wardriver-device-sync-access/`](../specs/029-wardriver-device-sync-access/spec.md).
+It issues access metadata only: phones transfer payloads directly to Blob storage
+and maintain their own incremental maps. Device keys establish membership without
+accounts; the protected owner pin and owner-authorized service signer establish
+the group. This route does not call the retained observation-ingestion service.
+
 ## Change routing and focused validation
 
 | Change area | Start with | Focused validation |
@@ -137,6 +147,7 @@ Runtime qualification and live configuration remain separate work.
 | Travels/history/nearby map | `api/cybermap-history/`, `api/operator-signals/`, `vm/cybermap-api/src/history-*`, `api/_private/operator/assets/travels-*` | `node --test tests/history-api.test.mjs tests/travels-state.test.mjs tests/travels.browser.mjs vm/cybermap-api/test/history-*.test.mjs` |
 | Entities/auth | `api/cybermap-entities/`, `api/_lib/entity-*`, `api/_private/operator/assets/entity-*`, `vm/cybermap-api/src/entity-*` | `node --test tests/entity-proxy.test.mjs tests/entity-edit-auth.test.mjs tests/entity-workbench.browser.mjs tests/entity-integration.browser.mjs vm/cybermap-api/test/entity-workbench*.test.mjs vm/cybermap-api/test/entity-api-adapter.test.mjs` |
 | Ingest/schema | `api/cybermap-observations-batch/`, `vm/cybermap-api/src/contracts.mjs`, `db/migrations/`, `shared/contracts/` | `node --test tests/cybermap-ingest-api.test.mjs tests/cybermap-schema.test.mjs vm/cybermap-api/test/contracts.test.mjs vm/cybermap-api/test/wardriver-contract-conformance.test.mjs` |
+| Private dataset access | `api/wardriver-sync/`, `api/_lib/wardriver-sync-*`, `docs/wardriver-device-sync-access.md` | `node --test tests/wardriver-sync-auth.test.mjs tests/wardriver-sync-api.test.mjs` |
 | Paper runtime | `api/tzeentch/`, `config/`, `scripts/mosaic_murmurs_*`, `tests/paper*` | `node --test tests/tzeentch-route.test.mjs tests/tzeentch-dashboard.test.mjs tests/paper-state-contract.test.mjs && python3 -m unittest discover -s tests -p 'paper*_test.py'` |
 | Infra/deployment | `infra/`, `.github/workflows/`, `docs/public-ci-handoff.md` | `node --test tests/wardriver-release-delivery-config.test.mjs tests/wardriver-basemap-delivery-config.test.mjs tests/node-runtime-contract.test.mjs`; deployment/what-if workflows are separate and manual |
 

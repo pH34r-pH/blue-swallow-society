@@ -21,6 +21,13 @@ Functions are the authenticated same-origin boundary. Route families are:
   bearer against configured hashes before storage access, pins the APK signer,
   and never accepts an owner session as a development reader credential. See
   `specs/028-vnext-private-update-feed/` for the publication/configuration contract.
+- `wardriver-sync/` and `_lib/wardriver-sync-*` are the separate device-key
+  invitation and Blob capability boundary. Pinned owner configuration seeds one
+  private group; RS256 challenges/proofs, conditional membership state, and signed
+  rosters authorize five-minute dataset read / own create / exact head grants.
+  Never accept scan bodies or substitute owner sessions/update-reader tokens.
+  See `specs/029-wardriver-device-sync-access/` and
+  `docs/wardriver-device-sync-access.md` for configuration and wire contracts.
 - `tzeentch/`, `paper-state/`, and `morning-brief/` stay behind their explicit
   contracts. Paper state is paper-only.
 
@@ -34,6 +41,7 @@ Focused checks:
 ```bash
 node --test tests/common-api-auth.test.mjs tests/owner-auth.test.mjs tests/operator-shell-api.test.mjs tests/operator-downloads-api.test.mjs
 node --test tests/wardriver-development-api.test.mjs tests/wardriver-development-store.test.mjs
+node --test tests/wardriver-sync-auth.test.mjs tests/wardriver-sync-api.test.mjs
 node --test tests/cybermap-ingest-api.test.mjs tests/cybermap-viewport-api.test.mjs tests/entity-proxy.test.mjs
 npm test --prefix vm/cybermap-api
 git diff --check
