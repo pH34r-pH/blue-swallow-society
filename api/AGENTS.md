@@ -16,6 +16,11 @@ Functions are the authenticated same-origin boundary. Route families are:
   idempotency headers, preserves the JSON body, and requires an HTTPS backend.
 - `operator-downloads/` reads a validated private release manifest and returns
   metadata or a short-lived HTTPS read-only Blob SAS; it never reads a tracked APK.
+- `wardriver-development/` serves the separate private vNext update index,
+  immutable receipts, and APK/FAP grants. It validates a dedicated read-only
+  bearer against configured hashes before storage access, pins the APK signer,
+  and never accepts an owner session as a development reader credential. See
+  `specs/028-vnext-private-update-feed/` for the publication/configuration contract.
 - `tzeentch/`, `paper-state/`, and `morning-brief/` stay behind their explicit
   contracts. Paper state is paper-only.
 
@@ -28,6 +33,7 @@ Focused checks:
 
 ```bash
 node --test tests/common-api-auth.test.mjs tests/owner-auth.test.mjs tests/operator-shell-api.test.mjs tests/operator-downloads-api.test.mjs
+node --test tests/wardriver-development-api.test.mjs tests/wardriver-development-store.test.mjs
 node --test tests/cybermap-ingest-api.test.mjs tests/cybermap-viewport-api.test.mjs tests/entity-proxy.test.mjs
 npm test --prefix vm/cybermap-api
 git diff --check
