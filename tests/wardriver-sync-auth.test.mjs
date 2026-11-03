@@ -22,13 +22,22 @@ test('device identities bind canonical RSA SPKI DER, full SHA256, and accepted m
 
 test('explicit protected configuration pins owner, group, origin, and a separate service signer', () => {
   assert.equal(auth.readConfig(f.env).owner.deviceId, f.owner.deviceId);
+  for (const count of ['1', '5']) {
+    assert.equal(auth.readConfig({ ...f.env, BSS_WARDRIVER_SYNC_MAX_DEVICES: count }).maxDevices, Number(count));
+  }
   const invalid = [{}, { ...f.env, BSS_WARDRIVER_SYNC_ENABLED: 'false' },
     { ...f.env, BSS_WARDRIVER_SYNC_ENDPOINT: 'http://fixture.invalid/api/wardriver-sync' },
+    { ...f.env, BSS_WARDRIVER_SYNC_ENDPOINT: 'https://fixture.invalid:444/api/wardriver-sync' },
+    { ...f.env, BSS_WARDRIVER_SYNC_ENDPOINT: 'https://fixture.invalid:8443/api/wardriver-sync' },
+    { ...f.env, BSS_WARDRIVER_SYNC_ENDPOINT: 'https://fixture.invalid:443/api/wardriver-sync' },
     { ...f.env, BSS_WARDRIVER_SYNC_ENDPOINT: f.config.endpoint + '?token=bad' },
     { ...f.env, BSS_WARDRIVER_SYNC_ENDPOINT: 'https://someone@fixture.invalid/api/wardriver-sync' },
     { ...f.env, BSS_WARDRIVER_SYNC_GROUP_ID: '../another' },
     { ...f.env, BSS_WARDRIVER_SYNC_CONTAINER: 'bad--container' },
-    { ...f.env, BSS_WARDRIVER_SYNC_MAX_DEVICES: '17' },
+    { ...f.env, BSS_WARDRIVER_SYNC_MAX_DEVICES: '0' },
+    { ...f.env, BSS_WARDRIVER_SYNC_MAX_DEVICES: '6' },
+    { ...f.env, BSS_WARDRIVER_SYNC_MAX_DEVICES: '16' },
+    { ...f.env, BSS_WARDRIVER_SYNC_MAX_DEVICES: '05' },
     { ...f.env, BSS_WARDRIVER_SYNC_MANAGED_IDENTITY_CLIENT_ID: 'untrusted' },
     { ...f.env, BSS_WARDRIVER_SYNC_ROSTER_PRIVATE_KEY_PEM: f.owner.privateKey.export({ format: 'pem', type: 'pkcs8' }) }];
   for (const env of invalid) assert.throws(() => auth.readConfig(env), { code: 'sync_unavailable' });

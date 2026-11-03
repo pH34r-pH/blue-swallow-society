@@ -57,13 +57,13 @@ configuration, never APK resources, public manifests, or source control.
 | --- | --- |
 | `BSS_WARDRIVER_SYNC_ENABLED` | `true` only after provisioning; absent means disabled |
 | `BSS_WARDRIVER_SYNC_GROUP_ID` | `[A-Za-z0-9_-]{1,64}`, stable for the group |
-| `BSS_WARDRIVER_SYNC_ENDPOINT` | Exact HTTPS URL ending `/api/wardriver-sync`; no query, fragment, or userinfo |
+| `BSS_WARDRIVER_SYNC_ENDPOINT` | Canonical HTTPS URL on default port 443 ending `/api/wardriver-sync`; omit explicit port, query, fragment, and userinfo |
 | `BSS_WARDRIVER_SYNC_ACCOUNT_NAME` | Azure public-cloud storage account name |
 | `BSS_WARDRIVER_SYNC_CONTAINER` | One existing private Blob container for this group |
 | `BSS_WARDRIVER_SYNC_OWNER_PUBLIC_KEY_SPKI` | Canonical base64url RSA public SPKI DER from the owner phone |
 | `BSS_WARDRIVER_SYNC_ROSTER_PRIVATE_KEY_PEM` | Protected PKCS#8 RSA service signing key, distinct from owner key |
 | `BSS_WARDRIVER_SYNC_OWNER_NAME` | Optional initial owner name; defaults to `Owner device` |
-| `BSS_WARDRIVER_SYNC_MAX_DEVICES` | Optional active membership cap, 1–16; defaults to 5 |
+| `BSS_WARDRIVER_SYNC_MAX_DEVICES` | Optional active membership cap, 1–5; defaults to 5 |
 | `BSS_WARDRIVER_SYNC_MANAGED_IDENTITY_CLIENT_ID` | Optional user-assigned managed identity client UUID; otherwise system identity |
 
 Assign the provider's managed identity **Storage Blob Data Contributor** on the

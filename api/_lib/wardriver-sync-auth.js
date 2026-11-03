@@ -62,7 +62,7 @@ function readConfig(env = process.env) {
     const url = new URL(endpoint);
     const accountName = env.BSS_WARDRIVER_SYNC_ACCOUNT_NAME;
     const container = env.BSS_WARDRIVER_SYNC_CONTAINER;
-    if (!GROUP_ID.test(groupId || '') || url.protocol !== 'https:' || url.username || url.password
+    if (!GROUP_ID.test(groupId || '') || url.protocol !== 'https:' || url.port || url.username || url.password
       || url.search || url.hash || url.pathname !== '/api/wardriver-sync' || url.href !== endpoint
       || !/^[a-z0-9]{3,24}$/.test(accountName || '')
       || !/^[a-z0-9](?:[a-z0-9-]{1,61})[a-z0-9]$/.test(container || '') || container.includes('--')) {
@@ -78,7 +78,7 @@ function readConfig(env = process.env) {
     if (signer.deviceId === owner.deviceId) fail(503, 'sync_unavailable');
     const maxDevicesText = env.BSS_WARDRIVER_SYNC_MAX_DEVICES || '5';
     const maxDevices = Number(maxDevicesText);
-    if (!/^[0-9]{1,2}$/.test(maxDevicesText) || maxDevices < 1 || maxDevices > 16) fail(503, 'sync_unavailable');
+    if (!/^[1-5]$/.test(maxDevicesText) || maxDevices < 1 || maxDevices > 5) fail(503, 'sync_unavailable');
     const managedIdentityClientId = env.BSS_WARDRIVER_SYNC_MANAGED_IDENTITY_CLIENT_ID;
     if (managedIdentityClientId !== undefined
       && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(managedIdentityClientId)) {

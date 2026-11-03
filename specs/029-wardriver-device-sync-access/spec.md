@@ -21,7 +21,9 @@ remain separate authentication boundaries.
    challenge is consumed atomically with its operation. Replay fails.
 4. An invitation admits one key atomically. A different key cannot claim it;
    the admitted key can recover a lost response using a fresh challenge and the
-   same invitation. At most five active devices are admitted by default.
+   same invitation. The active-device cap is configurable from one through five,
+   defaulting to five, matching the current phone contract. The provider endpoint
+   uses canonical HTTPS on default port 443.
 5. A member receives a signed, versioned roster and five-minute HTTPS user
    delegation SAS grants: group dataset reads, create-only own immutable objects,
    exact own head writes, and exact roster reads. No client can read control state,
