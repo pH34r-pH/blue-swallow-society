@@ -5,8 +5,10 @@
   the private publisher.
 - [x] Implement narrow bearer validation, bounded development store, and Function.
 - [x] Run focused authorization, manifest, SAS, pointer-race, and production tests:
-  51 pass. The complete public source gate passes 328 tests on Node 24; changed
+  55 pass. The complete public source gate passes 332 tests on Node 24; changed
   source maps pass markdownlint-cli2 0.18.1.
+- [x] Accept the private publisher's generated manifest fixture in the Society
+  reader and align version, artifact-size, and extension-source bounds.
 - [x] Update current source and Functions maps with the new isolated boundary.
 - [ ] Run the Functions image HTTP-host smoke gate in CI, including the new
   disabled index and nested download bindings.

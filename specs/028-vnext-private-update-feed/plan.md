@@ -40,8 +40,8 @@ sharing remain separate contracts.
 `latest.json` and each immutable `release.json` contain the same manifest bytes.
 The private publisher validates and uploads immutable artifacts first, then
 conditionally updates the latest pointer. The API checks schema/kind/channel,
-package/build identity, version code in `1..2100000000`, a safe bounded version
-name, a full lowercase source SHA, run/attempt identity, UTC publication time,
+package/build identity, version code in `1..2100000000`, a safe version name of
+up to 96 characters, a full lowercase source SHA, run/attempt identity, UTC publication time,
 and the configured APK signer. APK names are
 `wardriver-vnext-<versionCode>.apk`; listed extension FAPs share the release
 prefix. Additional publication evidence can be ignored by the reader.
@@ -49,14 +49,37 @@ prefix. Additional publication evidence can be ignored by the reader.
 Versioned download routes use an immutable manifest rather than the current
 pointer, preventing a check/download race. A fixed route prefix and strict
 identifier grammar prevent request-driven arbitrary Blob reads. Manifest bodies
-are limited to 128 KiB and reads have a ten-second abort deadline; only validated
+are limited to 64 KiB and reads have a ten-second abort deadline; only validated
 JSON is returned as a receipt.
 
 ## Client integration
 
-Configure Obtainium's HTML source with the stable index URL, the private bearer
-header, a version-code extraction expression, and version-code comparison. The
-index contains one APK candidate, avoiding a user selection during background
+Configure Obtainium's HTML source using these exact additional settings:
+
+| Setting key | Value |
+|---|---|
+| `versionExtractionRegEx` | `id="version-code">([0-9]+)<` |
+| `matchGroupToUse` | `$1` |
+| `versionExtractWholePage` | `true` |
+| `versionDetection` | `true` |
+| `useVersionCodeAsOSVersion` | `true` |
+| `requestHeader` | `[{"requestHeader":"Authorization: Bearer <private reader token>"}]` |
+
+The source identifier is `HTML`; the stable URL ends in
+`/api/wardriver-development/index.html`. Obtainium's app export/import format
+stores `additionalSettings` as a JSON-encoded string. A private bootstrap import
+must encode this settings object and keep its reader token out of public files,
+logs, and third-party redirect links. The extraction uses a capture group, so it
+does not require regular-expression lookbehind.
+
+The `useVersionCodeAsOSVersion` setting compares the page's numeric marker with
+Android's installed version code, avoiding development version-name formatting.
+These behaviors are defined in Obtainium's
+[`HTML` source](https://github.com/ImranR98/Obtainium/blob/main/lib/app_sources/html.dart),
+[app model](https://github.com/ImranR98/Obtainium/blob/main/lib/models/app.dart), and
+[version reader](https://github.com/ImranR98/Obtainium/blob/main/lib/providers/apps_provider.dart).
+
+The index contains one APK candidate, avoiding a user selection during background
 updates. A first approved install/update through Obtainium and Android's unknown
 source permission are still required. The FAP is also bundled in the APK and is
 installed onto the Flipper through Wardriver's Bluetooth flow.

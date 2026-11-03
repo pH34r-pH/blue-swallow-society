@@ -10,7 +10,7 @@ const {
 
 const CHANNEL_PREFIX = 'wardriver/development/vnext/';
 const LATEST_BLOB = `${CHANNEL_PREFIX}latest.json`;
-const MAX_MANIFEST_BYTES = 128 * 1024;
+const MAX_MANIFEST_BYTES = 64 * 1024;
 const SAS_TTL_MS = 5 * 60 * 1000;
 const CLOCK_SKEW_MS = 30 * 1000;
 
@@ -37,7 +37,7 @@ function integer(value, minimum, maximum) {
 }
 function digest(value, length = 64) { return match(value, new RegExp(`^[a-f0-9]{${length}}$`)); }
 function sourceCommit(value) { return match(value, /^[a-f0-9]{40}$/); }
-function version(value) { return match(value, /^[0-9A-Za-z][0-9A-Za-z._+-]{0,79}$/); }
+function version(value) { return match(value, /^[0-9A-Za-z][0-9A-Za-z._-]{0,95}$/); }
 
 function releasePrefix(versionCode, commit) {
   integer(versionCode, 1, 2100000000);
@@ -45,15 +45,38 @@ function releasePrefix(versionCode, commit) {
   return `${CHANNEL_PREFIX}releases/${versionCode}/${commit}/`;
 }
 
-function artifact(value, prefix, fileName) {
+function artifact(value, prefix, fileName, maximumSize) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) reject();
   if (value.fileName !== fileName || value.blobName !== `${prefix}${fileName}`) reject();
   return Object.freeze({
     blobName: value.blobName,
     fileName,
-    sizeBytes: integer(value.sizeBytes, 1, 2147483647),
+    sizeBytes: integer(value.sizeBytes, 1, maximumSize),
     sha256: digest(value.sha256),
   });
+}
+
+function validateExtensions(value, prefix, commit) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 16) reject();
+  const ids = new Set();
+  return Object.freeze(value.map((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) reject();
+    const id = match(entry.id, /^[a-z][a-z0-9_]{0,63}$/);
+    if (ids.has(id)) reject();
+    if (entry.sourceCommit !== commit) reject();
+    ids.add(id);
+    return Object.freeze({
+      ...artifact(entry, prefix, `${id}.fap`, 1024 * 1024),
+      id,
+      name: safeText(entry.name, 120),
+      version: version(entry.version),
+      md5: digest(entry.md5, 32),
+      firmwareVersion: version(entry.firmwareVersion),
+      apiMajor: integer(entry.apiMajor, 1, 65535),
+      apiMinor: integer(entry.apiMinor, 0, 65535),
+      sourceCommit: commit,
+    });
+  }));
 }
 
 function validateManifest(value, expectedSigner) {
@@ -68,26 +91,6 @@ function validateManifest(value, expectedSigner) {
   const publishedAt = match(value.publishedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/);
   if (!Number.isFinite(Date.parse(publishedAt))
     || new Date(publishedAt).toISOString().slice(0, 19) !== publishedAt.slice(0, 19)) reject();
-  const apk = artifact(value.apk, prefix, `wardriver-vnext-${versionCode}.apk`);
-  if (!Array.isArray(value.extensions) || value.extensions.length < 1 || value.extensions.length > 16) reject();
-  const ids = new Set();
-  const extensions = value.extensions.map((entry) => {
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) reject();
-    const id = match(entry.id, /^[a-z][a-z0-9_]{0,63}$/);
-    if (ids.has(id)) reject();
-    ids.add(id);
-    return Object.freeze({
-      ...artifact(entry, prefix, `${id}.fap`),
-      id,
-      name: safeText(entry.name, 120),
-      version: version(entry.version),
-      md5: digest(entry.md5, 32),
-      firmwareVersion: version(entry.firmwareVersion),
-      apiMajor: integer(entry.apiMajor, 0, 65535),
-      apiMinor: integer(entry.apiMinor, 0, 65535),
-      sourceCommit: sourceCommit(entry.sourceCommit),
-    });
-  });
   return Object.freeze({
     schemaVersion: 1,
     kind: value.kind,
@@ -100,8 +103,8 @@ function validateManifest(value, expectedSigner) {
     buildRunId: match(value.buildRunId, /^[1-9][0-9]{0,19}-[1-9][0-9]{0,8}$/),
     publishedAt,
     signerSha256: expectedSigner,
-    apk,
-    extensions: Object.freeze(extensions),
+    apk: artifact(value.apk, prefix, `wardriver-vnext-${versionCode}.apk`, 512 * 1024 * 1024),
+    extensions: validateExtensions(value.extensions, prefix, commit),
   });
 }
 

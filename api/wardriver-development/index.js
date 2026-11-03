@@ -52,6 +52,26 @@ function releaseIndex(release) {
     + '</body></html>\n';
 }
 
+async function deliverAuthorized(requested, method, env, store) {
+  const release = validateManifest(await store.getRelease(requested.index ? undefined : requested),
+    env.BSS_WARDRIVER_DEVELOPMENT_SIGNER_SHA256);
+  if (!requested.index && (release.versionCode !== requested.versionCode || release.sourceCommit !== requested.sourceCommit)) {
+    throw new Error('release_identity_mismatch');
+  }
+  if (requested.index) {
+    return response(200, releaseIndex(release), method, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Content-Security-Policy': "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    });
+  }
+  if (requested.fileName === 'release.json') return response(200, release, method);
+  if (![release.apk, ...release.extensions].some((entry) => entry.fileName === requested.fileName)) {
+    return response(404, { ok: false, error: 'Unknown development artifact.' }, method);
+  }
+  const location = await store.createDownloadUrl(release, requested.fileName);
+  return response(302, undefined, method, { Location: location });
+}
+
 async function handle(context, req, { env = process.env, createStore = createDevelopmentStore } = {}) {
   const method = String(req?.method || 'GET').toUpperCase();
   const auth = verifyDevelopmentReader(req, env);
@@ -70,25 +90,7 @@ async function handle(context, req, { env = process.env, createStore = createDev
     return;
   }
   try {
-    const store = createStore({ env });
-    const release = validateManifest(await store.getRelease(requested.index ? undefined : requested),
-      env.BSS_WARDRIVER_DEVELOPMENT_SIGNER_SHA256);
-    if (!requested.index && (release.versionCode !== requested.versionCode || release.sourceCommit !== requested.sourceCommit)) {
-      throw new Error('release_identity_mismatch');
-    }
-    if (requested.index) {
-      context.res = response(200, releaseIndex(release), method, {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Content-Security-Policy': "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
-      });
-    } else if (requested.fileName === 'release.json') {
-      context.res = response(200, release, method);
-    } else if (![release.apk, ...release.extensions].some((entry) => entry.fileName === requested.fileName)) {
-      context.res = response(404, { ok: false, error: 'Unknown development artifact.' }, method);
-    } else {
-      const location = await store.createDownloadUrl(release, requested.fileName);
-      context.res = response(302, undefined, method, { Location: location });
-    }
+    context.res = await deliverAuthorized(requested, method, env, createStore({ env }));
   } catch {
     context.log?.error?.('Wardriver development delivery failed.');
     context.res = response(503, { ok: false, error: 'Development updates are unavailable.' }, method);

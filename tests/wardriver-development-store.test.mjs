@@ -51,6 +51,7 @@ const invalidManifests = [
   ['zero version', (m) => { m.versionCode = 0; }],
   ['oversized version', (m) => { m.versionCode = 2100000001; }],
   ['HTML version', (m) => { m.versionName = '<script>'; }],
+  ['oversized version name', (m) => { m.versionName = 'v'.repeat(97); }],
   ['truncated source SHA', (m) => { m.sourceCommit = m.sourceCommit.slice(0, 7); }],
   ['uppercase source SHA', (m) => { m.sourceCommit = m.sourceCommit.toUpperCase(); }],
   ['invalid run attempt', (m) => { m.buildRunId = '123-0'; }],
@@ -59,15 +60,18 @@ const invalidManifests = [
   ['different APK name', (m) => { m.apk.fileName = 'other.apk'; }],
   ['outside APK prefix', (m) => { m.apk.blobName = 'wardriver/releases/other.apk'; }],
   ['negative APK size', (m) => { m.apk.sizeBytes = -1; }],
+  ['oversized APK', (m) => { m.apk.sizeBytes = 512 * 1024 * 1024 + 1; }],
   ['invalid APK hash', (m) => { m.apk.sha256 = 'invalid'; }],
   ['no bundled extension', (m) => { m.extensions = []; }],
   ['duplicate extension', (m) => { m.extensions.push({ ...m.extensions[0] }); }],
   ['extension traversal', (m) => { m.extensions[0].id = '../outside'; }],
   ['extension name/path mismatch', (m) => { m.extensions[0].fileName = 'other.fap'; }],
   ['outside FAP prefix', (m) => { m.extensions[0].blobName = '../outside.fap'; }],
+  ['oversized FAP', (m) => { m.extensions[0].sizeBytes = 1024 * 1024 + 1; }],
   ['invalid FAP md5', (m) => { m.extensions[0].md5 = 'bad'; }],
   ['invalid FAP API', (m) => { m.extensions[0].apiMajor = -1; }],
   ['invalid FAP source', (m) => { m.extensions[0].sourceCommit = 'short'; }],
+  ['different FAP source', (m) => { m.extensions[0].sourceCommit = 'b'.repeat(40); }],
 ];
 for (const [name, change] of invalidManifests) {
   test(`development receipt rejects ${name}`, () => {
@@ -83,7 +87,7 @@ test('current and immutable reads use fixed names and bound the response size', 
   const { store, reads } = storageFixture(new Map([[LATEST_BLOB, release], [immutable, release]]));
   assert.deepEqual(await store.getRelease(), validateManifest(release, signerSha256));
   assert.equal((await store.getRelease(release)).versionCode, release.versionCode);
-  assert.deepEqual(reads, [LATEST_BLOB, immutable].map((blobName) => ({ blobName, offset: 0, count: 131073 })));
+  assert.deepEqual(reads, [LATEST_BLOB, immutable].map((blobName) => ({ blobName, offset: 0, count: 65537 })));
 });
 
 test('immutable manifest identity must match the requested version and commit', async () => {
@@ -95,7 +99,7 @@ test('immutable manifest identity must match the requested version and commit', 
 });
 
 test('oversized, malformed, and missing manifests fail without a stale fallback', async () => {
-  for (const entries of [new Map([[LATEST_BLOB, 'x'.repeat(131073)]]), new Map([[LATEST_BLOB, '{bad json']]), new Map()]) {
+  for (const entries of [new Map([[LATEST_BLOB, 'x'.repeat(65537)]]), new Map([[LATEST_BLOB, '{bad json']]), new Map()]) {
     const { store, reads } = storageFixture(entries);
     await assert.rejects(store.getRelease(), /unavailable/);
     assert.equal(reads.length, 1);

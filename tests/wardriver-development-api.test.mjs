@@ -131,6 +131,7 @@ test('authorized HTML has one stable versioned APK plus paired FAP and receipt l
   const links = [...response.body.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
   const prefix = `/api/wardriver-development/20/${release.sourceCommit}/`;
   assert.deepEqual(links, [`${prefix}wardriver-vnext-20.apk`, `${prefix}wardriver_power.fap`, `${prefix}release.json`]);
+  assert.equal(new RegExp('id="version-code">([0-9]+)<').exec(response.body)?.[1], String(release.versionCode));
   assert.match(response.body, /Power &lt;display&gt; &amp; tools/);
   assert.doesNotMatch(response.body, /sig=|AccountKey=|blob\.core\.windows\.net/);
   assert.ok(!response.body.includes(fixture.token));
