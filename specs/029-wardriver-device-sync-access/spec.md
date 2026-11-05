@@ -47,3 +47,5 @@ preserves the same identity; directory SAS scopes exclude control state and peer
 writes; a stale roster writer cannot replace a newer revision. Source tests and
 host checks are recorded separately from live provisioning and physical-device
 proof.
+
+A separately enabled, owner-allowlisted active device may receive a five-minute read-only development update grant after proving its dataset identity. The grant is signed by the pinned service key, scoped to the configured update-feed origin and exact artifact storage host/container, and is not a dataset or owner credential. Disabled or malformed optional configuration never grants update access. Existing independent reader credentials continue to work.

@@ -260,3 +260,9 @@ returned 401. The local host used an isolated configuration with only the
 extension bundle omitted because its download was network-blocked. Local storage
 health remained unconfigured. These HTTP probes establish route loading and
 authentication behavior, not full unchanged-host or deployed Azure acceptance.
+
+## Optional device update access
+
+The source can issue a separate five-minute read-only development update grant after an active device proves possession of its enrolled key. Enable this only when the development feed is deployed and configured. The optional settings are `BSS_WARDRIVER_DEVICE_UPDATE_ENABLED` (`true`), `BSS_WARDRIVER_DEVICE_UPDATE_ENDPOINT` (same HTTPS origin as the sync endpoint, ending in `/api/wardriver-development/`), `BSS_WARDRIVER_DEVICE_UPDATE_BLOB_HOST` (the exact Azure Blob hostname), and `BSS_WARDRIVER_DEVICE_UPDATE_ALLOWED_IDS` (a JSON array of one to sixteen explicitly allowed device IDs). `BSS_WARDRIVER_DEVELOPMENT_CONTAINER` supplies the exact artifact container. Missing or malformed optional configuration omits the update grant without blocking dataset grants.
+
+The purpose-typed signed bearer is distinct from dataset SAS grants and ordinary development reader tokens. Its audience, group, device, Blob host, container and five-minute lifetime are verified before the feed reads storage. Removing a device from the update allowlist rejects its issued grant immediately; revoking only its group membership prevents renewal, while an already issued bearer can remain usable until expiry. No device IDs or credentials belong in checked-in configuration.

@@ -1,6 +1,7 @@
 'use strict';
 
 const { randomBytes } = require('node:crypto');
+const { issueDeviceUpdate } = require('./wardriver-device-update');
 const { BlobSASPermissions, BlobServiceClient, generateBlobSASQueryParameters, SASProtocol } = require('@azure/storage-blob');
 const { ManagedIdentityCredential } = require('@azure/identity');
 const { DEVICE_ID, GRANT_SECONDS, ROSTER_TYPE, displayName, exactKeys, fail, isRecord,
@@ -287,7 +288,10 @@ async function execute(store, request) {
       endpoint: config.endpoint, inviteUrl: invitationUrl(config, invitation) };
   }
   if (request.action === 'revoke' || request.action === 'rename') return common;
-  return { ...common, ...await grants(store, request.deviceId) };
+  const storage = await grants(store, request.deviceId);
+  let update;
+  try { update = await issueDeviceUpdate(config, request.deviceId, store.now()); } catch { /* Dataset access remains available. */ }
+  return { ...common, ...storage, ...(update ? { update } : {}) };
 }
 
 function createSyncStore({ config, serviceClient, now = nowSeconds } = {}) {

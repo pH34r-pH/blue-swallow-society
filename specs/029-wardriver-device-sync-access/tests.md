@@ -15,3 +15,5 @@ Synthetic keys and storage fake state exist only in tests. Unit tests prove serv
 behavior and SDK scope encoding; they do not prove live Azure enforcement. Live
 qualification requires the intended Node 24 deployment, provisioned private
 container/RBAC, actual prefix-create overwrite denial, and phone onboarding/sync.
+
+Exercise allowlisted and non-allowlisted active members, disabled/malformed configuration, signature and type confusion, audience and scope mismatch, expiry, malformed bearer, and unchanged independent reader authentication. Use synthetic keys and no live credentials.

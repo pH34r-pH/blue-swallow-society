@@ -28,3 +28,5 @@ Document the client wire contract and protected provisioning inputs in
 Run focused crypto, route, and concurrent state tests, then existing API/runtime
 regressions. Use a real Functions host when local tooling is available; record
 tooling, Node/runtime, or cloud configuration blockers explicitly.
+
+Issue a purpose-typed RS256 update-read grant only after successful active-member authorization and an explicit device allowlist check. Validate issuer, audience, exact claims and lifetime at the private development endpoint before storage access. Keep update access optional and isolate configuration failure from dataset grants.

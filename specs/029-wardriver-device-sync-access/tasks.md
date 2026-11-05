@@ -30,3 +30,6 @@ an emulator. No cloud resource mutation is part of this implementation task.
 - The existing OCI workflow now checks the new disabled POST bindings through
   its actual container host. Its next CI run and live managed-identity/prefix
   authorization remain separate evidence gates.
+
+- [x] Add optional, allowlisted short-lived device-key update grants and reject invalid grants before feed storage access.
+- [ ] Integrate the Android client and qualify deployment, revocation and real-device behavior.

@@ -19,7 +19,9 @@ Functions are the authenticated same-origin boundary. Route families are:
 - `wardriver-development/` serves the separate private vNext update index,
   a current JSON receipt, immutable receipts, and APK/FAP grants. It validates a dedicated read-only
   bearer against configured hashes before storage access, pins the APK signer,
-  and never accepts an owner session as a development reader credential. See
+  and never accepts an owner session as a development reader credential. An optional,
+  separately enabled device update grant is signed after active membership and
+  allowlist checks, scoped to the update feed and storage, and expires in five minutes. See
   `specs/028-vnext-private-update-feed/` for the publication/configuration contract.
 - `wardriver-sync/` and `_lib/wardriver-sync-*` are the separate device-key
   invitation and Blob capability boundary. Pinned owner configuration seeds one

@@ -94,3 +94,5 @@ qualified current runtime path, with its source/image identity, protected
 configuration, and authenticated/anonymous probes recorded separately.
 
 Expose the validated latest receipt through a fixed `current.json` route for native update clients. Reuse the same reader authorization and manifest validation as the HTML index; keep artifact downloads bound to the immutable version and source paths.
+
+Issue a purpose-typed RS256 update-read grant only after successful active-member authorization and an explicit device allowlist check. Validate issuer, audience, exact claims and lifetime at the private development endpoint before storage access. Keep update access optional and isolate configuration failure from dataset grants.
