@@ -15,3 +15,6 @@
 - [ ] Qualify a Node 24 deployment path and provision protected runtime settings.
 - [ ] Verify live private publication/downloads and physical Android/Bluetooth
   acceptance; retain this as pending until actual evidence exists.
+
+- [x] Add an authenticated, validated current JSON receipt for native update clients; retain existing versioned downloads.
+- [ ] Qualify deployed route, client credential provisioning, installed signer continuity and an actual Android update.

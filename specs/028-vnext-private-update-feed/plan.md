@@ -92,3 +92,5 @@ promoter intentionally supports only Node 22 and cannot deploy current main.
 This change does not bypass that gate or create hosting. Deployment must use a
 qualified current runtime path, with its source/image identity, protected
 configuration, and authenticated/anonymous probes recorded separately.
+
+Expose the validated latest receipt through a fixed `current.json` route for native update clients. Reuse the same reader authorization and manifest validation as the HTML index; keep artifact downloads bound to the immutable version and source paths.

@@ -24,3 +24,5 @@ the private publisher; APK/FAP SAS downloads match recorded hashes and sizes;
 expired grants fail; the old production path retains its existing policy. Use
 the physical phone for the first approved Obtainium update and later background
 update, then test Wardriver's Bluetooth FAP installation separately.
+
+A current-receipt route test checks reader rejection before store access, validated JSON on GET, an empty HEAD body, no SAS or token, and unchanged immutable version routing.

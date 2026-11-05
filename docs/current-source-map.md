@@ -184,3 +184,5 @@ python3 scripts/check_documentation_artifacts.py --changed-since HEAD^
 python3 scripts/check_documentation_artifacts.py --changed-since HEAD^ --list-living-docs
 python3 -m unittest discover -s scripts -p 'test_docs_hygiene.py' -v
 ```
+
+The private Wardriver development feed also exposes a reader-authenticated `current.json` receipt for native clients; its source availability does not establish live deployment.
