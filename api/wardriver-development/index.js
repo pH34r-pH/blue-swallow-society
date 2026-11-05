@@ -21,6 +21,7 @@ function response(status, body, method, headers = {}) {
 
 function parseArtifact(value) {
   if (value === undefined || value === '' || value === 'index.html') return { index: true };
+  if (value === 'current.json') return { current: true };
   if (typeof value !== 'string' || value.length > 220) return null;
   const match = value.match(/^([1-9][0-9]{0,9})\/([a-f0-9]{40})\/([a-z0-9_.-]{1,100})$/);
   if (!match || Number(match[1]) > 2100000000) return null;
@@ -53,11 +54,12 @@ function releaseIndex(release) {
 }
 
 async function deliverAuthorized(requested, method, env, store) {
-  const release = validateManifest(await store.getRelease(requested.index ? undefined : requested),
+  const release = validateManifest(await store.getRelease(requested.index || requested.current ? undefined : requested),
     env.BSS_WARDRIVER_DEVELOPMENT_SIGNER_SHA256);
-  if (!requested.index && (release.versionCode !== requested.versionCode || release.sourceCommit !== requested.sourceCommit)) {
+  if (!requested.index && !requested.current && (release.versionCode !== requested.versionCode || release.sourceCommit !== requested.sourceCommit)) {
     throw new Error('release_identity_mismatch');
   }
+  if (requested.current) return response(200, release, method);
   if (requested.index) {
     return response(200, releaseIndex(release), method, {
       'Content-Type': 'text/html; charset=utf-8',

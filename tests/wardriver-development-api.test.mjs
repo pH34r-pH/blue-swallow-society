@@ -216,3 +216,25 @@ test('configuration and storage errors are redacted and cannot serve stale relea
     assert.doesNotMatch(JSON.stringify(response), /AccountKey=/);
   }
 });
+
+
+test('current receipt requires a reader and returns only a validated latest manifest', async () => {
+  const fixture = readerFixture();
+  const release = releaseFixture();
+  const rejected = await invoke(fixture, 'current.json', { headers: {} });
+  assert.equal(rejected.status, 401);
+  assert.equal(rejected.constructions, 0);
+  const result = await invoke(fixture, 'current.json', { store: fakeStore(release) });
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body, release);
+  assert.equal(result.store.references[0], undefined);
+  assert.equal(result.store.grants.length, 0);
+  assert.equal(result.headers['Cache-Control'], 'private, no-store');
+  assert.ok(!JSON.stringify(result.body).includes(fixture.token));
+  const head = await invoke(fixture, 'current.json', { method: 'HEAD' });
+  assert.equal(head.status, 200);
+  assert.equal(head.body, undefined);
+  const invalid = releaseFixture();
+  invalid.signerSha256 = '0'.repeat(64);
+  assert.equal((await invoke(fixture, 'current.json', { store: fakeStore(invalid) })).status, 503);
+});

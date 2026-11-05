@@ -80,3 +80,5 @@ APK/FAP grants, expiry, receipt/HEAD behavior, and unchanged production checks.
 Live deployment, real credentials, published artifacts, and physical Android or
 Bluetooth installation require separate evidence and must not be inferred from
 these tests.
+
+- **FR-011**: Authenticated GET/HEAD at `/api/wardriver-development/current.json` returns the validated current release receipt as private, no-store JSON, with no SAS or reader credential. HEAD has no body. Existing HTML and immutable versioned routes are unchanged.

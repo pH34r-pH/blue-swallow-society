@@ -17,7 +17,7 @@ Functions are the authenticated same-origin boundary. Route families are:
 - `operator-downloads/` reads a validated private release manifest and returns
   metadata or a short-lived HTTPS read-only Blob SAS; it never reads a tracked APK.
 - `wardriver-development/` serves the separate private vNext update index,
-  immutable receipts, and APK/FAP grants. It validates a dedicated read-only
+  a current JSON receipt, immutable receipts, and APK/FAP grants. It validates a dedicated read-only
   bearer against configured hashes before storage access, pins the APK signer,
   and never accepts an owner session as a development reader credential. See
   `specs/028-vnext-private-update-feed/` for the publication/configuration contract.
