@@ -82,3 +82,5 @@ Bluetooth installation require separate evidence and must not be inferred from
 these tests.
 
 - **FR-011**: Authenticated GET/HEAD at `/api/wardriver-development/current.json` returns the validated current release receipt as private, no-store JSON, with no SAS or reader credential. HEAD has no body. Existing HTML and immutable versioned routes are unchanged.
+
+A separately enabled, owner-allowlisted active device may receive a five-minute read-only development update grant after proving its dataset identity. The grant is signed by the pinned service key, scoped to the configured update-feed origin and exact artifact storage host/container, and is not a dataset or owner credential. Disabled or malformed optional configuration never grants update access. Existing independent reader credentials continue to work.

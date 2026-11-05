@@ -18,3 +18,6 @@
 
 - [x] Add an authenticated, validated current JSON receipt for native update clients; retain existing versioned downloads.
 - [ ] Qualify deployed route, client credential provisioning, installed signer continuity and an actual Android update.
+
+- [x] Add optional, allowlisted short-lived device-key update grants and reject invalid grants before feed storage access.
+- [ ] Integrate the Android client and qualify deployment, revocation and real-device behavior.

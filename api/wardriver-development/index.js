@@ -1,6 +1,7 @@
 'use strict';
 
 const { verifyDevelopmentReader } = require('../_lib/wardriver-development-auth');
+const { verifyDeviceUpdate } = require('../_lib/wardriver-device-update');
 const { createDevelopmentStore, validateManifest } = require('../_lib/wardriver-development-store');
 
 const ROUTE = '/api/wardriver-development';
@@ -74,10 +75,15 @@ async function deliverAuthorized(requested, method, env, store) {
   return response(302, undefined, method, { Location: location });
 }
 
+async function authorize(req, env) {
+  const auth = verifyDevelopmentReader(req, env);
+  return auth.ok || await verifyDeviceUpdate(req, env) ? null : auth;
+}
+
 async function handle(context, req, { env = process.env, createStore = createDevelopmentStore } = {}) {
   const method = String(req?.method || 'GET').toUpperCase();
-  const auth = verifyDevelopmentReader(req, env);
-  if (!auth.ok) {
+  const auth = await authorize(req, env);
+  if (auth) {
     context.res = response(auth.status, { ok: false, error: auth.error }, method,
       auth.status === 401 ? { 'WWW-Authenticate': 'Bearer realm="wardriver-development"' } : {});
     return;

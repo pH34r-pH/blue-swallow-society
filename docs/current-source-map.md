@@ -186,3 +186,5 @@ python3 -m unittest discover -s scripts -p 'test_docs_hygiene.py' -v
 ```
 
 The private Wardriver development feed also exposes a reader-authenticated `current.json` receipt for native clients; its source availability does not establish live deployment.
+
+The private device-sync source can optionally issue a five-minute development update grant to explicitly allowlisted active devices. The development feed verifies the purpose-typed signed grant independently of dataset storage grants and existing reader tokens. This source does not establish deployment or device enrollment.

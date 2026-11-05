@@ -95,6 +95,35 @@ function readManagedIdentity(value) {
   return value;
 }
 
+// Optional update access is independent of dataset authorization.
+function updateEndpoint(endpoint, syncEndpoint) {
+  const url = new URL(endpoint); const sync = new URL(syncEndpoint);
+  if (url.protocol !== 'https:' || url.port || url.username || url.password || url.search || url.hash
+    || url.pathname !== '/api/wardriver-development/' || url.href !== endpoint || url.origin !== sync.origin) return null;
+  return endpoint;
+}
+function updateStorage(env) {
+  const blobHost = env.BSS_WARDRIVER_DEVICE_UPDATE_BLOB_HOST;
+  const container = env.BSS_WARDRIVER_DEVELOPMENT_CONTAINER;
+  if (!/^[a-z0-9]{3,24}\.blob\.core\.windows\.net$/.test(blobHost || '')
+    || !/^[a-z0-9](?:[a-z0-9-]{1,61})[a-z0-9]$/.test(container || '') || container.includes('--')) return null;
+  return { blobHost, container };
+}
+function updateAllowlist(raw) {
+  const allowed = JSON.parse(raw || 'null');
+  if (!Array.isArray(allowed) || allowed.length < 1 || allowed.length > 16
+    || allowed.some((id) => typeof id !== 'string' || !DEVICE_ID.test(id)) || new Set(allowed).size !== allowed.length) return null;
+  return Object.freeze(allowed);
+}
+function optionalUpdateSettings(env, syncEndpoint) {
+  try {
+    if (env.BSS_WARDRIVER_DEVICE_UPDATE_ENABLED !== 'true') return null;
+    const endpoint = updateEndpoint(env.BSS_WARDRIVER_DEVICE_UPDATE_ENDPOINT, syncEndpoint);
+    const storage = updateStorage(env); const allowed = updateAllowlist(env.BSS_WARDRIVER_DEVICE_UPDATE_ALLOWED_IDS);
+    return endpoint && storage && allowed ? Object.freeze({ endpoint, ...storage, allowed }) : null;
+  } catch { return null; }
+}
+
 function readConfig(env = process.env) {
   try {
     if (env.BSS_WARDRIVER_SYNC_ENABLED !== 'true') fail(503, 'sync_unavailable');
@@ -107,6 +136,7 @@ function readConfig(env = process.env) {
     const maxDevices = readMaxDevices(env.BSS_WARDRIVER_SYNC_MAX_DEVICES);
     const managedIdentityClientId = readManagedIdentity(env.BSS_WARDRIVER_SYNC_MANAGED_IDENTITY_CLIENT_ID);
     return Object.freeze({ groupId, endpoint, accountName, container, owner, signer, signingKey, maxDevices,
+      update: optionalUpdateSettings(env, endpoint),
       managedIdentityClientId, ownerDisplayName: displayName(env.BSS_WARDRIVER_SYNC_OWNER_NAME || 'Owner device'),
       containerUrl: `https://${accountName}.blob.core.windows.net/${container}` });
   } catch { fail(503, 'sync_unavailable'); }
