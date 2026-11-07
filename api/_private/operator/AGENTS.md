@@ -7,6 +7,11 @@ travels`, `entities → entities`, `world → world`, and `devices → devices`.
 
 Important relationships:
 
+- Fleet modules render the read-only resource/repository graph and recent issue
+  satellites from /api/operator-fleet. Preserve producer observation times, issue
+  closure reasons, lifecycle cancellation, and no runtime demo fallback.
+  See specs/030-mobile-fleet-map and docs/fleet-map.md for the source contract.
+
 - `travels-view.mjs`/`travels-state.mjs` call `/api/cybermap/history` and render
   capture evidence; they must not infer emitter position or complete trips.
 - `godeye-*`, `wigle.mjs`, and `travels-map.mjs` render bounded owner context;

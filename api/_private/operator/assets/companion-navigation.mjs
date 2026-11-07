@@ -1,4 +1,4 @@
-const ROUTES = Object.freeze({ godeye: 'travels', entities: 'entities', world: 'world', devices: 'devices' });
+const ROUTES = Object.freeze({ godeye: 'travels', entities: 'entities', world: 'world', devices: 'devices', fleet: 'fleet' });
 
 export function companionRoute(pathname) {
   return Object.keys(ROUTES).find((key) => pathname === `/operator/${ROUTES[key]}`) || 'godeye';

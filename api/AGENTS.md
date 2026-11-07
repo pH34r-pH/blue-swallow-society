@@ -2,6 +2,11 @@
 
 Functions are the authenticated same-origin boundary. Route families are:
 
+- operator-fleet requires Entra owner-read authorization before reading one
+  bounded private Blob snapshot with managed identity. The fleet-snapshot helpers
+  validate minimized graph and issue data; no request source selector, runtime
+  demo fallback, provider credential, or infrastructure mutation is added.
+
 - `owner-auth/`, `_lib/owner-*`, `_lib/api-access-token.js`, and
   `_lib/operator-auth.js` establish the owner/operator session and scoped API
   principal. Reject before reading private data.

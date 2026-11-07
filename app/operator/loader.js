@@ -36,11 +36,15 @@ const MODULE_BOOT_ORDER = Object.freeze([
   'world-orbits-view.mjs',
   'world-map.mjs',
   'world-view.mjs',
+  'fleet-state.mjs',
+  'fleet-elements.mjs',
+  'fleet-view.mjs',
   'main.js',
 ]);
 
 const PRIVATE_ASSETS = Object.freeze([
   'world.css',
+  'fleet.css',
   'world-land.geojson',
   'styles.css',
   'theme.css',
@@ -154,6 +158,7 @@ async function preparePrivateAssets(session) {
   installPrivateStyle('bss-operator-styles', sources['styles.css']);
   installPrivateStyle('bss-operator-theme', sources['theme.css']);
   installPrivateStyle('bss-maplibre-styles', sources['maplibre-gl.css']);
+  installPrivateStyle('bss-fleet-styles', sources['fleet.css']);
   return Object.freeze(assetUrls);
 }
 

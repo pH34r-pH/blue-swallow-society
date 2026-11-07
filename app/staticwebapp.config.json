@@ -8,6 +8,14 @@
       "statusCode": 404
     },
     {
+      "route": "/operator/fleet",
+      "rewrite": "/operator/index.html",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
       "route": "/operator/devices",
       "rewrite": "/operator/index.html",
       "allowedRoles": [

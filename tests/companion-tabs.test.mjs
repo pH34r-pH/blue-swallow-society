@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createCompanionTabController } from '../api/_private/operator/assets/companion-tabs.mjs';
 
 function tabButtons() {
-  return ['godeye', 'entities', 'world', 'devices'].map((tab) => ({
+  return ['godeye', 'entities', 'world', 'devices', 'fleet'].map((tab) => ({
     dataset: { tab },
     focus() { this.focused = true; },
   }));
@@ -12,7 +12,7 @@ function tabButtons() {
 test('companion tab controller preserves lifecycle order and focus', () => {
   const state = { activeTab: 'godeye', authenticated: true };
   const buttons = tabButtons();
-  const panels = [{ id: 'godeye-tab' }, { id: 'entities-tab' }, { id: 'world-tab' }, { id: 'devices-tab' }];
+  const panels = [{ id: 'godeye-tab' }, { id: 'entities-tab' }, { id: 'world-tab' }, { id: 'devices-tab' }, { id: 'fleet-tab' }];
   const calls = [];
   const aria = [];
   const controller = createCompanionTabController({
@@ -101,8 +101,8 @@ test('companion tab controller wraps indices and ignores empty or unknown target
   });
 
   controller.activateByIndex(-1);
-  assert.equal(state.activeTab, 'devices');
-  assert.equal(aria.at(-1)[2], 3);
+  assert.equal(state.activeTab, 'fleet');
+  assert.equal(aria.at(-1)[2], 4);
   controller.activateByIndex(buttons.length);
   assert.equal(state.activeTab, 'godeye');
   assert.equal(aria.at(-1)[2], 0);
@@ -152,4 +152,33 @@ test('companion tab controller reset only reapplies the first panel and repeated
   assert.equal(state.activeTab, 'godeye');
   assert.deepEqual(calls, ['deactivate-travels', 'stop-godeye', 'activate-world', 'deactivate-world', 'activate-travels']);
   assert.equal(aria.at(-1)[2], 0);
+});
+
+test('Fleet activates once, deactivates on departure, and does not start GodEye work', () => {
+  const state = { activeTab: 'world', authenticated: true };
+  const buttons = tabButtons();
+  const calls = [];
+  const controller = createCompanionTabController({
+    state,
+    getTabButtons: () => buttons,
+    getTabPanels: () => [],
+    setTabAria: () => {},
+    lifecycle: {
+      deactivateWorld: () => calls.push('deactivate-world'),
+      activateFleet: () => calls.push('activate-fleet'),
+      deactivateFleet: () => calls.push('deactivate-fleet'),
+      initGodeyeTab: () => calls.push('init-godeye'),
+      activateGodeyeMode: () => calls.push('mode'),
+      scheduleGodeyeRender: () => calls.push('schedule-godeye'),
+    },
+  });
+
+  controller.activate('fleet');
+  controller.activate('fleet', { focus: true });
+  assert.equal(state.activeTab, 'fleet');
+  assert.equal(buttons[4].focused, true);
+  assert.deepEqual(calls, ['deactivate-world', 'activate-fleet']);
+  controller.activate('devices');
+  assert.equal(state.activeTab, 'devices');
+  assert.deepEqual(calls, ['deactivate-world', 'activate-fleet', 'deactivate-fleet']);
 });

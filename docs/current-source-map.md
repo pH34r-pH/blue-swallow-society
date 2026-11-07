@@ -26,7 +26,7 @@ Web browser
   -> app/index.html + app/main.js
   -> /api/owner-auth/login or /api/owner-auth/session
   -> five-minute owner session in a Secure HttpOnly cookie
-  -> /operator/{travels|entities|world|devices}
+  -> /operator/{travels|entities|world|devices|fleet}
   -> app/operator/loader.js
   -> /api/operator-shell + allowlisted /api/operator-assets/*
   -> private companion shell and modules in api/_private/operator/
@@ -86,6 +86,26 @@ separate controllers with explicit deactivation when their surfaces are left.
 The eagerly mounted Entity workbench guards asynchronous responses with
 generation tokens and is destroyed on logout/pagehide; switching tabs does not
 promise request cancellation for that workbench.
+
+## Private Fleet map
+
+Fleet at /operator/fleet adds a phone-first resource/repository graph, recent
+issue satellites, and resource health sheets. Its Entra owner-read endpoint
+reads a bounded snapshot from existing private Blob storage. The private asset
+loader, route controller, and owner identity are reused. See the
+[Fleet source contract](fleet-map.md) and
+[feature acceptance package](../specs/030-mobile-fleet-map/spec.md).
+
+This change implements source behavior only. Real inventory is never bundled;
+no collector schedule, storage grant, or hosting resource is created. An
+existing private producer and storage-read configuration, qualified Node 24
+runtime, real owner/wrong-owner probes, and exact-source deployment remain
+operational acceptance work. The retained managed-SWA publisher still accepts
+Node 22, as described in the existing hosting and owner cutover contracts.
+
+Focused checks cover Fleet state, the owner-read snapshot API, companion route
+and lifecycle integration, and private asset delivery. Synthetic phone-browser
+QA verifies graphical interactions without claiming production authentication.
 
 ## Retained companion stabilization backlog
 

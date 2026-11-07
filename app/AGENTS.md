@@ -6,7 +6,7 @@ The public browser boundary is intentionally small:
 - `operator/index.html`, `loader.js`, and `operator-session.mjs` redirect direct
   operator routes to the sign-in page, restore the short-lived owner session, and
   fetch the private companion shell/assets after authentication.
-- `staticwebapp.config.json` maps the four companion routes and denies retired
+- `staticwebapp.config.json` maps the five companion routes, including Fleet and denies retired
   public paths such as `/downloads/*`; it does not authorize Functions data.
 - `public-events.mjs` is retained for historical/event-surface compatibility;
   the current root source is the Microsoft owner sign-in flow.
