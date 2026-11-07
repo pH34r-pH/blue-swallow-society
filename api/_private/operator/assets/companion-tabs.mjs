@@ -43,6 +43,7 @@ export function createCompanionTabController({
   function leaveTab(currentTab, nextTab) {
     if (currentTab === 'ar' && nextTab !== 'ar') lifecycle.stopArFeed?.();
     if (currentTab === 'world' && nextTab !== 'world') lifecycle.deactivateWorld?.();
+    if (currentTab === 'fleet' && nextTab !== 'fleet') lifecycle.deactivateFleet?.();
     if (currentTab === 'godeye' && nextTab !== 'godeye') {
       lifecycle.deactivateTravels?.();
       lifecycle.stopGodeyeFeed?.();
@@ -53,6 +54,7 @@ export function createCompanionTabController({
     if (nextTab === 'ar') lifecycle.initArTab?.();
     if (nextTab === 'godeye') lifecycle.activateTravels?.();
     if (nextTab === 'world') lifecycle.activateWorld?.();
+    if (nextTab === 'fleet') lifecycle.activateFleet?.();
     if (needsGodeyeSetup(nextTab)) {
       lifecycle.initGodeyeTab?.();
       lifecycle.activateGodeyeMode?.(nextTab === 'world' ? 'global' : 'field');

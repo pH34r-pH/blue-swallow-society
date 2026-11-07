@@ -4,6 +4,10 @@ const { verifyOperatorRequest } = require('../_lib/operator-auth');
 
 const PRIVATE_ASSET_DIR = path.join(__dirname, '..', '_private', 'operator', 'assets');
 const ASSET_MANIFEST = Object.freeze({
+  'fleet-state.mjs': { file: 'fleet-state.mjs', contentType: 'application/javascript; charset=utf-8' },
+  'fleet-elements.mjs': { file: 'fleet-elements.mjs', contentType: 'application/javascript; charset=utf-8' },
+  'fleet-view.mjs': { file: 'fleet-view.mjs', contentType: 'application/javascript; charset=utf-8' },
+  'fleet.css': { file: 'fleet.css', contentType: 'text/css; charset=utf-8' },
   'satellite-sgp4.mjs': { file: 'satellite-sgp4.mjs', contentType: 'application/javascript; charset=utf-8' },
   'world-orbit-state.mjs': { file: 'world-orbit-state.mjs', contentType: 'application/javascript; charset=utf-8' },
   'world-orbits-view.mjs': { file: 'world-orbits-view.mjs', contentType: 'application/javascript; charset=utf-8' },

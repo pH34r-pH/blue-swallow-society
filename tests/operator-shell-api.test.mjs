@@ -208,3 +208,37 @@ test('operator asset delivery serves only a manifest allowlist with private no-s
     assert.equal(reads[0].encoding, 'utf8');
   });
 });
+
+test('Fleet assets require a valid operator session before any file read', async () => {
+  await withAuthEnv(async () => {
+    const { createOperatorAssetHandler } = require('../api/operator-assets/index.js');
+    const reads = [];
+    const assetHandler = createOperatorAssetHandler({
+      readFileSync(filePath) { reads.push(filePath); return 'private fleet asset'; },
+    });
+    const assets = [
+      ['fleet-state.mjs', 'application/javascript; charset=utf-8'],
+      ['fleet-elements.mjs', 'application/javascript; charset=utf-8'],
+      ['fleet-view.mjs', 'application/javascript; charset=utf-8'],
+      ['fleet.css', 'text/css; charset=utf-8'],
+    ];
+    for (const [asset] of assets) {
+      const denied = await invokeAsset(assetHandler, { params: { asset } });
+      assert.equal(denied.status, 403);
+      assert.equal(denied.headers['Cache-Control'], 'private, no-store');
+    }
+    assert.equal(reads.length, 0);
+
+    const headers = { 'x-blue-swallow-operator-token': createOperatorToken({ ttlMs: 60_000 }).token };
+    for (const [asset, contentType] of assets) {
+      const response = await invokeAsset(assetHandler, { headers, params: { asset } });
+      assert.equal(response.status, 200);
+      assert.equal(response.headers['Content-Type'], contentType);
+      assert.equal(response.headers['Cache-Control'], 'private, no-store');
+      assert.equal(response.headers['X-Content-Type-Options'], 'nosniff');
+      assert.equal(response.body, 'private fleet asset');
+      assert.ok(reads.at(-1).endsWith(`/api/_private/operator/assets/${asset}`));
+    }
+    assert.equal(reads.length, assets.length);
+  });
+});

@@ -1,0 +1,85 @@
+{
+  "schemaVersion": "bss.fleet.v1",
+  "generatedAt": "2026-11-07T00:00:00Z",
+  "sources": [
+    { "id": "synthetic-github", "label": "Synthetic test fixture · repositories", "state": "ok", "observedAt": "2026-11-07T00:00:00Z" },
+    { "id": "synthetic-hardware", "label": "Synthetic test fixture · hardware", "state": "partial", "observedAt": "2026-11-06T23:58:00Z" },
+    { "id": "synthetic-azure", "label": "Synthetic test fixture · Azure", "state": "partial", "observedAt": "2026-11-06T23:59:00Z" }
+  ],
+  "nodes": [
+    { "id": "repo-webapp", "kind": "repo", "label": "Webapp", "subtitle": "Operator interface", "group": "Application" },
+    { "id": "repo-ingest", "kind": "repo", "label": "Ingest", "subtitle": "Collection adapters", "group": "Application" },
+    { "id": "repo-pipeline", "kind": "repo", "label": "Pipeline", "subtitle": "Build and deploy", "group": "Operations" },
+    { "id": "repo-compiler", "kind": "repo", "label": "Compiler", "subtitle": "Artifact packaging", "group": "Research" },
+    { "id": "repo-notebook", "kind": "repo", "label": "Notebook", "subtitle": "Experiment workspace", "group": "Research" },
+    { "id": "repo-artifacts", "kind": "repo", "label": "Artifacts", "subtitle": "Reviewed outputs", "group": "Research" },
+    {
+      "id": "hardware-workstation", "kind": "hardware", "label": "Workstation", "subtitle": "Owned compute", "group": "Hardware",
+      "health": {
+        "state": "healthy", "observedAt": "2026-11-06T23:58:00Z", "freshUntil": "2026-11-07T00:05:00Z",
+        "metrics": [
+          { "label": "CPU", "value": 24, "unit": "%", "max": 100 },
+          { "label": "Memory", "value": 11.2, "unit": "GB", "max": 32 },
+          { "label": "GPU", "value": 32, "unit": "%", "max": 100 }
+        ]
+      }
+    },
+    {
+      "id": "hardware-edge", "kind": "hardware", "label": "Edge device", "subtitle": "Local collector", "group": "Hardware",
+      "health": {
+        "state": "healthy", "observedAt": "2026-11-06T23:40:00Z", "freshUntil": "2026-11-06T23:45:00Z",
+        "metrics": [
+          { "label": "CPU", "value": 18, "unit": "%", "max": 100 },
+          { "label": "Memory", "value": 2.1, "unit": "GB", "max": 8 }
+        ]
+      }
+    },
+    {
+      "id": "azure-app", "kind": "azure", "label": "Azure app", "subtitle": "Intentionally paused", "group": "Azure",
+      "health": { "state": "stopped", "observedAt": "2026-11-06T23:59:00Z", "freshUntil": "2026-11-07T00:10:00Z", "metrics": [] }
+    },
+    {
+      "id": "azure-database", "kind": "azure", "label": "Database", "subtitle": "Application records", "group": "Azure",
+      "health": {
+        "state": "warning", "observedAt": "2026-11-06T23:57:00Z", "freshUntil": "2026-11-07T00:02:00Z",
+        "metrics": [
+          { "label": "Storage", "value": 86, "unit": "GB", "max": 100 },
+          { "label": "Connections", "value": 16, "unit": "", "max": 50 }
+        ]
+      }
+    },
+    {
+      "id": "azure-storage", "kind": "azure", "label": "Storage", "subtitle": "Private artifact archive", "group": "Azure",
+      "health": { "state": "unknown", "observedAt": null, "freshUntil": null, "metrics": [] }
+    }
+  ],
+  "edges": [
+    { "id": "webapp-deploy", "source": "repo-webapp", "target": "azure-app", "kind": "deploy", "label": "app deployment" },
+    { "id": "pipeline-webapp", "source": "repo-pipeline", "target": "repo-webapp", "kind": "build", "label": "web build" },
+    { "id": "pipeline-ingest", "source": "repo-pipeline", "target": "repo-ingest", "kind": "build", "label": "adapter build" },
+    { "id": "pipeline-workstation", "source": "repo-pipeline", "target": "hardware-workstation", "kind": "build", "label": "CI work" },
+    { "id": "ingest-edge", "source": "repo-ingest", "target": "hardware-edge", "kind": "deploy", "label": "edge collector" },
+    { "id": "edge-database", "source": "hardware-edge", "target": "azure-database", "kind": "ingest", "label": "observations" },
+    { "id": "ingest-database", "source": "repo-ingest", "target": "azure-database", "kind": "ingest", "label": "normalized records" },
+    { "id": "database-webapp", "source": "azure-database", "target": "repo-webapp", "kind": "ingest", "label": "app data" },
+    { "id": "compiler-notebook", "source": "repo-compiler", "target": "repo-notebook", "kind": "build", "label": "reproducible package" },
+    { "id": "notebook-workstation", "source": "repo-notebook", "target": "hardware-workstation", "kind": "deploy", "label": "experiment run", "inferred": true },
+    { "id": "notebook-artifacts", "source": "repo-notebook", "target": "repo-artifacts", "kind": "ingest", "label": "reviewed publication" },
+    { "id": "compiler-artifacts", "source": "repo-compiler", "target": "repo-artifacts", "kind": "build", "label": "artifact package", "evidenceUrl": "https://github.com/example/project/blob/main/docs/build.md" },
+    { "id": "artifacts-storage", "source": "repo-artifacts", "target": "azure-storage", "kind": "ingest", "label": "archive write" }
+  ],
+  "issues": [
+    { "id": "webapp-101", "repoId": "repo-webapp", "number": 101, "title": "Keep selected nodes visible on small screens", "state": "open", "stateReason": null, "updatedAt": "2026-11-06T23:52:00Z", "url": "https://github.com/example/project/issues/101" },
+    { "id": "webapp-102", "repoId": "repo-webapp", "number": 102, "title": "Restore focus when the detail sheet closes", "state": "closed", "stateReason": "completed", "updatedAt": "2026-11-06T22:10:00Z", "url": "https://github.com/example/project/issues/102" },
+    { "id": "webapp-103", "repoId": "repo-webapp", "number": 103, "title": "Replace the proposed separate activity page", "state": "closed", "stateReason": "not_planned", "updatedAt": "2026-11-06T21:00:00Z", "url": "https://github.com/example/project/issues/103" },
+    { "id": "ingest-201", "repoId": "repo-ingest", "number": 201, "title": "Preserve source timestamps during retries", "state": "open", "stateReason": null, "updatedAt": "2026-11-06T23:40:00Z", "url": "https://github.com/example/project/issues/201" },
+    { "id": "ingest-202", "repoId": "repo-ingest", "number": 202, "title": "Bound each collection batch", "state": "closed", "stateReason": "completed", "updatedAt": "2026-11-06T18:15:00Z", "url": "https://github.com/example/project/issues/202" },
+    { "id": "ingest-203", "repoId": "repo-ingest", "number": 203, "title": "Review partial-source coverage", "state": "open", "stateReason": null, "updatedAt": "2026-10-31T00:00:00Z", "url": "https://github.com/example/project/issues/203" },
+    { "id": "pipeline-301", "repoId": "repo-pipeline", "number": 301, "title": "Record the deployed revision in receipts", "state": "open", "stateReason": null, "updatedAt": "2026-11-05T17:00:00Z", "url": "https://github.com/example/project/issues/301" },
+    { "id": "pipeline-302", "repoId": "repo-pipeline", "number": 302, "title": "Retire the legacy packaging task", "state": "closed", "stateReason": null, "updatedAt": "2026-11-03T08:30:00Z", "url": "https://github.com/example/project/issues/302" },
+    { "id": "compiler-401", "repoId": "repo-compiler", "number": 401, "title": "Attach input provenance to generated packages", "state": "open", "stateReason": null, "updatedAt": "2026-11-06T23:52:00Z", "url": "https://github.com/example/project/issues/401" },
+    { "id": "compiler-402", "repoId": "repo-compiler", "number": 402, "title": "Defer a redundant package format", "state": "closed", "stateReason": "not_planned", "updatedAt": "2026-11-02T12:00:00Z", "url": "https://github.com/example/project/issues/402" },
+    { "id": "notebook-501", "repoId": "repo-notebook", "number": 501, "title": "Compare the next experiment configuration", "state": "open", "stateReason": null, "updatedAt": "2026-10-29T12:00:00Z", "url": "https://github.com/example/project/issues/501" },
+    { "id": "artifacts-601", "repoId": "repo-artifacts", "number": 601, "title": "Document the reviewed archive manifest", "state": "closed", "stateReason": "completed", "updatedAt": "2026-10-07T00:00:00Z", "url": "https://github.com/example/project/issues/601" }
+  ]
+}

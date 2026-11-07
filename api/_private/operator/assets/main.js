@@ -1,4 +1,5 @@
 import { createWorldView } from './world-view.mjs';
+import { createFleetView } from './fleet-view.mjs';
 import { createTravelsView } from './travels-view.mjs';
 import { createEntityClient, createEntityEditingClient } from './entity-client.mjs';
 import { mountEntityWorkbench } from './entity-workbench.mjs';
@@ -202,6 +203,7 @@ function unlockConsole() {
 function resetConsoleToLogin() {
   travelsView?.deactivate();
   worldView?.deactivate();
+  fleetView?.deactivate();
   state.authenticated = false;
   state.activeTab = '';
   document.body.dataset.mode = 'login';
@@ -434,6 +436,7 @@ function bindTabSystem() {
 
 let travelsView;
 let worldView;
+let fleetView;
 let entityWorkbench;
 let companionTabController;
 
@@ -447,11 +450,13 @@ function getCompanionTabController() {
       lifecycle: {
         stopArFeed,
         deactivateWorld: () => worldView?.deactivate(),
+        deactivateFleet: () => fleetView?.deactivate(),
         deactivateTravels: () => travelsView?.deactivate(),
         stopGodeyeFeed,
         initArTab,
         activateTravels: () => travelsView?.activate(),
         activateWorld: () => worldView?.activate(),
+        activateFleet: () => fleetView?.activate(),
         isNearbyOpen: () => document.querySelector('.history-nearby')?.open,
         initGodeyeTab,
         activateGodeyeMode,
@@ -465,6 +470,8 @@ function getCompanionTabController() {
 function initTabDefaults() {
   const worldRoot = document.querySelector('[data-world-view]');
   if (worldRoot && !worldView) worldView = createWorldView({ root: worldRoot, getHeaders: () => buildOperatorHeaders() });
+  const fleetRoot = document.querySelector('[data-fleet-view]');
+  if (fleetRoot && !fleetView) fleetView = createFleetView({ root: fleetRoot });
   const entityRoot = document.querySelector('[data-entity-workbench]');
   if (entityRoot && !entityWorkbench) entityWorkbench = mountEntityWorkbench(entityRoot, { request: createEntityClient({ getHeaders: buildOperatorHeaders }), editing: createEntityEditingClient({ getHeaders: buildOperatorHeaders }) });
   const historyRoot = document.querySelector('[data-travels-history]');
@@ -473,7 +480,7 @@ function initTabDefaults() {
     if (event.currentTarget.open) { initGodeyeTab(); scheduleGodeyeRender(); }
     else stopGodeyeFeed();
   });
-  window.addEventListener('pagehide', () => { travelsView?.destroy(); worldView?.destroy(); entityWorkbench?.destroy(); }, { once: true });
+  window.addEventListener('pagehide', () => { travelsView?.destroy(); worldView?.destroy(); fleetView?.destroy(); entityWorkbench?.destroy(); }, { once: true });
   initArTab();
   updateArOrientation();
   renderArHud();
@@ -484,6 +491,7 @@ function initTabDefaults() {
 async function handleLogout() {
   travelsView?.destroy();
   worldView?.destroy();
+  fleetView?.destroy();
   entityWorkbench?.destroy();
   stopArFeed();
   stopGodeyeFeed();
