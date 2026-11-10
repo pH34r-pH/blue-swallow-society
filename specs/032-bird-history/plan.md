@@ -8,7 +8,11 @@ the format supported. Use `csv-parse` for strict CSV quoting, BOM handling and
 record size limits. Reject malformed UTF-8, headers, oversized input and malformed
 CSV. Do not return private rows through anonymous routes or log their content.
 
-The preview retains private fields only in memory and defaults every candidate
+`POST /api/bird-import-preview` requires an Entra owner session, exact Origin,
+JSON containing only canonical base64 CSV, and a 10 MiB decoded limit. Legacy
+operator and password-viewer sessions cannot use it. Errors contain no input or
+exception text; responses are private and no-store. The endpoint is a preview,
+with no persistent side effects. The preview retains private fields only in memory and defaults every candidate
 to draft. The checklist/species composite key is provisional: duplicates are
 flagged ambiguous, never silently merged. Actual stable identity and correction
 semantics require private export validation. Preview does not store or publish.

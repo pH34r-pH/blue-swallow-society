@@ -7,3 +7,7 @@ and size bounds. Preview must not mutate public or durable state. Later cover
 owner guard denial, idempotence, correction reconciliation, draft isolation,
 explicit publication/unpublication, partial exports, recovery and all public
 feeds. Real account/export validation requires separate authorized evidence.
+
+The preview endpoint must deny unauthenticated, viewer, legacy and conflicting
+credentials before touching the body; require exact Origin and method/content
+type; bound and validate canonical base64; redact errors; and never write state.
