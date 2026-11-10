@@ -1,4 +1,5 @@
 import { DatasetReader } from './reader.mjs';
+import { receiverFixes } from './receiver-projection.mjs';
 
 // The worker receives bounded transport results, never a session token or URL.
 const pending = new Map(); let serial = 0;
@@ -20,6 +21,19 @@ const reader = new DatasetReader({
   loadObject: (reference, signal, maxBytes) => transport('object', reference, signal, maxBytes),
   onChange: (status) => self.postMessage({ type: 'status', status }),
 });
+function project(data) {
+  const status = reader.status();
+  if (!Number.isSafeInteger(data.id) || data.id < 1) return;
+  if (status.suspended || !status.rosterRevision || status.phase === 'locked'
+    || data.epoch !== reader.epoch || data.generation !== status.generation) {
+    self.postMessage({ type: 'projection', id: data.id, error: 'stale_projection' }); return;
+  }
+  try {
+    if (data.publisher != null && (typeof data.publisher !== 'string' || !/^[a-f0-9]{64}$/.test(data.publisher))) throw new Error('invalid_projection');
+    const result = receiverFixes(reader.store, { publisher: data.publisher ?? null, limit: data.limit });
+    self.postMessage({ type: 'projection', id: data.id, epoch: reader.epoch, result });
+  } catch { self.postMessage({ type: 'projection', id: data.id, error: 'invalid_projection' }); }
+}
 self.onmessage = ({ data }) => {
   if (!data || typeof data !== 'object') return;
   if (data.type === 'result') {
@@ -30,5 +44,6 @@ self.onmessage = ({ data }) => {
   } else if (data.type === 'refresh') void reader.refresh();
   else if (data.type === 'cancel') reader.cancel();
   else if (data.type === 'clear') reader.clear();
+  else if (data.type === 'receiver-fixes') project(data);
   else if (data.type === 'status') self.postMessage({ type: 'status', status: reader.status() });
 };

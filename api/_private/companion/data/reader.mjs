@@ -25,7 +25,7 @@ export class DatasetReader {
   }
   status() {
     const peers = [...this.peers.values()];
-    return { ...this.store.summary(), phase: this.phase, failure: this.failure, more: this.more, checkedAt: this.checkedAt,
+    return { ...this.store.summary(), epoch: this.epoch, phase: this.phase, failure: this.failure, more: this.more, checkedAt: this.checkedAt,
       observationChainComplete: this.phase === 'ready' && peers.every((peer) => ['up_to_date', 'empty'].includes(peer.status)),
       scope: 'radio-location-v1', unsupported: ['independent-evidence-streams', 'derived-map-estimates'], peers: peers.map((peer) => ({ ...peer })) };
   }

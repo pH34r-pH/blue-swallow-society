@@ -51,6 +51,17 @@ test('private shell reads actual Kotlin producer history in a CSP worker, resume
   assert.match(await f.page.locator('#datasetSummary').textContent(), /Batches accepted: 1 · Records retained: 2/);
   assert.match(await f.page.locator('#datasetCoverage').textContent(), /views are not available yet/);
   assert.equal(f.page.workers().length, 1);
+  const worker = f.page.workers()[0];
+  const firstProjection = await worker.evaluate(() => {
+    const send = self.postMessage.bind(self); self.__testMessages = [];
+    self.postMessage = (message, ...rest) => { self.__testMessages.push(message); send(message, ...rest); };
+    self.onmessage({ data: { type: 'status' } });
+    const status = self.__testMessages.at(-1).status;
+    self.onmessage({ data: { type: 'receiver-fixes', id: 1, epoch: status.epoch, generation: status.generation, limit: 10 } });
+    return { status, projection: self.__testMessages.at(-1) };
+  });
+  assert.equal(firstProjection.projection.result.points.length, 1);
+  assert.equal(firstProjection.projection.result.points[0].id, golden.gnssId);
   f.reads.length = 0;
   await f.page.getByRole('button', { name: 'Refresh shared data', exact: true }).click();
   await f.page.getByText('Observation chains checked', { exact: true }).first().waitFor();
@@ -71,6 +82,11 @@ test('private shell reads actual Kotlin producer history in a CSP worker, resume
   assert.match(await f.page.locator('#datasetPeers').textContent(), /Revoked · no accepted batches · batch 2 · accepted through 0/);
   await f.page.getByRole('button', { name: 'Clear local data', exact: true }).click();
   await f.page.getByText('No shared dataset loaded', { exact: true }).first().waitFor();
+  const stale = await worker.evaluate(({ epoch, generation }) => {
+    self.onmessage({ data: { type: 'receiver-fixes', id: 2, epoch, generation, limit: 10 } });
+    return self.__testMessages.at(-1);
+  }, firstProjection.status);
+  assert.equal(stale.error, 'stale_projection'); assert.equal(stale.result, undefined);
   assert.equal(await f.page.locator('#datasetPeers li').count(), 0);
   await f.page.getByRole('button', { name: 'Lock', exact: false }).click(); await f.page.waitForURL('**/?auth=locked');
   assert.equal(f.page.workers().length, 0); assert.equal(await f.page.locator('#datasetSummary').count(), 0);
