@@ -39,6 +39,14 @@ jobs:
           cache: npm
           cache-dependency-path: vm/cybermap-api/package-lock.json
       - run: npm ci --prefix vm/cybermap-api --ignore-scripts --engine-strict
+      # Test files use separate schemas but PostgreSQL extensions are database-wide.
+      # Concurrent CREATE EXTENSION IF NOT EXISTS can race on the shared catalog.
+      - name: Initialize shared PostGIS extensions
+        env:
+          PGPASSWORD: synthetic-test-only
+        run: |
+          psql -h 127.0.0.1 -U postgres -d entity_test -v ON_ERROR_STOP=1 -c 'CREATE EXTENSION IF NOT EXISTS postgis'
+          psql -h 127.0.0.1 -U postgres -d entity_test -v ON_ERROR_STOP=1 -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto'
       - run: node --test vm/cybermap-api/test/entity-workbench*.test.mjs vm/cybermap-api/test/entity-api-adapter.test.mjs vm/cybermap-api/test/world-orbit-postgres.test.mjs
         env:
           BSS_ENTITY_TEST_DATABASE_URL: postgresql://postgres:synthetic-test-only@127.0.0.1:5432/entity_test
