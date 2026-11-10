@@ -80,6 +80,9 @@ The private shell's explicit Admin login initiates the separate Entra owner flow
 normal friend navigation does not. Password-authorized shared entity inspection
 is required but not yet implemented; the existing entity workbench remains
 owner-only and is not evidence of friend access.
+`scripts/prepare-linked-frontend.mjs` builds a local source-bound frontend-only
+candidate for the future linked-backend path and records file hashes separately.
+It is not a release attestation or evidence of deployment.
 
 ## Companion dashboard boundaries
 

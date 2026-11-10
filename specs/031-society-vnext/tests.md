@@ -85,6 +85,11 @@ scope. Rapid changes must supersede earlier in-flight projection responses.
 
 ## Launch evidence
 
+Prepare two frontend candidates from the same tracked commit and compare every
+manifest hash. Verify omission of the managed API runtime and authoring file,
+preservation of application routes, invalid-commit rejection and refusal to
+overwrite an existing candidate. A local candidate is not an attested release.
+
 Record exact source/artifact/runtime versions. Verify live auth/storage rules
 and signed artifact download separately, then real phone fresh install/update,
 local recording and invited contribution. Tests or fixtures never substitute

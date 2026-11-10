@@ -140,6 +140,13 @@ requests on changes, refresh, clear or teardown and bounds query time.
 
 ## Standards and validation
 
+For a linked-backend cutover, `scripts/prepare-linked-frontend.mjs` exports the
+tracked `app/` tree at an exact full commit, omits its authoring instructions,
+explicitly removes the managed Node 24 API setting, and hashes every resulting
+frontend file into a separate manifest. The output is a local candidate, not a
+published or attested release. Deployment must pair the exact frontend source
+with the qualified backend artifact and retain a tested rollback.
+
 - [Node scrypt](https://nodejs.org/docs/latest-v24.x/api/crypto.html#cryptoscryptpassword-salt-keylen-options-callback)
 - [Azure TableClient](https://learn.microsoft.com/en-us/javascript/api/@azure/data-tables/tableclient)
 
