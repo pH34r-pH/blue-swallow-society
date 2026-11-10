@@ -87,6 +87,8 @@ its candidate format is not yet verified, and durable private import and
 publication remain open.
 An unconnected reconciliation planner reports candidate additions and changes
 without treating missing rows as deletions or provisional identities as proven.
+An unconnected private Blob adapter validates draft snapshots and applies ETag
+conditional writes; no storage has been provisioned or connected by this source.
 Shared observation history can now be read explicitly into a verifying private
 worker. Map displays receiver fixes; Encounters and Trips remain unavailable.
 The bounded receiver-fix projection is in

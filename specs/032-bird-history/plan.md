@@ -27,6 +27,18 @@ omitted optional columns never erase known private fields. Composite identity
 is provisional and all actions require review. A changed species name may alter
 the key and must not be treated as a known correction automatically.
 
+An unconnected snapshot adapter uses a dedicated private Blob container, a
+managed identity and a single versioned JSON blob capped at 16 MiB. It requires
+`BSS_BIRD_HISTORY_ENABLED=true`, `BSS_BIRD_HISTORY_ACCOUNT` and
+`BSS_BIRD_HISTORY_CONTAINER`; optional
+`BSS_BIRD_HISTORY_MANAGED_IDENTITY_CLIENT_ID` selects an identity. It does not
+create resources or issue credentials. Read validates exact snapshot structure,
+record keys and content. Write checks the current revision and ETag, then uses
+create-only or conditional upload; concurrent changes fail. Rows and existing
+optional fields cannot disappear through this adapter. A future owner service
+must build reviewed draft updates, enforce authorization and handle conflicts;
+this adapter alone does not approve or publish anything.
+
 The `/owner/birds` page restores an Entra owner session, sends a selected file to
 the preview endpoint, and displays a bounded sample and summary as text. It
 clears on request, expiry and page teardown; no source file or preview is stored.

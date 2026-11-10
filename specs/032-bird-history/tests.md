@@ -15,3 +15,6 @@ Browser coverage must exercise owner sign-in, private preview, safe text renderi
 clear and exclusion of previewed records from the public journal.
 Reconciliation tests cover unchanged reimport, field corrections, ambiguous
 duplicates, absent snapshot records, omitted optional fields and invalid snapshots.
+Snapshot storage tests use a fake Blob client to exercise initial create,
+conditional updates, racing writers, invalid/truncated data, missing records,
+field retention and redacted storage errors. Live storage remains unverified.
