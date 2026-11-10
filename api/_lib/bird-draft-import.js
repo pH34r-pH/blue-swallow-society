@@ -6,6 +6,20 @@ const hash = (value) => createHash('sha256').update(value).digest('hex');
 function fingerprintDraft(bytes, snapshot, plan) {
   return hash(JSON.stringify({ version: 1, csv: hash(bytes), snapshot: hash(JSON.stringify(snapshot)), plan }));
 }
+function changeDetails(snapshot, preview, plan) {
+  const prior = new Map(snapshot.records.map((row) => [row.provisionalKey, row]));
+  const candidates = new Map(preview.candidates.map((row) => [row.row, row]));
+  return plan.items.filter((item) => item.action === 'change').map((item) => {
+    const before = prior.get(item.key), after = candidates.get(item.row);
+    const fields = item.fields.map((name) => {
+      const privateName = name.startsWith('privateFields.') ? name.slice('privateFields.'.length) : null;
+      const oldValue = privateName ? before.privateFields[privateName] : before[name];
+      const newValue = privateName ? after.privateFields[privateName] : after[name];
+      return { name, before: oldValue ?? null, after: newValue ?? null };
+    });
+    return { row: item.row, fields };
+  });
+}
 function prepareDraftImport(bytes, snapshot) {
   const preview = previewBirdExport(bytes);
   const plan = planBirdReconciliation(snapshot, preview);
@@ -42,4 +56,4 @@ async function applyDraftImport(store, bytes, request) {
   const saved = await store.write(next, { revision: current.snapshot.revision, etag: current.etag });
   return { revision: saved.revision, imported: request.selectedRows.length, publication: 'draft' };
 }
-module.exports = { prepareDraftImport, applyDraftImport, fingerprintDraft };
+module.exports = { prepareDraftImport, applyDraftImport, fingerprintDraft, changeDetails };

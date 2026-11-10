@@ -13,8 +13,9 @@ The public browser boundary is intentionally small:
   The map loader retrieves fixed, authenticated MapLibre modules and revokes
   their object URLs on teardown; its basemap requires explicit user action.
 - `owner/index.html` and `owner/main.js` retain Entra owner entry at `/owner`.
-  `/owner/birds` restores an owner session and previews a chosen CSV in memory;
-  it never saves or publishes. Clear, expiry and page teardown discard its state.
+  `/owner/birds` restores an owner session and previews a chosen CSV in memory.
+  It can save explicitly selected records as private drafts, but cannot publish.
+  Clear, expiry and page teardown discard the in-page preview state.
 - `operator/index.html`, `loader.js`, and `operator-session.mjs` redirect direct
   retained owner routes to `/owner`, restore the short-lived owner session, and
   fetch the retained owner shell/assets after authentication.

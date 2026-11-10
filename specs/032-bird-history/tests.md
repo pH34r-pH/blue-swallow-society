@@ -23,3 +23,6 @@ authorization before storage, redacted outages and the rendered summary.
 Draft commit tests cover explicit selection, changed CSV or snapshot, ambiguous
 or duplicate rows, retry after success, owner and origin denial, retention and
 redacted failures. No commit publishes a record.
+Browser coverage includes paginated selection, before/after review, successful
+draft save and stale-revision rejection without a public-journal change. Changing
+files clears old selection; cancelling an in-flight save reports uncertainty.

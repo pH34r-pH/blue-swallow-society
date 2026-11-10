@@ -35,8 +35,8 @@ managed identity and a single versioned JSON blob capped at 16 MiB. It requires
 create resources or issue credentials. Read validates exact snapshot structure,
 record keys and content. Write checks the current revision and ETag, then uses
 create-only or conditional upload; concurrent changes fail. Rows and existing
-optional fields cannot disappear through this adapter. A future owner service
-must build reviewed draft updates, enforce authorization and handle conflicts;
+optional fields cannot disappear through this adapter. The owner commit service
+builds selected draft updates, enforces authorization and handles conflicts;
 this adapter alone does not approve or publish anything.
 
 When storage is enabled, owner preview reads the latest snapshot and reports the
@@ -48,9 +48,14 @@ requires that fingerprint and revision, and accepts only an explicit bounded set
 of unambiguous added/changed rows. It preserves omitted rows and optional fields,
 then performs a conditional draft-only write. A stale preview or racing write
 returns a conflict. This fingerprint binds a review to inputs; it is not an
-authentication credential. The owner interface does not invoke commit yet.
+authentication credential. The owner interface displays paginated rows, shows
+before/after values for changes, and commits only individually selected rows.
+It clears preview state on commit, uncertainty, cancellation, expiry or teardown;
+after an unconfirmed write the owner must preview again before retrying.
+Selecting another file discards the old review. The file control is disabled
+while a request is active; interrupting a save reports that it may have completed.
 
 The `/owner/birds` page restores an Entra owner session, sends a selected file to
-the preview endpoint, and displays a bounded sample and summary as text. It
-clears on request, expiry and page teardown; no source file or preview is stored.
-The sample limit is explicit and does not represent a full record review.
+the preview endpoint, and displays paginated records and summary as text. It
+retains the CSV only in memory for a possible selected draft commit and clears it
+on request, expiry and page teardown. It does not publish records.

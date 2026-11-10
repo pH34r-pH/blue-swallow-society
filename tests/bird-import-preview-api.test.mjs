@@ -46,6 +46,8 @@ test('configured comparison reads only after authorization, reports changes and 
   assert.match(unchanged.body.comparison.digest, /^[a-f0-9]{64}$/);
   const changedBody = { csvBase64: Buffer.from(csv.replace(',X,', ',3,')).toString('base64') };
   const changed = await call(handler, { body: changedBody }); assert.equal(changed.body.comparison.plan.counts.change, 1);
+  assert.deepEqual(changed.body.comparison.changes[0].fields, [
+    { name: 'count', before: null, after: 3 }, { name: 'countKind', before: 'presence', after: 'exact' }]);
   assert.equal(changed.body.comparison.plan.writes, false);
   const broken = createHandler({ env: settings, createStore: () => ({ async read() { throw new Error('PRIVATE storage path'); } }) });
   const failure = await call(broken); assert.equal(failure.status, 503);

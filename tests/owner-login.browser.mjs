@@ -17,6 +17,7 @@ const assets = require('./operator-assets');
 const logout = require('./operator-logout');
 const journal = require('./bird-journal');
 const { createHandler: createBirdPreview } = require('./bird-import-preview');
+const { createHandler: createBirdCommit } = require('./bird-import-commit');
 const { previewBirdExport } = require('./_lib/bird-export-preview');
 const { requireOperatorToken } = require('./_lib/operator-auth');
 
@@ -28,7 +29,12 @@ const pair = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
 const jwk = await exportJWK(pair.publicKey);
 jwk.kid = 'test';
 const keySet = createLocalJWKSet({ keys: [jwk] });
-let wrongOwner = false, cancelEdit = false, runtimeOrigin, birdSnapshot = null;
+let wrongOwner = false, cancelEdit = false, runtimeOrigin, birdSnapshot = null, birdEtag = null;
+const birdStore = { async read() { return { snapshot: structuredClone(birdSnapshot), etag: birdEtag }; },
+  async write(next, expected) {
+    if (expected.etag !== birdEtag || expected.revision !== birdSnapshot.revision) throw new Error('bird_snapshot_conflict');
+    birdSnapshot = structuredClone(next); birdEtag = `synthetic-${next.revision}`; return { revision: next.revision };
+  } };
 const logins = new Map();
 const ownerHandler = createOwnerAuthHandler({
   getConfig: () => ({ ...loginConfig(), origin: runtimeOrigin || config.origin, redirectUri: `${runtimeOrigin || config.origin}/api/owner-auth/callback` }),
@@ -53,7 +59,7 @@ async function serve(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const request = { method: req.method, headers: req.headers, query: Object.fromEntries(url.searchParams), params: { action: url.pathname.split('/').at(-1), asset: url.pathname.split('/').at(-1) } };
   const context = {};
-  if (url.pathname === '/api/bird-import-preview') {
+  if (['/api/bird-import-preview', '/api/bird-import-commit'].includes(url.pathname)) {
     const chunks = []; for await (const chunk of req) chunks.push(chunk);
     request.rawBody = Buffer.concat(chunks).toString('utf8');
   }
@@ -63,7 +69,9 @@ async function serve(req, res) {
   else if (url.pathname === '/api/bird-journal') await journal(context, request);
   else if (url.pathname === '/api/bird-import-preview') await createBirdPreview({
     env: { BLUE_SWALLOW_PUBLIC_ORIGIN: runtimeOrigin, BSS_BIRD_HISTORY_ENABLED: birdSnapshot ? 'true' : 'false' },
-    createStore: () => ({ read: async () => ({ snapshot: birdSnapshot }) }) })(context, request);
+    createStore: () => birdStore })(context, request);
+  else if (url.pathname === '/api/bird-import-commit') await createBirdCommit({
+    env: { BLUE_SWALLOW_PUBLIC_ORIGIN: runtimeOrigin, BSS_BIRD_HISTORY_ENABLED: 'true' }, createStore: () => birdStore })(context, request);
   else if (url.pathname === '/api/operator-logout') await logout(context, request);
   else if (url.pathname.startsWith('/api/')) {
     if (requireOperatorToken(context, request).ok) context.res = { status: 503, body: { ok: false } };
@@ -116,15 +124,63 @@ test('Chromium owner login, wrong user, unavailable config, deep-link restoratio
   await page.getByText('Private location: Private place', { exact: false }).waitFor();
   assert.equal(await page.locator('#birdResults img').count(), 0);
   assert.doesNotMatch(await (await page.request.get(origin + '/api/bird-journal')).text(), /Test avis|Private place/);
+  await page.getByLabel('Personal CSV export (up to 10 MiB)').setInputFiles({ name: 'other.csv', mimeType: 'text/csv', buffer: Buffer.from('different') });
+  assert.equal(await page.locator('#birdResults li').count(), 0);
+  await page.getByText('File selected. Preview it before saving.').waitFor();
   await page.getByRole('button', { name: 'Clear preview' }).click();
   assert.equal(await page.locator('#birdResults li').count(), 0);
   const unchangedCsv = 'Submission ID,Common Name,Scientific Name,Count,Date,Location\nS1,<img src=x>,Test avis,X,2026-01-02,Private place\n';
-  birdSnapshot = { version: 1, revision: 1, records: previewBirdExport(Buffer.from(unchangedCsv)).candidates };
-  await page.getByLabel('Personal CSV export (up to 10 MiB)').setInputFiles({ name: 'synthetic.csv', mimeType: 'text/csv', buffer: Buffer.from(unchangedCsv) });
+  birdSnapshot = { version: 1, revision: 1, records: previewBirdExport(Buffer.from(unchangedCsv)).candidates }; birdEtag = 'synthetic-1';
+  const changedCsv = unchangedCsv + 'S2,Another bird,Test altera,2,2026-01-03,Private place\n';
+  await page.getByLabel('Personal CSV export (up to 10 MiB)').setInputFiles({ name: 'synthetic.csv', mimeType: 'text/csv', buffer: Buffer.from(changedCsv) });
   await page.getByRole('button', { name: 'Preview export' }).click();
   await page.getByText('Compared with draft revision 1:', { exact: false }).waitFor();
   assert.match(await page.locator('#birdResults').textContent(), /1 unchanged/);
-  await page.getByRole('button', { name: 'Clear preview' }).click(); birdSnapshot = null;
+  await page.getByText('Review fields for row 3').click();
+  await page.getByText('Scientific name: Test altera').waitFor();
+  await page.getByRole('checkbox', { name: 'Select row 3 for draft import' }).check();
+  await page.getByRole('button', { name: 'Save selected as private drafts' }).click();
+  await page.getByText('1 private drafts saved. Nothing was published.').waitFor();
+  assert.equal(birdSnapshot.records.length, 2); assert.equal(birdSnapshot.records[1].publication, 'draft');
+  assert.doesNotMatch(await (await page.request.get(origin + '/api/bird-journal')).text(), /Test altera|Private place/);
+  const correction = changedCsv.replace(',X,', ',3,');
+  await page.getByLabel('Personal CSV export (up to 10 MiB)').setInputFiles({ name: 'synthetic.csv', mimeType: 'text/csv', buffer: Buffer.from(correction) });
+  await page.getByRole('button', { name: 'Preview export' }).click();
+  await page.getByText('Compared with draft revision 2:', { exact: false }).waitFor();
+  await page.getByText('Review fields for row 2').click();
+  await page.getByText('countKind: presence → exact').waitFor();
+  await page.getByRole('checkbox', { name: 'Select row 2 for draft import' }).check();
+  birdSnapshot.revision++;
+  await page.getByRole('button', { name: 'Save selected as private drafts' }).click();
+  await page.getByText('The history changed. Preview the export again before saving.').waitFor();
+  assert.equal(birdSnapshot.records[0].count, null);
+  const many = 'Submission ID,Common Name,Scientific Name,Count,Date\n' + Array.from({ length: 101 }, (_, index) =>
+    `S${index + 1000},Synthetic bird,Test avis,1,2026-01-02\n`).join('');
+  await page.getByLabel('Personal CSV export (up to 10 MiB)').setInputFiles({ name: 'synthetic.csv', mimeType: 'text/csv', buffer: Buffer.from(many) });
+  await page.getByRole('button', { name: 'Preview export' }).click();
+  await page.getByText('Page 1 of 2').waitFor();
+  await page.getByRole('checkbox', { name: 'Select row 2 for draft import' }).check();
+  await page.getByRole('button', { name: 'Next page' }).click();
+  await page.getByRole('checkbox', { name: 'Select row 102 for draft import' }).check();
+  await page.getByRole('button', { name: 'Previous page' }).click();
+  assert.equal(await page.getByRole('checkbox', { name: 'Select row 2 for draft import' }).isChecked(), true);
+  await page.getByRole('button', { name: 'Save selected as private drafts' }).click();
+  await page.getByText('2 private drafts saved. Nothing was published.').waitFor();
+  assert.equal(birdSnapshot.records.length, 4);
+  const pendingCsv = 'Submission ID,Common Name,Scientific Name,Count,Date\nS4000,Test bird,Test avis,1,2026-01-02\n';
+  await page.getByLabel('Personal CSV export (up to 10 MiB)').setInputFiles({ name: 'synthetic.csv', mimeType: 'text/csv', buffer: Buffer.from(pendingCsv) });
+  await page.getByRole('button', { name: 'Preview export' }).click();
+  await page.getByRole('checkbox', { name: 'Select row 2 for draft import' }).check();
+  let release, reached; const gate = new Promise((resolve) => { release = resolve; });
+  const started = new Promise((resolve) => { reached = resolve; });
+  await page.route('**/api/bird-import-commit', async (route) => { reached(); await gate; await route.abort().catch(() => {}); });
+  await page.getByRole('button', { name: 'Save selected as private drafts' }).click(); await started;
+  assert.equal(await page.getByLabel('Personal CSV export (up to 10 MiB)').isDisabled(), true);
+  assert.equal(await page.getByRole('checkbox', { name: 'Select row 2 for draft import' }).isDisabled(), true);
+  await page.getByRole('button', { name: 'Clear preview' }).click();
+  await page.getByText('The save was interrupted and may have completed. Preview again before retrying.').waitFor();
+  release(); await page.unroute('**/api/bird-import-commit'); assert.equal(birdSnapshot.records.length, 4);
+  birdSnapshot = null; birdEtag = null;
   await page.goto(origin + '/operator/travels'); await page.locator('#godeye-tab.active').waitFor();
   await page.getByRole('link', { name: 'Entities', exact: true }).click();
   await page.getByText('Read-only access. Enable editing to request permission for corrections.', { exact: true }).waitFor();

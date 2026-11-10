@@ -7,6 +7,7 @@
 - [x] Add a non-mutating draft reconciliation planner and conditional snapshot adapter.
 - [x] Show read-only comparison against configured private draft storage.
 - [x] Add owner-only fingerprint-bound selected draft commit API.
+- [x] Connect paginated owner review and explicit selected-draft save.
 - [ ] Verify the owner's actual export format and Merlin coverage privately.
 - [ ] Implement owner-only preview, durable import and reconciliation.
 - [ ] Implement explicit approval, sanitized publication, unpublish and recovery.

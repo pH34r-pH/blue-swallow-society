@@ -22,7 +22,7 @@ Functions are the authenticated same-origin boundary. Route families are:
   comparison. `bird-import-commit/` accepts explicitly selected draft rows only
   from an owner, rechecks the exact CSV/snapshot/plan fingerprint and commits
   with ETag concurrency control. It requires isolated storage and managed
-  identity; the owner UI does not invoke it yet and it cannot publish.
+  identity. The owner UI invokes it only after per-row selection; it cannot publish.
   The same fixed allowlist serves only the four self-hosted MapLibre renderer
   assets required by the viewer, after the companion guard.
 - `companion-datasets/` and `_lib/companion-dataset-store.js` provide the

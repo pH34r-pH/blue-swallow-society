@@ -4,7 +4,7 @@ const { requireOperatorToken } = require('../_lib/operator-auth');
 const { header } = require('../_lib/viewer-session');
 const { previewBirdExport } = require('../_lib/bird-export-preview');
 const { planBirdReconciliation } = require('../_lib/bird-reconciliation');
-const { fingerprintDraft } = require('../_lib/bird-draft-import');
+const { fingerprintDraft, changeDetails } = require('../_lib/bird-draft-import');
 const { createBirdSnapshotStore, config: snapshotConfig } = require('../_lib/bird-snapshot-store');
 const MAX_BYTES = 10 * 1024 * 1024;
 const MAX_JSON = Math.ceil(MAX_BYTES / 3) * 4 + 128;
@@ -44,7 +44,8 @@ function createHandler({ authorize = requireOperatorToken, mode = authMode, prev
       if (env.BSS_BIRD_HISTORY_ENABLED === 'true') {
         const { snapshot } = await createStore().read();
         const plan = planBirdReconciliation(snapshot, value);
-        value.comparison = { status: 'available', revision: snapshot.revision, plan, digest: fingerprintDraft(bytes, snapshot, plan) };
+        value.comparison = { status: 'available', revision: snapshot.revision, plan,
+          digest: fingerprintDraft(bytes, snapshot, plan), changes: changeDetails(snapshot, value, plan) };
       } else value.comparison = { status: 'not_configured' };
       context.res = response(200, value);
     }
