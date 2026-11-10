@@ -82,12 +82,13 @@ slice adds opt-in password viewer sessions and a browser-authorized development
 download facade. The second adds the public journal, explicit Login and an
 isolated Vector Edge shell with Map/Encounters/Trips/Downloads navigation.
 Shared observation history can now be read explicitly into a verifying private
-worker. The three data views still state that their projections are unavailable.
+worker. Map displays receiver fixes; Encounters and Trips remain unavailable.
 The bounded receiver-fix projection is in
 `api/_private/companion/data/receiver-projection.mjs`; it preserves contributor
 provenance and excludes ambiguous or invalid geometry. Its worker query checks
 epoch and generation; the client invalidates pending queries on changes, clear,
-refresh or teardown. The map does not consume it yet. It is not an emitter map.
+refresh or teardown. The MapLibre view uses these fixes and an optional explicit
+OpenStreetMap basemap. It is not an emitter map.
 The next slice adds the separately enabled read-only Blob transport in
 `api/companion-datasets/`, with current signed-roster checks and bounded exact
 object reads. The [dataset reader contract](companion-dataset-reader.md) defines

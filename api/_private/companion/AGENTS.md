@@ -7,8 +7,8 @@ URLs, expiry, renewal, cross-tab lock and page teardown.
 
 `shell.html` and `theme.css` own desktop/phone layout. `main.mjs` owns route
 activation, keyboard/pointer panel resize and the development download card.
-Map, Encounters and Trips currently show explicit unavailable states; they do
-not read the old owner's Cybermap corpus or manufacture observations.
+Map can display verified receiver fixes; Encounters and Trips show unavailable
+states. They do not read the old owner's Cybermap corpus or manufacture records.
 
 Data integration must preserve current device-dataset signatures, scope,
 revisions and withdrawal semantics. Never substitute a device identity or
@@ -33,7 +33,8 @@ remain unfinished. Keep original record bytes and lossless clocks.
 `receiver-projection.mjs` supplies bounded unambiguous receiver fixes. The
 worker query requires the current epoch and generation and rejects suspended or
 cleared state. The private client rejects stale, timed-out and teardown-racing
-queries. The map interface does not consume this query yet.
+queries. The map clears immediately on refresh, revocation, clear or teardown;
+its optional OpenStreetMap basemap requires a deliberate button press.
 
 ```bash
 node --test tests/journal-companion-boundary.test.mjs tests/society-vnext.browser.mjs

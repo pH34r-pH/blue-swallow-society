@@ -10,6 +10,8 @@ The public browser boundary is intentionally small:
   Lock, expiry, failed bootstrap and pagehide clear private DOM/object URLs.
   Explicit Read shared data loads the private client/worker; the loader keeps
   credentials and provides authorized transport. Teardown terminates that worker.
+  The map loader retrieves fixed, authenticated MapLibre modules and revokes
+  their object URLs on teardown; its basemap requires explicit user action.
 - `owner/index.html` and `owner/main.js` retain Entra owner entry at `/owner`.
 - `operator/index.html`, `loader.js`, and `operator-session.mjs` redirect direct
   retained owner routes to `/owner`, restore the short-lived owner session, and

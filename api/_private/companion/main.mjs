@@ -65,7 +65,56 @@ function setupPanels(signal) {
   divider.addEventListener('pointermove', (event) => { if (divider.hasPointerCapture(event.pointerId)) resize(event.clientX); }, { signal });
   divider.addEventListener('pointerup', (event) => { if (divider.hasPointerCapture(event.pointerId)) divider.releasePointerCapture(event.pointerId); }, { signal });
 }
-function setupDataset(context) {
+function createReceiverMap(root, context) {
+  let map = null; let run = 0; let library;
+  function clear() { run++; map?.remove(); map = null; }
+  function ready(status, client) { return Boolean(client && status.rosterRevision && !status.suspended && ['ready', 'partial'].includes(status.phase)); }
+  async function update(status, client) {
+    clear();
+    if (document.body.dataset.view !== 'map') return;
+    if (!ready(status, client)) {
+      unavailable(root, 'Your shared map starts here', 'Read shared data to display verified receiver locations.'); return;
+    }
+    const current = run;
+    unavailable(root, 'Preparing receiver map', 'Checking the current dataset generation…', false);
+    try {
+      const projection = await client.receiverFixes();
+      if (current !== run || context.signal.aborted) return;
+      if (!projection.points.length) { unavailable(root, 'No receiver fixes available', 'No eligible receiver locations are present in this dataset scope.', false); return; }
+      library ||= context.openMap(); const renderer = await library;
+      if (current !== run || context.signal.aborted) return;
+      const canvas = node('div', '', 'receiver-map'); canvas.setAttribute('aria-label', 'Map of receiver capture locations');
+      const description = node('p', `Receiver capture locations · ${projection.points.length} shown${projection.truncated ? ' · additional fixes omitted' : ''}. These are not transmitter locations.`, 'panel-copy');
+      const basemap = node('button', 'Show OpenStreetMap basemap', 'edge-button');
+      basemap.disabled = true;
+      const privacy = node('p', 'Loading the basemap sends the map area to OpenStreetMap.', 'panel-copy');
+      root.replaceChildren(canvas, description, basemap, privacy);
+      const points = projection.points.map((point) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] }, properties: { id: point.id } }));
+      map = new renderer.Map({ container: canvas, center: points[0].geometry.coordinates, zoom: 12,
+        style: { version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#102633' } }] } });
+      map.addControl(new renderer.NavigationControl());
+      const activeMap = map;
+      activeMap.on('load', () => {
+        if (current !== run) return;
+        activeMap.addSource('fixes', { type: 'geojson', data: { type: 'FeatureCollection', features: points } });
+        activeMap.addLayer({ id: 'fixes', type: 'circle', source: 'fixes', paint: { 'circle-radius': 5, 'circle-color': '#5de8f5', 'circle-stroke-width': 1, 'circle-stroke-color': '#05212d' } });
+        basemap.disabled = false;
+        if (points.length > 1) { const bounds = new renderer.LngLatBounds(); points.forEach((point) => bounds.extend(point.geometry.coordinates)); activeMap.fitBounds(bounds, { padding: 45, maxZoom: 15, duration: 0 }); }
+      });
+      basemap.addEventListener('click', () => {
+        if (!activeMap.isStyleLoaded() || activeMap.getSource('basemap')) return;
+        activeMap.addSource('basemap', { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256,
+          maxzoom: 19, attribution: '© OpenStreetMap contributors' });
+        activeMap.addLayer({ id: 'basemap', type: 'raster', source: 'basemap' }, 'fixes'); basemap.disabled = true;
+      }, { signal: context.signal });
+    } catch {
+      library = null;
+      if (current === run && !context.signal.aborted) unavailable(root, 'Receiver map unavailable', 'The current receiver locations could not be displayed. Refresh the shared data and try again.', false);
+    }
+  }
+  return { update, clear };
+}
+function setupDataset(context, onData) {
   const refresh = document.getElementById('refreshDataset'), cancel = document.getElementById('cancelDataset');
   const clear = document.getElementById('clearDataset'), title = document.getElementById('datasetTitle');
   const summary = document.getElementById('datasetSummary'), coverage = document.getElementById('datasetCoverage');
@@ -90,6 +139,7 @@ function setupDataset(context) {
   }
   function status(value) {
     if (context.signal.aborted) return;
+    onData(value, client);
     lastStatus = value;
     const busy = value.phase === 'refreshing'; refresh.disabled = busy; cancel.hidden = !busy || !client;
     clear.hidden = value.phase === 'idle' || !client;
@@ -98,7 +148,7 @@ function setupDataset(context) {
       : value.phase === 'idle' ? 'No shared dataset loaded' : 'Shared history is incomplete';
     summary.textContent = description(value);
     coverage.textContent = value.phase === 'idle' ? ''
-      : 'Observation history only. Map, encounter and trip views are not available yet. Evidence streams and location estimates are not included.';
+      : 'Receiver fixes only. Encounters, trips, independent evidence and emitter estimates are not included.';
     renderPeers(value);
     document.getElementById('connectionState').textContent = title.textContent;
     if (value.phase === 'failed') { client?.destroy(); client = null; }
@@ -111,8 +161,8 @@ function setupDataset(context) {
     finally { opening = false; }
   }, { signal: context.signal });
   cancel.addEventListener('click', () => client?.cancel(), { signal: context.signal });
-  clear.addEventListener('click', () => client?.clear(), { signal: context.signal });
-  return () => { client?.destroy(); client = null; peers.replaceChildren(); };
+  clear.addEventListener('click', () => { onData({ phase: 'idle' }, client); client?.clear(); }, { signal: context.signal });
+  return { current: () => ({ status: lastStatus, client }), destroy: () => { client?.destroy(); client = null; peers.replaceChildren(); } };
 }
 export function mount(context) {
   const { signal } = context;
@@ -120,6 +170,8 @@ export function mount(context) {
   const status = document.getElementById('workspaceStatus');
   let requestController;
   let generation = 0;
+  const receiverMap = createReceiverMap(root, context);
+  let dataset;
   async function show(view, push = false) {
     if (!VIEWS[view]) view = 'map';
     if (push) history.pushState(null, '', '/operator/' + view);
@@ -133,6 +185,8 @@ export function mount(context) {
     status.textContent = '';
     requestController?.abort(); requestController = new AbortController();
     const current = ++generation;
+    receiverMap.clear();
+    if (view === 'map' && dataset) { const data = dataset.current(); void receiverMap.update(data.status, data.client); return; }
     if (view !== 'downloads') {
       const copy = { map: 'The shared map projection is not available yet. No observations or locations are being displayed.',
         encounters: 'Encounters will appear when compatible shared observations are available. No encounter history is loaded.',
@@ -175,8 +229,8 @@ export function mount(context) {
   }
   const clock = setInterval(updateTime, 10000); updateTime();
   setupPanels(signal);
-  const destroyDataset = setupDataset(context);
+  dataset = setupDataset(context, (value, client) => { if (document.body.dataset.view === 'map') void receiverMap.update(value, client); });
   void show(location.pathname.split('/').at(-1));
   document.getElementById('workspace').focus({ preventScroll: true });
-  return () => { generation++; requestController?.abort(); destroyDataset(); clearInterval(clock); root.replaceChildren(); document.body.style.removeProperty('--scope-width'); };
+  return () => { generation++; requestController?.abort(); receiverMap.clear(); dataset.destroy(); clearInterval(clock); root.replaceChildren(); document.body.style.removeProperty('--scope-width'); };
 }

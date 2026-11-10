@@ -27,6 +27,7 @@ function clearPrivate() {
   for (const url of objectUrls) URL.revokeObjectURL(url);
   objectUrls = [];
   document.getElementById('companionStyles')?.remove();
+  document.getElementById('companionMapStyles')?.remove();
   session = null;
   document.body.removeAttribute('data-mode');
   document.body.className = 'journal';
@@ -100,6 +101,23 @@ async function openDataset(onStatus) {
   if (!active || boot !== generation) throw new Error('session_expired');
   return module.createDatasetClient({ source, request, signal: controller.signal, onStatus });
 }
+async function openMap() {
+  const boot = generation;
+  const names = ['maplibre-gl-shared.mjs', 'maplibre-gl-worker.mjs', 'maplibre-gl.mjs', 'maplibre-gl.css'];
+  const [shared, worker, main, css] = await Promise.all(names.map(loadAsset));
+  if (!active || boot !== generation) throw new Error('session_expired');
+  function moduleUrl(source) {
+    const url = URL.createObjectURL(new Blob([source], { type: 'text/javascript' })); objectUrls.push(url); return url;
+  }
+  const sharedUrl = moduleUrl(shared);
+  const rewrite = (source) => source.replaceAll('./maplibre-gl-shared.mjs', sharedUrl);
+  const workerUrl = moduleUrl(rewrite(worker)); const mainUrl = moduleUrl(rewrite(main));
+  const library = await import(mainUrl);
+  if (!active || boot !== generation) throw new Error('session_expired');
+  library.setWorkerUrl(workerUrl);
+  const style = document.createElement('style'); style.id = 'companionMapStyles'; style.textContent = css; document.head.append(style);
+  return library;
+}
 export async function enterCompanion(candidate, destination = '/operator/map') {
   if (!validSession(candidate)) throw new Error('session_expired');
   session = Object.freeze(candidate);
@@ -120,7 +138,7 @@ export async function enterCompanion(candidate, destination = '/operator/map') {
     document.body.dataset.mode = 'companion';
     history.replaceState(null, '', safeDestination(destination));
     document.title = 'Blue Swallow — Companion';
-    destroyView = module.mount({ request, renew, lock, openDataset, expiresAt: () => session?.expiresAt, signal: controller.signal });
+    destroyView = module.mount({ request, renew, lock, openDataset, openMap, expiresAt: () => session?.expiresAt, signal: controller.signal });
   } catch { if (active && generation === boot) await lock('unavailable'); }
 }
 async function restorePrivate() {

@@ -44,13 +44,22 @@ async function setup(t) {
 }
 test('private shell reads actual Kotlin producer history in a CSP worker, resumes, applies roster cutoffs and clears', async (t) => {
   const f = await setup(t); await f.publish('live', 1); await f.login();
+  const tileRequests = []; f.page.on('request', (request) => { if (request.url().startsWith('https://tile.openstreetmap.org/')) tileRequests.push(request.url()); });
+  await f.page.route('https://tile.openstreetmap.org/**', (route) => route.abort());
   assert.equal(f.state.reads.some((path) => path.startsWith('/api/companion-datasets/')), false);
   assert.equal(f.state.reads.includes('/api/companion-ui/dataset-worker.js'), false);
   await f.page.getByRole('button', { name: 'Read shared data', exact: true }).click();
   await f.page.getByText('Observation chains checked', { exact: true }).first().waitFor();
   assert.match(await f.page.locator('#datasetSummary').textContent(), /Batches accepted: 1 · Records retained: 2/);
-  assert.match(await f.page.locator('#datasetCoverage').textContent(), /views are not available yet/);
-  assert.equal(f.page.workers().length, 1);
+  assert.match(await f.page.locator('#datasetCoverage').textContent(), /Receiver fixes only/);
+  await f.page.getByText(/Receiver capture locations · 1 shown/).waitFor();
+  await f.page.getByRole('button', { name: 'Show OpenStreetMap basemap' }).waitFor();
+  assert.equal(tileRequests.length, 0);
+  const basemap = f.page.getByRole('button', { name: 'Show OpenStreetMap basemap' });
+  await f.page.waitForFunction(() => !document.querySelector('.receiver-map + p + button')?.disabled);
+  const tile = f.page.waitForRequest((request) => request.url().startsWith('https://tile.openstreetmap.org/'));
+  await basemap.click(); await tile; assert.ok(tileRequests.length > 0);
+  assert.ok(f.page.workers().length >= 1);
   const worker = f.page.workers()[0];
   const firstProjection = await worker.evaluate(() => {
     const send = self.postMessage.bind(self); self.__testMessages = [];
@@ -80,6 +89,8 @@ test('private shell reads actual Kotlin producer history in a CSP worker, resume
   await f.page.getByText('Observation chains checked', { exact: true }).first().waitFor();
   assert.ok(f.reads.every((ref) => ref.deviceId !== golden.deviceId));
   assert.match(await f.page.locator('#datasetPeers').textContent(), /Revoked · no accepted batches · batch 2 · accepted through 0/);
+  await f.page.getByRole('heading', { name: 'No receiver fixes available' }).waitFor();
+  assert.equal(await f.page.locator('.receiver-map').count(), 0);
   await f.page.getByRole('button', { name: 'Clear local data', exact: true }).click();
   await f.page.getByText('No shared dataset loaded', { exact: true }).first().waitFor();
   const stale = await worker.evaluate(({ epoch, generation }) => {

@@ -120,8 +120,9 @@ The first map projection selects admitted, unambiguous GNSS receiver fixes with
 publisher/session/boot provenance and lossless clock strings. Exclude invalid and
 out-of-Mercator coordinates, bound output to 2,000 points, and report exclusions
 and truncation. A fix is a receiver location, never an emitter estimate. Do not
-connect this projection to the UI until map controls and their integrated
-validation are implemented. Worker queries require the current epoch and
+render it using the existing self-hosted MapLibre modules. Show receiver fixes
+only, disclose optional third-party basemap requests and require an explicit
+button press before fetching tiles. Worker queries require the current epoch and
 generation and reject suspended or cleared state; the client invalidates pending
 requests on changes, refresh, clear or teardown and bounds query time.
 

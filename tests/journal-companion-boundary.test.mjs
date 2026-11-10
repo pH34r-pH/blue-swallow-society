@@ -30,12 +30,12 @@ test('private companion files require a live viewer session and a fixed allowlis
   assert.equal(reads, 0);
   const success = await call(); assert.equal(success.status, 200); assert.match(success.headers['Cache-Control'], /no-store/);
   assert.equal((await call({ method: 'HEAD' })).body, undefined); assert.equal(reads, 1);
-  for (const asset of ['dataset-client.mjs', 'dataset-worker.js']) {
+  for (const asset of ['dataset-client.mjs', 'dataset-worker.js', 'maplibre-gl.mjs', 'maplibre-gl-shared.mjs', 'maplibre-gl-worker.mjs', 'maplibre-gl.css']) {
     assert.equal((await call({ params: { asset }, headers: {} })).status, 401);
     assert.equal((await call({ params: { asset } })).status, 200);
   }
   await f.store.revoke(viewer.verifyToken(session.token, f.settings));
-  assert.equal((await call()).status, 401); assert.equal(reads, 3);
+  assert.equal((await call()).status, 401); assert.equal(reads, 7);
 });
 test('public projection strips private fields, requires publication and preserves presence-only counts', async () => {
   const post = { published: true, id: 'synthetic-note', title: 'Test note', paragraphs: ['Text, not HTML.'],

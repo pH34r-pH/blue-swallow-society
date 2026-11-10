@@ -22,6 +22,7 @@
 - [x] Verifying browser worker, bounded canonical admission and explicit refresh controls.
 - [ ] Full Android Room admission/projection parity at the pinned producer revision.
 - [ ] Map controls, Encounters, Trips, timeline and shared inspector.
+- [x] Initial bounded receiver-fix map with explicit opt-in basemap.
 - [ ] Private bird import/preview/publication and supported sync feasibility.
 - [ ] Owner correction compatibility and friend onboarding/update experience.
 
@@ -34,6 +35,16 @@
 
 No deployment, credential provisioning, bird account connection or physical
 acceptance has been performed by this source work.
+
+## Receiver map checkpoint — 2026-11-10
+
+The initial MapLibre view displays bounded, unambiguous receiver fixes after an
+explicit data read. It clears on refresh, signed revocation, local clear and
+session teardown. OpenStreetMap tiles are requested only after the user selects
+the disclosed basemap action. This is not an emitter estimate, encounter or trip
+view. Richer filtering, selection/inspector, parity and launch work remain open.
+Local Node 24.22.2/Windows evidence: 417 root tests and ten Chromium journeys
+passed, including producer fixture, revocation and opt-in tile-request checks.
 
 ## Foundation evidence — 2026-11-10
 

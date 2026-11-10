@@ -538,3 +538,4 @@
 .dataset-peers { list-style: none; padding: 0; margin: 14px 0; font-size: 11px; }
 .dataset-peers li { display: grid; gap: 5px; padding: 9px 0; border-bottom: 1px solid #214555; overflow-wrap: anywhere; }
 .dataset-peers span { color: #91adbb; }
+.receiver-map { width: 100%; min-height: 480px; border: 1px solid #214555; }

@@ -63,6 +63,11 @@ bytes through the real private asset/API guards: explicit load, unchanged-head
 refresh, cancellation/resume, cutoff revision, clear, outage retry and Lock during
 a pending read. These do not replace full Android Room admission/projection parity.
 
+The receiver map browser journey must load verified producer fixes, reject stale
+generations, remove points after a signed cutoff or clear, and deny anonymous
+renderer assets. Verify that no OpenStreetMap tiles are requested until the
+basemap action is explicitly selected. Verify lock removes the map and workers.
+
 ## Launch evidence
 
 Record exact source/artifact/runtime versions. Verify live auth/storage rules

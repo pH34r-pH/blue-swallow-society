@@ -12,6 +12,8 @@ Functions are the authenticated same-origin boundary. Route families are:
   `operator-assets/`. `bird-journal/` projects only approved fields and records
   from `_private/birding/published.json`; its initial real publication is empty.
   Private import/publication and generated feeds remain subsequent work.
+  The same fixed allowlist serves only the four self-hosted MapLibre renderer
+  assets required by the viewer, after the companion guard.
 - `companion-datasets/` and `_lib/companion-dataset-store.js` provide the
   separately enabled read-only shared-Blob transport. They verify current roster
   authority and bound exact object reads; no device proof, write, SAS or map
