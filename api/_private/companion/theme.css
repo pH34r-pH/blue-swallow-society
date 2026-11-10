@@ -539,3 +539,8 @@
 .dataset-peers li { display: grid; gap: 5px; padding: 9px 0; border-bottom: 1px solid #214555; overflow-wrap: anywhere; }
 .dataset-peers span { color: #91adbb; }
 .receiver-map { width: 100%; min-height: 480px; border: 1px solid #214555; }
+.receiver-details, .receiver-facts { overflow-wrap: anywhere; }
+.receiver-facts { display: grid; grid-template-columns: minmax(110px, 1fr) 2fr; gap: 8px; font-size: 12px; }
+.receiver-facts dt { color: #91adbb; }
+.receiver-facts dd { margin: 0; }
+#receiverSelection { display: block; max-width: 100%; margin-top: 8px; }

@@ -67,6 +67,8 @@ The receiver map browser journey must load verified producer fixes, reject stale
 generations, remove points after a signed cutoff or clear, and deny anonymous
 renderer assets. Verify that no OpenStreetMap tiles are requested until the
 basemap action is explicitly selected. Verify lock removes the map and workers.
+Exercise keyboard selection and verify that signed cutoff and clear remove both
+map details and inspector content from the prior generation.
 
 ## Launch evidence
 

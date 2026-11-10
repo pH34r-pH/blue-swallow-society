@@ -34,7 +34,9 @@ remain unfinished. Keep original record bytes and lossless clocks.
 worker query requires the current epoch and generation and rejects suspended or
 cleared state. The private client rejects stale, timed-out and teardown-racing
 queries. The map clears immediately on refresh, revocation, clear or teardown;
-its optional OpenStreetMap basemap requires a deliberate button press.
+its optional OpenStreetMap basemap requires a deliberate button press. Map
+selection and its keyboard-accessible list show receiver provenance and accuracy;
+selection and inspector details clear with the underlying generation.
 
 ```bash
 node --test tests/journal-companion-boundary.test.mjs tests/society-vnext.browser.mjs

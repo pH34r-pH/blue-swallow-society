@@ -65,9 +65,22 @@ function setupPanels(signal) {
   divider.addEventListener('pointermove', (event) => { if (divider.hasPointerCapture(event.pointerId)) resize(event.clientX); }, { signal });
   divider.addEventListener('pointerup', (event) => { if (divider.hasPointerCapture(event.pointerId)) divider.releasePointerCapture(event.pointerId); }, { signal });
 }
+function renderFixDetails(details, inspector, emptyInspector, point) {
+  details.replaceChildren(); inspector.replaceChildren(...emptyInspector.map((child) => child.cloneNode(true)));
+  if (!point) return;
+  const facts = [['Location', `${point.latitude.toFixed(6)}, ${point.longitude.toFixed(6)}`],
+    ['Horizontal accuracy', point.accuracyMetres === null ? 'Not recorded' : `${point.accuracyMetres.toFixed(1)} m`],
+    ['Contributor', point.publisher], ['Session', point.sessionId], ['Boot epoch', point.bootEpoch],
+    ['Capture elapsed nanoseconds', point.captureElapsedNs], ['Wall time milliseconds', point.wallTimeMs]];
+  const list = node('dl', '', 'receiver-facts');
+  for (const [key, value] of facts) list.append(node('dt', key), node('dd', value));
+  details.append(node('h2', 'Receiver fix'), list); inspector.replaceChildren(details.cloneNode(true));
+}
 function createReceiverMap(root, context) {
   let map = null; let run = 0; let library;
-  function clear() { run++; map?.remove(); map = null; }
+  const inspector = document.querySelector('.inspector-empty');
+  const emptyInspector = [...inspector.childNodes].map((child) => child.cloneNode(true));
+  function clear() { run++; map?.remove(); map = null; inspector.replaceChildren(...emptyInspector.map((child) => child.cloneNode(true))); }
   function ready(status, client) { return Boolean(client && status.rosterRevision && !status.suspended && ['ready', 'partial'].includes(status.phase)); }
   async function update(status, client) {
     clear();
@@ -88,7 +101,20 @@ function createReceiverMap(root, context) {
       const basemap = node('button', 'Show OpenStreetMap basemap', 'edge-button');
       basemap.disabled = true;
       const privacy = node('p', 'Loading the basemap sends the map area to OpenStreetMap.', 'panel-copy');
-      root.replaceChildren(canvas, description, basemap, privacy);
+      const label = node('label', 'Inspect a receiver fix', 'field-label'); label.htmlFor = 'receiverSelection';
+      const select = node('select'); select.id = 'receiverSelection';
+      const prompt = node('option', 'Choose a receiver fix'); prompt.value = ''; select.append(prompt);
+      const details = node('div', '', 'receiver-details'); details.setAttribute('aria-live', 'polite');
+      const byId = new Map(projection.points.map((point) => [point.id, point]));
+      for (const [index, point] of projection.points.entries()) {
+        const option = node('option', `Fix ${index + 1} · ${point.latitude.toFixed(5)}, ${point.longitude.toFixed(5)}`);
+        option.value = point.id; select.append(option);
+      }
+      function inspect(id) {
+        renderFixDetails(details, inspector, emptyInspector, byId.get(id));
+      }
+      select.addEventListener('change', () => inspect(select.value), { signal: context.signal });
+      root.replaceChildren(canvas, description, basemap, privacy, label, select, details);
       const points = projection.points.map((point) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] }, properties: { id: point.id } }));
       map = new renderer.Map({ container: canvas, center: points[0].geometry.coordinates, zoom: 12,
         style: { version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#102633' } }] } });
@@ -98,6 +124,10 @@ function createReceiverMap(root, context) {
         if (current !== run) return;
         activeMap.addSource('fixes', { type: 'geojson', data: { type: 'FeatureCollection', features: points } });
         activeMap.addLayer({ id: 'fixes', type: 'circle', source: 'fixes', paint: { 'circle-radius': 5, 'circle-color': '#5de8f5', 'circle-stroke-width': 1, 'circle-stroke-color': '#05212d' } });
+        activeMap.on('click', 'fixes', (event) => {
+          const id = event.features?.[0]?.properties?.id;
+          if (typeof id === 'string' && byId.has(id)) { select.value = id; inspect(id); }
+        });
         basemap.disabled = false;
         if (points.length > 1) { const bounds = new renderer.LngLatBounds(); points.forEach((point) => bounds.extend(point.geometry.coordinates)); activeMap.fitBounds(bounds, { padding: 45, maxZoom: 15, duration: 0 }); }
       });

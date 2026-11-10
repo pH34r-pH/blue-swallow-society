@@ -89,6 +89,8 @@ provenance and excludes ambiguous or invalid geometry. Its worker query checks
 epoch and generation; the client invalidates pending queries on changes, clear,
 refresh or teardown. The MapLibre view uses these fixes and an optional explicit
 OpenStreetMap basemap. It is not an emitter map.
+Receiver points can be selected on the map or through a keyboard-accessible list;
+the details and inspector show contributor, session, clock and accuracy values.
 The next slice adds the separately enabled read-only Blob transport in
 `api/companion-datasets/`, with current signed-roster checks and bounded exact
 object reads. The [dataset reader contract](companion-dataset-reader.md) defines

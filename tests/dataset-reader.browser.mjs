@@ -55,6 +55,9 @@ test('private shell reads actual Kotlin producer history in a CSP worker, resume
   await f.page.getByText(/Receiver capture locations · 1 shown/).waitFor();
   await f.page.getByRole('button', { name: 'Show OpenStreetMap basemap' }).waitFor();
   assert.equal(tileRequests.length, 0);
+  await f.page.getByLabel('Inspect a receiver fix').selectOption(golden.gnssId);
+  assert.equal(await f.page.locator('#viewContent .receiver-details').getByText('Receiver fix').count(), 1);
+  assert.match(await f.page.locator('#viewContent .receiver-details').textContent(), /Contributor.*Session.*Boot epoch/);
   const basemap = f.page.getByRole('button', { name: 'Show OpenStreetMap basemap' });
   await f.page.waitForFunction(() => !document.querySelector('.receiver-map + p + button')?.disabled);
   const tile = f.page.waitForRequest((request) => request.url().startsWith('https://tile.openstreetmap.org/'));
@@ -91,6 +94,8 @@ test('private shell reads actual Kotlin producer history in a CSP worker, resume
   assert.match(await f.page.locator('#datasetPeers').textContent(), /Revoked · no accepted batches · batch 2 · accepted through 0/);
   await f.page.getByRole('heading', { name: 'No receiver fixes available' }).waitFor();
   assert.equal(await f.page.locator('.receiver-map').count(), 0);
+  assert.equal(await f.page.locator('.receiver-details').count(), 0);
+  assert.equal(await f.page.locator('.inspector-empty').getByText('Nothing selected').count(), 1);
   await f.page.getByRole('button', { name: 'Clear local data', exact: true }).click();
   await f.page.getByText('No shared dataset loaded', { exact: true }).first().waitFor();
   const stale = await worker.evaluate(({ epoch, generation }) => {
