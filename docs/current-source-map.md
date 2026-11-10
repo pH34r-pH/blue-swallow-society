@@ -81,6 +81,8 @@ Society vNext is being implemented under
 slice adds opt-in password viewer sessions and a browser-authorized development
 download facade. The second adds the public journal, explicit Login and an
 isolated Vector Edge shell with Map/Encounters/Trips/Downloads navigation.
+The separate [bird-history package](../specs/032-bird-history/spec.md) contains
+an unconnected CSV preview foundation; private import and publication remain open.
 Shared observation history can now be read explicitly into a verifying private
 worker. Map displays receiver fixes; Encounters and Trips remain unavailable.
 The bounded receiver-fix projection is in

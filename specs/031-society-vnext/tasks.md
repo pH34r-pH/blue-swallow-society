@@ -24,6 +24,7 @@
 - [ ] Map controls, Encounters, Trips, timeline and shared inspector.
 - [x] Initial bounded receiver-fix map with explicit opt-in basemap.
 - [ ] Private bird import/preview/publication and supported sync feasibility.
+- [x] Bounded, unconnected candidate CSV preview foundation (spec 032).
 - [ ] Owner correction compatibility and friend onboarding/update experience.
 
 ## Qualification
