@@ -52,6 +52,8 @@ test('owner sessions are bounded, reject legacy/forged identity headers and fail
 test('login transactions bind state, expire, resist tampering and prevent external return redirects', () => {
   const transaction = login.newTransaction('https://attacker.test', config, now);
   assert.equal(transaction.returnTo, '/operator/travels');
+  assert.equal(login.safeReturnPath('/owner/birds', config.origin), '/owner/birds');
+  assert.equal(login.safeReturnPath('https://attacker.test/owner/birds', config.origin), '/operator/travels');
   const sealed = login.sealTransaction(transaction, config);
   assert.equal(login.openTransaction(sealed, transaction.state, config, now).verifier, transaction.verifier);
   assert.throws(() => login.openTransaction(sealed, 'other', config, now));

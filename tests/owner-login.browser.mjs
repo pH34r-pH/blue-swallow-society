@@ -16,6 +16,7 @@ const shell = require('./operator-shell');
 const assets = require('./operator-assets');
 const logout = require('./operator-logout');
 const journal = require('./bird-journal');
+const { createHandler: createBirdPreview } = require('./bird-import-preview');
 const { requireOperatorToken } = require('./_lib/operator-auth');
 
 Object.assign(process.env, { BLUE_SWALLOW_AUTH_MODE: 'entra', BLUE_SWALLOW_ENTRA_TENANT_ID: '11111111-1111-1111-1111-111111111111',
@@ -51,15 +52,20 @@ async function serve(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const request = { method: req.method, headers: req.headers, query: Object.fromEntries(url.searchParams), params: { action: url.pathname.split('/').at(-1), asset: url.pathname.split('/').at(-1) } };
   const context = {};
+  if (url.pathname === '/api/bird-import-preview') {
+    const chunks = []; for await (const chunk of req) chunks.push(chunk);
+    request.rawBody = Buffer.concat(chunks).toString('utf8');
+  }
   if (url.pathname.startsWith('/api/owner-auth/')) await ownerHandler(context, request);
   else if (url.pathname === '/api/operator-shell') await shell(context, request);
   else if (url.pathname.startsWith('/api/operator-assets/')) await assets(context, request);
   else if (url.pathname === '/api/bird-journal') await journal(context, request);
+  else if (url.pathname === '/api/bird-import-preview') await createBirdPreview({ env: { BLUE_SWALLOW_PUBLIC_ORIGIN: runtimeOrigin } })(context, request);
   else if (url.pathname === '/api/operator-logout') await logout(context, request);
   else if (url.pathname.startsWith('/api/')) {
     if (requireOperatorToken(context, request).ok) context.res = { status: 503, body: { ok: false } };
   } else {
-    const staticPaths = { '/': 'index.html', '/owner': 'owner/index.html', '/owner/main.js': 'owner/main.js', '/journal.css': 'journal.css', '/journal-view.mjs': 'journal-view.mjs', '/companion-loader.mjs': 'companion-loader.mjs', '/main.js': 'main.js', '/styles.css': 'styles.css', '/operator/loader.js': 'operator/loader.js', '/operator/loader.css': 'operator/loader.css', '/operator/operator-session.mjs': 'operator/operator-session.mjs' };
+    const staticPaths = { '/': 'index.html', '/owner': 'owner/index.html', '/owner/birds': 'owner/birds.html', '/owner/birds.mjs': 'owner/birds.mjs', '/owner/main.js': 'owner/main.js', '/journal.css': 'journal.css', '/journal-view.mjs': 'journal-view.mjs', '/companion-loader.mjs': 'companion-loader.mjs', '/main.js': 'main.js', '/styles.css': 'styles.css', '/operator/loader.js': 'operator/loader.js', '/operator/loader.css': 'operator/loader.css', '/operator/operator-session.mjs': 'operator/operator-session.mjs' };
     const file = staticPaths[url.pathname] || (url.pathname.startsWith('/operator/') ? 'operator/index.html' : null);
     if (!file) context.res = { status: 404, body: '' };
     else context.res = { status: 200, headers: { 'Content-Type': /\.m?js$/.test(file) ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html' }, body: await readFile(new URL('../app/' + file, import.meta.url), 'utf8') };
@@ -84,6 +90,9 @@ test('Chromium owner login, wrong user, unavailable config, deep-link restoratio
     const state = new URL(route.request().url()).searchParams.get('state');
     return route.fulfill({ status: 302, headers: { Location: `${origin}/api/owner-auth/callback?state=${state}&${cancelEdit ? 'error=access_denied' : `code=${state}`}` } });
   });
+  await page.goto(origin + '/owner/birds');
+  await page.waitForURL('**/owner?auth=expired&returnTo=%2Fowner%2Fbirds');
+  assert.equal(await page.locator('#birdWorkspace').count(), 0);
   await page.goto(origin + '/owner');
   await page.getByText('Sign in with the approved owner account.', { exact: true }).waitFor();
   wrongOwner = true;
@@ -93,6 +102,19 @@ test('Chromium owner login, wrong user, unavailable config, deep-link restoratio
   wrongOwner = false;
   await page.getByRole('button', { name: 'Sign in with Microsoft' }).click();
   await page.locator('#godeye-tab.active').waitFor();
+  await page.goto(origin + '/owner/birds');
+  await page.getByText('Owner session active.', { exact: false }).waitFor();
+  await page.getByLabel('Personal CSV export (up to 10 MiB)').setInputFiles({ name: 'synthetic.csv', mimeType: 'text/csv',
+    buffer: Buffer.from('Submission ID,Common Name,Scientific Name,Count,Date,Location\nS1,<img src=x>,Test avis,X,2026-01-02,Private place\n') });
+  await page.getByRole('button', { name: 'Preview export' }).click();
+  await page.getByText('Preview ready.', { exact: false }).waitFor();
+  await page.getByText('2026-01-02 · <img src=x> (Test avis) · Present').waitFor();
+  await page.getByText('Private location: Private place', { exact: false }).waitFor();
+  assert.equal(await page.locator('#birdResults img').count(), 0);
+  assert.doesNotMatch(await (await page.request.get(origin + '/api/bird-journal')).text(), /Test avis|Private place/);
+  await page.getByRole('button', { name: 'Clear preview' }).click();
+  assert.equal(await page.locator('#birdResults li').count(), 0);
+  await page.goto(origin + '/operator/travels'); await page.locator('#godeye-tab.active').waitFor();
   await page.getByRole('link', { name: 'Entities', exact: true }).click();
   await page.getByText('Read-only access. Enable editing to request permission for corrections.', { exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: 'Preview correction' }).isDisabled(), true);

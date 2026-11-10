@@ -11,3 +11,5 @@ feeds. Real account/export validation requires separate authorized evidence.
 The preview endpoint must deny unauthenticated, viewer, legacy and conflicting
 credentials before touching the body; require exact Origin and method/content
 type; bound and validate canonical base64; redact errors; and never write state.
+Browser coverage must exercise owner sign-in, private preview, safe text rendering,
+clear and exclusion of previewed records from the public journal.

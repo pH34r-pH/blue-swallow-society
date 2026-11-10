@@ -24,6 +24,10 @@
       "rewrite": "/owner/index.html"
     },
     {
+      "route": "/owner/birds",
+      "rewrite": "/owner/birds.html"
+    },
+    {
       "route": "/downloads/*",
       "statusCode": 404
     },

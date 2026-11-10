@@ -566,3 +566,7 @@ body[data-public-view]:not([data-public-view="journal"]) .journal-section {
     transition: none !important;
   }
 }
+.bird-admin { width: min(100% - 40px, 960px); margin: 48px auto; line-height: 1.6; }
+.bird-admin a { text-decoration: underline; }
+.bird-admin input, .bird-admin button { margin: 8px 8px 8px 0; }
+.bird-admin #birdResults { overflow-wrap: anywhere; }

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bird history preview — Blue Swallow</title>
+  <link rel="stylesheet" href="/journal.css">
+  <script type="module" src="/owner/birds.mjs"></script>
+</head>
+<body class="journal">
+  <main class="bird-admin">
+    <p><a href="/owner">← Owner tools</a> · <a href="/">Public journal</a></p>
+    <h1>Bird history preview</h1>
+    <p>This private preview checks a candidate eBird CSV format. The exact export format and Merlin coverage have not yet been verified. Nothing is saved or published.</p>
+    <p id="birdStatus" role="status" aria-live="polite">Checking owner session…</p>
+    <section id="birdWorkspace" hidden>
+      <label for="birdFile">Personal CSV export (up to 10 MiB)</label>
+      <input id="birdFile" type="file" accept=".csv,text/csv">
+      <button id="birdPreview" type="button">Preview export</button>
+      <button id="birdClear" type="button">Clear preview</button>
+      <div id="birdResults"></div>
+    </section>
+  </main>
+</body>
+</html>

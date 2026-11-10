@@ -82,8 +82,9 @@ slice adds opt-in password viewer sessions and a browser-authorized development
 download facade. The second adds the public journal, explicit Login and an
 isolated Vector Edge shell with Map/Encounters/Trips/Downloads navigation.
 The separate [bird-history package](../specs/032-bird-history/spec.md) contains
-an owner-only, same-origin CSV preview endpoint; its candidate format is not yet
-verified, and durable private import, owner UI and publication remain open.
+an owner-only, same-origin CSV preview endpoint and `/owner/birds` preview UI;
+its candidate format is not yet verified, and durable private import and
+publication remain open.
 Shared observation history can now be read explicitly into a verifying private
 worker. Map displays receiver fixes; Encounters and Trips remain unavailable.
 The bounded receiver-fix projection is in

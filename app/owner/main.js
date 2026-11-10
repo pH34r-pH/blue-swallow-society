@@ -30,6 +30,7 @@ async function restoreSession() {
     }
     if (!activateOperatorSession(data.operatorSession)) { showState('expired'); return; }
     const destination = new URL(returnTo, window.location.origin);
+    if (destination.origin === window.location.origin && destination.pathname === '/owner/birds') { window.location.replace('/owner/birds'); return; }
     const path = destination.origin === window.location.origin && /^\/operator\/(travels|entities|world|devices)$/.test(destination.pathname)
       ? destination.pathname + destination.search : '/operator/travels';
     history.replaceState(null, '', path);

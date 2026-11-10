@@ -18,3 +18,8 @@ flagged ambiguous, never silently merged. Actual stable identity and correction
 semantics require private export validation. Preview does not store or publish.
 An owner-only import/reconciliation store, approval UI, sanitized publication,
 unpublication, recovery and account feasibility checks remain required.
+
+The `/owner/birds` page restores an Entra owner session, sends a selected file to
+the preview endpoint, and displays a bounded sample and summary as text. It
+clears on request, expiry and page teardown; no source file or preview is stored.
+The sample limit is explicit and does not represent a full record review.
