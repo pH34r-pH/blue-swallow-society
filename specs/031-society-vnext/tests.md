@@ -26,6 +26,11 @@ Test root remains public with a session; explicit Login; wrong password; safe
 return routes; session restore on private deep link; owner step-up; lock across
 tabs; expired/failed bootstrap; private memory and DOM teardown. Inspect actual
 rendered layouts, keyboard focus, 200% zoom, reduced motion and WebGL fallback.
+Verify ordinary password login, map and downloads cause no owner-auth request;
+the explicit Admin login alone starts the existing owner flow without forwarding
+the viewer token. Separately prove owner identity checks and deny viewer tokens
+on admin APIs. Future entity inspection tests must prove shared-read access and
+anonymous, cross-group, write and unshared-legacy-data denial.
 
 ## Data and birding
 

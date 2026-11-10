@@ -43,8 +43,16 @@ The public root becomes a journal with separate public CSS/content modules.
 It never restores or fetches private state on navigation. Login opens a native
 dialog, accepts the password and enters an allowlisted private destination.
 A returning session is consulted only after explicit Login or private navigation.
-The retained Entra owner entry moves to `/owner`; its legacy private APIs remain
-owner-only. Password-mode configuration stays explicit until hosting cutover.
+The companion offers a single explicit Admin login action that initiates the
+existing Entra owner flow; ordinary friend navigation never starts it. The
+retained `/owner` fallback and legacy private APIs remain owner-only.
+Password-mode configuration stays explicit until hosting cutover.
+
+Read-only entity inspection must consume bounded, authorized shared-group
+projections with stable scoped identity and evidence. It must not obtain an
+owner token, reuse the owner-only entity workbench guard, or silently expose
+unshared legacy data. Existing owner corrections stay Entra-only. The read-only
+entity projection and UI remain to be implemented and verified.
 
 `app/companion-loader.mjs` loads a fixed private HTML/CSS/module set through
 `api/companion-ui/`. That route authorizes before filesystem access and does not

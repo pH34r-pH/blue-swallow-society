@@ -14,6 +14,9 @@
 - [x] Isolated Vector Edge shell, routes, keyboard/pointer resize and phone collapse.
 - [x] Private vNext download card, immutable artifact links and installation guidance.
 - [x] Secret-free phone-page handoff, mobile deep-link login and explicit release check.
+- [x] Explicit Admin login in the operator workspace; no automatic Entra prompt.
+- [ ] Password-authorized read-only shared entity listing and evidence inspector.
+- [ ] Verify Entra-only admin actions and viewer entity reads in integrated live pilot.
 - [ ] Populate the journal through private owner import/authoring/publication.
 - [ ] Complete public canonical metadata, RSS/sitemap, media and publication coverage.
 - [ ] Integrate data-driven inspector, panel behavior and full desktop accessibility.

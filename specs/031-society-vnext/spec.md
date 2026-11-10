@@ -31,9 +31,11 @@ records remain unchanged. It does not establish deployment or phone acceptance.
    returns the friend to downloads. The page identifies the selected release,
    provides installation and update guidance, and can check for a newer build.
    Existing production and development validators remain distinct.
-7. Owner-only corrections (#44) and bird publication have separate authority;
-   a viewer password never authorizes them. Read-only viewing does not wait for
-   advanced inference or correction synchronization.
+7. Friends using the shared password can inspect supported shared entities and
+   evidence read-only (#123). Entity corrections (#44), bird publication and
+   other administration require the owner's Entra identity; the password never
+   authorizes them. Microsoft sign-in starts only on explicit Admin login inside
+   the operator site. Reading does not wait for correction synchronization.
 8. Integrated browser, hosting, artifact and physical friend-pilot evidence
    (#124) is required before launch completion.
 
@@ -75,7 +77,7 @@ entries. There is no in-memory authorization fallback in production.
 | Principal | Allowed | Explicitly excluded |
 | --- | --- | --- |
 | Anonymous | Published journal and Login | Private shell, datasets, releases |
-| Password viewer | Companion shell and configured shared reads/download facade | Legacy owner corpus, entity writes, publication, device writes |
+| Password viewer | Companion shell, configured shared reads/entity inspection and download facade | Unshared legacy owner corpus, entity writes, publication, device writes |
 | Entra owner | Retained owner scopes and owner admin | Device impersonation |
 | Device proof | Existing invited device capabilities | Browser/owner administration |
 | Update reader | Existing development feed | Companion/data/admin APIs |

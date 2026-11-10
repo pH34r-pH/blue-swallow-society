@@ -25,6 +25,22 @@ function phoneHandoff(guide, signal) {
   }, { signal });
   section.append(label, input, button, message); guide.append(section);
 }
+function setupAdminLogin(signal) {
+  const button = document.getElementById('adminLogin'); const status = document.getElementById('adminLoginStatus');
+  button.addEventListener('click', async () => {
+    button.disabled = true; status.textContent = 'Opening admin sign-in…';
+    try {
+      const response = await fetch('/api/owner-auth/login?returnTo=%2Foperator%2Ftravels', {
+        credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' },
+        signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]),
+      });
+      if (!response.ok) throw new Error('unavailable');
+      const url = new URL((await response.json()).authorizationUrl);
+      if (url.protocol !== 'https:' || url.hostname !== 'login.microsoftonline.com') throw new Error('unavailable');
+      if (!signal.aborted) location.assign(url.href);
+    } catch { if (!signal.aborted) { status.textContent = 'Admin sign-in is unavailable. Try again later.'; button.disabled = false; } }
+  }, { signal });
+}
 function releaseCard(root, release, refresh, signal) {
   // The server validates the receipt/signature pin; these checks constrain DOM links.
   if (release.packageId !== 'co.blueswallow.wardriver.vnext' || release.channel !== 'private-vnext'
@@ -286,6 +302,7 @@ export function mount(context) {
   }
   const clock = setInterval(updateTime, 10000); updateTime();
   setupPanels(signal);
+  setupAdminLogin(signal);
   dataset = setupDataset(context, (value, client, publisher) => { if (document.body.dataset.view === 'map') void receiverMap.update(value, client, publisher); });
   void show(location.pathname.split('/').at(-1));
   document.getElementById('workspace').focus({ preventScroll: true });

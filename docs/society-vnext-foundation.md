@@ -57,6 +57,12 @@ authentication. Viewer passwords do not authorize device membership, device
 writes, entity correction or bird publication. Legacy production APK delivery
 continues through its separate existing validator.
 
+The operator workspace exposes an explicit Admin login, which starts the
+separate Entra owner flow only on selection. Ordinary friend login and viewing do
+not start Microsoft sign-in. Shared, read-only entity browsing is a required
+friend capability but is not implemented yet; the retained legacy entity
+workbench still requires the owner identity and cannot be reused as viewer access.
+
 ## Protected configuration
 
 Set these only through the protected hosting configuration. Do not commit real

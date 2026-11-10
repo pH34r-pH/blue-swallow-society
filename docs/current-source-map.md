@@ -76,6 +76,10 @@ explicit Login; it does not reveal the companion shell or Wardriver artifacts.
 The private downloads view offers a secret-free phone-page link, release details,
 and an explicit update check; each artifact request remains viewer-authorized and
 bound to an immutable version and revision.
+The private shell's explicit Admin login initiates the separate Entra owner flow;
+normal friend navigation does not. Password-authorized shared entity inspection
+is required but not yet implemented; the existing entity workbench remains
+owner-only and is not evidence of friend access.
 
 ## Companion dashboard boundaries
 

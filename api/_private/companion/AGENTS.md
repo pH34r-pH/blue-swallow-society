@@ -17,6 +17,10 @@ it never receives a machine update-feed credential.
 The download card copies only the stable same-origin phone-page URL; it shows
 the validated release and requests a new receipt when checking for updates.
 Artifact links bind the selected immutable version and revision, not latest.
+The explicit Admin login starts the separate Entra owner flow. Do not trigger it
+on ordinary friend navigation or send the viewer token to the owner-login route.
+Shared entity browsing is required but is not implemented; do not expose the
+owner-only legacy entity workbench or its mutation endpoints to viewers.
 
 `data/` contains the browser-compatible protobuf/JWS verification modules.
 `vendor/wire.cjs` is generated from byte-pinned upstream schemas by

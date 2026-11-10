@@ -24,6 +24,29 @@ async function signIn(page, origin, password) {
   await page.waitForURL('**/operator/map');
   await page.getByRole('heading', { name: 'Map', exact: true }).waitFor();
 }
+test('admin sign-in starts only from the explicit operator action', async (t) => {
+  const f = await setup(t); let attempts = 0; let forwarded = false; let available = false;
+  await f.page.route('**/api/owner-auth/login?*', async (route) => {
+    attempts++; forwarded = Boolean(route.request().headers()['x-blue-swallow-operator-token']);
+    await route.fulfill({ status: available ? 200 : 503, contentType: 'application/json',
+      body: available ? JSON.stringify({ authorizationUrl: 'https://login.microsoftonline.com/test-authorize' }) : '{}' });
+  });
+  await signIn(f.page, f.origin, f.password);
+  assert.equal(attempts, 0);
+  assert.equal(f.state.reads.some((path) => path.startsWith('/api/owner-auth/')), false);
+  await f.page.getByRole('link', { name: 'Downloads & devices' }).click();
+  await f.page.getByRole('link', { name: 'Download Android APK' }).waitFor();
+  assert.equal(attempts, 0);
+  await f.page.getByRole('button', { name: 'Admin login' }).click();
+  await f.page.getByText('Admin sign-in is unavailable. Try again later.').waitFor();
+  assert.equal(attempts, 1); assert.equal(forwarded, false);
+  available = true;
+  await f.page.route('https://login.microsoftonline.com/**', (route) => route.abort());
+  const redirected = f.page.waitForRequest('https://login.microsoftonline.com/**');
+  await f.page.getByRole('button', { name: 'Admin login' }).click();
+  assert.equal((await redirected).url(), 'https://login.microsoftonline.com/test-authorize');
+  assert.equal(attempts, 2); assert.equal(forwarded, false);
+});
 test('friend downloads the exact selected APK through a fresh authorized redirect and can check for updates', async (t) => {
   const f = await setup(t); const old = f.state.currentRelease;
   const path = `/api/companion-downloads/${old.versionCode}/${old.sourceCommit}/${old.apk.fileName}`;
