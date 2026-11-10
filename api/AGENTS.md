@@ -12,6 +12,11 @@ Functions are the authenticated same-origin boundary. Route families are:
   `operator-assets/`. `bird-journal/` projects only approved fields and records
   from `_private/birding/published.json`; its initial real publication is empty.
   Private import/publication and generated feeds remain subsequent work.
+- `companion-datasets/` and `_lib/companion-dataset-store.js` provide the
+  separately enabled read-only shared-Blob transport. They verify current roster
+  authority and bound exact object reads; no device proof, write, SAS or map
+  processing is introduced. The worker/admission layer remains required before
+  connecting this transport to the shell. See `docs/companion-dataset-reader.md`.
 - `companion-downloads/` authorizes browser viewers/owners before reusing the
   separate development receipt validator for exact immutable APK/FAP grants.
   It never makes browser cookies valid on `wardriver-development/`. Configuration
@@ -56,6 +61,7 @@ Focused checks:
 
 ```bash
 node --test tests/viewer-session.test.mjs tests/companion-auth.test.mjs tests/companion-downloads.test.mjs tests/passcode-rate-limit.test.mjs
+node --test tests/companion-datasets.test.mjs
 node --test tests/common-api-auth.test.mjs tests/owner-auth.test.mjs tests/operator-shell-api.test.mjs tests/operator-downloads-api.test.mjs
 node --test tests/wardriver-development-api.test.mjs tests/wardriver-development-store.test.mjs
 node --test tests/wardriver-sync-auth.test.mjs tests/wardriver-sync-api.test.mjs

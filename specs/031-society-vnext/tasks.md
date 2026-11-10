@@ -17,6 +17,8 @@
 - [ ] Complete public canonical metadata, RSS/sitemap, media and publication coverage.
 - [ ] Integrate data-driven inspector, panel behavior and full desktop accessibility.
 - [ ] Compatible browser shared-dataset reader and Android parity fixtures.
+- [x] Read-only same-origin dataset transport with current signed-roster checks.
+- [ ] Verifying browser worker, canonical admission and Android golden parity.
 - [ ] Map controls, Encounters, Trips, timeline and shared inspector.
 - [ ] Private bird import/preview/publication and supported sync feasibility.
 - [ ] Owner correction compatibility and friend onboarding/update experience.
@@ -69,3 +71,20 @@ Owner-only corpus access is not widened by the viewer routes.
   password mode is explicit. Retained owner sign-in now lives at `/owner`.
 - Browser/hosting performance, full 200% zoom and assistive-technology coverage,
   exact-source live configuration and physical phone acceptance remain open.
+
+## Dataset transport evidence — 2026-11-10
+
+- Reviewed current Wardriver producer source at
+  `2b5a526bac6cf2914c967fa61a185b4ff3db70e8`; documented v1/v2 observation
+  envelopes separately from unsupported evidence slots and old Cybermap.
+- Nine transport tests cover real viewer authorization, configuration and group
+  scope, path/method/origin denial, exact bytes, current roster verification,
+  authority-change races, revoked-member reads, malformed/oversized/partial
+  streams, private-error redaction and timeout/concurrency budgets.
+- Full root CI-contract suite: 386 passed on Node 24.22.2/Windows. Focused
+  companion/device-auth regressions: 33 passed. New modules pass structural lint.
+- Interface commit `7f35ddc61d3e839be428775e64bcc14db6008b25` passed all seven
+  hosted workflows, including Society public CI and its Linux VM suite. This
+  does not change the previously recorded local Windows VM limitation.
+- No transport read used real group storage. The browser worker, verified
+  admission/projection and Android golden parity are still unimplemented.

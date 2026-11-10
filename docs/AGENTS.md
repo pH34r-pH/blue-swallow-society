@@ -8,6 +8,10 @@ rewriting history.
 
 Important local records:
 
+- `companion-dataset-reader.md` — read-only browser transport decision, pinned
+  producer compatibility, authority/configuration, budgets and remaining worker
+  admission/parity requirements.
+
 - `society-vnext-foundation.md` — public journal, password/viewer shell and
   browser-download source implementation, protected configuration, rollout
   prerequisites and explicit remaining dataset/bird-history work.

@@ -1,12 +1,17 @@
 # Society vNext foundation
 
-This is partial source implementation for issues #47, #46, #41 and #121 within #85, dated
+This is partial source implementation for issues #47, #46, #41, #42 and #121 within #85, dated
 2026-11-10. See the [current source map](current-source-map.md) and
 [feature contract](../specs/031-society-vnext/spec.md). The journal layout,
 password dialog, isolated desktop shell and private development download card
 are implemented in source. The browser dataset reader, populated map/history
 views and real bird import/publication flow remain pending. The root is now
 public-first; Entra owner entry is retained at `/owner`.
+
+The [read-only dataset transport](companion-dataset-reader.md) is also implemented
+behind separate protected configuration. It checks current signed membership and
+returns bounded exact bytes without issuing storage grants. Browser verification,
+admission and projection remain pending; this transport does not populate the map.
 
 ## Authorization and delivery
 
@@ -21,6 +26,8 @@ available in password mode; existing owner APIs do not accept viewer tokens.
 | `/api/companion-auth/renew` | POST | Same-origin empty JSON body; conditional idle renewal, bounded by absolute expiry |
 | `/api/companion-auth/logout` | POST | Same-origin empty JSON body; durable revocation before cookie clearing/success |
 | `/api/companion-ui/{asset}` | GET/HEAD | Isolated fixed viewer-safe shell/module/style allowlist, after authorization |
+| `/api/companion-datasets/roster` | GET/HEAD | Configured shared group and current pinned signed roster; separate feature enablement |
+| `/api/companion-datasets/object` | POST | Same-origin roster-bound fixed-path read; bounded exact opaque bytes, no writes or grants |
 | `/api/bird-journal` | GET/HEAD | Public approved-field projection; initial publication is empty |
 | `/api/companion-downloads/current.json` | GET/HEAD | Authenticated metadata validated as the private vNext channel |
 | `/api/companion-downloads/{versionCode}/{sourceCommit}/{fileName}` | GET/HEAD | Exact immutable receipt, listed APK or paired FAP; fresh five-minute HTTPS read-only Blob grant |

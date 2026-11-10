@@ -79,6 +79,10 @@ slice adds opt-in password viewer sessions and a browser-authorized development
 download facade. The second adds the public journal, explicit Login and an
 isolated Vector Edge shell with Map/Encounters/Trips/Downloads navigation.
 Shared datasets are not connected yet; the three data views state that honestly.
+The next slice adds the separately enabled read-only Blob transport in
+`api/companion-datasets/`, with current signed-roster checks and bounded exact
+object reads. The [dataset reader contract](companion-dataset-reader.md) defines
+its authority, producer compatibility and required browser worker/admission work.
 Retained owner APIs remain separate. See [the foundation contract](society-vnext-foundation.md)
 for configuration and limits; this is not launch or deployment evidence.
 
@@ -176,6 +180,7 @@ the group. This route does not call the retained observation-ingestion service.
 | Entities/auth | `api/cybermap-entities/`, `api/_lib/entity-*`, `api/_private/operator/assets/entity-*`, `vm/cybermap-api/src/entity-*` | `node --test tests/entity-proxy.test.mjs tests/entity-edit-auth.test.mjs tests/entity-workbench.browser.mjs tests/entity-integration.browser.mjs vm/cybermap-api/test/entity-workbench*.test.mjs vm/cybermap-api/test/entity-api-adapter.test.mjs` |
 | Ingest/schema | `api/cybermap-observations-batch/`, `vm/cybermap-api/src/contracts.mjs`, `db/migrations/`, `shared/contracts/` | `node --test tests/cybermap-ingest-api.test.mjs tests/cybermap-schema.test.mjs vm/cybermap-api/test/contracts.test.mjs vm/cybermap-api/test/wardriver-contract-conformance.test.mjs` |
 | Private dataset access | `api/wardriver-sync/`, `api/_lib/wardriver-sync-*`, `docs/wardriver-device-sync-access.md` | `node --test tests/wardriver-sync-auth.test.mjs tests/wardriver-sync-api.test.mjs` |
+| Browser dataset transport | `api/companion-datasets/`, `api/_lib/companion-dataset-store.js`, `docs/companion-dataset-reader.md` | `node --test tests/companion-datasets.test.mjs` |
 | Paper runtime | `api/tzeentch/`, `config/`, `scripts/mosaic_murmurs_*`, `tests/paper*` | `node --test tests/tzeentch-route.test.mjs tests/tzeentch-dashboard.test.mjs tests/paper-state-contract.test.mjs && python3 -m unittest discover -s tests -p 'paper*_test.py'` |
 | Infra/deployment | `infra/`, `.github/workflows/`, `docs/public-ci-handoff.md` | `node --test tests/wardriver-release-delivery-config.test.mjs tests/wardriver-basemap-delivery-config.test.mjs tests/node-runtime-contract.test.mjs`; deployment/what-if workflows are separate and manual |
 

@@ -71,7 +71,15 @@ denial, storage/bootstrap failures, renewal, expiry, cross-tab lock and BFCache
 teardown. Retained Entra tests move to the owner entry rather than forcing the
 new public root back to the superseded sign-in design.
 
-## Standards
+## Shared dataset adapter and worker
+
+The [reader decision](../../docs/companion-dataset-reader.md) owns the current
+authority, compatibility and bounded transport contract. Implement its read-only
+same-origin adapter first, then a verifying in-memory browser worker and shared
+projection. Do not connect opaque transport bytes to map rendering prematurely.
+Preserve device-owned publication and the independent device access provider.
+
+## Standards and validation
 
 - [Node scrypt](https://nodejs.org/docs/latest-v24.x/api/crypto.html#cryptoscryptpassword-salt-keylen-options-callback)
 - [Azure TableClient](https://learn.microsoft.com/en-us/javascript/api/@azure/data-tables/tableclient)
