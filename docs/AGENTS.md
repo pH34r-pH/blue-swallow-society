@@ -8,6 +8,9 @@ rewriting history.
 
 Important local records:
 
+- `society-vnext-foundation.md` — partial password/viewer and browser-download
+  source implementation, protected configuration, rollout prerequisites and
+  explicit remaining public UI/dataset/bird-history work.
 - `static-web-app-functionality.md` — current web/API behavior and security boundary.
 - `owner-entra-cutover.md` and `common-api-auth-contract.md` — Entra owner/API scope and cutover constraints.
 - `entity-workbench-contract.md`, `entity-edit-authorization.md`, and `entity-workbench-validation.md` — entity read/edit contract and evidence.

@@ -40,7 +40,7 @@ function createPasscodeRateLimiter({
 
 function createTableClient(connectionString, tableName) {
   const { TableClient } = require('@azure/data-tables');
-  return TableClient.fromConnectionString(String(connectionString).trim(), validateTableName(tableName));
+  return TableClient.fromConnectionString(String(connectionString).trim(), validateTableName(tableName), { retryOptions: { maxRetries: 1 } });
 }
 
 class AzureTablePasscodeRateLimiter {
@@ -60,10 +60,12 @@ class AzureTablePasscodeRateLimiter {
   }
 
   async reserveAttempt(callerKey, { maxAttempts, windowMs, now = Date.now() } = {}) {
+    const abortSignal = AbortSignal.timeout(5000);
     for (let retry = 0; retry < MAX_MUTATION_RETRIES; retry += 1) {
-      const state = await this.#read(callerKey, now);
+      if (abortSignal.aborted) throw unavailable();
+      const state = await this.#read(callerKey, now, abortSignal);
       if (state.expired) {
-        await this.#deleteExpired(callerKey, state.etag);
+        await this.#deleteExpired(callerKey, state.etag, abortSignal);
         continue;
       }
 
@@ -83,9 +85,9 @@ class AzureTablePasscodeRateLimiter {
       try {
         let result;
         if (state.exists) {
-          result = await this.client.updateEntity(entity, 'Replace', { etag: state.etag });
+          result = await this.client.updateEntity(entity, 'Replace', { etag: state.etag, abortSignal });
         } else {
-          result = await this.client.createEntity(entity);
+          result = await this.client.createEntity(entity, { abortSignal });
         }
         return {
           limited: false,
@@ -104,16 +106,16 @@ class AzureTablePasscodeRateLimiter {
     const etag = String(reservation?.etag || '');
     if (!etag) throw unavailable();
     try {
-      await this.client.deleteEntity(PARTITION_KEY, callerKey, { etag });
+      await this.client.deleteEntity(PARTITION_KEY, callerKey, { etag, abortSignal: AbortSignal.timeout(5000) });
     } catch (error) {
       if (isNotFound(error) || isConcurrencyError(error)) return;
       throw unavailable(error);
     }
   }
 
-  async #read(callerKey, now) {
+  async #read(callerKey, now, abortSignal = AbortSignal.timeout(5000)) {
     try {
-      const entity = await this.client.getEntity(PARTITION_KEY, callerKey);
+      const entity = await this.client.getEntity(PARTITION_KEY, callerKey, { abortSignal });
       const expiresAtMs = Date.parse(entity.expiresAt);
       const attempts = Number.isSafeInteger(entity.attempts) && entity.attempts > 0 ? entity.attempts : 0;
       if (!Number.isFinite(expiresAtMs) || expiresAtMs <= now) {
@@ -128,9 +130,9 @@ class AzureTablePasscodeRateLimiter {
     }
   }
 
-  async #deleteExpired(callerKey, etag) {
+  async #deleteExpired(callerKey, etag, abortSignal) {
     try {
-      await this.client.deleteEntity(PARTITION_KEY, callerKey, { etag: etag || '*' });
+      await this.client.deleteEntity(PARTITION_KEY, callerKey, { etag: etag || '*', abortSignal });
     } catch (error) {
       if (isNotFound(error) || isConcurrencyError(error)) return;
       throw unavailable(error);

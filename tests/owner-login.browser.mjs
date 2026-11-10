@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -6,7 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 const require = createRequire(new URL('../api/package.json', import.meta.url));
 const { chromium } = require('@playwright/test');
-const { SignJWT, createLocalJWKSet, exportJWK } = await import(require.resolve('jose'));
+const { SignJWT, createLocalJWKSet, exportJWK } = await import(pathToFileURL(require.resolve('jose')).href);
 const { createOwnerAuthHandler } = require('./owner-auth');
 const { loginConfig } = require('./_lib/owner-login');
 const { createApiTokenValidator } = require('./_lib/api-access-token');
@@ -28,7 +29,7 @@ let wrongOwner = false, cancelEdit = false, runtimeOrigin;
 const logins = new Map();
 const ownerHandler = createOwnerAuthHandler({
   getConfig: () => ({ ...loginConfig(), origin: runtimeOrigin || config.origin, redirectUri: `${runtimeOrigin || config.origin}/api/owner-auth/callback` }),
-  verifyApi: createApiTokenValidator({ keySet, loadJose: () => import(require.resolve('jose')) }),
+  verifyApi: createApiTokenValidator({ keySet, loadJose: () => import(pathToFileURL(require.resolve('jose')).href) }),
   clientFactory: () => { let apiToken; return ({
     async getAuthCodeUrl(request) { logins.set(request.state, request); return `https://login.microsoftonline.com/${config.tenant}/authorize?state=${request.state}`; },
     async acquireTokenByCode({ code, codeVerifier }) {

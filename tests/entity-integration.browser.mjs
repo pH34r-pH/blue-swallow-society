@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -11,7 +12,7 @@ const require = createRequire(new URL('../api/package.json', import.meta.url));
 const pgRequire = createRequire(new URL('../vm/cybermap-api/package.json', import.meta.url));
 const { Pool } = pgRequire('pg');
 const { chromium } = require('@playwright/test');
-const { SignJWT, createLocalJWKSet, exportJWK } = await import(require.resolve('jose'));
+const { SignJWT, createLocalJWKSet, exportJWK } = await import(pathToFileURL(require.resolve('jose')).href);
 const { createApiGuard } = require('./_lib/api-access-token');
 const { createEntityOwnerGuard } = require('./_lib/entity-owner-auth');
 const { createEntityProxy } = require('./cybermap-entities');

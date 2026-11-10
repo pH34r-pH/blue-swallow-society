@@ -63,6 +63,13 @@ surface; it does not reveal the companion shell or Wardriver artifacts.
 
 ## Companion dashboard boundaries
 
+Society vNext is being implemented under
+[`specs/031-society-vnext/`](../specs/031-society-vnext/spec.md). Its first source
+slice adds opt-in password viewer sessions and a browser-authorized development
+download facade. The public page, retained shell and owner-only APIs described
+below remain unchanged. See [the foundation contract](society-vnext-foundation.md)
+for configuration and limits; this is not launch or deployment evidence.
+
 `api/_private/operator/shell.html` is the current private companion dashboard:
 
 - **Travels / Cybermap** (`/operator/travels`) shows bounded observation history
@@ -105,6 +112,7 @@ new product features remain separate work.
 | Boundary | Implemented and checked in source | Still unverified here |
 |---|---|---|
 | Owner access | Entra authorization-code/PKCE flow, exact tenant/audience/owner checks, five-minute signed session, HttpOnly cookie, memory-only browser token | Real Microsoft sign-in, production identities/consent, live wrong-owner denial, and deployment settings |
+| vNext viewer foundation | Explicit password mode, fixed-cost scrypt, globally and per-caller throttled login, durable 15-minute idle/eight-hour absolute sessions, ETag renewal, revocable logout and a companion-only guard; browser development-download facade reuses immutable receipt validation | Private configuration/table provisioning, timer/runtime qualification, browser login/shell integration and live downloads |
 | Private companion | Loader fetches private shell/assets through operator token and fixed allowlist; browser tests cover route navigation and asset handoff | Live hosted shell/asset behavior on the deployed origin |
 | Entity workbench | VM contract, migration 0007, Functions scope checks, optimistic preview/mutate, replay/stale-revision handling, browser/PostGIS tests | Live migration/application and real owner `Entities.Write` consent |
 | Observation upload | Functions batch proxy validates method/body/HTTPS backend and forwards device, token, and idempotency headers; Wardriver source owns encrypted V2 staging and receipt handling | A production Wardriver-to-VM upload, deployed PostGIS persistence, and device certificate/token acceptance |
@@ -143,6 +151,7 @@ the group. This route does not call the retained observation-ingestion service.
 | Change area | Start with | Focused validation |
 |---|---|---|
 | Root/owner sign-in | `app/`, `api/owner-auth/`, `api/shared/owner-session.cjs`, `api/_lib/owner-*` | `node --test tests/owner-auth.test.mjs tests/owner-login.browser.mjs tests/root-login-handoff-browser.test.mjs` |
+| vNext viewer/download foundation | `api/companion-auth/`, `api/companion-downloads/`, `api/_lib/viewer-session*`, `api/_lib/companion-auth.js` | `node --test tests/viewer-session.test.mjs tests/companion-auth.test.mjs tests/companion-downloads.test.mjs tests/passcode-rate-limit.test.mjs` |
 | Companion route/shell/assets | `app/operator/`, `api/_private/operator/`, `api/operator-shell/`, `api/operator-assets/` | `node --test tests/companion-navigation.test.mjs tests/companion.browser.mjs tests/ui-shell.test.mjs tests/operator-shell-api.test.mjs` |
 | Travels/history/nearby map | `api/cybermap-history/`, `api/operator-signals/`, `vm/cybermap-api/src/history-*`, `api/_private/operator/assets/travels-*` | `node --test tests/history-api.test.mjs tests/travels-state.test.mjs tests/travels.browser.mjs vm/cybermap-api/test/history-*.test.mjs` |
 | Entities/auth | `api/cybermap-entities/`, `api/_lib/entity-*`, `api/_private/operator/assets/entity-*`, `vm/cybermap-api/src/entity-*` | `node --test tests/entity-proxy.test.mjs tests/entity-edit-auth.test.mjs tests/entity-workbench.browser.mjs tests/entity-integration.browser.mjs vm/cybermap-api/test/entity-workbench*.test.mjs vm/cybermap-api/test/entity-api-adapter.test.mjs` |

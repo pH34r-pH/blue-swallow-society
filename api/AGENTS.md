@@ -2,6 +2,15 @@
 
 Functions are the authenticated same-origin boundary. Route families are:
 
+- `companion-auth/`, `_lib/viewer-session*`, and `_lib/companion-auth.js` add
+  explicit password-mode viewer sessions with scrypt, durable revocation and
+  conditional renewal. Only the asynchronous companion guard accepts viewers;
+  do not widen the synchronous owner/operator guard. `viewer-session-cleanup/`
+  performs bounded expiry cleanup. These routes do not yet change the public UI.
+- `companion-downloads/` authorizes browser viewers/owners before reusing the
+  separate development receipt validator for exact immutable APK/FAP grants.
+  It never makes browser cookies valid on `wardriver-development/`. Configuration
+  and rollout constraints are in `docs/society-vnext-foundation.md`.
 - `owner-auth/`, `_lib/owner-*`, `_lib/api-access-token.js`, and
   `_lib/operator-auth.js` establish the owner/operator session and scoped API
   principal. Reject before reading private data.
@@ -41,6 +50,7 @@ and a Function binding only when the source contract requires it.
 Focused checks:
 
 ```bash
+node --test tests/viewer-session.test.mjs tests/companion-auth.test.mjs tests/companion-downloads.test.mjs tests/passcode-rate-limit.test.mjs
 node --test tests/common-api-auth.test.mjs tests/owner-auth.test.mjs tests/operator-shell-api.test.mjs tests/operator-downloads-api.test.mjs
 node --test tests/wardriver-development-api.test.mjs tests/wardriver-development-store.test.mjs
 node --test tests/wardriver-sync-auth.test.mjs tests/wardriver-sync-api.test.mjs

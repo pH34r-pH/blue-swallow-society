@@ -34,7 +34,7 @@ print(json.dumps(state, separators=(",", ":"), sort_keys=True))
 `;
 
 test('Python canonical producer and VM persistence validator share one executable schema-v4 contract', () => {
-  const produced = spawnSync('python3', ['-c', producerScript], {
+  const produced = spawnSync(process.platform === 'win32' ? 'python' : 'python3', ['-c', producerScript], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
     maxBuffer: 2 * 1024 * 1024,

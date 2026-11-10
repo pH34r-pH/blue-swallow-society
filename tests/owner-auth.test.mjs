@@ -1,10 +1,11 @@
+import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { requireOwnerReadProof } from '../vm/cybermap-api/src/owner-read-auth.mjs';
 const require = createRequire(new URL('../api/package.json', import.meta.url));
-const { SignJWT, createLocalJWKSet, exportJWK } = await import(require.resolve('jose'));
+const { SignJWT, createLocalJWKSet, exportJWK } = await import(pathToFileURL(require.resolve('jose')).href);
 const owner = require('./shared/owner-session.cjs');
 const { verifyIdToken } = require('./_lib/owner-id-token');
 const { ownerBackendHeaders } = require('./_lib/owner-backend-proof');

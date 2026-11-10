@@ -106,4 +106,4 @@ async function handle(context, req, { env = process.env, createStore = createDev
 }
 
 module.exports = (context, req) => handle(context, req);
-module.exports._internals = { handle };
+module.exports._internals = { handle, parseArtifact, deliverAuthorized };

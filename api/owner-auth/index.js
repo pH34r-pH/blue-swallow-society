@@ -50,7 +50,7 @@ async function completeLogin(req, config, deps) {
 function createOwnerAuthHandler({ getConfig = login.loginConfig, clientFactory = login.msalClient, verify = verifyIdToken, verifyApi, now = Date.now } = {}) {
   return async function ownerAuth(context, req) {
     if (req.method && req.method !== 'GET' && !(req.method === 'POST' && req.params?.action === 'edit')) { context.res = json(405, { ok: false, error: 'method_not_allowed' }); return; }
-    if (authMode() !== 'entra') { context.res = json(503, { ok: false, error: 'owner_auth_unavailable' }); return; }
+    if (!['entra', 'password'].includes(authMode())) { context.res = json(503, { ok: false, error: 'owner_auth_unavailable' }); return; }
     const action = req.params?.action;
     if (action === 'logout') { apiCache.forget(cookieValue(req.headers?.cookie)); context.res = failedLogin('signed-out'); return; }
     if (action === 'session') { context.res = readSession(req, now()); return; }
