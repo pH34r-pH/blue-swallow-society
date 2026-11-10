@@ -86,8 +86,8 @@ worker. The three data views still state that their projections are unavailable.
 The bounded receiver-fix projection is in
 `api/_private/companion/data/receiver-projection.mjs`; it preserves contributor
 provenance and excludes ambiguous or invalid geometry. Its worker query checks
-epoch and generation, but the client and map do not consume it yet. It is not
-an emitter map.
+epoch and generation; the client invalidates pending queries on changes, clear,
+refresh or teardown. The map does not consume it yet. It is not an emitter map.
 The next slice adds the separately enabled read-only Blob transport in
 `api/companion-datasets/`, with current signed-roster checks and bounded exact
 object reads. The [dataset reader contract](companion-dataset-reader.md) defines

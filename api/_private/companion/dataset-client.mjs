@@ -40,14 +40,46 @@ async function read(request, message, signal) {
   if (isObject) return bytes;
   try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch { fail('invalid_dataset'); }
 }
+function projectionRequests(worker) {
+  let status = null; let pending = null; let serial = 0;
+  function invalidate() {
+    if (pending) { clearTimeout(pending.timer); pending.reject(new Error('stale_projection')); pending = null; }
+    status = null;
+  }
+  return {
+    invalidate,
+    status(value) {
+      if (pending && (value.epoch !== pending.epoch || value.generation !== pending.generation || value.suspended || !value.rosterRevision)) invalidate();
+      status = value;
+    },
+    result(message) {
+      if (!pending || message.id !== pending.id) return;
+      const current = pending; pending = null; clearTimeout(current.timer);
+      if (message.error || message.epoch !== current.epoch || message.result?.generation !== current.generation)
+        current.reject(new Error(message.error === 'invalid_projection' ? 'invalid_projection' : 'stale_projection'));
+      else current.resolve(message.result);
+    },
+    query({ publisher = null, limit = 2000 } = {}) {
+      if (!status || status.suspended || !status.rosterRevision || status.phase === 'locked' || pending) return Promise.reject(new Error('stale_projection'));
+      if ((publisher !== null && (typeof publisher !== 'string' || !/^[a-f0-9]{64}$/.test(publisher)))
+        || !Number.isInteger(limit) || limit < 1 || limit > 2000) return Promise.reject(new Error('invalid_projection'));
+      const { epoch, generation } = status; const id = ++serial;
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => { if (pending?.id === id) invalidate(); }, 10000);
+        pending = { id, epoch, generation, resolve, reject, timer };
+        worker.postMessage({ type: 'receiver-fixes', id, epoch, generation, publisher, limit });
+      });
+    },
+  };
+}
 export function createDatasetClient({ source, request, signal, onStatus }) {
   const url = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
   let worker;
   try { worker = new Worker(url); } finally { URL.revokeObjectURL(url); }
-  const pending = new Map(); let closed = false;
+  const pending = new Map(); const projections = projectionRequests(worker); let closed = false;
   function destroy() {
     if (closed) return;
-    closed = true; worker.terminate();
+    closed = true; projections.invalidate(); worker.terminate();
     for (const controller of pending.values()) controller.abort();
     pending.clear(); signal.removeEventListener('abort', destroy);
   }
@@ -64,14 +96,16 @@ export function createDatasetClient({ source, request, signal, onStatus }) {
   }
   worker.onmessage = ({ data }) => {
     if (closed) return;
-    if (data?.type === 'status') onStatus(data.status);
+    if (data?.type === 'status') { projections.status(data.status); onStatus(data.status); }
+    else if (data?.type === 'projection') projections.result(data);
     else if (data?.type === 'read') void respond(data);
     else if (data?.type === 'abort') { pending.get(data.id)?.abort(); pending.delete(data.id); }
   };
   worker.onerror = (event) => { event.preventDefault(); destroy(); onStatus({ phase: 'failed', failure: 'dataset_unavailable' }); };
   signal.addEventListener('abort', destroy, { once: true });
   if (signal.aborted) destroy();
-  return { refresh() { if (!closed) worker.postMessage({ type: 'refresh' }); },
+  return { refresh() { if (!closed) { projections.invalidate(); worker.postMessage({ type: 'refresh' }); } },
     cancel() { if (!closed) worker.postMessage({ type: 'cancel' }); },
-    clear() { if (!closed) worker.postMessage({ type: 'clear' }); }, destroy };
+    clear() { if (!closed) { projections.invalidate(); worker.postMessage({ type: 'clear' }); } },
+    receiverFixes(options) { return closed ? Promise.reject(new Error('stale_projection')) : projections.query(options); }, destroy };
 }

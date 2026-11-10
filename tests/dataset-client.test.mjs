@@ -58,3 +58,19 @@ test('invalid worker destinations stop before requests; teardown aborts pending 
   f.worker.emit(read()); f.controller.abort(); assert.equal(pendingSignal.aborted, true); assert.equal(f.worker.stopped, true);
   finish(new Response('x', { headers })); await tick(); assert.equal(f.worker.sent.length, 0);
 });
+test('receiver query binds current generation and rejects late results after changes, clear or lock', async (t) => {
+  const f = setup(t, async () => new Response());
+  await assert.rejects(f.client.receiverFixes(), /stale_projection/);
+  const status = { epoch: 1, generation: 4, rosterRevision: 1, phase: 'ready', suspended: false };
+  f.worker.emit({ type: 'status', status });
+  const query = f.client.receiverFixes({ limit: 10 }); const sent = f.worker.sent.at(-1);
+  assert.deepEqual(sent, { type: 'receiver-fixes', id: 1, epoch: 1, generation: 4, publisher: null, limit: 10 });
+  f.worker.emit({ type: 'projection', id: sent.id, epoch: 1, result: { generation: 4, points: [] } });
+  assert.deepEqual((await query).points, []);
+  const stale = f.client.receiverFixes(); f.worker.emit({ type: 'status', status: { ...status, generation: 5 } });
+  await assert.rejects(stale, /stale_projection/);
+  const cleared = f.client.receiverFixes(); f.client.clear(); await assert.rejects(cleared, /stale_projection/);
+  f.worker.emit({ type: 'projection', id: 3, epoch: 1, result: { generation: 5, points: ['late'] } });
+  f.worker.emit({ type: 'status', status }); const locked = f.client.receiverFixes(); f.controller.abort();
+  await assert.rejects(locked, /stale_projection/); await assert.rejects(f.client.receiverFixes(), /stale_projection/);
+});
