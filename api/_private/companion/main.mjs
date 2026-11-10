@@ -65,6 +65,55 @@ function setupPanels(signal) {
   divider.addEventListener('pointermove', (event) => { if (divider.hasPointerCapture(event.pointerId)) resize(event.clientX); }, { signal });
   divider.addEventListener('pointerup', (event) => { if (divider.hasPointerCapture(event.pointerId)) divider.releasePointerCapture(event.pointerId); }, { signal });
 }
+function setupDataset(context) {
+  const refresh = document.getElementById('refreshDataset'), cancel = document.getElementById('cancelDataset');
+  const clear = document.getElementById('clearDataset'), title = document.getElementById('datasetTitle');
+  const summary = document.getElementById('datasetSummary'), coverage = document.getElementById('datasetCoverage');
+  const peers = document.getElementById('datasetPeers'); let client = null; let opening = false; let lastStatus = { phase: 'idle' };
+  const failures = { invalid_dataset: 'A dataset could not be verified.', invalid_roster: 'Group membership could not be verified.',
+    roster_changed: 'Membership changed. Refresh to verify the new revision.', dataset_capacity: 'This session reached its data limit.',
+    budget: 'More history remains. Continue reading to make progress.', cancelled: 'Refresh cancelled; accepted batches are retained.',
+    dataset_unavailable: 'Shared data is unavailable. The owner may need to enable access.', session_expired: 'The session has expired.' };
+  function renderPeers(value) {
+    peers.replaceChildren();
+    for (const peer of value.peers || []) {
+      const row = node('li'); const labels = { pending: 'waiting', processing: 'reading', more: 'more history', empty: 'no accepted batches',
+        up_to_date: 'checked', error: 'verification incomplete' };
+      const cutoff = peer.acceptedThrough === null ? '' : ` · accepted through ${peer.acceptedThrough}`;
+      row.append(node('strong', peer.displayName), node('span', `${peer.active ? '' : 'Revoked · '}${labels[peer.status] || 'incomplete'} · batch ${peer.cursor}${cutoff}`)); peers.append(row);
+    }
+  }
+  function description(value) {
+    if (value.failure) return failures[value.failure] || 'Some data could not be verified.';
+    if (value.phase === 'idle') return 'Read the shared observation history for this session.';
+    return `Batches accepted: ${value.commits || 0} · Records retained: ${value.records || 0} · Disputed identities: ${value.conflicts || 0}`;
+  }
+  function status(value) {
+    if (context.signal.aborted) return;
+    lastStatus = value;
+    const busy = value.phase === 'refreshing'; refresh.disabled = busy; cancel.hidden = !busy || !client;
+    clear.hidden = value.phase === 'idle' || !client;
+    refresh.textContent = value.more ? 'Continue reading' : value.phase === 'idle' ? 'Read shared data' : 'Refresh shared data';
+    title.textContent = busy ? 'Reading shared history' : value.phase === 'ready' ? 'Observation chains checked'
+      : value.phase === 'idle' ? 'No shared dataset loaded' : 'Shared history is incomplete';
+    summary.textContent = description(value);
+    coverage.textContent = value.phase === 'idle' ? ''
+      : 'Observation history only. Map, encounter and trip views are not available yet. Evidence streams and location estimates are not included.';
+    renderPeers(value);
+    document.getElementById('connectionState').textContent = title.textContent;
+    if (value.phase === 'failed') { client?.destroy(); client = null; }
+  }
+  refresh.addEventListener('click', async () => {
+    if (opening) return;
+    opening = true; status({ ...lastStatus, phase: 'refreshing', failure: null });
+    try { if (!client) client = await context.openDataset(status); if (!context.signal.aborted) client.refresh(); }
+    catch { status({ phase: 'failed', failure: 'dataset_unavailable' }); }
+    finally { opening = false; }
+  }, { signal: context.signal });
+  cancel.addEventListener('click', () => client?.cancel(), { signal: context.signal });
+  clear.addEventListener('click', () => client?.clear(), { signal: context.signal });
+  return () => { client?.destroy(); client = null; peers.replaceChildren(); };
+}
 export function mount(context) {
   const { signal } = context;
   const root = document.getElementById('viewContent');
@@ -85,7 +134,7 @@ export function mount(context) {
     requestController?.abort(); requestController = new AbortController();
     const current = ++generation;
     if (view !== 'downloads') {
-      const copy = { map: 'A compatible shared dataset is not connected yet. No observations or locations are being displayed.',
+      const copy = { map: 'The shared map projection is not available yet. No observations or locations are being displayed.',
         encounters: 'Encounters will appear when compatible shared observations are available. No encounter history is loaded.',
         trips: 'Trip history is not connected yet. Capture points alone are not treated as complete trips.' };
       unavailable(root, view === 'map' ? 'Your shared map starts here' : 'No ' + view + ' loaded', copy[view]); return;
@@ -126,7 +175,8 @@ export function mount(context) {
   }
   const clock = setInterval(updateTime, 10000); updateTime();
   setupPanels(signal);
+  const destroyDataset = setupDataset(context);
   void show(location.pathname.split('/').at(-1));
   document.getElementById('workspace').focus({ preventScroll: true });
-  return () => { generation++; requestController?.abort(); clearInterval(clock); root.replaceChildren(); document.body.style.removeProperty('--scope-width'); };
+  return () => { generation++; requestController?.abort(); destroyDataset(); clearInterval(clock); root.replaceChildren(); document.body.style.removeProperty('--scope-width'); };
 }

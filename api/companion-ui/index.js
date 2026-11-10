@@ -2,7 +2,8 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { requireCompanion } = require('../_lib/companion-auth');
-const FILES = Object.freeze({ 'shell.html': 'text/html', 'theme.css': 'text/css', 'main.mjs': 'text/javascript' });
+const FILES = Object.freeze({ 'shell.html': 'text/html', 'theme.css': 'text/css', 'main.mjs': 'text/javascript',
+  'dataset-client.mjs': 'text/javascript', 'dataset-worker.js': 'text/javascript' });
 function createCompanionUiHandler({ authorize = requireCompanion, readFile = fs.readFile } = {}) {
   return async (context, req) => {
     if (!(await authorize(context, req)).ok) { if (req.method === 'HEAD') context.res.body = undefined; return; }

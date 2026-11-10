@@ -4,14 +4,17 @@ This is partial source implementation for issues #47, #46, #41, #42 and #121 wit
 2026-11-10. See the [current source map](current-source-map.md) and
 [feature contract](../specs/031-society-vnext/spec.md). The journal layout,
 password dialog, isolated desktop shell and private development download card
-are implemented in source. The browser dataset reader, populated map/history
-views and real bird import/publication flow remain pending. The root is now
+are implemented in source. A bounded browser reader now verifies and retains
+shared history; populated map/history views and real bird import/publication
+remain pending. The root is now
 public-first; Entra owner entry is retained at `/owner`.
 
 The [read-only dataset transport](companion-dataset-reader.md) is also implemented
 behind separate protected configuration. It checks current signed membership and
-returns bounded exact bytes without issuing storage grants. Browser verification,
-admission and projection remain pending; this transport does not populate the map.
+returns bounded exact bytes without issuing storage grants. Browser verification
+and admission now run in a private worker with explicit read/refresh controls.
+Map/history projection remains unfinished; verified transport does not populate
+the map by itself.
 
 ## Authorization and delivery
 

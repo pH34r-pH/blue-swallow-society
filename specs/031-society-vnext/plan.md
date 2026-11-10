@@ -89,6 +89,33 @@ bytes. Cross-check actual producer-generated golden batches on Node and Chromium
 Generated codec code alone is excluded from structural metrics; authored
 verification/admission remains within those checks. Reproducibility runs in CI.
 
+The admission store lives only in the worker's memory. Mirror `JournalBatch`
+and `RoomDatasetSync` at the pinned producer revision: validate whole journal
+appends before mutation; preserve per-publisher accepted commit ledgers and
+cursors; atomically attach exact-byte facts/provenance/retractions. Conflicting
+identities quarantine bounded competing bytes and invalidate support without
+advancing that peer. Identical cross-publisher claims stay permanently ambiguous
+for geometry, including after withdrawal. Signed cutoffs only tighten, retain
+raw history/cursors and can undo suffix tombstones; a wrong historical cutoff
+hash suppresses the peer. Membership and generation changes invalidate pending
+work before publication. Bound records, raw bytes, claims, commits and quarantine
+separately, with visible capacity status and no silent eviction.
+
+The loader lazily fetches fixed private `dataset-client.mjs` and generated
+`dataset-worker.js` assets after explicit Read shared data. Bundle the worker
+with pinned esbuild and check reproducibility in CI. Keep authored files within
+structural checks; exclude only the exact generated bundle. The loader retains
+credentials; the worker requests only roster/object reads through a bounded
+message bridge, never arbitrary paths or URLs. Revalidate response revision/hash,
+cap streaming bytes, transfer object buffers, and ignore late results after clear
+or teardown. Worker termination on Lock/expiry cancels all pending requests.
+
+Expose progress, contributor cursors, partial/error states, Continue reading,
+Cancel refresh and Clear local data independently of the future map projection.
+Do not present retained-record counts as visible observations or complete corpus
+coverage. Read only on explicit interaction; refresh coalesces while active and
+advances fair per-peer batches without silent eviction or unbounded background work.
+
 ## Standards and validation
 
 - [Node scrypt](https://nodejs.org/docs/latest-v24.x/api/crypto.html#cryptoscryptpassword-salt-keylen-options-callback)

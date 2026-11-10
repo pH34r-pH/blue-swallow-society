@@ -51,9 +51,10 @@ The worker must also reject a lower revision or a changed same-revision roster.
   JSON requests to 1 KiB, and each complete storage operation to eight seconds.
   Limit concurrent storage requests per process to two. No listings or writes.
 
-The transport and wire codec are implemented. They remain unused by the shell
-until worker admission/projection is implemented and tested. A hash-shaped object
-name is not proof of a content hash: commit slots use domain-separated names.
+The transport, wire codec and bounded admission worker are implemented. The shell
+loads them only on explicit Read shared data and reports refresh progress; map
+and history projections remain unfinished. A hash-shaped object name is not
+proof of a content hash: commit slots use domain-separated names.
 
 ## Compatibility and generation contract
 
@@ -116,16 +117,45 @@ golden bytes. Source authority is Wardriver `DatasetWire`, `Observation`,
 revision. The implementation uses [protobufjs static generation](https://github.com/protobufjs/protobuf.js#code-generation)
 and browser WebCrypto, with no bespoke crypto or general protobuf parser.
 
-This checkpoint does not admit a shared generation: roster monotonicity,
-per-publisher chain/cursors, Room-equivalent journal admission, conflicts,
-withdrawal/cutoff processing, bounded refresh orchestration and map/history
-projection still require implementation and parity fixtures.
+## Admission and browser worker checkpoint
+
+The authored `roster`, `journal`, `admission-state`, `admission` and `reader` modules
+now admit verified shared history in memory. They follow the pinned producer's
+`JournalBatch`, `RoomDatasetSync` and `DatasetStorage` source contracts, with whole
+journal planning, accepted commit ledgers, exact-byte identity and per-publisher
+claims. Conflicts suppress disputed support immediately and retain bounded competing
+bytes without advancing that publisher. Identical claims from multiple publishers
+remain permanently ambiguous for geometry. Signed cutoffs only tighten; history
+and cursors remain intact, and invalidated suffix tombstones stop suppressing their
+targets. A pending cutoff verifies at its exact tip; a conflicting known hash
+suppresses that publisher.
+
+Default memory caps are 50,000 records, 64 MiB original bytes, 100,000 claims,
+20,000 accepted commits and a separate 512-record/4 MiB quarantine. These are
+logical retained-data budgets, not a total JavaScript heap guarantee. Each refresh
+limits 24 object reads, 8 MiB transferred bytes, four commits per publisher and
+20 seconds. Fair continuation avoids starving a peer after budget exhaustion.
+No cursor rewinds, silent eviction, persistent storage or automatic refresh loop.
+
+A reproducible esbuild bundle runs under the site's CSP without unsafe-eval. The
+private loader keeps the session token; `dataset-client.mjs` bridges only bounded
+same-origin roster/object requests and checks response revision/hash. The worker
+receives transferred bytes and returns status, not canonical record objects. A
+malformed roster or observed authority change suspends visible support; ordinary
+outage leaves the last accepted state partial. Clear discards private state, and
+Lock/expiry/page teardown terminates the worker and aborts requests.
+
+The UI distinguishes accepted batches and retained records from rendered facts.
+Map, Encounters and Trips still show unavailable projections. Independent evidence
+streams and derived estimates are explicitly outside initial coverage. Tests
+include actual Kotlin v1/v2 bytes in the integrated worker, but full Android Room
+admission/projection golden parity and live convergence remain open.
 
 ## Remaining evidence and integration
 
 Synthetic transport tests must exercise actual guard denial before storage,
 cross-group/path denial, current signed roster matching, revocation races,
-oversized/partial streams, outage and deadlines. Worker tests must add real
+oversized/partial streams, outage and deadlines. Node and Chromium tests now cover real
 Android-generated golden bytes, canonical JWS/protobuf failures, monotonicity,
 forks, duplicate/conflicting identity, retraction/cutoff and cancellation. Dense
 benchmarks, actual storage permissions and multi-client convergence remain #124.

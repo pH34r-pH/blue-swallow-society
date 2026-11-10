@@ -15,8 +15,9 @@ Functions are the authenticated same-origin boundary. Route families are:
 - `companion-datasets/` and `_lib/companion-dataset-store.js` provide the
   separately enabled read-only shared-Blob transport. They verify current roster
   authority and bound exact object reads; no device proof, write, SAS or map
-  processing is introduced. The worker/admission layer remains required before
-  connecting this transport to the shell. See `docs/companion-dataset-reader.md`.
+  processing is introduced. The shell now uses a private verifying worker for
+  explicit reads, admission and refresh status; map/history projections remain
+  unfinished. See `docs/companion-dataset-reader.md`.
 - `companion-downloads/` authorizes browser viewers/owners before reusing the
   separate development receipt validator for exact immutable APK/FAP grants.
   It never makes browser cookies valid on `wardriver-development/`. Configuration

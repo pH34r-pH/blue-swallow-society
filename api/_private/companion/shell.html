@@ -48,14 +48,21 @@
       <div class="dataset-state">
         <span class="status-dot muted-dot"></span>
         <div>
-          <strong>No shared dataset connected</strong>
-          <p>Data availability and contributor scope will appear here.</p>
+          <strong id="datasetTitle">No shared dataset loaded</strong>
+          <p id="datasetSummary" role="status">Read the shared observation history for this session.</p>
         </div>
       </div>
+      <div class="dataset-actions">
+        <button id="refreshDataset" class="edge-button" type="button">Read shared data</button>
+        <button id="cancelDataset" class="text-button" type="button" hidden>Cancel refresh</button>
+        <button id="clearDataset" class="text-button" type="button" hidden>Clear local data</button>
+      </div>
+      <p id="datasetCoverage" class="panel-copy"></p>
+      <ul id="datasetPeers" class="dataset-peers" aria-label="Contributor read status"></ul>
       <div class="scope-section">
         <h3>Map layers</h3>
         <p class="panel-copy">
-          Layer controls become available with a compatible shared dataset.
+          Layer controls will appear when the map view is ready.
         </p>
         <div class="layer-key">
           <span><i class="wifi-dot"></i>Wi-Fi</span

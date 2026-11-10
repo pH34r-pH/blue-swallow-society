@@ -9,10 +9,12 @@ const { createCompanionGuard } = require('../../api/_lib/companion-auth');
 const { createCompanionUiHandler } = require('../../api/companion-ui');
 const { createCompanionDownloadsHandler } = require('../../api/companion-downloads');
 const { createBirdJournalHandler } = require('../../api/bird-journal');
+const { createCompanionDatasetsHandler } = require('../../api/companion-datasets');
 const ownerShell = require('../../api/operator-shell');
 
-export async function startCompanionServer() {
+export async function startCompanionServer({ groupId } = {}) {
   const f = await fixture();
+  if (groupId) { f.env.BSS_WARDRIVER_SYNC_GROUP_ID = groupId; f.settings = require('../../api/_lib/viewer-session').config(f.env); }
   Object.assign(process.env, f.env);
   const state = { reads: [], privateReads: 0, failShell: false, releaseUnavailable: false, sessionDelay: 0,
     publication: { version: 1, updatedAt: null, posts: [], sightings: [] } };
@@ -29,6 +31,9 @@ export async function startCompanionServer() {
     createStore: () => ({ getRelease: async () => { if (state.releaseUnavailable) throw new Error('fixture_failure'); return release; },
       createDownloadUrl: async () => origin + '/synthetic-artifact' }) });
   const journal = createBirdJournalHandler({ readPublication: async () => state.publication });
+  const datasets = createCompanionDatasetsHandler({ authorize: guard,
+    getConfig: () => ({ origin, groupId: f.settings.group }),
+    createStore: () => { if (!state.datasetStore) throw new Error('unavailable'); return state.datasetStore; } });
   const staticPaths = { '/': 'index.html', '/main.js': 'main.js', '/journal.css': 'journal.css',
     '/journal-view.mjs': 'journal-view.mjs', '/companion-loader.mjs': 'companion-loader.mjs',
     '/companion.html': 'companion.html', '/owner': 'owner/index.html', '/owner/main.js': 'owner/main.js',
@@ -46,6 +51,7 @@ export async function startCompanionServer() {
     if (url.pathname.startsWith('/api/companion-auth/')) await auth(context, request);
     else if (url.pathname.startsWith('/api/companion-ui/')) await ui(context, request);
     else if (url.pathname.startsWith('/api/companion-downloads/')) await downloads(context, request);
+    else if (url.pathname.startsWith('/api/companion-datasets/')) await datasets(context, request);
     else if (url.pathname === '/api/bird-journal') await journal(context, request);
     else if (url.pathname === '/api/operator-shell') await ownerShell(context, request);
     else {
@@ -56,11 +62,11 @@ export async function startCompanionServer() {
         body: await readFile(new URL('../../app/' + file, import.meta.url), 'utf8') } : { status: 404, body: '' };
     }
     const response = context.res;
-    const headers = { 'Content-Type': 'application/json', ...response.headers };
+    const headers = { 'Content-Type': 'application/json', ...(state.csp ? { 'Content-Security-Policy': state.csp } : {}), ...response.headers };
     if (response.cookies?.length) headers['Set-Cookie'] = response.cookies.map((cookie) =>
       cookie.name + '=' + cookie.value + '; Path=/; Max-Age=' + cookie.maxAge + '; HttpOnly; Secure; SameSite=' + cookie.sameSite);
     outgoing.writeHead(response.status, headers);
-    outgoing.end(incoming.method === 'HEAD' ? undefined : typeof response.body === 'string' ? response.body : JSON.stringify(response.body));
+    outgoing.end(incoming.method === 'HEAD' ? undefined : typeof response.body === 'string' || Buffer.isBuffer(response.body) ? response.body : JSON.stringify(response.body));
   }
   const server = createServer((req, res) => void serve(req, res).catch(() => { if (!res.headersSent) res.writeHead(503); res.end(); }));
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));

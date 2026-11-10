@@ -31,6 +31,9 @@ Web browser
   -> app/companion-loader.mjs
   -> /api/companion-ui/{shell.html|theme.css|main.mjs}
   -> isolated viewer-safe shell; browser development-download facade
+  -> explicit Read shared data loads private dataset client/worker
+  -> /api/companion-datasets/{roster|object}
+  -> bounded signed-chain admission in worker memory; progress controls
 
 Retained owner tools
   -> /owner + app/owner/main.js
@@ -78,11 +81,13 @@ Society vNext is being implemented under
 slice adds opt-in password viewer sessions and a browser-authorized development
 download facade. The second adds the public journal, explicit Login and an
 isolated Vector Edge shell with Map/Encounters/Trips/Downloads navigation.
-Shared datasets are not connected yet; the three data views state that honestly.
+Shared observation history can now be read explicitly into a verifying private
+worker. The three data views still state that their projections are unavailable.
 The next slice adds the separately enabled read-only Blob transport in
 `api/companion-datasets/`, with current signed-roster checks and bounded exact
 object reads. The [dataset reader contract](companion-dataset-reader.md) defines
-its authority, producer compatibility and required browser worker/admission work.
+its authority, producer compatibility, bounded admission/refresh implementation
+and remaining map/history projection and Android parity requirements.
 The browser-compatible codec in `api/_private/companion/data/` now verifies
 signed v1/v2 envelopes and supported records using static protobufjs and
 WebCrypto. Actual Kotlin producer bytes pass Node and Chromium-worker checks;

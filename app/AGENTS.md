@@ -8,6 +8,8 @@ The public browser boundary is intentionally small:
 - `companion.html` and `companion-loader.mjs` restore viewer sessions only on
   private navigation or explicit Login, then load the isolated private shell.
   Lock, expiry, failed bootstrap and pagehide clear private DOM/object URLs.
+  Explicit Read shared data loads the private client/worker; the loader keeps
+  credentials and provides authorized transport. Teardown terminates that worker.
 - `owner/index.html` and `owner/main.js` retain Entra owner entry at `/owner`.
 - `operator/index.html`, `loader.js`, and `operator-session.mjs` redirect direct
   retained owner routes to `/owner`, restore the short-lived owner session, and

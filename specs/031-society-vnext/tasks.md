@@ -19,7 +19,8 @@
 - [ ] Compatible browser shared-dataset reader and Android parity fixtures.
 - [x] Read-only same-origin dataset transport with current signed-roster checks.
 - [x] Signed v1/v2 wire codec and actual Kotlin-producer/Chromium-worker fixtures.
-- [ ] Verifying browser worker, canonical admission and Android golden parity.
+- [x] Verifying browser worker, bounded canonical admission and explicit refresh controls.
+- [ ] Full Android Room admission/projection parity at the pinned producer revision.
 - [ ] Map controls, Encounters, Trips, timeline and shared inspector.
 - [ ] Private bird import/preview/publication and supported sync feasibility.
 - [ ] Owner correction compatibility and friend onboarding/update experience.
@@ -109,3 +110,28 @@ Owner-only corpus access is not widened by the viewer routes.
 - The full reader remains incomplete: verified roster progression, atomic
   canonical admission/journal continuity, conflicts, withdrawals/cutoffs,
   orchestration, map/history projection and full Android parity are next.
+
+## Admission and worker integration evidence — 2026-11-10
+
+- Signed roster monotonicity, bounded atomic admission, whole control-journal
+  continuity, exact-byte/cross-kind conflict quarantine, publisher-scoped
+  withdrawal, sticky cutoffs and permanent geometry ambiguity are implemented.
+- Nine admission and eight reader tests pass, including tiny-budget fair progress,
+  fork/rollback rejection, peer isolation, cancel/resume, clear versus late work,
+  capacity limits and redacted/auth failures. Four bridge tests cover bounded
+  streams, response authority, fixed destinations and teardown.
+- Two integrated Chromium journeys consume actual pinned Kotlin producer bytes
+  through the real private asset/API guards and site's CSP: explicit load,
+  unchanged-head refresh, cancel/resume, cutoffs, clear, outage retry and Lock
+  during a pending request. Worker termination and private asset denial pass.
+- Full root CI-contract suite: 414 passed; all ten Chromium journeys passed on
+  Node 24.22.2/Windows. Both codec and worker generation reproduce byte-for-byte.
+  Authored modules pass pinned structural lint.
+- Inspected synthetic desktop and expanded phone-width reader controls in
+  Chromium screenshots; controls/status remain legible with no horizontal overflow.
+- The preceding codec commit `d0c9630d806ed8359843571b935ebdbc1d102b0e` passed all
+  seven hosted workflows. This new reader slice still needs its own hosted CI.
+- This completes bounded observation-history reading, not map/encounter/trip
+  projection, full Android Room parity, dense performance or live convergence.
+  The shell labels that distinction; no real data, hosting change, credentials,
+  account connection, release publication or phone acceptance is claimed.

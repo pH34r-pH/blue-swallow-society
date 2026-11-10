@@ -30,7 +30,11 @@ export async function sha256(bytes) {
 }
 export function utf8(value) { return new TextEncoder().encode(value); }
 export function text(bytes) { try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch { throw new Error('invalid_dataset'); } }
-export function base64url(bytes) { return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', ''); }
+export function base64url(bytes) {
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 16384) binary += String.fromCharCode(...bytes.subarray(offset, offset + 16384));
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+}
 export function unbase64(value, max) {
   ensure(typeof value === 'string' && /^[A-Za-z0-9_-]+$/.test(value) && value.length <= Math.ceil(max * 4 / 3));
   let bytes;

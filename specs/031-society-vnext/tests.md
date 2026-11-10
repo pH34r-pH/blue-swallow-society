@@ -46,6 +46,23 @@ invalid control policy/outcome/order, Stop and retraction constraints. Run the
 same codec in a real Chromium worker with unsafe-eval prohibited. This proves
 the wire seam only; shared admission/projection parity needs further fixtures.
 
+Admission tests must exercise whole-batch atomicity, exact-byte duplicates,
+cross-publisher geometry ambiguity, cross-kind conflicts, quarantine capacity,
+tombstones before targets, per-publisher suppression, sticky cutoffs and incorrect
+historical hashes. Validate whole control-journal appends before mutation, including
+health/checkpoint linkage, boot/mode/elapsed continuity and final Stop. Capacity
+failures must not half-admit facts or advance a cursor.
+
+Reader tests must cover signed roster monotonicity/equivocation, observed head
+rollback/forks, missing payloads, peer isolation, fair progress under tiny budgets,
+cancel/resume, clear versus late callbacks, auth teardown and safe error codes.
+Bridge tests bound streamed bodies, check response authority headers, reject
+arbitrary destinations and distinguish missing heads from missing immutable data.
+Real Chromium journeys use the site's CSP without unsafe-eval and actual producer
+bytes through the real private asset/API guards: explicit load, unchanged-head
+refresh, cancellation/resume, cutoff revision, clear, outage retry and Lock during
+a pending read. These do not replace full Android Room admission/projection parity.
+
 ## Launch evidence
 
 Record exact source/artifact/runtime versions. Verify live auth/storage rules

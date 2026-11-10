@@ -91,6 +91,15 @@ async function loadAsset(name) {
   if (!response.ok) throw new Error('bootstrap_unavailable');
   return response.text();
 }
+async function openDataset(onStatus) {
+  const boot = generation;
+  const [client, source] = await Promise.all(['dataset-client.mjs', 'dataset-worker.js'].map(loadAsset));
+  if (!active || boot !== generation) throw new Error('session_expired');
+  const url = URL.createObjectURL(new Blob([client], { type: 'text/javascript' })); objectUrls.push(url);
+  const module = await import(url);
+  if (!active || boot !== generation) throw new Error('session_expired');
+  return module.createDatasetClient({ source, request, signal: controller.signal, onStatus });
+}
 export async function enterCompanion(candidate, destination = '/operator/map') {
   if (!validSession(candidate)) throw new Error('session_expired');
   session = Object.freeze(candidate);
@@ -111,7 +120,7 @@ export async function enterCompanion(candidate, destination = '/operator/map') {
     document.body.dataset.mode = 'companion';
     history.replaceState(null, '', safeDestination(destination));
     document.title = 'Blue Swallow — Companion';
-    destroyView = module.mount({ request, renew, lock, expiresAt: () => session?.expiresAt, signal: controller.signal });
+    destroyView = module.mount({ request, renew, lock, openDataset, expiresAt: () => session?.expiresAt, signal: controller.signal });
   } catch { if (active && generation === boot) await lock('unavailable'); }
 }
 async function restorePrivate() {
