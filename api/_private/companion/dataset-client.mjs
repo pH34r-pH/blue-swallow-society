@@ -42,8 +42,11 @@ async function read(request, message, signal) {
 }
 function projectionRequests(worker) {
   let status = null; let pending = null; let serial = 0;
-  function invalidate() {
+  function cancelPending() {
     if (pending) { clearTimeout(pending.timer); pending.reject(new Error('stale_projection')); pending = null; }
+  }
+  function invalidate() {
+    cancelPending();
     status = null;
   }
   return {
@@ -60,10 +63,11 @@ function projectionRequests(worker) {
       else current.resolve(message.result);
     },
     query({ publisher = null, limit = 2000 } = {}) {
-      if (!status || status.suspended || !status.rosterRevision || status.phase === 'locked' || pending) return Promise.reject(new Error('stale_projection'));
+      if (!status || status.suspended || !status.rosterRevision || status.phase === 'locked') return Promise.reject(new Error('stale_projection'));
       if ((publisher !== null && (typeof publisher !== 'string' || !/^[a-f0-9]{64}$/.test(publisher)))
         || !Number.isInteger(limit) || limit < 1 || limit > 2000) return Promise.reject(new Error('invalid_projection'));
       const { epoch, generation } = status; const id = ++serial;
+      cancelPending();
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => { if (pending?.id === id) invalidate(); }, 10000);
         pending = { id, epoch, generation, resolve, reject, timer };

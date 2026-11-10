@@ -53,6 +53,12 @@ test('private shell reads actual Kotlin producer history in a CSP worker, resume
   assert.match(await f.page.locator('#datasetSummary').textContent(), /Batches accepted: 1 · Records retained: 2/);
   assert.match(await f.page.locator('#datasetCoverage').textContent(), /Receiver fixes only/);
   await f.page.getByText(/Receiver capture locations · 1 shown/).waitFor();
+  await f.page.getByLabel('CONTRIBUTOR', { exact: true }).selectOption({ label: 'Synthetic 0' });
+  await f.page.getByRole('heading', { name: 'No receiver fixes available' }).waitFor();
+  await f.page.getByLabel('CONTRIBUTOR', { exact: true }).selectOption({ label: 'Synthetic 1' });
+  await f.page.getByText(/Receiver capture locations · 1 shown/).waitFor();
+  await f.page.getByLabel('CONTRIBUTOR', { exact: true }).selectOption({ label: 'All contributors' });
+  await f.page.getByText(/Receiver capture locations · 1 shown/).waitFor();
   await f.page.getByRole('button', { name: 'Show OpenStreetMap basemap' }).waitFor();
   assert.equal(tileRequests.length, 0);
   await f.page.getByLabel('Inspect a receiver fix').selectOption(golden.gnssId);

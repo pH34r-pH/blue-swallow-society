@@ -67,10 +67,15 @@ test('receiver query binds current generation and rejects late results after cha
   assert.deepEqual(sent, { type: 'receiver-fixes', id: 1, epoch: 1, generation: 4, publisher: null, limit: 10 });
   f.worker.emit({ type: 'projection', id: sent.id, epoch: 1, result: { generation: 4, points: [] } });
   assert.deepEqual((await query).points, []);
+  const superseded = f.client.receiverFixes(); const replacement = f.client.receiverFixes({ publisher: ref.deviceId });
+  await assert.rejects(superseded, /stale_projection/);
+  const replacementMessage = f.worker.sent.at(-1);
+  f.worker.emit({ type: 'projection', id: replacementMessage.id, epoch: 1, result: { generation: 4, points: [] } });
+  assert.deepEqual((await replacement).points, []);
   const stale = f.client.receiverFixes(); f.worker.emit({ type: 'status', status: { ...status, generation: 5 } });
   await assert.rejects(stale, /stale_projection/);
   const cleared = f.client.receiverFixes(); f.client.clear(); await assert.rejects(cleared, /stale_projection/);
-  f.worker.emit({ type: 'projection', id: 3, epoch: 1, result: { generation: 5, points: ['late'] } });
+  f.worker.emit({ type: 'projection', id: 5, epoch: 1, result: { generation: 5, points: ['late'] } });
   f.worker.emit({ type: 'status', status }); const locked = f.client.receiverFixes(); f.controller.abort();
   await assert.rejects(locked, /stale_projection/); await assert.rejects(f.client.receiverFixes(), /stale_projection/);
 });

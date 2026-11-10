@@ -82,7 +82,7 @@ function createReceiverMap(root, context) {
   const emptyInspector = [...inspector.childNodes].map((child) => child.cloneNode(true));
   function clear() { run++; map?.remove(); map = null; inspector.replaceChildren(...emptyInspector.map((child) => child.cloneNode(true))); }
   function ready(status, client) { return Boolean(client && status.rosterRevision && !status.suspended && ['ready', 'partial'].includes(status.phase)); }
-  async function update(status, client) {
+  async function update(status, client, publisher = null) {
     clear();
     if (document.body.dataset.view !== 'map') return;
     if (!ready(status, client)) {
@@ -91,7 +91,7 @@ function createReceiverMap(root, context) {
     const current = run;
     unavailable(root, 'Preparing receiver map', 'Checking the current dataset generation…', false);
     try {
-      const projection = await client.receiverFixes();
+      const projection = await client.receiverFixes({ publisher });
       if (current !== run || context.signal.aborted) return;
       if (!projection.points.length) { unavailable(root, 'No receiver fixes available', 'No eligible receiver locations are present in this dataset scope.', false); return; }
       library ||= context.openMap(); const renderer = await library;
@@ -149,11 +149,19 @@ function setupDataset(context, onData) {
   const clear = document.getElementById('clearDataset'), title = document.getElementById('datasetTitle');
   const summary = document.getElementById('datasetSummary'), coverage = document.getElementById('datasetCoverage');
   const peers = document.getElementById('datasetPeers'); let client = null; let opening = false; let lastStatus = { phase: 'idle' };
+  const filter = document.getElementById('contributorFilter');
   const failures = { invalid_dataset: 'A dataset could not be verified.', invalid_roster: 'Group membership could not be verified.',
     roster_changed: 'Membership changed. Refresh to verify the new revision.', dataset_capacity: 'This session reached its data limit.',
     budget: 'More history remains. Continue reading to make progress.', cancelled: 'Refresh cancelled; accepted batches are retained.',
     dataset_unavailable: 'Shared data is unavailable. The owner may need to enable access.', session_expired: 'The session has expired.' };
   function renderPeers(value) {
+    const selected = filter.value;
+    const all = node('option', 'All contributors'); all.value = ''; filter.replaceChildren(all);
+    for (const peer of value.peers || []) {
+      const option = node('option', peer.displayName + (peer.active ? '' : ' (revoked)')); option.value = peer.deviceId; filter.append(option);
+    }
+    if ([...filter.options].some((option) => option.value === selected)) filter.value = selected;
+    filter.disabled = !value.rosterRevision || value.suspended || value.phase === 'refreshing';
     peers.replaceChildren();
     for (const peer of value.peers || []) {
       const row = node('li'); const labels = { pending: 'waiting', processing: 'reading', more: 'more history', empty: 'no accepted batches',
@@ -169,7 +177,6 @@ function setupDataset(context, onData) {
   }
   function status(value) {
     if (context.signal.aborted) return;
-    onData(value, client);
     lastStatus = value;
     const busy = value.phase === 'refreshing'; refresh.disabled = busy; cancel.hidden = !busy || !client;
     clear.hidden = value.phase === 'idle' || !client;
@@ -180,6 +187,7 @@ function setupDataset(context, onData) {
     coverage.textContent = value.phase === 'idle' ? ''
       : 'Receiver fixes only. Encounters, trips, independent evidence and emitter estimates are not included.';
     renderPeers(value);
+    onData(value, client, filter.value || null);
     document.getElementById('connectionState').textContent = title.textContent;
     if (value.phase === 'failed') { client?.destroy(); client = null; }
   }
@@ -191,8 +199,9 @@ function setupDataset(context, onData) {
     finally { opening = false; }
   }, { signal: context.signal });
   cancel.addEventListener('click', () => client?.cancel(), { signal: context.signal });
-  clear.addEventListener('click', () => { onData({ phase: 'idle' }, client); client?.clear(); }, { signal: context.signal });
-  return { current: () => ({ status: lastStatus, client }), destroy: () => { client?.destroy(); client = null; peers.replaceChildren(); } };
+  clear.addEventListener('click', () => { filter.value = ''; onData({ phase: 'idle' }, client, null); client?.clear(); }, { signal: context.signal });
+  filter.addEventListener('change', () => onData(lastStatus, client, filter.value || null), { signal: context.signal });
+  return { current: () => ({ status: lastStatus, client, publisher: filter.value || null }), destroy: () => { client?.destroy(); client = null; peers.replaceChildren(); } };
 }
 export function mount(context) {
   const { signal } = context;
@@ -216,7 +225,7 @@ export function mount(context) {
     requestController?.abort(); requestController = new AbortController();
     const current = ++generation;
     receiverMap.clear();
-    if (view === 'map' && dataset) { const data = dataset.current(); void receiverMap.update(data.status, data.client); return; }
+    if (view === 'map' && dataset) { const data = dataset.current(); void receiverMap.update(data.status, data.client, data.publisher); return; }
     if (view !== 'downloads') {
       const copy = { map: 'The shared map projection is not available yet. No observations or locations are being displayed.',
         encounters: 'Encounters will appear when compatible shared observations are available. No encounter history is loaded.',
@@ -259,7 +268,7 @@ export function mount(context) {
   }
   const clock = setInterval(updateTime, 10000); updateTime();
   setupPanels(signal);
-  dataset = setupDataset(context, (value, client) => { if (document.body.dataset.view === 'map') void receiverMap.update(value, client); });
+  dataset = setupDataset(context, (value, client, publisher) => { if (document.body.dataset.view === 'map') void receiverMap.update(value, client, publisher); });
   void show(location.pathname.split('/').at(-1));
   document.getElementById('workspace').focus({ preventScroll: true });
   return () => { generation++; requestController?.abort(); receiverMap.clear(); dataset.destroy(); clearInterval(clock); root.replaceChildren(); document.body.style.removeProperty('--scope-width'); };

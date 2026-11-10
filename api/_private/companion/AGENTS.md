@@ -36,7 +36,8 @@ cleared state. The private client rejects stale, timed-out and teardown-racing
 queries. The map clears immediately on refresh, revocation, clear or teardown;
 its optional OpenStreetMap basemap requires a deliberate button press. Map
 selection and its keyboard-accessible list show receiver provenance and accuracy;
-selection and inspector details clear with the underlying generation.
+selection and inspector details clear with the underlying generation. The
+contributor filter uses signed roster IDs; changing it supersedes older queries.
 
 ```bash
 node --test tests/journal-companion-boundary.test.mjs tests/society-vnext.browser.mjs

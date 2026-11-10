@@ -544,3 +544,4 @@
 .receiver-facts dt { color: #91adbb; }
 .receiver-facts dd { margin: 0; }
 #receiverSelection { display: block; max-width: 100%; margin-top: 8px; }
+#contributorFilter { display: block; max-width: 100%; margin-top: 8px; }

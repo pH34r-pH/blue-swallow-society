@@ -69,6 +69,8 @@ renderer assets. Verify that no OpenStreetMap tiles are requested until the
 basemap action is explicitly selected. Verify lock removes the map and workers.
 Exercise keyboard selection and verify that signed cutoff and clear remove both
 map details and inspector content from the prior generation.
+Switch between all contributors and individual members, including an empty
+scope. Rapid changes must supersede earlier in-flight projection responses.
 
 ## Launch evidence
 

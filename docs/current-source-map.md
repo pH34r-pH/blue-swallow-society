@@ -91,6 +91,8 @@ refresh or teardown. The MapLibre view uses these fixes and an optional explicit
 OpenStreetMap basemap. It is not an emitter map.
 Receiver points can be selected on the map or through a keyboard-accessible list;
 the details and inspector show contributor, session, clock and accuracy values.
+The contributor filter scopes receiver fixes to a signed roster member; it does
+not change membership, erase history or make ambiguous geometry trustworthy.
 The next slice adds the separately enabled read-only Blob transport in
 `api/companion-datasets/`, with current signed-roster checks and bounded exact
 object reads. The [dataset reader contract](companion-dataset-reader.md) defines
