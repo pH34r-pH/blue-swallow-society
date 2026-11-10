@@ -59,3 +59,14 @@ The `/owner/birds` page restores an Entra owner session, sends a selected file t
 the preview endpoint, and displays paginated records and summary as text. It
 retains the CSV only in memory for a possible selected draft commit and clears it
 on request, expiry and page teardown. It does not publish records.
+
+The unconnected publication planner builds an explicit publish/unpublish
+projection from validated drafts and the current publication. It copies only
+approved public fields, accepts a separately chosen public place and never
+copies coordinates, comments, raw export or checklist IDs. Public sighting IDs
+use a stable independent secret HMAC key, preventing simple reversal of the
+provisional checklist/species key. That key is not configured or provisioned
+yet; rotation requires an explicit migration strategy to preserve unpublication.
+Unknown counts are rejected until the journal can display them distinctly from
+presence-only sightings. The planner itself performs no writes. Public storage,
+owner approval UX, conditional publication, unpublish and recovery remain open.

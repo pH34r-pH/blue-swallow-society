@@ -92,6 +92,8 @@ conditional writes; no storage was provisioned.
 An owner-only commit endpoint applies a fingerprint-bound selection as drafts;
 the owner UI provides paginated field review and explicit selection. No storage
 was provisioned, and no publication workflow has been connected.
+An unconnected publication planner creates sanitized, explicitly selected
+projections; it does not write or publish them.
 Shared observation history can now be read explicitly into a verifying private
 worker. Map displays receiver fixes; Encounters and Trips remain unavailable.
 The bounded receiver-fix projection is in

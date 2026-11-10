@@ -26,3 +26,6 @@ redacted failures. No commit publishes a record.
 Browser coverage includes paginated selection, before/after review, successful
 draft save and stale-revision rejection without a public-journal change. Changing
 files clears old selection; cancelling an in-flight save reports uncertainty.
+Publication-planning tests require explicit selection, strip private fields and
+raw identity, retain unrelated published records, reject unknown counts and
+malformed actions, and verify that unpublish only removes the selected record.

@@ -25,6 +25,9 @@ Functions are the authenticated same-origin boundary. Route families are:
   identity. The owner UI invokes it only after per-row selection; it cannot publish.
   `_lib/bird-owner-request.js` shares the strict owner, method and Origin guard
   between preview and commit; do not broaden it to viewer or legacy sessions.
+  `_lib/bird-publication-plan.js` builds an unconnected sanitized approval or
+  unpublish plan. It never writes or exposes private fields; unknown counts are
+  not publishable until the public display can distinguish them from presence.
   The same fixed allowlist serves only the four self-hosted MapLibre renderer
   assets required by the viewer, after the companion guard.
 - `companion-datasets/` and `_lib/companion-dataset-store.js` provide the
