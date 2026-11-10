@@ -47,9 +47,10 @@ acceptance has been performed by this source work.
   an authenticated redirect, including a changed current-release pointer and lock.
 - Live root still shows the older password entry; the new download metadata route
   returns 404 anonymously. This source branch has not been deployed.
-- A verified published APK and protected release path remain outstanding in
-  [Wardriver #372](https://github.com/pH34r-pH/blue-swallow-wardriver/issues/372).
-  Runtime qualification and real-phone installation/update remain open.
+- Correction: [Wardriver #372](https://github.com/pH34r-pH/blue-swallow-wardriver/issues/372)
+  records published/read-back build `0.5-dev-ci.128.1`; the later protected
+  run `42893811273` also completed signing and paired publication/readback.
+  Society runtime integration and real-phone installation/update remain open.
 
 ## Receiver map checkpoint — 2026-11-10
 

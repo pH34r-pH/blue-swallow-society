@@ -110,8 +110,11 @@ grant, mobile deep-link login, immutable release selection and a manual update
 check. On 2026-11-10, a read-only probe found the live root still serving the older
 password screen and the new download metadata route returning 404 anonymously.
 [Wardriver #372](https://github.com/pH34r-pH/blue-swallow-wardriver/issues/372)
-still tracks the protected release path and has no verified published APK. Local
-browser tests use synthetic artifacts and do not prove a live signed download.
+tracks the protected release path. Its newer comments record private build
+`0.5-dev-ci.128.1` as published and read back, and later release run
+`42893811273` completed signing, paired publication and readback successfully.
+The earlier statement that no APK had been verified was incorrect. Local browser
+tests use synthetic artifacts and do not prove Society's live signed download.
 
 The source now integrates public login and a separate private shell, but this
 does not establish a deployed cutover or a working shared map. First qualify the exact source build
