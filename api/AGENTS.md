@@ -16,6 +16,8 @@ Functions are the authenticated same-origin boundary. Route families are:
   owner through a same-origin, bounded in-memory preview. It neither stores nor
   publishes; the candidate layout still needs private validation against the
   owner's actual export (spec 032). Viewer and legacy credentials are denied.
+  `_lib/bird-reconciliation.js` plans draft comparisons in memory; it does not
+  persist, publish or assume missing rows are deletions. It is not yet connected.
   The same fixed allowlist serves only the four self-hosted MapLibre renderer
   assets required by the viewer, after the companion guard.
 - `companion-datasets/` and `_lib/companion-dataset-store.js` provide the

@@ -19,6 +19,14 @@ semantics require private export validation. Preview does not store or publish.
 An owner-only import/reconciliation store, approval UI, sanitized publication,
 unpublication, recovery and account feasibility checks remain required.
 
+The unconnected reconciliation planner compares a candidate preview with a
+versioned snapshot without mutating either. It reports additions, unchanged
+records, field-level changes, ambiguous duplicate identities and the number of
+existing records absent from the export. Missing records never cause deletion;
+omitted optional columns never erase known private fields. Composite identity
+is provisional and all actions require review. A changed species name may alter
+the key and must not be treated as a known correction automatically.
+
 The `/owner/birds` page restores an Entra owner session, sends a selected file to
 the preview endpoint, and displays a bounded sample and summary as text. It
 clears on request, expiry and page teardown; no source file or preview is stored.
