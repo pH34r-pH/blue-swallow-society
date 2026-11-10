@@ -1,14 +1,11 @@
 'use strict';
 const { authMode } = require('../shared/owner-session.cjs');
 const { requireOperatorToken } = require('../_lib/operator-auth');
-const { header } = require('../_lib/viewer-session');
+const { authorizeRequest, response } = require('../_lib/bird-owner-request');
 const { readInput } = require('../bird-import-preview');
 const { applyDraftImport } = require('../_lib/bird-draft-import');
 const { createBirdSnapshotStore, config } = require('../_lib/bird-snapshot-store');
 const MAX_REQUEST = Math.ceil(10 * 1024 * 1024 / 3) * 4 + 16384;
-const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store',
-  'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', Vary: 'Cookie, Authorization, X-Blue-Swallow-Operator-Token' };
-function response(status, body) { return { status, headers, body }; }
 function input(req) {
   const raw = req.rawBody ?? (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
   if (typeof raw !== 'string' || Buffer.byteLength(raw) > MAX_REQUEST) throw new Error('invalid_request');
@@ -22,15 +19,7 @@ function input(req) {
 function createHandler({ authorize = requireOperatorToken, mode = authMode, env = process.env,
   createStore = () => createBirdSnapshotStore({ settings: config(env) }) } = {}) {
   return async (context, req) => {
-    if (!['entra', 'password'].includes(mode())) { context.res = response(403, { error: 'owner_required' }); return; }
-    if (!authorize(context, req).ok) return;
-    if (req.method !== 'POST' || Object.keys(req.query || {}).length) { context.res = response(405, { error: 'method_not_allowed' }); return; }
-    if (!env.BLUE_SWALLOW_PUBLIC_ORIGIN || header(req, 'origin') !== env.BLUE_SWALLOW_PUBLIC_ORIGIN) {
-      context.res = response(403, { error: 'origin_forbidden' }); return;
-    }
-    if (header(req, 'content-type').split(';')[0].trim().toLowerCase() !== 'application/json') {
-      context.res = response(415, { error: 'unsupported_media_type' }); return;
-    }
+    if (!authorizeRequest(context, req, { mode, authorize, env })) return;
     try {
       const value = input(req);
       context.res = response(200, await applyDraftImport(createStore(), value.bytes, value.request));

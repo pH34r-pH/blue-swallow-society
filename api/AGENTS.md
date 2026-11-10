@@ -23,6 +23,8 @@ Functions are the authenticated same-origin boundary. Route families are:
   from an owner, rechecks the exact CSV/snapshot/plan fingerprint and commits
   with ETag concurrency control. It requires isolated storage and managed
   identity. The owner UI invokes it only after per-row selection; it cannot publish.
+  `_lib/bird-owner-request.js` shares the strict owner, method and Origin guard
+  between preview and commit; do not broaden it to viewer or legacy sessions.
   The same fixed allowlist serves only the four self-hosted MapLibre renderer
   assets required by the viewer, after the companion guard.
 - `companion-datasets/` and `_lib/companion-dataset-store.js` provide the

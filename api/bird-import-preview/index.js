@@ -1,16 +1,13 @@
 'use strict';
 const { authMode } = require('../shared/owner-session.cjs');
 const { requireOperatorToken } = require('../_lib/operator-auth');
-const { header } = require('../_lib/viewer-session');
+const { authorizeRequest, response } = require('../_lib/bird-owner-request');
 const { previewBirdExport } = require('../_lib/bird-export-preview');
 const { planBirdReconciliation } = require('../_lib/bird-reconciliation');
 const { fingerprintDraft, changeDetails } = require('../_lib/bird-draft-import');
 const { createBirdSnapshotStore, config: snapshotConfig } = require('../_lib/bird-snapshot-store');
 const MAX_BYTES = 10 * 1024 * 1024;
 const MAX_JSON = Math.ceil(MAX_BYTES / 3) * 4 + 128;
-const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store',
-  'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', Vary: 'Cookie, Authorization, X-Blue-Swallow-Operator-Token' };
-function response(status, body) { return { status, headers, body }; }
 function validPayload(value) {
   return value && !Array.isArray(value) && typeof value === 'object' && Object.keys(value).length === 1
     && typeof value.csvBase64 === 'string' && value.csvBase64.length % 4 === 0
@@ -30,15 +27,7 @@ function readInput(req) {
 function createHandler({ authorize = requireOperatorToken, mode = authMode, preview = previewBirdExport, env = process.env,
   createStore = () => createBirdSnapshotStore({ settings: snapshotConfig(env) }) } = {}) {
   return async (context, req) => {
-    if (!['entra', 'password'].includes(mode())) { context.res = response(403, { error: 'owner_required' }); return; }
-    if (!authorize(context, req).ok) return;
-    if (req.method !== 'POST' || Object.keys(req.query || {}).length) { context.res = response(405, { error: 'method_not_allowed' }); return; }
-    if (!env.BLUE_SWALLOW_PUBLIC_ORIGIN || header(req, 'origin') !== env.BLUE_SWALLOW_PUBLIC_ORIGIN) {
-      context.res = response(403, { error: 'origin_forbidden' }); return;
-    }
-    if (header(req, 'content-type').split(';')[0].trim().toLowerCase() !== 'application/json') {
-      context.res = response(415, { error: 'unsupported_media_type' }); return;
-    }
+    if (!authorizeRequest(context, req, { mode, authorize, env })) return;
     try {
       const bytes = readInput(req); const value = preview(bytes);
       if (env.BSS_BIRD_HISTORY_ENABLED === 'true') {
