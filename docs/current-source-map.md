@@ -82,7 +82,8 @@ is required but not yet implemented; the existing entity workbench remains
 owner-only and is not evidence of friend access.
 `scripts/prepare-linked-frontend.mjs` builds a local source-bound frontend-only
 candidate for the future linked-backend path and records file hashes separately.
-It is not a release attestation or evidence of deployment.
+The semantic release workflow packages and attests that frontend beside the
+matching OCI image. A local candidate is not release or deployment evidence.
 
 ## Companion dashboard boundaries
 

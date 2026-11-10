@@ -36,7 +36,8 @@
 - [ ] Real browser visual/accessibility/performance evidence.
 - [ ] Exact-source qualified runtime, auth/storage and private release evidence.
 - [x] Prepare deterministic tracked-source frontend candidate for a linked backend.
-- [ ] Publish and attest the matching frontend/backend artifacts for cutover.
+- [x] Add matching frontend packaging and attestation to the release workflow.
+- [ ] Publish and verify matching frontend/backend artifacts for cutover.
 - [ ] Physical installation/update and multi-phone/browser convergence.
 - [ ] Rollback and operational runbooks; issue acceptance reconciliation.
 

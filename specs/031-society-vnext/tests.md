@@ -89,6 +89,10 @@ Prepare two frontend candidates from the same tracked commit and compare every
 manifest hash. Verify omission of the managed API runtime and authoring file,
 preservation of application routes, invalid-commit rejection and refusal to
 overwrite an existing candidate. A local candidate is not an attested release.
+The public image workflow also packages and inspects the candidate on pull
+requests. A semantic release must verify both frontend and OCI attestations for
+the same source and tag; retry reconciliation fails if its advertised frontend
+asset or attestation is missing.
 
 Record exact source/artifact/runtime versions. Verify live auth/storage rules
 and signed artifact download separately, then real phone fresh install/update,

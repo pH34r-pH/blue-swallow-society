@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'api/**'
+      - 'app/**'
+      - 'scripts/prepare-linked-frontend.mjs'
       - 'tests/**'
       - '.nvmrc'
       - '.github/workflows/functions-release.yml'
@@ -43,6 +45,13 @@ jobs:
           npm ci --prefix vm/cybermap-api --ignore-scripts --engine-strict
       - name: Run the existing Society source tests
         run: node --test --test-skip-pattern='^Obscura ' tests/*.test.mjs
+      - name: Verify the linked-backend frontend candidate
+        run: |
+          set -euo pipefail
+          node scripts/prepare-linked-frontend.mjs "$GITHUB_SHA" "$RUNNER_TEMP/frontend-check"
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+            -C "$RUNNER_TEMP/frontend-check" -cf - manifest.json site | gzip -n > "$RUNNER_TEMP/frontend-check.tar.gz"
+          tar -tzf "$RUNNER_TEMP/frontend-check.tar.gz" | grep -qx 'site/index.html'
       - name: Build the Node 24 Functions image
         run: |
           set -euo pipefail
@@ -193,6 +202,13 @@ jobs:
               --source-digest "$GITHUB_SHA" \
               --source-ref "$GITHUB_REF" \
               --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/functions-release.yml"
+            if [[ "$body" == *"Matching linked-backend frontend: society-frontend.tar.gz release asset"* ]]; then
+              mkdir -p "$RUNNER_TEMP/existing-frontend"
+              gh release download "$GITHUB_REF_NAME" --pattern society-frontend.tar.gz --dir "$RUNNER_TEMP/existing-frontend"
+              gh attestation verify "$RUNNER_TEMP/existing-frontend/society-frontend.tar.gz" \
+                --repo "$GITHUB_REPOSITORY" --source-digest "$GITHUB_SHA" --source-ref "$GITHUB_REF" \
+                --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/functions-release.yml"
+            fi
             echo "release_exists=true" >> "$GITHUB_OUTPUT"
             echo "already_released=true" >> "$GITHUB_OUTPUT"
             echo "Existing release is complete and matches its immutable GHCR digest and exact source tag; no image tag or attestation will be rewritten." >> "$GITHUB_STEP_SUMMARY"
@@ -275,6 +291,18 @@ jobs:
           subject-name: ${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.image.outputs.digest }}
           push-to-registry: true
+      - name: Prepare the matching linked-backend frontend
+        if: steps.existing-release.outputs.already_released != 'true'
+        run: |
+          set -euo pipefail
+          node scripts/prepare-linked-frontend.mjs "$GITHUB_SHA" "$RUNNER_TEMP/society-frontend"
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+            -C "$RUNNER_TEMP/society-frontend" -cf - manifest.json site | gzip -n > "$RUNNER_TEMP/society-frontend.tar.gz"
+      - name: Attest the matching frontend archive
+        if: steps.existing-release.outputs.already_released != 'true'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/society-frontend.tar.gz
       - name: Verify public provenance
         if: steps.existing-release.outputs.already_released != 'true'
         env:
@@ -282,6 +310,11 @@ jobs:
         run: |
           gh attestation verify \
             "oci://${{ steps.image.outputs.name }}@${{ steps.image.outputs.digest }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --source-digest "$GITHUB_SHA" \
+            --source-ref "$GITHUB_REF" \
+            --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/functions-release.yml"
+          gh attestation verify "$RUNNER_TEMP/society-frontend.tar.gz" \
             --repo "$GITHUB_REPOSITORY" \
             --source-digest "$GITHUB_SHA" \
             --source-ref "$GITHUB_REF" \
@@ -303,6 +336,7 @@ jobs:
           - Version tag: $IMAGE_NAME:$GITHUB_REF_NAME
           - Build provenance: $ATTESTATION_URL
           - Functions base: mcr.microsoft.com/azure-functions/node:4-node24
+          - Matching linked-backend frontend: society-frontend.tar.gz release asset
 
           Private Fleet instances should deploy the immutable Society digest above. Rebuild new Society releases to receive Microsoft's supported Node 24 Functions base-image updates.
           EOF
@@ -316,3 +350,10 @@ jobs:
               --title "Blue Swallow Society $GITHUB_REF_NAME" \
               --notes-file "$notes"
           fi
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/society-frontend.tar.gz"
+          mkdir -p "$RUNNER_TEMP/published-frontend"
+          gh release download "$GITHUB_REF_NAME" --pattern society-frontend.tar.gz --dir "$RUNNER_TEMP/published-frontend"
+          cmp "$RUNNER_TEMP/society-frontend.tar.gz" "$RUNNER_TEMP/published-frontend/society-frontend.tar.gz"
+          gh attestation verify "$RUNNER_TEMP/published-frontend/society-frontend.tar.gz" \
+            --repo "$GITHUB_REPOSITORY" --source-digest "$GITHUB_SHA" --source-ref "$GITHUB_REF" \
+            --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/functions-release.yml"
