@@ -83,6 +83,9 @@ download facade. The second adds the public journal, explicit Login and an
 isolated Vector Edge shell with Map/Encounters/Trips/Downloads navigation.
 Shared observation history can now be read explicitly into a verifying private
 worker. The three data views still state that their projections are unavailable.
+An unwired bounded receiver-fix projection is in
+`api/_private/companion/data/receiver-projection.mjs`; it preserves contributor
+provenance and excludes ambiguous or invalid geometry. It is not an emitter map.
 The next slice adds the separately enabled read-only Blob transport in
 `api/companion-datasets/`, with current signed-roster checks and bounded exact
 object reads. The [dataset reader contract](companion-dataset-reader.md) defines

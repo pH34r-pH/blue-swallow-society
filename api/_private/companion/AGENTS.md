@@ -30,6 +30,8 @@ retain bounded exact-byte facts/claims/cursors, quarantine conflicts, apply stic
 cutoffs and orchestrate bounded cancellable refresh. The shell exposes progress and
 clear/refresh controls only. Map/history projection and full Android Room parity
 remain unfinished. Keep original record bytes and lossless clocks.
+`receiver-projection.mjs` supplies bounded unambiguous receiver fixes for the
+future map; it is not yet wired to the worker message boundary or interface.
 
 ```bash
 node --test tests/journal-companion-boundary.test.mjs tests/society-vnext.browser.mjs

@@ -116,6 +116,13 @@ Do not present retained-record counts as visible observations or complete corpus
 coverage. Read only on explicit interaction; refresh coalesces while active and
 advances fair per-peer batches without silent eviction or unbounded background work.
 
+The first map projection selects admitted, unambiguous GNSS receiver fixes with
+publisher/session/boot provenance and lossless clock strings. Exclude invalid and
+out-of-Mercator coordinates, bound output to 2,000 points, and report exclusions
+and truncation. A fix is a receiver location, never an emitter estimate. Do not
+connect this projection to the UI until worker query, generation invalidation,
+map controls and their integrated validation are implemented.
+
 ## Standards and validation
 
 - [Node scrypt](https://nodejs.org/docs/latest-v24.x/api/crypto.html#cryptoscryptpassword-salt-keylen-options-callback)
