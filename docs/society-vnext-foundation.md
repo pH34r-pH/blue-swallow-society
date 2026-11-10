@@ -1,10 +1,12 @@
 # Society vNext foundation
 
-This is partial source implementation for issues #47 and #46 within #85, dated
+This is partial source implementation for issues #47, #46, #41 and #121 within #85, dated
 2026-11-10. See the [current source map](current-source-map.md) and
-[feature contract](../specs/031-society-vnext/spec.md). The journal, password
-form, desktop shell, browser dataset reader and bird import/publication flow are
-still pending. The existing root remains the Entra owner sign-in surface.
+[feature contract](../specs/031-society-vnext/spec.md). The journal layout,
+password dialog, isolated desktop shell and private development download card
+are implemented in source. The browser dataset reader, populated map/history
+views and real bird import/publication flow remain pending. The root is now
+public-first; Entra owner entry is retained at `/owner`.
 
 ## Authorization and delivery
 
@@ -18,6 +20,8 @@ available in password mode; existing owner APIs do not accept viewer tokens.
 | `/api/companion-auth/session` | GET | Restore an unexpired signed token after a durable state check; no idle renewal |
 | `/api/companion-auth/renew` | POST | Same-origin empty JSON body; conditional idle renewal, bounded by absolute expiry |
 | `/api/companion-auth/logout` | POST | Same-origin empty JSON body; durable revocation before cookie clearing/success |
+| `/api/companion-ui/{asset}` | GET/HEAD | Isolated fixed viewer-safe shell/module/style allowlist, after authorization |
+| `/api/bird-journal` | GET/HEAD | Public approved-field projection; initial publication is empty |
 | `/api/companion-downloads/current.json` | GET/HEAD | Authenticated metadata validated as the private vNext channel |
 | `/api/companion-downloads/{versionCode}/{sourceCommit}/{fileName}` | GET/HEAD | Exact immutable receipt, listed APK or paired FAP; fresh five-minute HTTPS read-only Blob grant |
 
@@ -85,8 +89,8 @@ this build through the retained Node 22 managed-SWA promoter.
 
 ## Rollout and evidence
 
-Do not enable password mode as a completed site cutover until the public login
-and private shell integration are ready. First qualify the exact source build
+The source now integrates public login and a separate private shell, but this
+does not establish a deployed cutover or a working shared map. First qualify the exact source build
 on the Node 24 host, provision protected configuration/tables, and verify that
 anonymous reads fail before private storage access. Then test same-origin login,
 restore, renewal, logout/replay, rotation, wrong-owner rejection, unavailable

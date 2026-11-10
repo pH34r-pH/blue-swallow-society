@@ -4,30 +4,45 @@ This document describes the current source contract. It is not live deployment
 evidence. See [`current-source-map.md`](current-source-map.md) for the broader
 system map and the evidence boundary.
 
-## Public entrypoint and owner session
+## Public journal and viewer entry
 
-`app/index.html` contains only the Blue Swallow sign-in face. `app/main.js`
-restores `/api/owner-auth/session` and redirects approved users to one of the
-four same-origin companion routes:
+`app/index.html` opens the birdwatching journal, including for visitors with an
+existing session. `app/main.js` restores a viewer session only after explicit
+Login. Its password dialog enters the allowlisted Map, Encounters, Trips or
+Downloads route. `app/companion-loader.mjs` loads the private vNext shell from
+`/api/companion-ui/`, clears it on lock/expiry/pagehide/bootstrap failure, and
+keeps session material in memory. See [the foundation contract](society-vnext-foundation.md).
+
+The public archive/post/species views consume `/api/bird-journal`. That API
+projects only approved records and allowed fields; production starts with no
+invented history. Private imports, author publication, RSS/sitemap and real
+account history remain pending.
+
+## Retained owner session
+
+`app/owner/index.html` and `app/owner/main.js` retain the Microsoft sign-in
+flow at `/owner`, with these owner-only destinations:
 
 - `/operator/travels`
 - `/operator/entities`
 - `/operator/world`
 - `/operator/devices`
 
-The active source mode is Microsoft Entra (`api/shared/owner-session.cjs`):
+The owner flow uses Microsoft Entra (`api/shared/owner-session.cjs`):
 authorization-code + S256 PKCE, exact tenant/client/owner claims, a five-minute
 signed `__Host-bss_owner_session` cookie, and browser memory for the current
-operator token. The root has no passcode field. The legacy
+operator token. The root has a separate password dialog. The legacy
 `/api/validate-passcode` handler remains for compatibility tests but returns
 `410 passcode_retired` unless legacy mode is explicitly selected; legacy mode is
-not a complete UI rollback because the current root has no passcode form.
+not a complete UI rollback: the new password dialog uses the dedicated scrypt
+and durable-session API rather than the legacy digest. Protected password mode
+is explicit during rollout; the default backend mode remains Entra.
 
 Missing identity configuration fails closed with `503`; wrong owners fail closed
 with denial. The repository does not claim that production Entra identities,
 consent, redirect URIs, or settings are configured.
 
-## Private companion dashboard
+## Retained owner dashboard
 
 `app/operator/` is a redirecting loader, not the private dashboard. After a
 valid owner session:

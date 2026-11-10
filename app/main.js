@@ -1,56 +1,81 @@
-import { activateOperatorSession } from './operator/operator-session.mjs';
-import { bootOperatorSurface } from './operator/loader.js';
+import { renderJournal } from './journal-view.mjs';
+import { enterCompanion, safeDestination } from './companion-loader.mjs';
 
-const messages = Object.freeze({
-  'signed-out': 'Sign in with the approved owner account.',
-  denied: 'This account is not authorized. Sign in with the approved owner account.',
-  unavailable: 'Sign-in is unavailable. Configuration or the identity service needs attention.',
-  expired: 'Your session expired. Sign in again.',
-});
-const params = new URLSearchParams(window.location.search);
-const status = document.getElementById('authStatus');
-const button = document.getElementById('signInBtn');
-const returnTo = params.get('returnTo') || '/operator/travels';
-let sessionTimer;
+const dialog = document.getElementById('loginDialog');
+const password = document.getElementById('password');
+const status = document.getElementById('loginStatus');
+const submit = document.getElementById('submitLogin');
+const loginButton = document.getElementById('loginButton');
+const params = new URLSearchParams(location.search);
+let attempt;
+let generation = 0;
 
-function showState(state) {
-  status.textContent = messages[state] || messages['signed-out'];
-  document.body.dataset.authState = state;
-  button.disabled = false;
+function closeLogin() {
+  generation++;
+  attempt?.abort();
+  password.value = '';
+  dialog.close();
+  loginButton.focus();
 }
-
-async function restoreSession() {
-  if (Object.hasOwn(messages, params.get('auth'))) { showState(params.get('auth')); return; }
+async function openLogin() {
+  attempt?.abort();
+  const current = ++generation;
+  attempt = new AbortController();
+  status.textContent = '';
+  submit.disabled = false;
+  dialog.showModal();
+  password.focus();
   try {
-    const response = await fetch('/api/owner-auth/session', { credentials: 'same-origin', cache: 'no-store' });
+    const response = await fetch('/api/companion-auth/session', {
+      credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.any([attempt.signal, AbortSignal.timeout(10000)]),
+    });
+    if (!response.ok) return;
     const data = await response.json();
+    if (current !== generation || !dialog.open) return;
+    dialog.close();
+    await enterCompanion(data.operatorSession, safeDestination(params.get('returnTo')));
+  } catch { /* Password entry stays available when restore is unavailable. */ }
+}
+document.getElementById('loginForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  attempt?.abort();
+  attempt = new AbortController();
+  const current = ++generation;
+  submit.disabled = true;
+  status.textContent = 'Signing in…';
+  try {
+    const response = await fetch('/api/companion-auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+      cache: 'no-store', body: JSON.stringify({ password: password.value }),
+      signal: AbortSignal.any([attempt.signal, AbortSignal.timeout(15000)]),
+    });
+    password.value = '';
+    if (current !== generation || !dialog.open) return;
     if (!response.ok) {
-      showState(data.error === 'session_expired' ? 'expired' : response.status === 503 ? 'unavailable' : response.status === 403 ? 'denied' : 'signed-out');
+      status.textContent = response.status === 401 ? 'That password was not accepted. Please try again.'
+        : response.status === 429 ? 'Too many attempts. Please wait a few minutes before trying again.'
+          : 'Login is temporarily unavailable. The journal is still here.';
       return;
     }
-    if (!activateOperatorSession(data.operatorSession)) { showState('expired'); return; }
-    const destination = new URL(returnTo, window.location.origin);
-    const path = destination.origin === window.location.origin && /^\/operator\/(travels|entities|world|devices)$/.test(destination.pathname)
-      ? destination.pathname + destination.search : '/operator/travels';
-    history.replaceState(null, '', path);
-    await bootOperatorSurface();
-    sessionTimer = window.setTimeout(() => window.location.replace('/?auth=expired'), Math.max(0, Date.parse(data.operatorSession.expiresAt) - Date.now()));
-  } catch { showState('unavailable'); }
-}
-
-button.addEventListener('click', async () => {
-  button.disabled = true;
-  status.textContent = 'Opening Microsoft sign-in…';
-  try {
-    const response = await fetch(`/api/owner-auth/login?returnTo=${encodeURIComponent(returnTo)}`, {
-      credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' },
-    });
-    if (!response.ok) throw new Error('unavailable');
-    const result = await response.json();
-    const url = new URL(result.authorizationUrl);
-    if (url.protocol !== 'https:' || url.hostname !== 'login.microsoftonline.com') throw new Error('unavailable');
-    window.location.assign(url.href);
-  } catch { showState('unavailable'); }
+    const data = await response.json();
+    dialog.close();
+    await enterCompanion(data.operatorSession, safeDestination(params.get('returnTo')));
+  } catch {
+    if (current === generation) status.textContent = 'Unable to sign in. Please try again.';
+  } finally {
+    if (current === generation) { submit.disabled = false; password.focus(); }
+  }
 });
-window.addEventListener('pagehide', () => window.clearTimeout(sessionTimer), { once: true });
-void restoreSession();
+loginButton.addEventListener('click', openLogin);
+document.getElementById('cancelLogin').addEventListener('click', closeLogin);
+dialog.addEventListener('cancel', (event) => { event.preventDefault(); closeLogin(); });
+window.addEventListener('pagehide', () => { attempt?.abort(); password.value = ''; });
+const notices = { expired: 'Your session has ended. Log in again when you are ready.',
+  locked: 'You are signed out.', unavailable: 'The private workspace is unavailable. The journal is still here.',
+  'lock-failed': 'The workspace is hidden, but the server could not end the session. Please retry Login and Lock when connected.' };
+if (notices[params.get('auth')]) {
+  const notice = document.getElementById('publicNotice');
+  notice.textContent = notices[params.get('auth')]; notice.hidden = false;
+}
+void renderJournal();
+if (params.get('login') === '1') void openLogin();

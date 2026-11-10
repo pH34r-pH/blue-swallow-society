@@ -37,6 +37,40 @@ The browser download facade reads current metadata or an exact immutable
 version/source artifact with `wardriver-development-store`; it never reuses the
 production validator or discloses the machine-feed bearer.
 
+## Public entry and private shell integration
+
+The public root becomes a journal with separate public CSS/content modules.
+It never restores or fetches private state on navigation. Login opens a native
+dialog, accepts the password and enters an allowlisted private destination.
+A returning session is consulted only after explicit Login or private navigation.
+The retained Entra owner entry moves to `/owner`; its legacy private APIs remain
+owner-only. Password-mode configuration stays explicit until hosting cutover.
+
+`app/companion-loader.mjs` loads a fixed private HTML/CSS/module set through
+`api/companion-ui/`. That route authorizes before filesystem access and does not
+share the retained owner's asset allowlist. Private state stays in memory;
+abort, expiry, lock, pagehide and failed bootstrap clear the DOM and revoke
+object URLs. A BroadcastChannel sends lock notices only, never credentials.
+Renewal is an explicit same-origin action. Failed server logout is reported and
+retryable after immediately hiding private content.
+
+The private shell owns Map, Encounters, Trips and Downloads routes, with
+keyboard-operable panel controls and resizable desktop sidebars. Unconnected
+dataset views must say unavailable, never draw synthetic observations. Downloads
+renders only validated development metadata, immutable artifact links and
+installation guidance; the API remains authoritative on every download.
+
+Public journal JSON uses an explicit projection of approved authored posts and
+sightings. Initial production content contains no invented history. Archive,
+species and post views consume that projection; private import/publication and
+server-generated RSS/sitemap are the subsequent bird-history work package.
+
+Browser acceptance must cover public-first root with existing cookies, dialog
+focus/cancel, safe private deep links, wrong password, actual private asset
+denial, storage/bootstrap failures, renewal, expiry, cross-tab lock and BFCache
+teardown. Retained Entra tests move to the owner entry rather than forcing the
+new public root back to the superseded sign-in design.
+
 ## Standards
 
 - [Node scrypt](https://nodejs.org/docs/latest-v24.x/api/crypto.html#cryptoscryptpassword-salt-keylen-options-callback)

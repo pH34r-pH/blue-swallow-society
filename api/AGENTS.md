@@ -6,7 +6,12 @@ Functions are the authenticated same-origin boundary. Route families are:
   explicit password-mode viewer sessions with scrypt, durable revocation and
   conditional renewal. Only the asynchronous companion guard accepts viewers;
   do not widen the synchronous owner/operator guard. `viewer-session-cleanup/`
-  performs bounded expiry cleanup. These routes do not yet change the public UI.
+  performs bounded expiry cleanup. The public dialog uses these routes.
+- `companion-ui/` authorizes before reading its isolated fixed HTML/CSS/module
+  allowlist in `_private/companion/`. Viewer access does not extend to retained
+  `operator-assets/`. `bird-journal/` projects only approved fields and records
+  from `_private/birding/published.json`; its initial real publication is empty.
+  Private import/publication and generated feeds remain subsequent work.
 - `companion-downloads/` authorizes browser viewers/owners before reusing the
   separate development receipt validator for exact immutable APK/FAP grants.
   It never makes browser cookies valid on `wardriver-development/`. Configuration

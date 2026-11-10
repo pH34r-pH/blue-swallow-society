@@ -1,6 +1,8 @@
 # Private companion surface map
 
-`shell.html` is the authenticated companion dashboard markup. `app/operator/loader.js`
+`shell.html` is the retained owner dashboard markup, reached through `/owner`.
+The separate viewer-safe vNext shell is in `../companion/`; do not make these
+owner assets available to password viewers. `app/operator/loader.js`
 owns private asset boot; `assets/main.js` owns view teardown; `companion-tabs.mjs`
 owns route activation and lifecycle transitions, while `companion-navigation.mjs` maps `godeye →
 travels`, `entities → entities`, `world → world`, and `devices → devices`.

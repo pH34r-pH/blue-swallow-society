@@ -1,0 +1,535 @@
+:root:has(body.companion) {
+  color-scheme: dark;
+  background: #06131e;
+}
+.companion {
+  --bg: #06131e;
+  --panel: #0d293a;
+  --raised: #174359;
+  --border: #346578;
+  --text: #eefaff;
+  --secondary: #abcbd9;
+  --accent: #61e8ff;
+  --wifi: #67dbe5;
+  --ble: #bda8ff;
+  --cell: #f0c17a;
+  --scope-width: 280px;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    13px/1.5 Arial,
+    Helvetica,
+    sans-serif;
+  min-height: 100vh;
+}
+.companion * {
+  box-sizing: border-box;
+}
+.companion h1,
+.companion h2,
+.companion h3 {
+  font-family: inherit;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.companion a {
+  color: inherit;
+  text-decoration: none;
+}
+.companion button {
+  font: inherit;
+}
+.companion :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.companion-header {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  padding: 0 28px;
+  min-height: 80px;
+  border-bottom: 1px solid var(--border);
+  background: #091d2a;
+}
+.companion-brand {
+  display: flex;
+  gap: 13px;
+  align-items: center;
+  min-width: 230px;
+}
+.companion-brand > span {
+  font:
+    45px Georgia,
+    serif;
+  transform: rotate(-20deg);
+  color: var(--accent);
+}
+.companion-brand strong {
+  font-size: 13px;
+  letter-spacing: 1.8px;
+}
+.companion-brand small {
+  display: block;
+  font-size: 8px;
+  letter-spacing: 2.1px;
+  color: var(--secondary);
+  margin-top: 5px;
+  font-weight: 400;
+}
+.companion-header nav {
+  display: flex;
+  align-self: stretch;
+  gap: 30px;
+  align-items: stretch;
+}
+.companion-header nav a {
+  display: flex;
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  color: var(--secondary);
+  white-space: nowrap;
+}
+.companion-header nav a[aria-current="page"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.edge-button {
+  padding: 9px 17px;
+  background: #0c2636;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.edge-button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06131e;
+  font-weight: 600;
+}
+.companion-header > .edge-button {
+  margin-left: auto;
+}
+.edge-button span {
+  margin-left: 18px;
+}
+.text-button {
+  background: none;
+  border: 0;
+  padding: 5px;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 12px;
+}
+.workspace-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 12px 28px;
+  border-bottom: 1px solid #214555;
+  font-size: 11px;
+  color: var(--secondary);
+  min-height: 47px;
+}
+.workspace-toolbar > div,
+.session-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.toolbar-divider {
+  color: var(--border);
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  display: inline-block;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.muted-dot {
+  background: #6e8a97;
+}
+.workspace {
+  display: grid;
+  grid-template-columns: var(--scope-width) 6px minmax(0, 1fr) 260px;
+  min-height: calc(100vh - 170px);
+}
+.scope-panel,
+.inspector-panel {
+  background: #0a2030;
+  padding: 25px 23px;
+  min-width: 0;
+}
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+.companion h2 {
+  font-size: 16px;
+}
+.field-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.8px;
+  color: var(--secondary);
+  margin-bottom: 12px;
+}
+.dataset-state {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 16px 13px;
+  border: 1px solid #254c5d;
+  background: #0d293a;
+  border-radius: 3px;
+}
+.dataset-state .status-dot {
+  margin-top: 5px;
+}
+.dataset-state strong {
+  font-size: 11px;
+  line-height: 1.6;
+  font-weight: 500;
+}
+.dataset-state p,
+.panel-copy {
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--secondary);
+  margin-top: 8px;
+}
+.scope-section {
+  border-top: 1px solid #214555;
+  margin-top: 28px;
+  padding-top: 23px;
+}
+.scope-section h3 {
+  font-size: 12px;
+}
+.layer-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 13px;
+  margin: 20px 0;
+  color: var(--secondary);
+  font-size: 10px;
+}
+.layer-key span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.layer-key i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.wifi-dot {
+  background: var(--wifi);
+}
+.ble-dot {
+  background: var(--ble);
+}
+.cell-dot {
+  background: var(--cell);
+}
+.panel-link {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid #214555;
+  color: var(--secondary) !important;
+  font-size: 12px;
+}
+.panel-link span {
+  color: var(--accent);
+}
+.panel-resizer {
+  cursor: col-resize;
+  background: #0d293a;
+  border-left: 1px solid #214555;
+  border-right: 1px solid #214555;
+  touch-action: none;
+}
+.panel-resizer:hover,
+.panel-resizer:focus-visible {
+  background: var(--border);
+}
+.canvas-panel {
+  position: relative;
+  min-width: 0;
+  padding: 27px 30px;
+  display: flex;
+  flex-direction: column;
+}
+.canvas-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  align-items: center;
+}
+.companion h1 {
+  font-size: 28px;
+  margin: 0;
+  line-height: 1.2;
+}
+.canvas-heading .field-label {
+  font-size: 8px;
+  margin-bottom: 8px;
+}
+.view-badge {
+  border: 1px solid #214555;
+  border-radius: 2px;
+  color: var(--secondary);
+  font-size: 8px;
+  letter-spacing: 1.3px;
+  padding: 5px 8px;
+}
+.canvas-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 440px;
+  padding: 45px 24px;
+  margin-top: 24px;
+  border: 1px solid #173a4d;
+  background: radial-gradient(ellipse at center, #0c293a, #06131e 70%);
+}
+.canvas-empty > span {
+  font-size: 48px;
+  font-weight: 100;
+  color: #346578;
+  margin-bottom: 24px;
+}
+.canvas-empty h2 {
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+.canvas-empty p {
+  max-width: 340px;
+  font-size: 12px;
+  color: var(--secondary);
+  line-height: 1.9;
+}
+.canvas-empty a {
+  margin-top: 24px;
+}
+.workspace-status {
+  font-size: 12px;
+  color: var(--cell);
+  margin-top: 14px;
+}
+.inspector-panel {
+  border-left: 1px solid #214555;
+  display: flex;
+  flex-direction: column;
+}
+.inspector-panel h2 {
+  font-size: 18px;
+}
+.inspector-empty {
+  margin: auto 0;
+  text-align: center;
+  padding: 50px 10px;
+}
+.inspector-empty > span {
+  display: block;
+  font-size: 40px;
+  color: #346578;
+  margin-bottom: 20px;
+}
+.inspector-empty h3 {
+  font-size: 13px;
+}
+.inspector-empty p,
+.inspector-footer p {
+  font-size: 11px;
+  line-height: 1.9;
+  color: var(--secondary);
+  margin-top: 12px;
+}
+.inspector-footer {
+  border-top: 1px solid #214555;
+  padding-top: 20px;
+  margin-top: auto;
+}
+.companion-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 13px 28px;
+  background: #091d2a;
+  border-top: 1px solid #214555;
+  color: var(--secondary);
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+.companion-footer a {
+  color: var(--accent);
+}
+.release-card {
+  margin-top: 28px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  padding: 26px;
+}
+.release-card h2 {
+  font-size: 25px;
+  margin: 8px 0 12px;
+}
+.release-card p {
+  color: var(--secondary);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.release-meta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px 22px;
+  margin: 25px 0;
+  font-size: 11px;
+}
+.release-meta dt {
+  color: var(--secondary);
+}
+.release-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: Consolas, monospace;
+}
+.release-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.install-guide {
+  margin: 28px 0;
+  color: var(--secondary);
+  font-size: 12px;
+}
+.install-guide h2 {
+  color: var(--text);
+  margin-bottom: 14px;
+}
+.install-guide li {
+  margin: 12px 0;
+  line-height: 1.8;
+}
+.companion .skip-link {
+  background: var(--panel);
+  color: var(--text);
+}
+.companion [hidden] {
+  display: none !important;
+}
+.companion[data-view="downloads"] .inspector-panel {
+  display: none;
+}
+.companion[data-view="downloads"] .workspace {
+  grid-template-columns: var(--scope-width) 6px minmax(0, 1fr);
+}
+@media (max-width: 1100px) {
+  .workspace {
+    grid-template-columns: var(--scope-width) 6px minmax(0, 1fr);
+  }
+  .inspector-panel {
+    display: none;
+  }
+  .companion-header {
+    gap: 24px;
+    padding: 0 20px;
+  }
+  .companion-brand {
+    min-width: 180px;
+  }
+  .companion-header nav {
+    gap: 22px;
+  }
+  .scope-panel {
+    padding: 25px 18px;
+  }
+  .companion[data-view="downloads"] .workspace {
+    grid-template-columns: var(--scope-width) 6px minmax(0, 1fr);
+  }
+}
+@media (max-width: 760px) {
+  .companion-header {
+    flex-wrap: wrap;
+    padding: 16px 18px;
+    gap: 16px;
+  }
+  .companion-brand {
+    min-width: 0;
+  }
+  .companion-header nav {
+    order: 3;
+    width: 100%;
+    gap: 24px;
+    overflow-x: auto;
+    padding-top: 7px;
+  }
+  .companion-header nav a {
+    padding-bottom: 10px;
+    font-size: 12px;
+  }
+  .companion-header > .edge-button {
+    margin-left: auto;
+  }
+  .workspace-toolbar {
+    padding: 10px 18px;
+    flex-wrap: wrap;
+    gap: 7px;
+    font-size: 10px;
+  }
+  .workspace,
+  .companion[data-view="downloads"] .workspace {
+    display: block;
+    min-height: 0;
+  }
+  .panel-resizer {
+    display: none;
+  }
+  .scope-panel {
+    padding: 16px 18px;
+    border-bottom: 1px solid #214555;
+  }
+  .panel-heading {
+    margin: 0;
+  }
+  .scope-panel #scopeControls {
+    margin-top: 18px;
+  }
+  .canvas-panel {
+    padding: 25px 18px;
+  }
+  .canvas-empty {
+    min-height: 340px;
+  }
+  .inspector-panel {
+    display: none;
+  }
+  .companion-footer {
+    padding: 14px 18px;
+    flex-wrap: wrap;
+    font-size: 8px;
+  }
+  .release-card {
+    padding: 20px;
+  }
+  .release-meta {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+  .release-meta dd {
+    margin-bottom: 12px;
+  }
+}

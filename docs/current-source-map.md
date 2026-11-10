@@ -24,6 +24,16 @@ provenance rather than current operation.
 ```text
 Web browser
   -> app/index.html + app/main.js
+  -> public journal; explicit Login opens password entry
+  -> /api/companion-auth/{session|login}
+  -> durable viewer session
+  -> /operator/{map|encounters|trips|downloads}
+  -> app/companion-loader.mjs
+  -> /api/companion-ui/{shell.html|theme.css|main.mjs}
+  -> isolated viewer-safe shell; browser development-download facade
+
+Retained owner tools
+  -> /owner + app/owner/main.js
   -> /api/owner-auth/login or /api/owner-auth/session
   -> five-minute owner session in a Secure HttpOnly cookie
   -> /operator/{travels|entities|world|devices}
@@ -58,19 +68,27 @@ Paper runtime
 
 The browser never connects directly to the VM or Postgres. Sensitive coordinates
 are sent in POST bodies, not URLs. Operator assets and data APIs fail closed in
-Functions before private reads. The public root contains only the owner sign-in
-surface; it does not reveal the companion shell or Wardriver artifacts.
+Functions before private reads. The public root contains the journal and
+explicit Login; it does not reveal the companion shell or Wardriver artifacts.
 
 ## Companion dashboard boundaries
 
 Society vNext is being implemented under
 [`specs/031-society-vnext/`](../specs/031-society-vnext/spec.md). Its first source
 slice adds opt-in password viewer sessions and a browser-authorized development
-download facade. The public page, retained shell and owner-only APIs described
-below remain unchanged. See [the foundation contract](society-vnext-foundation.md)
+download facade. The second adds the public journal, explicit Login and an
+isolated Vector Edge shell with Map/Encounters/Trips/Downloads navigation.
+Shared datasets are not connected yet; the three data views state that honestly.
+Retained owner APIs remain separate. See [the foundation contract](society-vnext-foundation.md)
 for configuration and limits; this is not launch or deployment evidence.
 
-`api/_private/operator/shell.html` is the current private companion dashboard:
+`api/_private/companion/` is the new viewer-safe shell. It supports route
+history, explicit renewal, desktop panel resize, phone collapse and private
+development downloads. The public `/api/bird-journal` projection serves approved
+posts/sightings only; its initial publication is empty. Real import/publication,
+generated feeds and the compatible shared-dataset reader remain open work.
+
+`api/_private/operator/shell.html` remains the separate owner dashboard:
 
 - **Travels / Cybermap** (`/operator/travels`) shows bounded observation history
   and an optional nearby capture context. It labels capture coordinates as
@@ -112,7 +130,7 @@ new product features remain separate work.
 | Boundary | Implemented and checked in source | Still unverified here |
 |---|---|---|
 | Owner access | Entra authorization-code/PKCE flow, exact tenant/audience/owner checks, five-minute signed session, HttpOnly cookie, memory-only browser token | Real Microsoft sign-in, production identities/consent, live wrong-owner denial, and deployment settings |
-| vNext viewer foundation | Explicit password mode, fixed-cost scrypt, globally and per-caller throttled login, durable 15-minute idle/eight-hour absolute sessions, ETag renewal, revocable logout and a companion-only guard; browser development-download facade reuses immutable receipt validation | Private configuration/table provisioning, timer/runtime qualification, browser login/shell integration and live downloads |
+| vNext viewer foundation | Public-first journal, explicit password dialog, isolated Vector Edge shell; scrypt, global/caller throttling, durable 15-minute idle/eight-hour absolute sessions, ETag renewal, revocable logout, cross-tab lock and immutable development-download card | Private configuration/table provisioning, timer/runtime qualification, compatible dataset reader, populated map/history and live downloads |
 | Private companion | Loader fetches private shell/assets through operator token and fixed allowlist; browser tests cover route navigation and asset handoff | Live hosted shell/asset behavior on the deployed origin |
 | Entity workbench | VM contract, migration 0007, Functions scope checks, optimistic preview/mutate, replay/stale-revision handling, browser/PostGIS tests | Live migration/application and real owner `Entities.Write` consent |
 | Observation upload | Functions batch proxy validates method/body/HTTPS backend and forwards device, token, and idempotency headers; Wardriver source owns encrypted V2 staging and receipt handling | A production Wardriver-to-VM upload, deployed PostGIS persistence, and device certificate/token acceptance |
@@ -150,7 +168,8 @@ the group. This route does not call the retained observation-ingestion service.
 
 | Change area | Start with | Focused validation |
 |---|---|---|
-| Root/owner sign-in | `app/`, `api/owner-auth/`, `api/shared/owner-session.cjs`, `api/_lib/owner-*` | `node --test tests/owner-auth.test.mjs tests/owner-login.browser.mjs tests/root-login-handoff-browser.test.mjs` |
+| Public journal/viewer entry | `app/index.html`, `app/main.js`, `app/journal-view.mjs`, `app/companion-loader.mjs`, `api/companion-ui/`, `api/bird-journal/` | `node --test tests/society-vnext.browser.mjs tests/journal-companion-boundary.test.mjs` |
+| Retained owner sign-in | `app/owner/`, `api/owner-auth/`, `api/shared/owner-session.cjs`, `api/_lib/owner-*` | `node --test tests/owner-auth.test.mjs tests/owner-login.browser.mjs` |
 | vNext viewer/download foundation | `api/companion-auth/`, `api/companion-downloads/`, `api/_lib/viewer-session*`, `api/_lib/companion-auth.js` | `node --test tests/viewer-session.test.mjs tests/companion-auth.test.mjs tests/companion-downloads.test.mjs tests/passcode-rate-limit.test.mjs` |
 | Companion route/shell/assets | `app/operator/`, `api/_private/operator/`, `api/operator-shell/`, `api/operator-assets/` | `node --test tests/companion-navigation.test.mjs tests/companion.browser.mjs tests/ui-shell.test.mjs tests/operator-shell-api.test.mjs` |
 | Travels/history/nearby map | `api/cybermap-history/`, `api/operator-signals/`, `vm/cybermap-api/src/history-*`, `api/_private/operator/assets/travels-*` | `node --test tests/history-api.test.mjs tests/travels-state.test.mjs tests/travels.browser.mjs vm/cybermap-api/test/history-*.test.mjs` |

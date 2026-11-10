@@ -73,6 +73,6 @@ test('cancel, missing write grant and wrong owner return the existing read-only 
 });
 test('expired, logout and tampered edit transactions cannot exchange codes or revive editing', async () => {
   const expired = fixture(); await expired.begin(); expired.expire(); assert.match((await expired.callback()).headers.Location, /auth=denied/); assert.equal(expired.exchanges, 0); cache.forget(expired.session.token);
-  const loggedOut = fixture(); await loggedOut.begin(); cache.forget(loggedOut.session.token); assert.equal((await loggedOut.callback()).headers.Location, '/?auth=expired'); assert.equal(loggedOut.exchanges, 0);
-  const forged = fixture(); await forged.begin(); assert.equal((await forged.callback({}, 'forged')).headers.Location, '/?auth=denied'); assert.equal(forged.exchanges, 0); cache.forget(forged.session.token);
+  const loggedOut = fixture(); await loggedOut.begin(); cache.forget(loggedOut.session.token); assert.equal((await loggedOut.callback()).headers.Location, '/owner?auth=expired'); assert.equal(loggedOut.exchanges, 0);
+  const forged = fixture(); await forged.begin(); assert.equal((await forged.callback({}, 'forged')).headers.Location, '/owner?auth=denied'); assert.equal(forged.exchanges, 0); cache.forget(forged.session.token);
 });

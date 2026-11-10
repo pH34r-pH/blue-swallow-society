@@ -81,7 +81,7 @@ test('authorization-code callback uses PKCE, validates owner and sets a secure b
   assert.equal(owner.verifyOwnerSession(sessionCookie.value, { config, now }).ok, true);
   const denied = {};
   await handler(denied, { params: { action: 'callback' }, headers: { cookie }, query: { state: 'forged', code: 'test-code' } });
-  assert.equal(denied.res.headers.Location, '/?auth=denied');
+  assert.equal(denied.res.headers.Location, '/owner?auth=denied');
 });
 
 test('direct backend reads need a short-lived signed owner proof, not just a service token or principal header', () => {
@@ -174,7 +174,7 @@ test('unknown auth modes fail closed and logout clears both owner cookies', asyn
   process.env.BLUE_SWALLOW_AUTH_MODE = 'entra';
   const context = {};
   await createOwnerAuthHandler()(context, { method: 'GET', headers: {}, params: { action: 'logout' } });
-  assert.equal(context.res.headers.Location, '/?auth=signed-out');
+  assert.equal(context.res.headers.Location, '/owner?auth=signed-out');
   assert.equal(context.res.cookies.length, 2);
   assert.ok(context.res.cookies.every((cookie) => cookie.maxAge === 0));
 });

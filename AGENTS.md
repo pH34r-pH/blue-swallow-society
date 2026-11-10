@@ -11,9 +11,10 @@ current.
 
 Directory maps narrow these rules without replacing them:
 
-- [`app/AGENTS.md`](app/AGENTS.md) — public entrypoint, owner sign-in handoff, and route shell.
+- [`app/AGENTS.md`](app/AGENTS.md) — public journal, viewer login, owner handoff and routes.
 - [`api/AGENTS.md`](api/AGENTS.md) — Functions authentication, same-origin proxies, and release metadata.
-- [`api/_private/operator/AGENTS.md`](api/_private/operator/AGENTS.md) — token-gated companion shell/assets.
+- [`api/_private/companion/AGENTS.md`](api/_private/companion/AGENTS.md) — viewer-safe companion shell/assets.
+- [`api/_private/operator/AGENTS.md`](api/_private/operator/AGENTS.md) — retained owner shell/assets.
 - [`vm/cybermap-api/AGENTS.md`](vm/cybermap-api/AGENTS.md) — VM API, PostGIS projections, ingest, history, and entities.
 - [`docs/AGENTS.md`](docs/AGENTS.md) — source-state versus historical documentation routing.
 
@@ -25,8 +26,9 @@ the empty selection must be byte-empty so code-only changes skip doc tools clean
 
 ## Purpose and source of truth
 
-This repository delivers the Blue Swallow Society web system: a public owner
-sign-in surface, a separately loaded authenticated companion dashboard, Azure
+This repository delivers the Blue Swallow Society web system: a public birding
+journal, explicit password entry to a separately loaded companion, a retained
+Entra owner entry at `/owner`, Azure
 Static Web Apps Functions, VM/API integration, and the planned Cybermap PostGIS
 store. The browser never receives the private companion shell anonymously, and
 checked-in source does not by itself prove deployment.

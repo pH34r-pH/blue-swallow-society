@@ -8,7 +8,7 @@ const headers = { 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-r
 
 function json(status, body) { return { status, headers: { ...headers, 'Content-Type': 'application/json' }, body }; }
 function redirect(location, cookies) { return { status: 302, headers: { ...headers, Location: location }, cookies, body: '' }; }
-function failedLogin(reason) { return redirect(`/?auth=${reason}`, [login.transactionCookieOptions(), sessionCookieOptions()]); }
+function failedLogin(reason) { return redirect(`/owner?auth=${reason}`, [login.transactionCookieOptions(), sessionCookieOptions()]); }
 function readSession(req, now) {
   const result = verifyOwnerSession(cookieValue(req.headers?.cookie), { now });
   return result.ok ? json(200, { ok: true, operatorSession: { token: result.rawToken, expiresAt: new Date(result.token.exp * 1000).toISOString() } })
