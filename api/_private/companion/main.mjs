@@ -13,7 +13,19 @@ function unavailable(root, title, copy, downloads = true) {
   if (downloads) { const link = action('Get Wardriver ↗', '/operator/downloads'); link.dataset.route = 'downloads'; box.append(link); }
   root.replaceChildren(box);
 }
-function releaseCard(root, release) {
+function phoneHandoff(guide, signal) {
+  const section = node('div', '', 'phone-handoff'); const label = node('label', 'Open this private page on your phone');
+  label.htmlFor = 'phoneDownloadPage'; const input = document.createElement('input'); input.id = 'phoneDownloadPage';
+  input.readOnly = true; input.value = new URL('/operator/downloads', location.origin).href;
+  const button = node('button', 'Copy page link', 'edge-button'); button.type = 'button';
+  const message = node('p', 'This link contains no password or download grant.', 'panel-copy'); message.setAttribute('role', 'status');
+  button.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(input.value); message.textContent = 'Page link copied. Share the password separately.'; }
+    catch { input.focus(); input.select(); message.textContent = 'Select and copy the page link above. Share the password separately.'; }
+  }, { signal });
+  section.append(label, input, button, message); guide.append(section);
+}
+function releaseCard(root, release, refresh, signal) {
   // The server validates the receipt/signature pin; these checks constrain DOM links.
   if (release.packageId !== 'co.blueswallow.wardriver.vnext' || release.channel !== 'private-vnext'
     || !Number.isSafeInteger(release.versionCode) || !/^[a-f0-9]{40}$/.test(release.sourceCommit)
@@ -21,6 +33,7 @@ function releaseCard(root, release) {
   const prefix = '/api/companion-downloads/' + release.versionCode + '/' + release.sourceCommit + '/';
   const card = node('article', '', 'release-card');
   card.append(node('p', 'PRIVATE VNEXT · ANDROID', 'field-label'), node('h2', 'Wardriver ' + release.versionName),
+    node('p', 'Published ' + new Date(release.publishedAt).toLocaleDateString() + ' · ' + (release.apk.sizeBytes / 1048576).toFixed(1) + ' MiB'),
     node('p', 'The development app, with its matching Flipper extension. This package is separate from the legacy production app.'));
   const metadata = node('dl', '', 'release-meta');
   for (const [label, value] of [['Package', release.packageId], ['Version code', release.versionCode],
@@ -34,16 +47,21 @@ function releaseCard(root, release) {
     if (!/^[a-z][a-z0-9_]{0,63}\.fap$/.test(extension.fileName)) throw new Error('invalid_extension');
     actions.append(action(extension.name + ' .fap ↓', prefix + extension.fileName));
   }
-  card.append(metadata, actions); root.replaceChildren(card);
+  const details = node('details', '', 'release-details'); details.append(node('summary', 'Technical release details'), metadata);
+  const fresh = node('button', 'Check for a newer build', 'edge-button'); fresh.type = 'button';
+  fresh.addEventListener('click', refresh, { signal });
+  card.append(node('p', `Version ${release.versionName} · ${(release.apk.sizeBytes / 1048576).toFixed(1)} MiB`), actions, fresh, details); root.replaceChildren(card);
   const guide = node('section', '', 'install-guide'); const steps = node('ol');
   guide.append(node('h2', 'From this PC to your phone'));
   for (const text of ['Download the APK above and transfer it to your Android phone, or open this private site on the phone.',
     'Open the APK. If Android asks, allow installation from the app you used to open it, then complete installation.',
-    'Open Wardriver vNext and review its requested permissions. Install later versions over the same vNext app when Android accepts the update.',
+    'Open Wardriver vNext and review its requested permissions. It can be used locally before joining a group.',
+    'For updates, return to this private page and check for a newer build. Android asks you to approve installation; updates are not unattended.',
+    'If Android says the update cannot be installed, do not uninstall the app or erase its data. Ask the owner to check the package, version and signing certificate.',
     'Shared viewing and device contribution are separate. Ask the group owner for a device invitation when you are ready to contribute.',
     'The APK includes its matching Flipper extension. Use Wardriver’s supported Bluetooth installation flow, or keep the paired FAP and receipt together.']) steps.append(node('li', text));
   guide.append(steps, node('p', 'This page provides a specific version and source revision. Refresh to check for a newer published build. Phone installation and update acceptance still need to be verified on your device.'));
-  root.append(guide);
+  phoneHandoff(guide, signal); root.append(guide);
 }
 function setupPanels(signal) {
   const toggle = document.getElementById('toggleScope'), controls = document.getElementById('scopeControls');
@@ -237,7 +255,7 @@ export function mount(context) {
       const response = await context.request('/api/companion-downloads/current.json', { signal: requestController.signal });
       if (!response.ok) throw new Error('release_unavailable');
       const release = await response.json();
-      if (current === generation && !signal.aborted) releaseCard(root, release);
+      if (current === generation && !signal.aborted) releaseCard(root, release, () => show('downloads'), signal);
     } catch {
       if (current !== generation || signal.aborted) return;
       unavailable(root, 'Downloads are temporarily unavailable', 'The private release could not be verified. Try again later; no substitute or older build is offered.', false);

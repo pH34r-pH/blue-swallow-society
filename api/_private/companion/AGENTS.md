@@ -14,6 +14,9 @@ Data integration must preserve current device-dataset signatures, scope,
 revisions and withdrawal semantics. Never substitute a device identity or
 broaden the retained owner guard. The download card calls the browser facade;
 it never receives a machine update-feed credential.
+The download card copies only the stable same-origin phone-page URL; it shows
+the validated release and requests a new receipt when checking for updates.
+Artifact links bind the selected immutable version and revision, not latest.
 
 `data/` contains the browser-compatible protobuf/JWS verification modules.
 `vendor/wire.cjs` is generated from byte-pinned upstream schemas by

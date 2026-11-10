@@ -5,16 +5,16 @@ This is partial source implementation for issues #47, #46, #41, #42 and #121 wit
 [feature contract](../specs/031-society-vnext/spec.md). The journal layout,
 password dialog, isolated desktop shell and private development download card
 are implemented in source. A bounded browser reader now verifies and retains
-shared history; populated map/history views and real bird import/publication
-remain pending. The root is now
+shared history and displays bounded receiver fixes; complete map/history views and
+real bird publication remain pending. The source root is
 public-first; Entra owner entry is retained at `/owner`.
 
 The [read-only dataset transport](companion-dataset-reader.md) is also implemented
 behind separate protected configuration. It checks current signed membership and
 returns bounded exact bytes without issuing storage grants. Browser verification
 and admission now run in a private worker with explicit read/refresh controls.
-Map/history projection remains unfinished; verified transport does not populate
-the map by itself.
+The initial map shows receiver fixes after an explicit read; encounters, trips and
+full history projection remain unfinished.
 
 ## Authorization and delivery
 
@@ -98,6 +98,14 @@ requires the qualified Node 24 Functions host and its host storage. Do not route
 this build through the retained Node 22 managed-SWA promoter.
 
 ## Rollout and evidence
+
+The friend download page includes a stable phone link with no password or artifact
+grant, mobile deep-link login, immutable release selection and a manual update
+check. On 2026-11-10, a read-only probe found the live root still serving the older
+password screen and the new download metadata route returning 404 anonymously.
+[Wardriver #372](https://github.com/pH34r-pH/blue-swallow-wardriver/issues/372)
+still tracks the protected release path and has no verified published APK. Local
+browser tests use synthetic artifacts and do not prove a live signed download.
 
 The source now integrates public login and a separate private shell, but this
 does not establish a deployed cutover or a working shared map. First qualify the exact source build

@@ -545,3 +545,8 @@
 .receiver-facts dd { margin: 0; }
 #receiverSelection { display: block; max-width: 100%; margin-top: 8px; }
 #contributorFilter { display: block; max-width: 100%; margin-top: 8px; }
+.phone-handoff { margin-top: 20px; }
+.phone-handoff label { display: block; margin-bottom: 8px; }
+.phone-handoff input { width: min(100%, 460px); margin: 0 8px 8px 0; }
+.release-details { margin-top: 18px; }
+.release-details summary { cursor: pointer; }

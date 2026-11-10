@@ -59,6 +59,10 @@ keyboard-operable panel controls and resizable desktop sidebars. Unconnected
 dataset views must say unavailable, never draw synthetic observations. Downloads
 renders only validated development metadata, immutable artifact links and
 installation guidance; the API remains authoritative on every download.
+The handoff copies a stable same-origin phone-page URL without session material;
+the private deep-link login returns there. Release metadata is shown progressively,
+and an explicit check reloads the current validated receipt. Each artifact link
+continues to name the version and source revision the friend actually selected.
 
 Public journal JSON uses an explicit projection of approved authored posts and
 sightings. Initial production content contains no invented history. Archive,

@@ -27,6 +27,9 @@ records remain unchanged. It does not establish deployment or phone acceptance.
    views (#123). Unsupported summaries remain unavailable.
 6. Authenticated friends can obtain the correctly labeled private vNext APK and
    matching extension (#46), independently of invited device contribution.
+   A stable phone-page link carries no password or download grant; after login it
+   returns the friend to downloads. The page identifies the selected release,
+   provides installation and update guidance, and can check for a newer build.
    Existing production and development validators remain distinct.
 7. Owner-only corrections (#44) and bird publication have separate authority;
    a viewer password never authorizes them. Read-only viewing does not wait for

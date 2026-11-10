@@ -13,6 +13,7 @@
 - [x] Public journal layout, explicit password entry, posts/archive/species views.
 - [x] Isolated Vector Edge shell, routes, keyboard/pointer resize and phone collapse.
 - [x] Private vNext download card, immutable artifact links and installation guidance.
+- [x] Secret-free phone-page handoff, mobile deep-link login and explicit release check.
 - [ ] Populate the journal through private owner import/authoring/publication.
 - [ ] Complete public canonical metadata, RSS/sitemap, media and publication coverage.
 - [ ] Integrate data-driven inspector, panel behavior and full desktop accessibility.
@@ -36,6 +37,16 @@
 
 No deployment, credential provisioning, bird account connection or physical
 acceptance has been performed by this source work.
+
+## Friend APK handoff checkpoint — 2026-11-10
+
+- Chromium exercises mobile deep-link login and a synthetic APK download through
+  an authenticated redirect, including a changed current-release pointer and lock.
+- Live root still shows the older password entry; the new download metadata route
+  returns 404 anonymously. This source branch has not been deployed.
+- A verified published APK and protected release path remain outstanding in
+  [Wardriver #372](https://github.com/pH34r-pH/blue-swallow-wardriver/issues/372).
+  Runtime qualification and real-phone installation/update remain open.
 
 ## Receiver map checkpoint — 2026-11-10
 

@@ -13,6 +13,12 @@ tests must continue passing.
 For browser downloads, verify authorization before store construction, exact
 package/channel/signer validation, immutable version/source binding despite
 latest changes, APK/FAP allowlisting, missing release and private/no-store HEAD.
+In Chromium, copy the secret-free phone URL, sign in from a separate mobile-sized
+context, follow the protected artifact redirect to synthetic download bytes, and
+verify the originally selected release survives a current-pointer change. Check
+that the cross-origin artifact receives no browser session credentials, checking
+for updates displays the newer receipt, and lock denies another grant. Synthetic
+browser delivery does not establish Android installation or live Blob delivery.
 
 ## Public and private browser journeys
 

@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { startCompanionServer } from './helpers/companion-server.mjs';
+import { releaseFixture } from './fixtures/wardriver-development.mjs';
 const require = createRequire(new URL('../api/package.json', import.meta.url));
 const { chromium } = require('@playwright/test');
 
@@ -22,6 +24,50 @@ async function signIn(page, origin, password) {
   await page.waitForURL('**/operator/map');
   await page.getByRole('heading', { name: 'Map', exact: true }).waitFor();
 }
+test('friend downloads the exact selected APK through a fresh authorized redirect and can check for updates', async (t) => {
+  const f = await setup(t); const old = f.state.currentRelease;
+  const path = `/api/companion-downloads/${old.versionCode}/${old.sourceCommit}/${old.apk.fileName}`;
+  assert.equal((await f.page.request.get(f.origin + path, { maxRedirects: 0 })).status(), 401);
+  assert.equal(f.state.grants.length, 0);
+  await signIn(f.page, f.origin, f.password);
+  await f.page.getByRole('link', { name: 'Downloads & devices' }).click();
+  const link = f.page.getByRole('link', { name: 'Download Android APK' }); await link.waitFor();
+  const stable = await f.page.getByLabel('Open this private page on your phone').inputValue();
+  assert.equal(stable, f.origin + '/operator/downloads');
+  assert.doesNotMatch(stable, /[?&]|sig=|token|password/i);
+  await f.page.evaluate(() => { Object.defineProperty(navigator, 'clipboard', { configurable: true,
+    value: { writeText: async (value) => { window.copiedDownloadLink = value; } } }); });
+  await f.page.getByRole('button', { name: 'Copy page link' }).click();
+  assert.equal(await f.page.evaluate(() => window.copiedDownloadLink), stable);
+  const phone = await f.page.context().browser().newContext({ viewport: { width: 390, height: 844 } });
+  const phonePage = await phone.newPage(); await phonePage.goto(stable);
+  await phonePage.getByLabel('Password', { exact: true }).fill(f.password);
+  await phonePage.getByRole('button', { name: 'Continue' }).click();
+  await phonePage.waitForURL('**/operator/downloads');
+  await phonePage.getByRole('link', { name: 'Download Android APK' }).waitFor();
+  assert.equal(await phonePage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await phone.close();
+  const next = releaseFixture(21, 'b'.repeat(40)); f.state.currentRelease = next;
+  f.state.releases.set(`${next.versionCode}/${next.sourceCommit}`, next);
+  let credentialForwarded = false;
+  const artifactServer = createServer((req, res) => {
+    credentialForwarded = Boolean(req.headers.cookie || req.headers.authorization || req.headers['x-blue-swallow-operator-token']);
+    res.writeHead(200, { 'Content-Type': 'application/vnd.android.package-archive',
+      'Content-Disposition': `attachment; filename="${old.apk.fileName}"` }); res.end('synthetic test bytes');
+  });
+  await new Promise((resolve) => artifactServer.listen(0, resolve));
+  t.after(() => new Promise((resolve) => { artifactServer.closeAllConnections(); artifactServer.close(resolve); }));
+  f.state.grantUrl = (name) => `http://localhost:${artifactServer.address().port}/${name}?sig=synthetic`;
+  const waiting = f.page.waitForEvent('download', { timeout: 10000 }); await link.click(); const download = await waiting;
+  assert.equal(download.suggestedFilename(), old.apk.fileName); assert.equal(credentialForwarded, false);
+  assert.deepEqual(f.state.grants, [{ versionCode: old.versionCode, sourceCommit: old.sourceCommit, name: old.apk.fileName }]);
+  await f.page.getByRole('button', { name: 'Check for a newer build' }).click();
+  await f.page.getByRole('heading', { name: 'Wardriver ' + next.versionName }).waitFor();
+  assert.match(await f.page.getByRole('link', { name: 'Download Android APK' }).getAttribute('href'), /\/21\//);
+  await f.page.getByRole('button', { name: 'Lock', exact: false }).click(); await f.page.waitForURL('**/?auth=locked');
+  assert.equal((await f.page.request.get(f.origin + path, { maxRedirects: 0 })).status(), 401);
+  assert.equal(f.state.grants.length, 1);
+});
 test('journal remains public with cookies; explicit login, private routes, downloads, renewal and cross-tab lock', async (t) => {
   const f = await setup(t);
   await f.page.goto(f.origin);

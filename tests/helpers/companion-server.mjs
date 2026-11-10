@@ -27,9 +27,16 @@ export async function startCompanionServer({ groupId } = {}) {
     state.privateReads++; if (state.failShell) throw new Error('fixture_failure'); return readFile(...args);
   } });
   const release = releaseFixture();
+  state.currentRelease = release; state.releases = new Map([[`${release.versionCode}/${release.sourceCommit}`, release]]); state.grants = [];
   const downloads = createCompanionDownloadsHandler({ authorize: guard, env: readerFixture().env,
-    createStore: () => ({ getRelease: async () => { if (state.releaseUnavailable) throw new Error('fixture_failure'); return release; },
-      createDownloadUrl: async () => origin + '/synthetic-artifact' }) });
+    createStore: () => ({ getRelease: async (reference) => {
+      if (state.releaseUnavailable) throw new Error('fixture_failure');
+      const selected = reference ? state.releases.get(`${reference.versionCode}/${reference.sourceCommit}`) : state.currentRelease;
+      if (!selected) throw new Error('fixture_missing'); return selected;
+    }, createDownloadUrl: async (selected, name) => {
+      state.grants.push({ versionCode: selected.versionCode, sourceCommit: selected.sourceCommit, name });
+      return state.grantUrl ? state.grantUrl(name) : `https://fixtureaccount.blob.core.windows.net/development-fixture/${name}?sp=r&sig=synthetic`;
+    } }) });
   const journal = createBirdJournalHandler({ readPublication: async () => state.publication });
   const datasets = createCompanionDatasetsHandler({ authorize: guard,
     getConfig: () => ({ origin, groupId: f.settings.group }),
