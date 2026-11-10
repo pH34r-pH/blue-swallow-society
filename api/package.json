@@ -11,9 +11,12 @@
     "@azure/identity": "4.14.1",
     "@azure/msal-node": "7.2.1",
     "@azure/storage-blob": "12.33.0",
-    "jose": "6.2.12"
+    "jose": "6.2.12",
+    "protobufjs": "8.8.1"
   },
   "devDependencies": {
-    "@playwright/test": "1.63.0"
+    "@playwright/test": "1.63.0",
+    "esbuild": "0.28.2",
+    "protobufjs-cli": "2.7.1"
   }
 }

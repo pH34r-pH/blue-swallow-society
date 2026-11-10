@@ -18,6 +18,7 @@
 - [ ] Integrate data-driven inspector, panel behavior and full desktop accessibility.
 - [ ] Compatible browser shared-dataset reader and Android parity fixtures.
 - [x] Read-only same-origin dataset transport with current signed-roster checks.
+- [x] Signed v1/v2 wire codec and actual Kotlin-producer/Chromium-worker fixtures.
 - [ ] Verifying browser worker, canonical admission and Android golden parity.
 - [ ] Map controls, Encounters, Trips, timeline and shared inspector.
 - [ ] Private bird import/preview/publication and supported sync feasibility.
@@ -88,3 +89,23 @@ Owner-only corpus access is not widened by the viewer routes.
   does not change the previously recorded local Windows VM limitation.
 - No transport read used real group storage. The browser worker, verified
   admission/projection and Android golden parity are still unimplemented.
+
+## Wire codec evidence — 2026-11-10
+
+- Pinned exact producer schemas/license at Wardriver
+  `2b5a526bac6cf2914c967fa61a185b4ff3db70e8`; static generation reproducibility
+  passes with protobufjs 8.8.1 / CLI 2.7.1. API dependency audit: zero vulnerabilities.
+- The producer's `DeviceDatasetWireTest` and synthetic golden export test passed
+  through its Gradle wrapper on JDK 17/Windows. Golden bytes contain live v2,
+  closed v1, retraction, unknown retained observation fields and a clock beyond
+  JavaScript safe-integer precision. No private fixture key was exported.
+- Seven Node codec tests pass, including adversarial signatures/envelopes,
+  scope/version/identity/clock/control checks. Chromium verifies the same producer
+  bytes inside a worker under a CSP without unsafe-eval.
+- Full root CI-contract suite: 393 passed. All eight Chromium journeys passed.
+  Authored codec modules pass the pinned structural lint thresholds.
+- Dataset transport commit `519b9fd6e5734cdb6a24012cace5a5dc7620099a` passed all
+  seven hosted workflows. This newer wire-codec slice still needs its own CI.
+- The full reader remains incomplete: verified roster progression, atomic
+  canonical admission/journal continuity, conflicts, withdrawals/cutoffs,
+  orchestration, map/history projection and full Android parity are next.

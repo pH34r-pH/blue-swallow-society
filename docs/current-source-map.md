@@ -83,6 +83,10 @@ The next slice adds the separately enabled read-only Blob transport in
 `api/companion-datasets/`, with current signed-roster checks and bounded exact
 object reads. The [dataset reader contract](companion-dataset-reader.md) defines
 its authority, producer compatibility and required browser worker/admission work.
+The browser-compatible codec in `api/_private/companion/data/` now verifies
+signed v1/v2 envelopes and supported records using static protobufjs and
+WebCrypto. Actual Kotlin producer bytes pass Node and Chromium-worker checks;
+shared admission, cutoff/conflict handling and projection are not connected yet.
 Retained owner APIs remain separate. See [the foundation contract](society-vnext-foundation.md)
 for configuration and limits; this is not launch or deployment evidence.
 
@@ -181,6 +185,7 @@ the group. This route does not call the retained observation-ingestion service.
 | Ingest/schema | `api/cybermap-observations-batch/`, `vm/cybermap-api/src/contracts.mjs`, `db/migrations/`, `shared/contracts/` | `node --test tests/cybermap-ingest-api.test.mjs tests/cybermap-schema.test.mjs vm/cybermap-api/test/contracts.test.mjs vm/cybermap-api/test/wardriver-contract-conformance.test.mjs` |
 | Private dataset access | `api/wardriver-sync/`, `api/_lib/wardriver-sync-*`, `docs/wardriver-device-sync-access.md` | `node --test tests/wardriver-sync-auth.test.mjs tests/wardriver-sync-api.test.mjs` |
 | Browser dataset transport | `api/companion-datasets/`, `api/_lib/companion-dataset-store.js`, `docs/companion-dataset-reader.md` | `node --test tests/companion-datasets.test.mjs` |
+| Browser dataset wire codec | `api/_private/companion/data/`, `vendor/wardriver-wire/`, `scripts/build-companion-wire.mjs` | `node scripts/build-companion-wire.mjs --check`; `node --test tests/dataset-wire.test.mjs tests/dataset-wire.browser.mjs` |
 | Paper runtime | `api/tzeentch/`, `config/`, `scripts/mosaic_murmurs_*`, `tests/paper*` | `node --test tests/tzeentch-route.test.mjs tests/tzeentch-dashboard.test.mjs tests/paper-state-contract.test.mjs && python3 -m unittest discover -s tests -p 'paper*_test.py'` |
 | Infra/deployment | `infra/`, `.github/workflows/`, `docs/public-ci-handoff.md` | `node --test tests/wardriver-release-delivery-config.test.mjs tests/wardriver-basemap-delivery-config.test.mjs tests/node-runtime-contract.test.mjs`; deployment/what-if workflows are separate and manual |
 

@@ -1,0 +1,9 @@
+{
+  "repository": "pH34r-pH/blue-swallow-wardriver",
+  "commit": "2b5a526bac6cf2914c967fa61a185b4ff3db70e8",
+  "sha256": {
+    "device_sync.proto": "ee86e76371e1d43e20012a6dfc726131504b37f87c82aa6a36ab0fca2a350d46",
+    "observations.proto": "fc6bca270f2296d2f3697d6177d20602afc220e8e46368a466f2d3ba7b079f01",
+    "LICENSE": "5c88ba8c38eebe4a0f35d056683a05fb0bd19785046da9533b3d58bf55dce9b0"
+  }
+}

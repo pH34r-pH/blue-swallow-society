@@ -1,0 +1,207 @@
+syntax = "proto3";
+package blueswallow.vnext.v1;
+option java_package = "co.blueswallow.wardriver.vnext.wire";
+option java_outer_classname = "ObservationWire";
+
+// Add fields, never reuse retired numbers; v1 readers retain unknown fields.
+message Timing {
+  string boot_epoch = 1;
+  int64 capture_elapsed_ns = 2;
+  int64 received_elapsed_ns = 3;
+  int64 wall_time_ms = 4;
+  string source_clock = 5;
+  optional int64 uncertainty_ns = 6;
+  optional int64 source_timestamp_ns = 7;
+}
+message Wifi {
+  string bssid = 1; string ssid = 2; int32 rssi_dbm = 3;
+  int32 frequency_mhz = 4; string capabilities = 5;
+  optional bytes raw_ssid = 6; bool hidden = 7; bool passpoint = 8;
+  int32 channel_width = 9; int32 center_frequency0_mhz = 10;
+  int32 center_frequency1_mhz = 11;
+  enum InformationElementStatus {
+    IE_NOT_RECORDED = 0; IE_UNSUPPORTED = 1; IE_UNAVAILABLE = 2;
+    IE_CAPTURED = 3; IE_TRUNCATED = 4;
+  }
+  message InformationElement { int32 id = 1; int32 id_ext = 2; bytes payload = 3; }
+  InformationElementStatus information_element_status = 12;
+  repeated InformationElement information_elements = 13;
+}
+message Ble {
+  string address = 1; bytes advertisement = 2; int32 rssi_dbm = 3;
+  optional int32 tx_power_dbm = 4; bool connectable = 5;
+  int32 primary_phy = 6; int32 secondary_phy = 7;
+  optional int32 advertising_sid = 8; int32 data_status = 9;
+  int32 periodic_interval = 10;
+  enum AddressType {
+    ADDRESS_TYPE_NOT_RECORDED = 0;
+    ADDRESS_TYPE_UNSUPPORTED = 1;
+    ADDRESS_TYPE_UNKNOWN = 2;
+    ADDRESS_TYPE_PUBLIC = 3;
+    ADDRESS_TYPE_RANDOM = 4;
+    ADDRESS_TYPE_ANONYMOUS = 5;
+    ADDRESS_TYPE_OTHER = 6;
+    ADDRESS_TYPE_UNAVAILABLE = 7;
+  }
+  AddressType address_type = 11;
+  optional int32 platform_address_type = 12;
+}
+message Cell {
+  enum Technology { UNKNOWN = 0; GSM = 1; WCDMA = 2; LTE = 3; NR = 4; CDMA = 5; }
+  Technology technology = 1; bool registered = 2;
+  optional string mcc = 3; optional string mnc = 4;
+  optional int64 cell_identity = 5; optional int32 area_code = 6;
+  optional int32 physical_cell_id = 7; optional int32 channel_number = 8;
+  optional int32 signal_dbm = 9;
+}
+message Gnss {
+  double latitude_deg = 1; double longitude_deg = 2;
+  optional double altitude_m = 3; optional float horizontal_accuracy_m = 4;
+  optional float vertical_accuracy_m = 5; optional float speed_mps = 6;
+  optional float bearing_deg = 7; string provider = 8; optional float speed_accuracy_mps = 9;
+}
+message Imu { string sensor_type = 1; repeated float values = 2; int32 accuracy = 3; }
+message Visual {
+  string model_id = 1; string model_sha256 = 2; string model_version = 3;
+  string label = 4; float score = 5; repeated float image_box = 6;
+  int32 image_width = 7; int32 image_height = 8;
+  optional string descriptor_sha256 = 9;
+}
+message External { string media_type = 1; bytes payload = 2; string schema_id = 3; }
+message ArPose {
+  repeated float translation_m = 1; repeated float quaternion_xyzw = 2;
+  string tracking_state = 3; repeated float focal_length_px = 4;
+  repeated float principal_point_px = 5; repeated int32 image_dimensions = 6;
+  bool raw_depth_supported = 7; string world_frame = 8;
+}
+message ObservationRecord {
+  uint32 schema_version = 1; string id = 2; string session_id = 3;
+  string source_id = 4; Timing timing = 5; string frame_id = 6;
+  oneof payload {
+    Wifi wifi = 10; Ble ble = 11; Cell cell = 12; Gnss gnss = 13;
+    Imu imu = 14; Visual visual = 15; External external = 16; ArPose ar_pose = 17;
+  }
+}
+message Derivation {
+  string algorithm_id = 1; string algorithm_version = 2;
+  repeated string input_ids = 3; string model_sha256 = 4;
+  string configuration_sha256 = 5; string spec_version = 6; string evidence_level = 7;
+}
+message EvidenceRecord {
+  uint32 schema_version = 1; string id = 2; Derivation derivation = 3;
+  string kind = 4; bytes payload = 5;
+}
+message ClaimAttribute { string key = 1; string value = 2; }
+message SemanticClaim { string name = 1; string evidence_level = 2; repeated ClaimAttribute attributes = 3; }
+message EntityHypothesis { string entity_id = 1; uint64 revision = 2; Derivation derivation = 3; repeated string evidence_ids = 4; string status = 5;
+  repeated string previous_revision_ids = 6; repeated string contradiction_ids = 7;
+  repeated string related_entity_ids = 8; repeated string reasons = 9;
+  string session_id = 10; string boot_epoch = 11;
+  int64 valid_from_ns = 12; int64 valid_until_ns = 13;
+  string type_label = 14;
+}
+message RelationshipHypothesis { string id = 1; uint64 revision = 2; Derivation derivation = 3; repeated string entity_ids = 4; string relationship = 5; }
+message SpatialBelief { string entity_id = 1; Derivation derivation = 2; string frame_id = 3; repeated double position_m = 4; repeated double covariance_m2 = 5; string status = 6; }
+message OperatorAssertion { string id = 1; string session_id = 2; string assertion = 3; repeated string input_ids = 4; }
+message DomainEvent { string id = 1; string event_type = 2; Derivation derivation = 3; bytes payload = 4; }
+message UserSettings {
+  uint32 schema_version = 1;
+  string preferred_mode = 2;
+  bool persist_imu = 3;
+  bool network_sync_enabled = 4;
+  uint64 recording_budget_bytes = 5;
+  bool keep_screen_on_for_ble = 6;
+  optional bool background_ble = 7;
+  bool record_call_context = 8;
+}
+message ControlSourceState {
+  string source_id = 1; string kind = 2; string health = 3;
+  optional int64 requested_interval_ms = 4; bool requested_persist = 5;
+  optional int64 applied_interval_ms = 6; bool applied_persist = 7;
+  uint64 accepted = 8; uint64 committed = 9; uint64 live_only = 10; uint64 dropped = 11;
+  string availability = 12;
+  uint64 delivered_records_in_window = 13; uint64 delivery_window_ms = 14;
+  optional double delivered_records_per_second = 15; optional uint64 last_arrival_age_ms = 16;
+  uint64 registration_generation = 17; optional uint64 registration_age_ms = 18;
+  uint64 callbacks_received = 19; uint64 rate_limited = 20; uint64 malformed_callbacks = 21;
+  string requested_ble_scope = 22; string applied_ble_scope = 23;
+  optional WifiScanAccounting wifi_scan = 24;
+  optional uint64 latest_acquisition_age_ms = 25;
+  string requested_ble_duty = 26; string submitted_ble_duty = 27;
+}
+message WifiScanAccounting {
+  uint64 accepted = 1; uint64 rejected = 2; uint64 errors = 3;
+  uint64 updated = 4; uint64 not_updated = 5;
+  optional uint64 callback_overflow = 6; optional uint64 callback_invalid = 7; optional uint64 callback_discarded = 8;
+  optional uint64 scheduled_interval_ms = 9; optional bool adaptive_scheduling = 10; optional bool rejection_backoff = 11;
+}
+message CapturePolicyDecision {
+  string preferred_mode = 1; bool persist_imu = 2; string settings_status = 3;
+  string budget_tier = 4; string budget_reason = 5; bool camera_resume_required = 6;
+  int32 thermal_status = 7; int32 battery_percent = 8; bool charging = 9;
+  repeated ControlSourceState sources = 10;
+  string policy_version = 11;
+  optional float thermal_headroom = 12;
+  optional bool location_session_eligible = 13;
+  string motion_recording_state = 14;
+  uint64 motion_admitted_bytes = 15; uint64 motion_admitted_records = 16;
+  uint64 motion_limit_bytes = 17; uint64 motion_limit_ms = 18;
+  optional bool screen_interactive = 19;
+  string capture_version = 20; string capture_source = 21;
+  bool keep_screen_on_for_ble = 22; optional bool display_awake_requested = 23;
+  bool background_ble = 24; optional bool activity_resumed = 25;
+  optional bool ble_filter_api_available = 26;
+  optional string mobile_call_context = 27;
+  optional bool storage_capacity_reached = 28;
+}
+message SourceHealthTransition {
+  string source_id = 1; string kind = 2; uint64 registration_generation = 3;
+  string previous_health = 4; string health = 5; string cause = 6;
+  int64 observed_elapsed_ns = 7;
+  uint64 control_sequence = 8; string control_stage = 9;
+}
+message SessionControlEvent {
+  enum Stage { UNKNOWN = 0; START = 1; REQUESTED = 2; APPLIED = 3; STOP = 4; HEALTH = 5; CHECKPOINT = 6; }
+  uint32 schema_version = 1; string id = 2; string session_id = 3;
+  uint64 sequence = 4; Stage stage = 5; string mode = 6;
+  string boot_epoch = 7; int64 elapsed_ns = 8; int64 wall_ms = 9;
+  CapturePolicyDecision policy = 10; string outcome = 11;
+  SourceHealthTransition health_transition = 12;
+  uint64 checkpoint_control_sequence = 13; string checkpoint_control_stage = 14;
+}
+message ArchiveManifest {
+  uint32 format_version = 1;
+  string observation_schema = 2;
+  uint64 record_count = 3;
+  bytes records_sha256 = 4;
+  repeated string session_ids = 5;
+  repeated string source_ids = 6;
+  string time_convention = 7;
+  string frame_convention = 8;
+  uint64 evidence_count = 9; uint64 session_event_count = 10;
+  string evidence_schema = 11; string control_schema = 12;
+  repeated string legacy_session_ids = 13; repeated string incomplete_session_ids = 14;
+  repeated string external_model_sha256 = 15;
+  repeated string external_descriptor_sha256 = 16;
+  uint64 artifact_count = 17; uint64 artifact_chunk_count = 18;
+  repeated string available_artifact_sha256 = 19;
+  repeated UnavailableArtifact unavailable_artifacts = 20;
+  uint64 unproven_visual_count = 21;
+}
+message UnavailableArtifact { string sha256 = 1; string reason = 2; }
+message ArtifactChunk { string sha256 = 1; uint32 offset = 2; uint32 total_bytes = 3; bytes content = 4; }
+message ArchiveEntry {
+  oneof entry { ArchiveManifest manifest = 1; bytes observation = 2; bytes evidence = 3; bytes session_event = 4; ArtifactChunk artifact_chunk = 5; }
+}
+
+
+// External schema rtl433.helper.v1: exact JSON plus typed common measurements.
+message Rtl433Record {
+  bytes original_json = 1; string model = 2; string protocol = 3;
+  string advertised_id = 4; string channel = 5; string foreign_timestamp = 6;
+  string helper_id = 7; string hardware = 8; string decoder_version = 9;
+  string connection_epoch = 10; uint64 sequence = 11;
+  optional double frequency_hz = 12; optional double signal_db = 13;
+  string signal_reference = 14; optional double temperature_kelvin = 15;
+  optional double pressure_pascal = 16; optional double humidity_percent = 17;
+}

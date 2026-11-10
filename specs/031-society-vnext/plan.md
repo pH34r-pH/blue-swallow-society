@@ -79,6 +79,16 @@ same-origin adapter first, then a verifying in-memory browser worker and shared
 projection. Do not connect opaque transport bytes to map rendering prematurely.
 Preserve device-owned publication and the independent device access provider.
 
+Pin exact producer protobuf schemas and their license/hash provenance under
+`vendor/wardriver-wire/`. Generate static protobufjs code (8.8.1, CLI 2.7.1)
+for a CSP-compatible worker without runtime code generation; retain Long values
+until converting clocks/sequences to bigint or lossless presentation strings.
+Use browser WebCrypto RS256/SHA-256 with exact Android protected headers,
+canonical envelope reconstruction, strict budgets and original observation
+bytes. Cross-check actual producer-generated golden batches on Node and Chromium.
+Generated codec code alone is excluded from structural metrics; authored
+verification/admission remains within those checks. Reproducibility runs in CI.
+
 ## Standards and validation
 
 - [Node scrypt](https://nodejs.org/docs/latest-v24.x/api/crypto.html#cryptoscryptpassword-salt-keylen-options-callback)

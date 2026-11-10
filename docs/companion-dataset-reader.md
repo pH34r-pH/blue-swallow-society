@@ -51,8 +51,8 @@ The worker must also reject a lower revision or a changed same-revision roster.
   JSON requests to 1 KiB, and each complete storage operation to eight seconds.
   Limit concurrent storage requests per process to two. No listings or writes.
 
-Only the transport is implemented first. It remains unused by the shell until
-worker verification/admission is implemented and tested. A hash-shaped object
+The transport and wire codec are implemented. They remain unused by the shell
+until worker admission/projection is implemented and tested. A hash-shaped object
 name is not proof of a content hash: commit slots use domain-separated names.
 
 ## Compatibility and generation contract
@@ -99,7 +99,29 @@ read-only identity using `BSS_WARDRIVER_VIEWER_DATASET_MANAGED_IDENTITY_CLIENT_I
 Changing the group also invalidates viewer sessions. Never copy actual public
 identity pins, private datasets or credentials into public issue examples.
 
-## Remaining evidence
+## Wire verification checkpoint
+
+`api/_private/companion/data/` verifies publisher SPKI fingerprints, RS256 exact
+head/commit headers, canonical protobuf envelopes, signed scope/count/size/hash,
+retained observation bytes and supported control-event policy semantics. It
+retains Long/bigint clocks without numeric rounding. Unsupported versions or
+records fail the whole batch rather than silently dropping rows.
+
+Static protobufjs code is generated from byte-pinned upstream schemas; see
+[`vendor/wardriver-wire/README.md`](../vendor/wardriver-wire/README.md) for the
+license, reproducibility and actual Kotlin producer fixture procedure. Node
+tests and a real Chromium worker with unsafe-eval prohibited consume the same
+golden bytes. Source authority is Wardriver `DatasetWire`, `Observation`,
+`SessionEvent`, `Identity` and their generated protobuf classes at the pinned
+revision. The implementation uses [protobufjs static generation](https://github.com/protobufjs/protobuf.js#code-generation)
+and browser WebCrypto, with no bespoke crypto or general protobuf parser.
+
+This checkpoint does not admit a shared generation: roster monotonicity,
+per-publisher chain/cursors, Room-equivalent journal admission, conflicts,
+withdrawal/cutoff processing, bounded refresh orchestration and map/history
+projection still require implementation and parity fixtures.
+
+## Remaining evidence and integration
 
 Synthetic transport tests must exercise actual guard denial before storage,
 cross-group/path denial, current signed roster matching, revocation races,
