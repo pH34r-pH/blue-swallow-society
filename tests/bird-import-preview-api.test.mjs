@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { createHandler } = require('../api/bird-import-preview');
+const { previewBirdExport } = require('../api/_lib/bird-export-preview');
 const owner = require('../api/shared/owner-session.cjs');
 const { fixture } = require('./helpers/viewer-fixture.cjs');
 const viewer = require('../api/_lib/viewer-session');
@@ -32,7 +33,22 @@ test('only an owner can preview and denial happens before private body access', 
     'x-blue-swallow-operator-token': viewerToken } });
   assert.equal(conflicting.status, 403);
   const result = await call(handler); assert.equal(result.status, 200); assert.equal(result.body.publishes, false);
+  assert.deepEqual(result.body.comparison, { status: 'not_configured' });
   assert.equal(result.body.candidates[0].countKind, 'presence'); assert.match(result.headers['Cache-Control'], /no-store/);
+});
+test('configured comparison reads only after authorization, reports changes and fails closed on storage errors', async () => {
+  const prior = previewBirdExport(Buffer.from(csv)); let reads = 0;
+  const settings = { BLUE_SWALLOW_PUBLIC_ORIGIN: headers.origin, BSS_BIRD_HISTORY_ENABLED: 'true' };
+  const handler = createHandler({ env: settings, createStore: () => ({ async read() { reads++; return { snapshot: { version: 1, revision: 2, records: prior.candidates } }; } }) });
+  assert.equal((await call(handler, { headers: {} })).status, 401); assert.equal(reads, 0);
+  const unchanged = await call(handler); assert.equal(unchanged.status, 200); assert.equal(reads, 1);
+  assert.equal(unchanged.body.comparison.revision, 2); assert.equal(unchanged.body.comparison.plan.counts.unchanged, 1);
+  const changedBody = { csvBase64: Buffer.from(csv.replace(',X,', ',3,')).toString('base64') };
+  const changed = await call(handler, { body: changedBody }); assert.equal(changed.body.comparison.plan.counts.change, 1);
+  assert.equal(changed.body.comparison.plan.writes, false);
+  const broken = createHandler({ env: settings, createStore: () => ({ async read() { throw new Error('PRIVATE storage path'); } }) });
+  const failure = await call(broken); assert.equal(failure.status, 503);
+  assert.doesNotMatch(JSON.stringify(failure), /PRIVATE|storage path|candidates/);
 });
 test('origin, method, content type, request shape, encoding and size fail closed with redacted errors', async () => {
   const handler = createHandler();

@@ -18,3 +18,5 @@ duplicates, absent snapshot records, omitted optional fields and invalid snapsho
 Snapshot storage tests use a fake Blob client to exercise initial create,
 conditional updates, racing writers, invalid/truncated data, missing records,
 field retention and redacted storage errors. Live storage remains unverified.
+Owner preview tests cover a configured snapshot comparison, unconfigured status,
+authorization before storage, redacted outages and the rendered summary.

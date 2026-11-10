@@ -11,14 +11,26 @@ function encoded(bytes) {
   for (let offset = 0; offset < bytes.length; offset += 16384) data += String.fromCharCode(...bytes.subarray(offset, offset + 16384));
   return btoa(data);
 }
+function displayComparison(value) {
+  const plan = value.comparison?.plan;
+  if (value.comparison?.status === 'available' && plan) {
+    const count = plan.counts;
+    results.append(element('p', `Compared with draft revision ${value.comparison.revision}: ${count.add} new · ${count.change} changed · ${count.unchanged} unchanged · ${count.ambiguous} ambiguous. ${plan.missingExisting} existing records were not in this export; none will be deleted.`));
+    results.append(element('p', 'Identities are provisional. Review every proposed change before importing.'));
+  } else results.append(element('p', 'Comparison is unavailable until private history storage is configured.'));
+  return plan;
+}
 function display(value) {
   const { summary } = value;
   results.replaceChildren(element('h2', 'Draft preview'), element('p', `${summary.candidates} candidates · ${summary.ambiguous} ambiguous · ${summary.rejected} rejected. Nothing was saved or published.`));
+  const plan = displayComparison(value);
+  const actions = new Map((plan?.items || []).map((item) => [item.row, item.action]));
   const list = element('ol');
   for (const item of value.candidates.slice(0, 100)) {
     const count = item.countKind === 'exact' ? String(item.count) : item.countKind === 'presence' ? 'Present' : 'Count unknown';
     const location = item.privateFields.Location ? ` · Private location: ${item.privateFields.Location}` : '';
-    list.append(element('li', `${item.observedOn} · ${item.commonName} (${item.scientificName}) · ${count}${item.identity === 'ambiguous' ? ' · ambiguous identity' : ''}${location}`));
+    const action = actions.has(item.row) ? ` · ${actions.get(item.row)}` : item.identity === 'ambiguous' ? ' · ambiguous identity' : '';
+    list.append(element('li', `${item.observedOn} · ${item.commonName} (${item.scientificName}) · ${count}${action}${location}`));
   }
   results.append(list);
   if (summary.candidates > 100) results.append(element('p', 'Only the first 100 candidates are displayed.'));

@@ -19,7 +19,7 @@ semantics require private export validation. Preview does not store or publish.
 An owner-only import/reconciliation store, approval UI, sanitized publication,
 unpublication, recovery and account feasibility checks remain required.
 
-The unconnected reconciliation planner compares a candidate preview with a
+The reconciliation planner compares a candidate preview with a
 versioned snapshot without mutating either. It reports additions, unchanged
 records, field-level changes, ambiguous duplicate identities and the number of
 existing records absent from the export. Missing records never cause deletion;
@@ -27,7 +27,7 @@ omitted optional columns never erase known private fields. Composite identity
 is provisional and all actions require review. A changed species name may alter
 the key and must not be treated as a known correction automatically.
 
-An unconnected snapshot adapter uses a dedicated private Blob container, a
+A snapshot adapter uses a dedicated private Blob container, a
 managed identity and a single versioned JSON blob capped at 16 MiB. It requires
 `BSS_BIRD_HISTORY_ENABLED=true`, `BSS_BIRD_HISTORY_ACCOUNT` and
 `BSS_BIRD_HISTORY_CONTAINER`; optional
@@ -38,6 +38,11 @@ create-only or conditional upload; concurrent changes fail. Rows and existing
 optional fields cannot disappear through this adapter. A future owner service
 must build reviewed draft updates, enforce authorization and handle conflicts;
 this adapter alone does not approve or publish anything.
+
+When storage is enabled, owner preview reads the latest snapshot and reports the
+non-mutating plan and revision. A storage failure denies the preview rather than
+assuming an empty history. When disabled, the preview states that comparison is
+unavailable. Snapshot writes remain unconnected to any owner API or interface.
 
 The `/owner/birds` page restores an Entra owner session, sends a selected file to
 the preview endpoint, and displays a bounded sample and summary as text. It

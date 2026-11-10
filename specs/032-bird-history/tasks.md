@@ -4,8 +4,8 @@
 - [x] Add bounded candidate CSV preview and synthetic parser tests.
 - [x] Expose transient preview behind owner-only, same-origin authorization.
 - [x] Add owner-only file selection and transient preview UI.
-- [x] Add an unconnected, non-mutating draft reconciliation planner.
-- [x] Add an unconnected conditional private snapshot storage adapter.
+- [x] Add a non-mutating draft reconciliation planner and conditional snapshot adapter.
+- [x] Show read-only comparison against configured private draft storage.
 - [ ] Verify the owner's actual export format and Merlin coverage privately.
 - [ ] Implement owner-only preview, durable import and reconciliation.
 - [ ] Implement explicit approval, sanitized publication, unpublish and recovery.

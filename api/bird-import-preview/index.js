@@ -3,6 +3,8 @@ const { authMode } = require('../shared/owner-session.cjs');
 const { requireOperatorToken } = require('../_lib/operator-auth');
 const { header } = require('../_lib/viewer-session');
 const { previewBirdExport } = require('../_lib/bird-export-preview');
+const { planBirdReconciliation } = require('../_lib/bird-reconciliation');
+const { createBirdSnapshotStore, config: snapshotConfig } = require('../_lib/bird-snapshot-store');
 const MAX_BYTES = 10 * 1024 * 1024;
 const MAX_JSON = Math.ceil(MAX_BYTES / 3) * 4 + 128;
 const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store',
@@ -24,7 +26,8 @@ function readInput(req) {
   if (bytes.toString('base64') !== value.csvBase64) throw new Error('invalid_request');
   return bytes;
 }
-function createHandler({ authorize = requireOperatorToken, mode = authMode, preview = previewBirdExport, env = process.env } = {}) {
+function createHandler({ authorize = requireOperatorToken, mode = authMode, preview = previewBirdExport, env = process.env,
+  createStore = () => createBirdSnapshotStore({ settings: snapshotConfig(env) }) } = {}) {
   return async (context, req) => {
     if (!['entra', 'password'].includes(mode())) { context.res = response(403, { error: 'owner_required' }); return; }
     if (!authorize(context, req).ok) return;
@@ -35,7 +38,14 @@ function createHandler({ authorize = requireOperatorToken, mode = authMode, prev
     if (header(req, 'content-type').split(';')[0].trim().toLowerCase() !== 'application/json') {
       context.res = response(415, { error: 'unsupported_media_type' }); return;
     }
-    try { context.res = response(200, preview(readInput(req))); }
+    try {
+      const value = preview(readInput(req));
+      if (env.BSS_BIRD_HISTORY_ENABLED === 'true') {
+        const { snapshot } = await createStore().read();
+        value.comparison = { status: 'available', revision: snapshot.revision, plan: planBirdReconciliation(snapshot, value) };
+      } else value.comparison = { status: 'not_configured' };
+      context.res = response(200, value);
+    }
     catch (error) {
       const allowed = ['invalid_request', 'invalid_export_size', 'invalid_export_encoding', 'invalid_export_csv', 'unsupported_export'];
       const code = allowed.includes(error.message) ? error.message : 'preview_unavailable';

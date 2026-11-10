@@ -17,10 +17,10 @@ Functions are the authenticated same-origin boundary. Route families are:
   publishes; the candidate layout still needs private validation against the
   owner's actual export (spec 032). Viewer and legacy credentials are denied.
   `_lib/bird-reconciliation.js` plans draft comparisons in memory; it does not
-  persist, publish or assume missing rows are deletions. It is not yet connected.
-  `_lib/bird-snapshot-store.js` is an unconnected private Blob snapshot adapter
-  with conditional writes; it requires explicitly enabled isolated storage and
-  managed identity. It is not an owner API or publication path.
+  publish or assume missing rows are deletions. When explicitly configured,
+  the preview reads `_lib/bird-snapshot-store.js` and reports the current draft
+  comparison. The adapter's conditional writes are not exposed through an API;
+  it requires isolated storage and managed identity, with no publication path.
   The same fixed allowlist serves only the four self-hosted MapLibre renderer
   assets required by the viewer, after the companion guard.
 - `companion-datasets/` and `_lib/companion-dataset-store.js` provide the

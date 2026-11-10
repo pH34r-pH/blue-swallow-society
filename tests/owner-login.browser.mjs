@@ -17,6 +17,7 @@ const assets = require('./operator-assets');
 const logout = require('./operator-logout');
 const journal = require('./bird-journal');
 const { createHandler: createBirdPreview } = require('./bird-import-preview');
+const { previewBirdExport } = require('./_lib/bird-export-preview');
 const { requireOperatorToken } = require('./_lib/operator-auth');
 
 Object.assign(process.env, { BLUE_SWALLOW_AUTH_MODE: 'entra', BLUE_SWALLOW_ENTRA_TENANT_ID: '11111111-1111-1111-1111-111111111111',
@@ -27,7 +28,7 @@ const pair = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
 const jwk = await exportJWK(pair.publicKey);
 jwk.kid = 'test';
 const keySet = createLocalJWKSet({ keys: [jwk] });
-let wrongOwner = false, cancelEdit = false, runtimeOrigin;
+let wrongOwner = false, cancelEdit = false, runtimeOrigin, birdSnapshot = null;
 const logins = new Map();
 const ownerHandler = createOwnerAuthHandler({
   getConfig: () => ({ ...loginConfig(), origin: runtimeOrigin || config.origin, redirectUri: `${runtimeOrigin || config.origin}/api/owner-auth/callback` }),
@@ -60,7 +61,9 @@ async function serve(req, res) {
   else if (url.pathname === '/api/operator-shell') await shell(context, request);
   else if (url.pathname.startsWith('/api/operator-assets/')) await assets(context, request);
   else if (url.pathname === '/api/bird-journal') await journal(context, request);
-  else if (url.pathname === '/api/bird-import-preview') await createBirdPreview({ env: { BLUE_SWALLOW_PUBLIC_ORIGIN: runtimeOrigin } })(context, request);
+  else if (url.pathname === '/api/bird-import-preview') await createBirdPreview({
+    env: { BLUE_SWALLOW_PUBLIC_ORIGIN: runtimeOrigin, BSS_BIRD_HISTORY_ENABLED: birdSnapshot ? 'true' : 'false' },
+    createStore: () => ({ read: async () => ({ snapshot: birdSnapshot }) }) })(context, request);
   else if (url.pathname === '/api/operator-logout') await logout(context, request);
   else if (url.pathname.startsWith('/api/')) {
     if (requireOperatorToken(context, request).ok) context.res = { status: 503, body: { ok: false } };
@@ -108,12 +111,20 @@ test('Chromium owner login, wrong user, unavailable config, deep-link restoratio
     buffer: Buffer.from('Submission ID,Common Name,Scientific Name,Count,Date,Location\nS1,<img src=x>,Test avis,X,2026-01-02,Private place\n') });
   await page.getByRole('button', { name: 'Preview export' }).click();
   await page.getByText('Preview ready.', { exact: false }).waitFor();
+  await page.getByText('Comparison is unavailable until private history storage is configured.').waitFor();
   await page.getByText('2026-01-02 · <img src=x> (Test avis) · Present').waitFor();
   await page.getByText('Private location: Private place', { exact: false }).waitFor();
   assert.equal(await page.locator('#birdResults img').count(), 0);
   assert.doesNotMatch(await (await page.request.get(origin + '/api/bird-journal')).text(), /Test avis|Private place/);
   await page.getByRole('button', { name: 'Clear preview' }).click();
   assert.equal(await page.locator('#birdResults li').count(), 0);
+  const unchangedCsv = 'Submission ID,Common Name,Scientific Name,Count,Date,Location\nS1,<img src=x>,Test avis,X,2026-01-02,Private place\n';
+  birdSnapshot = { version: 1, revision: 1, records: previewBirdExport(Buffer.from(unchangedCsv)).candidates };
+  await page.getByLabel('Personal CSV export (up to 10 MiB)').setInputFiles({ name: 'synthetic.csv', mimeType: 'text/csv', buffer: Buffer.from(unchangedCsv) });
+  await page.getByRole('button', { name: 'Preview export' }).click();
+  await page.getByText('Compared with draft revision 1:', { exact: false }).waitFor();
+  assert.match(await page.locator('#birdResults').textContent(), /1 unchanged/);
+  await page.getByRole('button', { name: 'Clear preview' }).click(); birdSnapshot = null;
   await page.goto(origin + '/operator/travels'); await page.locator('#godeye-tab.active').waitFor();
   await page.getByRole('link', { name: 'Entities', exact: true }).click();
   await page.getByText('Read-only access. Enable editing to request permission for corrections.', { exact: true }).waitFor();
