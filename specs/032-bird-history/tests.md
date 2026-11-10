@@ -20,3 +20,6 @@ conditional updates, racing writers, invalid/truncated data, missing records,
 field retention and redacted storage errors. Live storage remains unverified.
 Owner preview tests cover a configured snapshot comparison, unconfigured status,
 authorization before storage, redacted outages and the rendered summary.
+Draft commit tests cover explicit selection, changed CSV or snapshot, ambiguous
+or duplicate rows, retry after success, owner and origin denial, retention and
+redacted failures. No commit publishes a record.

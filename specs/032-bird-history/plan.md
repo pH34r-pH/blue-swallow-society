@@ -42,7 +42,13 @@ this adapter alone does not approve or publish anything.
 When storage is enabled, owner preview reads the latest snapshot and reports the
 non-mutating plan and revision. A storage failure denies the preview rather than
 assuming an empty history. When disabled, the preview states that comparison is
-unavailable. Snapshot writes remain unconnected to any owner API or interface.
+unavailable. Preview includes a SHA-256 fingerprint of the exact CSV, snapshot
+and plan. `POST /api/bird-import-commit` re-parses the CSV, re-reads the snapshot,
+requires that fingerprint and revision, and accepts only an explicit bounded set
+of unambiguous added/changed rows. It preserves omitted rows and optional fields,
+then performs a conditional draft-only write. A stale preview or racing write
+returns a conflict. This fingerprint binds a review to inputs; it is not an
+authentication credential. The owner interface does not invoke commit yet.
 
 The `/owner/birds` page restores an Entra owner session, sends a selected file to
 the preview endpoint, and displays a bounded sample and summary as text. It

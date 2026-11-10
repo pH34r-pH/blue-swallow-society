@@ -4,6 +4,7 @@ const { requireOperatorToken } = require('../_lib/operator-auth');
 const { header } = require('../_lib/viewer-session');
 const { previewBirdExport } = require('../_lib/bird-export-preview');
 const { planBirdReconciliation } = require('../_lib/bird-reconciliation');
+const { fingerprintDraft } = require('../_lib/bird-draft-import');
 const { createBirdSnapshotStore, config: snapshotConfig } = require('../_lib/bird-snapshot-store');
 const MAX_BYTES = 10 * 1024 * 1024;
 const MAX_JSON = Math.ceil(MAX_BYTES / 3) * 4 + 128;
@@ -39,10 +40,11 @@ function createHandler({ authorize = requireOperatorToken, mode = authMode, prev
       context.res = response(415, { error: 'unsupported_media_type' }); return;
     }
     try {
-      const value = preview(readInput(req));
+      const bytes = readInput(req); const value = preview(bytes);
       if (env.BSS_BIRD_HISTORY_ENABLED === 'true') {
         const { snapshot } = await createStore().read();
-        value.comparison = { status: 'available', revision: snapshot.revision, plan: planBirdReconciliation(snapshot, value) };
+        const plan = planBirdReconciliation(snapshot, value);
+        value.comparison = { status: 'available', revision: snapshot.revision, plan, digest: fingerprintDraft(bytes, snapshot, plan) };
       } else value.comparison = { status: 'not_configured' };
       context.res = response(200, value);
     }
@@ -55,3 +57,4 @@ function createHandler({ authorize = requireOperatorToken, mode = authMode, prev
 }
 module.exports = createHandler();
 module.exports.createHandler = createHandler;
+module.exports.readInput = readInput;

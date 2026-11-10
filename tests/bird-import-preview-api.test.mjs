@@ -43,6 +43,7 @@ test('configured comparison reads only after authorization, reports changes and 
   assert.equal((await call(handler, { headers: {} })).status, 401); assert.equal(reads, 0);
   const unchanged = await call(handler); assert.equal(unchanged.status, 200); assert.equal(reads, 1);
   assert.equal(unchanged.body.comparison.revision, 2); assert.equal(unchanged.body.comparison.plan.counts.unchanged, 1);
+  assert.match(unchanged.body.comparison.digest, /^[a-f0-9]{64}$/);
   const changedBody = { csvBase64: Buffer.from(csv.replace(',X,', ',3,')).toString('base64') };
   const changed = await call(handler, { body: changedBody }); assert.equal(changed.body.comparison.plan.counts.change, 1);
   assert.equal(changed.body.comparison.plan.writes, false);

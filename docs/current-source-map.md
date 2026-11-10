@@ -88,7 +88,9 @@ publication remain open.
 When private storage is explicitly configured, the preview compares candidates
 against the current validated draft snapshot without treating missing rows as
 deletions or provisional identities as proven. The Blob adapter supports ETag
-conditional writes, but no write API is connected and no storage was provisioned.
+conditional writes; no storage was provisioned.
+An owner-only commit endpoint can apply a reviewed, fingerprint-bound selection
+as drafts; the owner UI does not yet invoke it. No storage was provisioned.
 Shared observation history can now be read explicitly into a verifying private
 worker. Map displays receiver fixes; Encounters and Trips remain unavailable.
 The bounded receiver-fix projection is in
