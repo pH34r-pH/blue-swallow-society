@@ -36,17 +36,19 @@
 
 - [ ] Real browser visual/accessibility/performance evidence.
 - [x] Stage the released Node 24 backend and apply protected password configuration.
-- [ ] Canonical-origin auth/storage, valid-password session and private release evidence.
+- [x] Deploy the matching frontend, link the backend and verify canonical public/private routing.
+- [ ] Valid-password session lifecycle, Entra admin and private release acceptance.
 - [x] Prepare deterministic tracked-source frontend candidate for a linked backend.
 - [x] Add matching frontend packaging and attestation to the release workflow.
 - [x] Publish and verify matching frontend/backend artifacts for cutover.
 - [ ] Physical installation/update and multi-phone/browser convergence.
 - [ ] Cutover operations and issue acceptance reconciliation.
 
-Release publication and protected backend configuration are complete as recorded
-below. Canonical frontend deployment, bird account connection and physical
-acceptance remain open. The owner waived rollback planning/rehearsal for this
-no-users cutover on 2026-11-10 Pacific; authentication/privacy criteria remain.
+Release publication, protected backend configuration and canonical site cutover
+are complete as recorded below. Positive authentication/download, bird account
+connection and physical acceptance remain open. The owner waived rollback
+planning/rehearsal for this no-users cutover on 2026-11-10 Pacific;
+authentication/privacy criteria remain.
 
 ## Release and backend checkpoint — 2026-11-10 Pacific
 
@@ -68,6 +70,27 @@ no-users cutover on 2026-11-10 Pacific; authentication/privacy criteria remain.
 - These probes do not establish a valid-password session, canonical-origin
   frontend/API integration, a signed download or physical-phone acceptance.
   The earlier dated source checkpoints below retain their original scope.
+
+## Canonical cutover — 2026-11-10 Pacific
+
+- [Fleet deployment run 42964086317](https://github.com/pH34r-pH/long-haul-fleet/actions/runs/42964086317)
+  used Fleet source `ce973919495c17a6ea9d782321e739eb43ce5ffc` and unchanged
+  Society v1.1.1. It published the matching frontend at 21:13:23 PST and created
+  the backend link at 21:13:59 PST. Apply reported one addition, zero changes
+  and zero destroys; exact canonical frontend bytes and companion routing
+  passed at 21:14:09 PST.
+- The workflow is **failed**, not successful: its first post-link journal probe
+  remained 503 beyond the roughly 30-second retry window, ending the job at
+  21:14:38 PST after publication and linkage had already completed.
+- Subsequent independent read-only checks passed by 21:16 PST without another
+  deployment: exact canonical frontend bytes/routing; public journal 200 with
+  a valid empty version-1 feed; six private routes 401 despite forged platform
+  identities; cross-origin login 403; and direct backend-origin requests 401.
+  A second reviewer independently confirmed API routing and direct-origin denial.
+- A browser on the canonical origin displayed the new Field journal and explicit
+  Password dialog. No credentials were entered. Positive password/Entra sign-in,
+  session lifecycle, signed downloads and physical installation/update remain
+  unverified. Unfinished product features retain their open tasks above.
 
 ## Friend APK handoff checkpoint — 2026-11-10
 

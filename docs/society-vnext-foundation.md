@@ -108,14 +108,18 @@ this build through the retained Node 22 managed-SWA promoter.
 
 ## Rollout and evidence
 
-The [release/backend checkpoint](../specs/031-society-vnext/tasks.md#release-and-backend-checkpoint--2026-11-10-pacific)
-records successful v1.1.1 artifact publication, protected password migration and
-backend configuration. Backend probes serve the empty public journal and deny
-anonymous/forged private access. Canonical frontend deployment and valid-password
-session/download acceptance remain open at that checkpoint. The owner authorized
-this no-users cutover without a rollback plan on 2026-11-10 Pacific; authentication
-and privacy criteria remain required. The dated source observations below retain
-their original scope.
+The [canonical cutover checkpoint](../specs/031-society-vnext/tasks.md#canonical-cutover--2026-11-10-pacific)
+records the deployed v1.1.1 frontend/backend pair and successful canonical public
+and negative-authentication probes. The deployment workflow remains failed because
+its immediate journal probe exceeded the retry window after publication/linkage;
+subsequent independent read-only checks passed. Positive password/Entra sign-in,
+session lifecycle, signed download and physical acceptance remain open. The owner
+authorized this no-users cutover without a rollback plan on 2026-11-10 Pacific;
+authentication and privacy criteria remain required.
+
+### Earlier source checkpoint — 2026-11-10
+
+The following source observations retain their original scope.
 
 The friend download page includes a stable phone link with no password or artifact
 grant, mobile deep-link login, immutable release selection and a manual update
