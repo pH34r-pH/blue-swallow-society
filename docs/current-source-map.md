@@ -21,17 +21,22 @@ provenance rather than current operation.
 
 ## Architecture and data flow
 
-For the deployed v1.1.1 frontend/backend pair and canonical routing evidence, see
-the [cutover checkpoint](../specs/031-society-vnext/tasks.md#canonical-cutover--2026-11-10-pacific).
-It distinguishes the failed immediate workflow probe from successful subsequent
-read-only checks. Positive password/Entra sign-in, session lifecycle, signed
-downloads and physical-phone acceptance remain unverified.
+For the deployed v1.1.2 frontend/backend pair and successful canonical readback,
+see the [sign-in repair receipt](../specs/031-society-vnext/tasks.md#sign-in-repair--2026-11-11-utc).
+The earlier [v1.1.1 cutover checkpoint](../specs/031-society-vnext/tasks.md#canonical-cutover--2026-11-10-pacific)
+retains its failed immediate workflow probe and successful subsequent read-only
+checks. Positive password/Entra sign-in, session lifecycle, signed downloads and
+physical-phone acceptance remain unverified.
 
 The owner subsequently reported failed password sign-in and a stalled Entra
-flow; both positive journeys remain under investigation. The source now bounds
+flow; both positive journeys remain under investigation. The deployed repair bounds
 owner restore/login requests and discards late restore responses after a newer
 login starts. The password dialog labels only `invalid_password` as a rejected
 password. These entry-state repairs do not by themselves qualify live sign-in.
+The 07:59:39 UTC diagnostic after approximately six minutes of inactivity still
+found one ready replica and fast anonymous responses. It measured a warm backend;
+the cold-versus-warm comparison remains open, and cold start is not a proven
+cause of either reported failure.
 
 ```text
 Web browser
