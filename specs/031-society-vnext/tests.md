@@ -36,6 +36,13 @@ the viewer token. Separately prove owner identity checks and deny viewer tokens
 on admin APIs. Future entity inspection tests must prove shared-read access and
 anonymous, cross-group, write and unshared-legacy-data denial.
 
+Hold owner restore and login-start requests open to verify bounded recovery and
+an enabled retry button. Race a late restore response or timeout against a newer
+login and verify it cannot replace the pending login state. Distinguish an API
+`invalid_password` response from platform HTML/empty 401, `session_expired` and
+storage-unavailable responses in the password dialog. These synthetic checks do
+not establish a successful password or Microsoft sign-in on the deployed host.
+
 ## Data and birding
 
 Android/browser golden fixtures must agree at a shared revision on admitted

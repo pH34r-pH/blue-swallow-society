@@ -50,6 +50,23 @@ connection and physical acceptance remain open. The owner waived rollback
 planning/rehearsal for this no-users cutover on 2026-11-10 Pacific;
 authentication/privacy criteria remain.
 
+## Sign-in repair — 2026-11-11 UTC
+
+The owner reported that the password was not accepted and owner Entra sign-in
+stalled after the initial cutover. Earlier anonymous denials and public-route
+checks did not exercise a successful login and cannot close this report.
+
+- [x] Reproduce and repair the unbounded owner-entry requests and stale-restore race.
+- [x] Distinguish `invalid_password` from platform/session failures in the dialog.
+- [ ] Verify the entry repairs in the hosted Chromium suite and deploy the exact release.
+- [ ] Inspect protected hosting/storage diagnostics without exposing credentials.
+- [ ] Verify successful password session creation/restoration and completed Entra login.
+
+Anonymous canonical probes currently reach the normal Microsoft account picker;
+an empty password request returns the expected 400 `invalid_request`. The
+migration producer and API verifier agree on synthetic inputs. None of these
+observations proves that either reported positive sign-in failure is repaired.
+
 ## Release and backend checkpoint — 2026-11-10 Pacific
 
 - [Release v1.1.1](https://github.com/pH34r-pH/blue-swallow-society/releases/tag/v1.1.1)
