@@ -27,7 +27,7 @@ function finishFailure(transaction, config, now, error = 'denied') {
   cache.downgrade(transaction.ownerSession);
   const remaining = session.ok && cache.status(transaction.ownerSession, now).active;
   const original = remaining ? { token: session.rawToken, ttlSeconds: Math.max(0, session.token.exp - Math.floor(now / 1000)) } : undefined;
-  return { status: 302, headers: { ...headers, Location: remaining ? `/operator/entities?editing=${error}` : '/?auth=expired' },
+  return { status: 302, headers: { ...headers, Location: remaining ? `/operator/entities?editing=${error}` : '/owner?auth=expired' },
     cookies: [login.transactionCookieOptions(), owner.sessionCookieOptions(original)], body: '' };
 }
 async function completeEdit(req, transaction, config, { clientFactory, verify, now, verifyApi = verifyApiAccessToken }) {

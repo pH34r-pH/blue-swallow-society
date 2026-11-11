@@ -24,6 +24,19 @@ provenance rather than current operation.
 ```text
 Web browser
   -> app/index.html + app/main.js
+  -> public journal; explicit Login opens password entry
+  -> /api/companion-auth/{session|login}
+  -> durable viewer session
+  -> /operator/{map|encounters|trips|downloads}
+  -> app/companion-loader.mjs
+  -> /api/companion-ui/{shell.html|theme.css|main.mjs}
+  -> isolated viewer-safe shell; browser development-download facade
+  -> explicit Read shared data loads private dataset client/worker
+  -> /api/companion-datasets/{roster|object}
+  -> bounded signed-chain admission in worker memory; progress controls
+
+Retained owner tools
+  -> /owner + app/owner/main.js
   -> /api/owner-auth/login or /api/owner-auth/session
   -> five-minute owner session in a Secure HttpOnly cookie
   -> /operator/{travels|entities|world|devices}
@@ -58,12 +71,71 @@ Paper runtime
 
 The browser never connects directly to the VM or Postgres. Sensitive coordinates
 are sent in POST bodies, not URLs. Operator assets and data APIs fail closed in
-Functions before private reads. The public root contains only the owner sign-in
-surface; it does not reveal the companion shell or Wardriver artifacts.
+Functions before private reads. The public root contains the journal and
+explicit Login; it does not reveal the companion shell or Wardriver artifacts.
+The private downloads view offers a secret-free phone-page link, release details,
+and an explicit update check; each artifact request remains viewer-authorized and
+bound to an immutable version and revision.
+The private shell's explicit Admin login initiates the separate Entra owner flow;
+normal friend navigation does not. Password-authorized shared entity inspection
+is required but not yet implemented; the existing entity workbench remains
+owner-only and is not evidence of friend access.
+`scripts/prepare-linked-frontend.mjs` builds a local source-bound frontend-only
+candidate for the future linked-backend path and records file hashes separately.
+The semantic release workflow packages and attests that frontend beside the
+matching OCI image. A local candidate is not release or deployment evidence.
 
 ## Companion dashboard boundaries
 
-`api/_private/operator/shell.html` is the current private companion dashboard:
+Society vNext is being implemented under
+[`specs/031-society-vnext/`](../specs/031-society-vnext/spec.md). Its first source
+slice adds opt-in password viewer sessions and a browser-authorized development
+download facade. The second adds the public journal, explicit Login and an
+isolated Vector Edge shell with Map/Encounters/Trips/Downloads navigation.
+The separate [bird-history package](../specs/032-bird-history/spec.md) contains
+an owner-only, same-origin CSV preview endpoint and `/owner/birds` preview UI;
+its candidate format is not yet verified, and durable private import and
+publication remain open.
+When private storage is explicitly configured, the preview compares candidates
+against the current validated draft snapshot without treating missing rows as
+deletions or provisional identities as proven. The Blob adapter supports ETag
+conditional writes; no storage was provisioned.
+An owner-only commit endpoint applies a fingerprint-bound selection as drafts;
+the owner UI provides paginated field review and explicit selection. No storage
+was provisioned, and no publication workflow has been connected.
+An unconnected publication planner creates sanitized, explicitly selected
+projections; it does not write or publish them.
+Shared observation history can now be read explicitly into a verifying private
+worker. Map displays receiver fixes; Encounters and Trips remain unavailable.
+The bounded receiver-fix projection is in
+`api/_private/companion/data/receiver-projection.mjs`; it preserves contributor
+provenance and excludes ambiguous or invalid geometry. Its worker query checks
+epoch and generation; the client invalidates pending queries on changes, clear,
+refresh or teardown. The MapLibre view uses these fixes and an optional explicit
+OpenStreetMap basemap. It is not an emitter map.
+Receiver points can be selected on the map or through a keyboard-accessible list;
+the details and inspector show contributor, session, clock and accuracy values.
+The contributor filter scopes receiver fixes to a signed roster member; it does
+not change membership, erase history or make ambiguous geometry trustworthy.
+The next slice adds the separately enabled read-only Blob transport in
+`api/companion-datasets/`, with current signed-roster checks and bounded exact
+object reads. The [dataset reader contract](companion-dataset-reader.md) defines
+its authority, producer compatibility, bounded admission/refresh implementation
+and remaining map/history projection and Android parity requirements.
+The browser-compatible codec in `api/_private/companion/data/` now verifies
+signed v1/v2 envelopes and supported records using static protobufjs and
+WebCrypto. Actual Kotlin producer bytes pass Node and Chromium-worker checks;
+shared admission, cutoff/conflict handling and projection are not connected yet.
+Retained owner APIs remain separate. See [the foundation contract](society-vnext-foundation.md)
+for configuration and limits; this is not launch or deployment evidence.
+
+`api/_private/companion/` is the new viewer-safe shell. It supports route
+history, explicit renewal, desktop panel resize, phone collapse and private
+development downloads. The public `/api/bird-journal` projection serves approved
+posts/sightings only; its initial publication is empty. Real import/publication,
+generated feeds and the compatible shared-dataset reader remain open work.
+
+`api/_private/operator/shell.html` remains the separate owner dashboard:
 
 - **Travels / Cybermap** (`/operator/travels`) shows bounded observation history
   and an optional nearby capture context. It labels capture coordinates as
@@ -105,6 +177,7 @@ new product features remain separate work.
 | Boundary | Implemented and checked in source | Still unverified here |
 |---|---|---|
 | Owner access | Entra authorization-code/PKCE flow, exact tenant/audience/owner checks, five-minute signed session, HttpOnly cookie, memory-only browser token | Real Microsoft sign-in, production identities/consent, live wrong-owner denial, and deployment settings |
+| vNext viewer foundation | Public-first journal, explicit password dialog, isolated Vector Edge shell; scrypt, global/caller throttling, durable 15-minute idle/eight-hour absolute sessions, ETag renewal, revocable logout, cross-tab lock and immutable development-download card | Private configuration/table provisioning, timer/runtime qualification, compatible dataset reader, populated map/history and live downloads |
 | Private companion | Loader fetches private shell/assets through operator token and fixed allowlist; browser tests cover route navigation and asset handoff | Live hosted shell/asset behavior on the deployed origin |
 | Entity workbench | VM contract, migration 0007, Functions scope checks, optimistic preview/mutate, replay/stale-revision handling, browser/PostGIS tests | Live migration/application and real owner `Entities.Write` consent |
 | Observation upload | Functions batch proxy validates method/body/HTTPS backend and forwards device, token, and idempotency headers; Wardriver source owns encrypted V2 staging and receipt handling | A production Wardriver-to-VM upload, deployed PostGIS persistence, and device certificate/token acceptance |
@@ -142,12 +215,16 @@ the group. This route does not call the retained observation-ingestion service.
 
 | Change area | Start with | Focused validation |
 |---|---|---|
-| Root/owner sign-in | `app/`, `api/owner-auth/`, `api/shared/owner-session.cjs`, `api/_lib/owner-*` | `node --test tests/owner-auth.test.mjs tests/owner-login.browser.mjs tests/root-login-handoff-browser.test.mjs` |
+| Public journal/viewer entry | `app/index.html`, `app/main.js`, `app/journal-view.mjs`, `app/companion-loader.mjs`, `api/companion-ui/`, `api/bird-journal/` | `node --test tests/society-vnext.browser.mjs tests/journal-companion-boundary.test.mjs` |
+| Retained owner sign-in | `app/owner/`, `api/owner-auth/`, `api/shared/owner-session.cjs`, `api/_lib/owner-*` | `node --test tests/owner-auth.test.mjs tests/owner-login.browser.mjs` |
+| vNext viewer/download foundation | `api/companion-auth/`, `api/companion-downloads/`, `api/_lib/viewer-session*`, `api/_lib/companion-auth.js` | `node --test tests/viewer-session.test.mjs tests/companion-auth.test.mjs tests/companion-downloads.test.mjs tests/passcode-rate-limit.test.mjs` |
 | Companion route/shell/assets | `app/operator/`, `api/_private/operator/`, `api/operator-shell/`, `api/operator-assets/` | `node --test tests/companion-navigation.test.mjs tests/companion.browser.mjs tests/ui-shell.test.mjs tests/operator-shell-api.test.mjs` |
 | Travels/history/nearby map | `api/cybermap-history/`, `api/operator-signals/`, `vm/cybermap-api/src/history-*`, `api/_private/operator/assets/travels-*` | `node --test tests/history-api.test.mjs tests/travels-state.test.mjs tests/travels.browser.mjs vm/cybermap-api/test/history-*.test.mjs` |
 | Entities/auth | `api/cybermap-entities/`, `api/_lib/entity-*`, `api/_private/operator/assets/entity-*`, `vm/cybermap-api/src/entity-*` | `node --test tests/entity-proxy.test.mjs tests/entity-edit-auth.test.mjs tests/entity-workbench.browser.mjs tests/entity-integration.browser.mjs vm/cybermap-api/test/entity-workbench*.test.mjs vm/cybermap-api/test/entity-api-adapter.test.mjs` |
 | Ingest/schema | `api/cybermap-observations-batch/`, `vm/cybermap-api/src/contracts.mjs`, `db/migrations/`, `shared/contracts/` | `node --test tests/cybermap-ingest-api.test.mjs tests/cybermap-schema.test.mjs vm/cybermap-api/test/contracts.test.mjs vm/cybermap-api/test/wardriver-contract-conformance.test.mjs` |
 | Private dataset access | `api/wardriver-sync/`, `api/_lib/wardriver-sync-*`, `docs/wardriver-device-sync-access.md` | `node --test tests/wardriver-sync-auth.test.mjs tests/wardriver-sync-api.test.mjs` |
+| Browser dataset transport | `api/companion-datasets/`, `api/_lib/companion-dataset-store.js`, `docs/companion-dataset-reader.md` | `node --test tests/companion-datasets.test.mjs` |
+| Browser dataset wire codec | `api/_private/companion/data/`, `vendor/wardriver-wire/`, `scripts/build-companion-wire.mjs` | `node scripts/build-companion-wire.mjs --check`; `node --test tests/dataset-wire.test.mjs tests/dataset-wire.browser.mjs` |
 | Paper runtime | `api/tzeentch/`, `config/`, `scripts/mosaic_murmurs_*`, `tests/paper*` | `node --test tests/tzeentch-route.test.mjs tests/tzeentch-dashboard.test.mjs tests/paper-state-contract.test.mjs && python3 -m unittest discover -s tests -p 'paper*_test.py'` |
 | Infra/deployment | `infra/`, `.github/workflows/`, `docs/public-ci-handoff.md` | `node --test tests/wardriver-release-delivery-config.test.mjs tests/wardriver-basemap-delivery-config.test.mjs tests/node-runtime-contract.test.mjs`; deployment/what-if workflows are separate and manual |
 

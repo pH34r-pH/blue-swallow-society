@@ -4,6 +4,30 @@
   },
   "routes": [
     {
+      "route": "/operator/map",
+      "rewrite": "/companion.html"
+    },
+    {
+      "route": "/operator/encounters",
+      "rewrite": "/companion.html"
+    },
+    {
+      "route": "/operator/trips",
+      "rewrite": "/companion.html"
+    },
+    {
+      "route": "/operator/downloads",
+      "rewrite": "/companion.html"
+    },
+    {
+      "route": "/owner",
+      "rewrite": "/owner/index.html"
+    },
+    {
+      "route": "/owner/birds",
+      "rewrite": "/owner/birds.html"
+    },
+    {
       "route": "/downloads/*",
       "statusCode": 404
     },
@@ -41,7 +65,7 @@
     },
     {
       "route": "/operator",
-      "rewrite": "/operator/index.html",
+      "rewrite": "/companion.html",
       "allowedRoles": [
         "anonymous",
         "authenticated"
@@ -178,7 +202,7 @@
     },
     {
       "route": "/login",
-      "redirect": "/api/owner-auth/login"
+      "redirect": "/?login=1"
     },
     {
       "route": "/logout",

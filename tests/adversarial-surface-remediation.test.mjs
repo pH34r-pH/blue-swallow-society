@@ -123,7 +123,7 @@ test('the public operator directory contains only generic loader files while pri
   const staticWebApp = JSON.parse(read('app/staticwebapp.config.json'));
   assert.deepEqual(routeConfig(staticWebApp, '/operator'), {
     route: '/operator',
-    rewrite: '/operator/index.html',
+    rewrite: '/companion.html',
     allowedRoles: ['anonymous', 'authenticated'],
   });
   assert.equal(routeConfig(staticWebApp, '/operator/*'), undefined);

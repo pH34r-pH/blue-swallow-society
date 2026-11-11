@@ -109,10 +109,15 @@ function verifyOperatorRequest(req, { now = Date.now() } = {}) {
 }
 
 function verifyOwnerRequest(req, now) {
-  if (ownerAuth.authMode() !== 'entra') return { ok: false, status: 503, error: 'owner_auth_unavailable' };
+  if (!['entra', 'password'].includes(ownerAuth.authMode())) return { ok: false, status: 503, error: 'owner_auth_unavailable' };
   const explicit = toHeader(req, 'x-blue-swallow-operator-token').trim();
   const cookie = ownerAuth.cookieValue(toHeader(req, 'cookie'));
-  const rawToken = explicit || cookie || toHeader(req, 'authorization').match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+  const bearer = toHeader(req, 'authorization').match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+  let rawToken = explicit || cookie || bearer;
+  if (ownerAuth.authMode() === 'password') {
+    try { rawToken = require('./viewer-session').requestToken(req, ownerAuth.COOKIE); }
+    catch { return { ok: false, status: 403, error: 'owner_denied' }; }
+  }
   if (!explicit && cookie && !['GET', 'HEAD'].includes(String(req.method || 'GET').toUpperCase())
     && toHeader(req, 'origin') !== process.env.BLUE_SWALLOW_PUBLIC_ORIGIN) {
     return { ok: false, status: 403, error: 'owner_denied' };

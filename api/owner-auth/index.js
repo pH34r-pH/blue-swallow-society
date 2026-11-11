@@ -8,7 +8,7 @@ const headers = { 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-r
 
 function json(status, body) { return { status, headers: { ...headers, 'Content-Type': 'application/json' }, body }; }
 function redirect(location, cookies) { return { status: 302, headers: { ...headers, Location: location }, cookies, body: '' }; }
-function failedLogin(reason) { return redirect(`/?auth=${reason}`, [login.transactionCookieOptions(), sessionCookieOptions()]); }
+function failedLogin(reason) { return redirect(`/owner?auth=${reason}`, [login.transactionCookieOptions(), sessionCookieOptions()]); }
 function readSession(req, now) {
   const result = verifyOwnerSession(cookieValue(req.headers?.cookie), { now });
   return result.ok ? json(200, { ok: true, operatorSession: { token: result.rawToken, expiresAt: new Date(result.token.exp * 1000).toISOString() } })
@@ -50,7 +50,7 @@ async function completeLogin(req, config, deps) {
 function createOwnerAuthHandler({ getConfig = login.loginConfig, clientFactory = login.msalClient, verify = verifyIdToken, verifyApi, now = Date.now } = {}) {
   return async function ownerAuth(context, req) {
     if (req.method && req.method !== 'GET' && !(req.method === 'POST' && req.params?.action === 'edit')) { context.res = json(405, { ok: false, error: 'method_not_allowed' }); return; }
-    if (authMode() !== 'entra') { context.res = json(503, { ok: false, error: 'owner_auth_unavailable' }); return; }
+    if (!['entra', 'password'].includes(authMode())) { context.res = json(503, { ok: false, error: 'owner_auth_unavailable' }); return; }
     const action = req.params?.action;
     if (action === 'logout') { apiCache.forget(cookieValue(req.headers?.cookie)); context.res = failedLogin('signed-out'); return; }
     if (action === 'session') { context.res = readSession(req, now()); return; }

@@ -2,6 +2,44 @@
 
 Functions are the authenticated same-origin boundary. Route families are:
 
+- `companion-auth/`, `_lib/viewer-session*`, and `_lib/companion-auth.js` add
+  explicit password-mode viewer sessions with scrypt, durable revocation and
+  conditional renewal. Only the asynchronous companion guard accepts viewers;
+  do not widen the synchronous owner/operator guard. `viewer-session-cleanup/`
+  performs bounded expiry cleanup. The public dialog uses these routes.
+- `companion-ui/` authorizes before reading its isolated fixed HTML/CSS/module
+  allowlist in `_private/companion/`. Viewer access does not extend to retained
+  `operator-assets/`. `bird-journal/` projects only approved fields and records
+  from `_private/birding/published.json`; its initial real publication is empty.
+  Private import/publication and generated feeds remain subsequent work.
+  `bird-import-preview/` exposes `_lib/bird-export-preview.js` only to an Entra
+  owner through a same-origin, bounded in-memory preview. It neither stores nor
+  publishes; the candidate layout still needs private validation against the
+  owner's actual export (spec 032). Viewer and legacy credentials are denied.
+  `_lib/bird-reconciliation.js` plans draft comparisons in memory; it does not
+  publish or assume missing rows are deletions. When explicitly configured,
+  the preview reads `_lib/bird-snapshot-store.js` and reports the current draft
+  comparison. `bird-import-commit/` accepts explicitly selected draft rows only
+  from an owner, rechecks the exact CSV/snapshot/plan fingerprint and commits
+  with ETag concurrency control. It requires isolated storage and managed
+  identity. The owner UI invokes it only after per-row selection; it cannot publish.
+  `_lib/bird-owner-request.js` shares the strict owner, method and Origin guard
+  between preview and commit; do not broaden it to viewer or legacy sessions.
+  `_lib/bird-publication-plan.js` builds an unconnected sanitized approval or
+  unpublish plan. It never writes or exposes private fields; unknown counts are
+  not publishable until the public display can distinguish them from presence.
+  The same fixed allowlist serves only the four self-hosted MapLibre renderer
+  assets required by the viewer, after the companion guard.
+- `companion-datasets/` and `_lib/companion-dataset-store.js` provide the
+  separately enabled read-only shared-Blob transport. They verify current roster
+  authority and bound exact object reads; no device proof, write, SAS or map
+  processing is introduced. The shell now uses a private verifying worker for
+  explicit reads, admission and refresh status; map/history projections remain
+  unfinished. See `docs/companion-dataset-reader.md`.
+- `companion-downloads/` authorizes browser viewers/owners before reusing the
+  separate development receipt validator for exact immutable APK/FAP grants.
+  It never makes browser cookies valid on `wardriver-development/`. Configuration
+  and rollout constraints are in `docs/society-vnext-foundation.md`.
 - `owner-auth/`, `_lib/owner-*`, `_lib/api-access-token.js`, and
   `_lib/operator-auth.js` establish the owner/operator session and scoped API
   principal. Reject before reading private data.
@@ -41,6 +79,8 @@ and a Function binding only when the source contract requires it.
 Focused checks:
 
 ```bash
+node --test tests/viewer-session.test.mjs tests/companion-auth.test.mjs tests/companion-downloads.test.mjs tests/passcode-rate-limit.test.mjs
+node --test tests/companion-datasets.test.mjs
 node --test tests/common-api-auth.test.mjs tests/owner-auth.test.mjs tests/operator-shell-api.test.mjs tests/operator-downloads-api.test.mjs
 node --test tests/wardriver-development-api.test.mjs tests/wardriver-development-store.test.mjs
 node --test tests/wardriver-sync-auth.test.mjs tests/wardriver-sync-api.test.mjs

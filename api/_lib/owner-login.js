@@ -44,7 +44,7 @@ function transactionCookie(value = '') {
 }
 function safeReturnPath(value, origin) {
   const url = new URL(typeof value === 'string' ? value : '/operator/travels', origin);
-  if (url.origin !== origin || !/^\/operator\/(travels|entities|world|devices)$/.test(url.pathname) || url.search.length > 2048) return '/operator/travels';
+  if (url.origin !== origin || !(/^\/operator\/(travels|entities|world|devices)$/.test(url.pathname) || url.pathname === '/owner/birds') || url.search.length > 2048) return '/operator/travels';
   return url.pathname + url.search;
 }
 function newTransaction(returnTo, config, now = Date.now()) {

@@ -1,0 +1,572 @@
+:root {
+  color-scheme: light;
+  --paper: #f3f1e8;
+  --ink: #203b40;
+  --muted: #69766c;
+  --line: #d4d9cd;
+  --accent: #355c63;
+  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+a {
+  color: inherit;
+  text-underline-offset: 5px;
+  text-decoration: none;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button,
+a,
+input,
+select {
+  touch-action: manipulation;
+}
+button {
+  cursor: pointer;
+  color: inherit;
+}
+button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+:focus-visible {
+  outline: 3px solid #648797;
+  outline-offset: 5px;
+}
+h1,
+h2,
+h3,
+p,
+figure {
+  margin: 0;
+}
+h1,
+h2,
+h3 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+}
+[hidden] {
+  display: none !important;
+}
+.skip-link {
+  position: fixed;
+  left: 16px;
+  top: -100px;
+  background: white;
+  padding: 15px;
+  z-index: 100;
+}
+.skip-link:focus {
+  top: 12px;
+}
+.journal-header,
+.journal-footer,
+.journal-hero,
+.journal-section,
+.journal-about {
+  max-width: 1344px;
+  margin: auto;
+}
+.journal-header {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  padding: 32px 52px;
+  border-bottom: 1px solid var(--line);
+}
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  line-height: 1.6;
+}
+.wordmark small {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 3px;
+}
+.brand-bird {
+  font-size: 48px;
+  font-family: Georgia, serif;
+  transform: rotate(-25deg);
+  font-weight: 400;
+}
+.journal-header nav {
+  display: flex;
+  gap: 32px;
+  margin-left: auto;
+  font-size: 13px;
+}
+.journal-header nav a {
+  padding: 10px 0;
+  border-bottom: 1px solid transparent;
+}
+.journal-header nav a[aria-current="page"] {
+  border-color: var(--accent);
+}
+.quiet-button {
+  border: 1px solid var(--line);
+  background: transparent;
+  border-radius: 3px;
+  padding: 11px 18px;
+  font-size: 13px;
+}
+.quiet-button span {
+  margin-left: 18px;
+}
+.journal-hero {
+  display: grid;
+  grid-template-columns: 1fr 1.08fr;
+  align-items: center;
+  padding: 60px 52px 48px;
+  gap: 15px;
+  min-height: 560px;
+}
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 2.2px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--muted);
+}
+h1 {
+  font-size: clamp(55px, 5.7vw, 82px);
+  line-height: 1.05;
+  letter-spacing: -3px;
+  margin: 23px 0;
+}
+h1 em {
+  font-weight: 400;
+  color: #567866;
+}
+.hero-intro {
+  font-size: 16px;
+  line-height: 1.8;
+  max-width: 335px;
+  color: #5a6d65;
+  margin: 0 0 30px;
+}
+.text-link {
+  font-size: 12px;
+  display: inline-flex;
+  gap: 24px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid #8c9d8e;
+}
+.bird-study svg {
+  width: 100%;
+  display: block;
+}
+.bird-study figcaption {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 30px;
+  font-size: 10px;
+  letter-spacing: 1.3px;
+  color: var(--muted);
+}
+.bird-study figcaption span:last-child {
+  font-family: Georgia, serif;
+  font-style: italic;
+  letter-spacing: 0;
+  font-size: 13px;
+}
+.journal-section {
+  padding: 40px 52px 64px;
+  border-top: 1px solid var(--line);
+}
+.section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 25px;
+  margin-bottom: 32px;
+}
+.section-heading h2 {
+  font-size: 36px;
+  letter-spacing: -1px;
+  margin-top: 8px;
+}
+.empty-journal {
+  border: 1px solid var(--line);
+  padding: 40px;
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 25px;
+  align-items: start;
+  background: #eef0e5;
+}
+.empty-journal .empty-icon {
+  font:
+    42px Georgia,
+    serif;
+  color: #7e937e;
+  line-height: 1;
+}
+.empty-journal h3 {
+  font-size: 25px;
+  margin-bottom: 12px;
+}
+.empty-journal p {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--muted);
+  max-width: 590px;
+}
+.entry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 30px;
+}
+.entry-card {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+.entry-card h3 {
+  font-size: 28px;
+  margin: 14px 0;
+}
+.entry-card p {
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--muted);
+}
+.entry-meta {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+.entry-card .text-link {
+  margin-top: 20px;
+}
+.journal-about {
+  padding: 70px 52px;
+  background: #e5eadd;
+  position: relative;
+}
+.journal-about h2 {
+  font-size: 48px;
+  letter-spacing: -1.7px;
+  line-height: 1.14;
+  margin: 20px 0;
+}
+.journal-about > p:not(.eyebrow) {
+  max-width: 430px;
+  font-size: 14px;
+  line-height: 1.9;
+  color: #5b6d61;
+  margin-bottom: 22px;
+}
+.journal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32px 52px;
+  gap: 22px;
+  font-size: 10px;
+  letter-spacing: 1.2px;
+}
+.journal-footer p {
+  font-family: Georgia, serif;
+  font-size: 13px;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+.journal-footer a {
+  letter-spacing: 0;
+  font-size: 12px;
+}
+.public-notice {
+  max-width: 1240px;
+  margin: 15px auto;
+  background: #e4e9dc;
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.muted {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.public-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 0 0 30px;
+}
+.public-toolbar label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+.public-toolbar input,
+.public-toolbar select {
+  padding: 11px;
+  border: 1px solid var(--line);
+  background: transparent;
+  border-radius: 2px;
+  color: var(--ink);
+  max-width: 100%;
+}
+.species-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+.species-list > a {
+  padding: 22px;
+  background: var(--paper);
+  display: grid;
+  gap: 8px;
+}
+.species-list strong {
+  font:
+    23px Georgia,
+    serif;
+}
+.species-list span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.journal-post {
+  max-width: 740px;
+}
+.journal-post h2 {
+  font-size: 46px;
+  margin: 20px 0;
+}
+.journal-post p {
+  font:
+    19px/1.9 Georgia,
+    serif;
+  margin: 20px 0;
+}
+.journal-post .entry-meta {
+  font:
+    12px Arial,
+    sans-serif;
+}
+.sighting-list {
+  list-style: none;
+  padding: 0;
+  margin: 22px 0;
+}
+.sighting-list li {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  font-size: 14px;
+}
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 28px;
+}
+.pager button {
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  background: transparent;
+}
+.pager span {
+  font-size: 12px;
+}
+dialog {
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 42px;
+  width: min(440px, calc(100vw - 32px));
+  box-shadow: 0 24px 90px #203b4033;
+}
+dialog::backdrop {
+  background: #162e3699;
+  backdrop-filter: blur(5px);
+}
+dialog form {
+  display: grid;
+  gap: 18px;
+}
+dialog h2 {
+  font-size: 39px;
+  letter-spacing: -1px;
+}
+dialog p {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+dialog .eyebrow {
+  font-size: 10px;
+}
+dialog label {
+  font-size: 12px;
+}
+dialog input {
+  width: 100%;
+  padding: 14px;
+  background: #fbfaf4;
+  border: 1px solid #aebcb1;
+  border-radius: 2px;
+  color: var(--ink);
+}
+.dialog-close {
+  position: absolute;
+  right: 16px;
+  top: 12px;
+  border: 0;
+  background: transparent;
+  font-size: 26px;
+  padding: 4px 10px;
+}
+.primary-button {
+  padding: 14px 18px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--accent);
+  color: white;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.owner-link {
+  font-size: 11px;
+  text-align: center;
+  text-decoration: underline;
+  color: var(--muted);
+}
+#loginStatus:empty {
+  display: none;
+}
+#loginStatus {
+  color: #79513c;
+}
+body[data-public-view]:not([data-public-view="journal"]) .journal-hero,
+body[data-public-view]:not([data-public-view="journal"]) .journal-about {
+  display: none;
+}
+body[data-public-view]:not([data-public-view="journal"]) .journal-section {
+  min-height: 70vh;
+  border: 0;
+  padding-top: 65px;
+}
+@media (max-width: 760px) {
+  .journal-header {
+    padding: 22px 24px;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .wordmark {
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+  .brand-bird {
+    font-size: 36px;
+  }
+  .journal-header nav {
+    order: 3;
+    width: 100%;
+    justify-content: space-between;
+    gap: 18px;
+  }
+  .quiet-button {
+    margin-left: auto;
+  }
+  .journal-hero {
+    grid-template-columns: 1fr;
+    padding: 40px 26px 30px;
+    gap: 15px;
+    min-height: 0;
+  }
+  h1 {
+    font-size: 62px;
+    letter-spacing: -2px;
+  }
+  .hero-intro {
+    max-width: 330px;
+  }
+  .bird-study {
+    max-width: 500px;
+    margin: auto;
+    width: 100%;
+  }
+  .bird-study svg {
+    max-height: 340px;
+  }
+  .journal-section {
+    padding: 35px 24px;
+  }
+  .section-heading h2 {
+    font-size: 31px;
+  }
+  .section-heading .text-link {
+    white-space: nowrap;
+  }
+  .empty-journal {
+    padding: 26px;
+    gap: 15px;
+    grid-template-columns: 28px 1fr;
+  }
+  .empty-journal .empty-icon {
+    font-size: 32px;
+  }
+  .entry-grid,
+  .species-list {
+    grid-template-columns: 1fr;
+  }
+  .journal-about {
+    padding: 48px 26px;
+  }
+  .journal-about h2 {
+    font-size: 40px;
+  }
+  .journal-footer {
+    padding: 28px 24px;
+    flex-wrap: wrap;
+  }
+  .journal-footer p {
+    width: 100%;
+    order: 3;
+  }
+  dialog {
+    padding: 34px 26px;
+  }
+  .journal-post h2 {
+    font-size: 36px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
+}
+.bird-admin { width: min(100% - 40px, 960px); margin: 48px auto; line-height: 1.6; }
+.bird-admin a { text-decoration: underline; }
+.bird-admin input, .bird-admin button { margin: 8px 8px 8px 0; }
+.bird-admin #birdResults { overflow-wrap: anywhere; }

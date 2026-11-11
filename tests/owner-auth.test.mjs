@@ -1,10 +1,11 @@
+import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { requireOwnerReadProof } from '../vm/cybermap-api/src/owner-read-auth.mjs';
 const require = createRequire(new URL('../api/package.json', import.meta.url));
-const { SignJWT, createLocalJWKSet, exportJWK } = await import(require.resolve('jose'));
+const { SignJWT, createLocalJWKSet, exportJWK } = await import(pathToFileURL(require.resolve('jose')).href);
 const owner = require('./shared/owner-session.cjs');
 const { verifyIdToken } = require('./_lib/owner-id-token');
 const { ownerBackendHeaders } = require('./_lib/owner-backend-proof');
@@ -51,6 +52,8 @@ test('owner sessions are bounded, reject legacy/forged identity headers and fail
 test('login transactions bind state, expire, resist tampering and prevent external return redirects', () => {
   const transaction = login.newTransaction('https://attacker.test', config, now);
   assert.equal(transaction.returnTo, '/operator/travels');
+  assert.equal(login.safeReturnPath('/owner/birds', config.origin), '/owner/birds');
+  assert.equal(login.safeReturnPath('https://attacker.test/owner/birds', config.origin), '/operator/travels');
   const sealed = login.sealTransaction(transaction, config);
   assert.equal(login.openTransaction(sealed, transaction.state, config, now).verifier, transaction.verifier);
   assert.throws(() => login.openTransaction(sealed, 'other', config, now));
@@ -80,7 +83,7 @@ test('authorization-code callback uses PKCE, validates owner and sets a secure b
   assert.equal(owner.verifyOwnerSession(sessionCookie.value, { config, now }).ok, true);
   const denied = {};
   await handler(denied, { params: { action: 'callback' }, headers: { cookie }, query: { state: 'forged', code: 'test-code' } });
-  assert.equal(denied.res.headers.Location, '/?auth=denied');
+  assert.equal(denied.res.headers.Location, '/owner?auth=denied');
 });
 
 test('direct backend reads need a short-lived signed owner proof, not just a service token or principal header', () => {
@@ -173,7 +176,7 @@ test('unknown auth modes fail closed and logout clears both owner cookies', asyn
   process.env.BLUE_SWALLOW_AUTH_MODE = 'entra';
   const context = {};
   await createOwnerAuthHandler()(context, { method: 'GET', headers: {}, params: { action: 'logout' } });
-  assert.equal(context.res.headers.Location, '/?auth=signed-out');
+  assert.equal(context.res.headers.Location, '/owner?auth=signed-out');
   assert.equal(context.res.cookies.length, 2);
   assert.ok(context.res.cookies.every((cookie) => cookie.maxAge === 0));
 });

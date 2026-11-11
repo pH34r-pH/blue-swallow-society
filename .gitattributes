@@ -1,0 +1,6 @@
+# Preserve upstream bytes validated by the private renderer manifest on Windows.
+api/_private/operator/assets/cesium/** -text
+vendor/wardriver-wire/*.proto -text
+vendor/wardriver-wire/LICENSE -text -whitespace
+api/_private/companion/vendor/** -text
+api/_private/companion/dataset-worker.js -text

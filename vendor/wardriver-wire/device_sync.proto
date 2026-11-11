@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package blueswallow.vnext.sync.v1;
+option java_package = "co.blueswallow.wardriver.vnext.wire";
+option java_outer_classname = "DeviceSyncWire";
+
+// Original recording bytes are retained verbatim. A delta is exactly one frozen
+// part of one locally owned session; v1 describes a closed-session part, while
+// v2 carries observations during capture without asserting a Stop boundary.
+message DatasetDelta {
+  uint32 schema_version = 1;
+  string group_id = 2;
+  string publisher_device_id = 3;
+  string batch_id = 4;
+  string session_id = 5;
+  repeated bytes observations = 6;
+  repeated bytes events = 7;
+  bool final_part = 8;
+  uint64 closed_control_sequence = 9;
+  repeated DatasetRetraction retractions = 10;
+  string record_scope = 11;
+}
+
+// A retraction is scoped to the authenticated publisher, including when its
+// target has not arrived yet. Corrections add a new record and retract the old.
+message DatasetRetraction {
+  string id = 1;
+  string target_observation_id = 2;
+}
+
+message DatasetCommit {
+  uint32 schema_version = 1;
+  string group_id = 2;
+  string publisher_device_id = 3;
+  uint64 sequence = 4;
+  string previous_commit_sha256 = 5;
+  string delta_sha256 = 6;
+  uint32 delta_size = 7;
+  string batch_id = 8;
+  string session_id = 9;
+  bool final_part = 10;
+  uint32 observation_count = 11;
+  uint32 event_count = 12;
+  uint64 closed_control_sequence = 13;
+  uint32 retraction_count = 14;
+  string record_scope = 15;
+}
+
+// A head announces a contiguous immutable stream of commit slots 1..sequence.
+// commit_sha256 hashes the exact compact JWS bytes in the final slot.
+message DatasetHead {
+  uint32 schema_version = 1;
+  string group_id = 2;
+  string publisher_device_id = 3;
+  uint64 sequence = 4;
+  string commit_sha256 = 5;
+}
+
+// Independent immutable evidence slots do not alter the v1/v2 observation chain.
+message DatasetEvidenceSlot {
+  uint32 schema_version = 1;
+  string group_id = 2;
+  string publisher_device_id = 3;
+  uint64 sequence = 4;
+  string previous_slot_sha256 = 5;
+  string evidence_sha256 = 6;
+  uint32 evidence_size = 7;
+  string evidence_id = 8;
+  string marker_id = 9;
+  string session_id = 10;
+}
+
+// Data-free replacement for an unpublished withdrawn evidence slot.
+message DatasetEvidenceSkip {
+  uint32 schema_version = 1;
+  string group_id = 2;
+  string publisher_device_id = 3;
+  uint64 sequence = 4;
+  string previous_slot_sha256 = 5;
+}

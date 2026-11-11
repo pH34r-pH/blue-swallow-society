@@ -1,22 +1,175 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Blue Swallow</title>
-  <link rel="stylesheet" href="/styles.css">
-  <script type="module" src="/main.js"></script>
-</head>
-<body data-mode="login">
-  <main class="terminal-screen active" aria-labelledby="loginTitle">
-    <section class="terminal-container">
-      <div class="terminal-panel panel login-panel">
-        <h1 id="loginTitle" class="terminal-title">Blue Swallow</h1>
-        <p>Personal sensing companion</p>
-        <p id="authStatus" role="status" aria-live="polite">Checking your session…</p>
-        <button id="signInBtn" class="btn login-btn" type="button">Sign in with Microsoft</button>
-      </div>
-    </section>
-  </main>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f3f1e8" />
+    <meta
+      name="description"
+      content="Blue Swallow Society — a birdwatching journal of field notes, small discoveries and time outside."
+    />
+    <meta property="og:title" content="Blue Swallow Society" />
+    <meta
+      property="og:description"
+      content="Field notes & feathered encounters."
+    />
+    <meta property="og:type" content="website" />
+    <title>Blue Swallow Society — Field journal</title>
+    <link rel="stylesheet" href="/journal.css" />
+    <script type="module" src="/main.js"></script>
+  </head>
+  <body class="journal">
+    <a class="skip-link" href="#journalContent">Skip to journal</a>
+    <header class="journal-header">
+      <a class="wordmark" href="/" aria-label="Blue Swallow Society home"
+        ><span class="brand-bird" aria-hidden="true">⌁</span
+        ><span>BLUE SWALLOW<small>S O C I E T Y</small></span></a
+      >
+      <nav aria-label="Journal">
+        <a href="/" data-public-nav="journal">Journal</a
+        ><a href="/archive" data-public-nav="archive">Archive</a
+        ><a href="/species" data-public-nav="species">Species</a
+        ><a href="/about" data-public-nav="about">About</a>
+      </nav>
+      <button id="loginButton" class="quiet-button" type="button">
+        Login <span aria-hidden="true">↗</span>
+      </button>
+    </header>
+    <p id="publicNotice" class="public-notice" role="status" hidden></p>
+    <main id="journalContent">
+      <section class="journal-hero" aria-labelledby="journalTitle">
+        <div class="hero-copy">
+          <p class="eyebrow">A PERSONAL FIELD JOURNAL</p>
+          <h1 id="journalTitle">A little closer<br />to the <em>wild.</em></h1>
+          <p class="hero-intro">
+            Field notes, feathered encounters, and the quiet pleasure of paying
+            attention.
+          </p>
+          <a class="text-link" href="#fieldNotes"
+            >Explore the journal <span aria-hidden="true">↓</span></a
+          >
+        </div>
+        <figure class="bird-study">
+          <svg
+            viewBox="0 0 620 450"
+            role="img"
+            aria-labelledby="birdTitle birdDesc"
+          >
+            <title id="birdTitle">Swallow in flight</title>
+            <desc id="birdDesc">
+              An original graphic study of a blue swallow sweeping across a pale
+              sky.
+            </desc>
+            <defs>
+              <linearGradient id="wing" x1="0" y1="0" x2="1" y2="1">
+                <stop stop-color="#183c52" />
+                <stop offset="1" stop-color="#4f7e91" />
+              </linearGradient>
+              <radialGradient id="sky">
+                <stop stop-color="#dae3d8" />
+                <stop offset="1" stop-color="#e9ecdf" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <circle cx="325" cy="218" r="205" fill="url(#sky)" />
+            <g fill="none" stroke="#bfcbbd" stroke-width="1">
+              <circle cx="325" cy="218" r="159" />
+              <path d="M96 218h458M325 32v372" stroke-dasharray="3 8" />
+            </g>
+            <path
+              d="M345 228C251 232 197 172 90 57C197 87 285 144 353 201L394 192L416 202L398 218C387 236 372 245 356 247L260 351L292 265L194 283L322 236Z"
+              fill="url(#wing)"
+            />
+            <path
+              d="M344 224C278 197 232 156 181 112C242 137 300 170 353 201Z"
+              fill="#7d9aa4"
+            />
+            <path
+              d="M361 244C405 264 454 309 505 382C492 288 452 232 394 213Z"
+              fill="#214c63"
+            />
+            <path
+              d="M345 228Q373 221 399 210Q383 242 356 247Z"
+              fill="#dfddd0"
+            />
+            <path d="M413 201l19 3-18 6" fill="#263b42" />
+            <circle cx="400" cy="201" r="2.7" fill="#f5f1df" />
+            <g fill="none" stroke="#385b66" opacity=".5">
+              <path d="M282 170 112 70M265 176 146 105M454 278l45 86" />
+            </g>
+          </svg>
+          <figcaption>
+            <span>STUDY No. 01</span><span>A moment in the air.</span>
+          </figcaption>
+        </figure>
+      </section>
+      <section
+        class="journal-section"
+        id="fieldNotes"
+        aria-labelledby="notesTitle"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">FROM THE NOTEBOOK</p>
+            <h2 id="notesTitle">Recent field notes</h2>
+          </div>
+          <a class="text-link" href="/archive"
+            >All entries <span aria-hidden="true">↗</span></a
+          >
+        </div>
+        <div id="journalView" aria-live="polite">
+          <p class="muted">Loading the journal…</p>
+        </div>
+      </section>
+      <section class="journal-about">
+        <p class="eyebrow">LOOK UP. LISTEN. STAY A WHILE.</p>
+        <h2>There’s a whole world<br />just outside.</h2>
+        <p>
+          This is a place for the birds noticed along the way, the walks worth
+          remembering, and the details that are easy to miss.
+        </p>
+        <a class="text-link" href="/about"
+          >About the journal <span aria-hidden="true">↗</span></a
+        >
+      </section>
+    </main>
+    <footer class="journal-footer">
+      <span>BLUE SWALLOW SOCIETY</span>
+      <p>For the love of looking closer.</p>
+      <a href="/about">About & privacy</a>
+    </footer>
+    <dialog id="loginDialog" aria-labelledby="loginTitle">
+      <form id="loginForm">
+        <button
+          id="cancelLogin"
+          class="dialog-close"
+          type="button"
+          aria-label="Close login"
+        >
+          ×
+        </button>
+        <p class="eyebrow">BLUE SWALLOW SOCIETY</p>
+        <h2 id="loginTitle">Welcome back.</h2>
+        <p>Enter your password to continue.</p>
+        <label for="password">Password</label
+        ><input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          maxlength="1024"
+          required
+        />
+        <p id="loginStatus" role="status" aria-live="polite"></p>
+        <button id="submitLogin" class="primary-button" type="submit">
+          Continue <span aria-hidden="true">→</span></button
+        ><a class="owner-link" href="/owner">Owner sign-in</a>
+      </form>
+    </dialog>
+    <noscript
+      ><p class="public-notice">
+        The introduction is available above. Enable JavaScript to browse
+        published entries or log in.
+      </p></noscript
+    >
+  </body>
 </html>

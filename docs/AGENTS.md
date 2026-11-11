@@ -8,6 +8,13 @@ rewriting history.
 
 Important local records:
 
+- `companion-dataset-reader.md` — read-only browser transport decision, pinned
+  producer compatibility, authority/configuration, bounded worker admission and
+  refresh controls, plus remaining projection/parity requirements.
+
+- `society-vnext-foundation.md` — public journal, password/viewer shell and
+  browser-download source implementation, protected configuration, rollout
+  prerequisites and explicit remaining dataset/bird-history work.
 - `static-web-app-functionality.md` — current web/API behavior and security boundary.
 - `owner-entra-cutover.md` and `common-api-auth-contract.md` — Entra owner/API scope and cutover constraints.
 - `entity-workbench-contract.md`, `entity-edit-authorization.md`, and `entity-workbench-validation.md` — entity read/edit contract and evidence.

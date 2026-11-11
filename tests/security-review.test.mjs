@@ -33,7 +33,8 @@ test('operator bearer material is memory-only throughout the public handoff and 
     assert.doesNotMatch(source, /blue-swallow-society:operator-session|sessionStorage.*operator|localStorage|document\.cookie/);
   }
   assert.doesNotMatch(rootMain, /blue-swallow-society:operator-session|sessionStorage.*operator|document\.cookie/);
-  assert.match(rootMain, /activateOperatorSession\(data\.operatorSession\)/);
+  assert.match(rootMain, /enterCompanion\(data\.operatorSession/);
+  assert.doesNotMatch(read('app/companion-loader.mjs'), /localStorage|sessionStorage|document\.cookie/);
   assert.match(loader, /activateOperatorSession/);
   assert.match(privateSession, /X-Blue-Swallow-Operator-Token/);
   assert.match(operatorAuth, /BLUE_SWALLOW_OPERATOR_TOKEN_VERSION/);

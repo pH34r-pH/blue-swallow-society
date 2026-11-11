@@ -16,7 +16,7 @@ test('style renderer accepts the public Azure static-website tile endpoint', () 
   const tileBaseUrl = 'https://bsswdv6gc3cqokbdbw.z5.web.core.windows.net/wardriver-basemap/v1/generations/test/tiles';
 
   try {
-    const result = spawnSync('python3', [fileURLToPath(renderer), '--template', fileURLToPath(template), '--tile-base-url', tileBaseUrl, '--output', output], {
+    const result = spawnSync(process.platform === 'win32' ? 'python' : 'python3', [fileURLToPath(renderer), '--template', fileURLToPath(template), '--tile-base-url', tileBaseUrl, '--output', output], {
       encoding: 'utf8',
     });
     assert.equal(result.status, 0, result.stderr);

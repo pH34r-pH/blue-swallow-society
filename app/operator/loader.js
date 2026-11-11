@@ -62,7 +62,7 @@ function redirectHome(reason = 'signed-out') {
   clearPrivateObjectUrls();
   clearOperatorSession();
   const returnTo = window.location.pathname + window.location.search;
-  window.location.replace(`/?auth=${reason}&returnTo=${encodeURIComponent(returnTo)}`);
+  window.location.replace(`/owner?auth=${reason}&returnTo=${encodeURIComponent(returnTo)}`);
 }
 
 function operatorHeaders(session, headers = {}) {
@@ -203,5 +203,5 @@ function isDirectOperatorRoute() {
 window.addEventListener('pagehide', clearPrivateObjectUrls, { once: true });
 if (isDirectOperatorRoute()) {
   const returnTo = window.location.pathname + window.location.search;
-  window.location.replace(`/?returnTo=${encodeURIComponent(returnTo)}`);
+  window.location.replace(`/owner?returnTo=${encodeURIComponent(returnTo)}`);
 }

@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -9,7 +10,7 @@ const cache = require('./_lib/owner-api-token-cache');
 const { createOwnerAuthHandler } = require('./owner-auth');
 const { verifyIdToken } = require('./_lib/owner-id-token');
 const { createApiTokenValidator } = require('./_lib/api-access-token');
-const { SignJWT, createLocalJWKSet, exportJWK } = await import(require.resolve('jose'));
+const { SignJWT, createLocalJWKSet, exportJWK } = await import(pathToFileURL(require.resolve('jose')).href);
 Object.assign(process.env, { BLUE_SWALLOW_AUTH_MODE: 'entra', BLUE_SWALLOW_ENTRA_TENANT_ID: '11111111-1111-1111-1111-111111111111',
   BLUE_SWALLOW_ENTRA_CLIENT_ID: '22222222-2222-2222-2222-222222222222', BLUE_SWALLOW_ENTRA_API_CLIENT_ID: '44444444-4444-4444-4444-444444444444',
   BLUE_SWALLOW_ENTRA_OWNER_OBJECT_ID: '33333333-3333-3333-3333-333333333333', BLUE_SWALLOW_OWNER_SESSION_KEY: 'synthetic-owner-edit-session-key-at-least-32-bytes',
@@ -31,7 +32,7 @@ function fixture({ tokenScope = 'Owner.Read Entities.Write', wrongOwner = false,
   cache.store(session, client, { homeAccountId: 'synthetic' }, login.apiScopes(config), now);
   const handler = createOwnerAuthHandler({ getConfig: () => config, clientFactory: () => client, now: () => clock,
     verify: (token, cfg, nonce) => verifyIdToken(token, cfg, nonce, { keySet, now: clock }),
-    verifyApi: createApiTokenValidator({ keySet, now: () => clock, loadJose: () => import(require.resolve('jose')) }) });
+    verifyApi: createApiTokenValidator({ keySet, now: () => clock, loadJose: () => import(pathToFileURL(require.resolve('jose')).href) }) });
   const headers = { cookie: `${owner.COOKIE}=${session.token}`, origin: config.origin };
   async function invoke(req) { const context = {}; await handler(context, req); return context.res; }
   async function begin(patch = {}) {
@@ -72,6 +73,6 @@ test('cancel, missing write grant and wrong owner return the existing read-only 
 });
 test('expired, logout and tampered edit transactions cannot exchange codes or revive editing', async () => {
   const expired = fixture(); await expired.begin(); expired.expire(); assert.match((await expired.callback()).headers.Location, /auth=denied/); assert.equal(expired.exchanges, 0); cache.forget(expired.session.token);
-  const loggedOut = fixture(); await loggedOut.begin(); cache.forget(loggedOut.session.token); assert.equal((await loggedOut.callback()).headers.Location, '/?auth=expired'); assert.equal(loggedOut.exchanges, 0);
-  const forged = fixture(); await forged.begin(); assert.equal((await forged.callback({}, 'forged')).headers.Location, '/?auth=denied'); assert.equal(forged.exchanges, 0); cache.forget(forged.session.token);
+  const loggedOut = fixture(); await loggedOut.begin(); cache.forget(loggedOut.session.token); assert.equal((await loggedOut.callback()).headers.Location, '/owner?auth=expired'); assert.equal(loggedOut.exchanges, 0);
+  const forged = fixture(); await forged.begin(); assert.equal((await forged.callback({}, 'forged')).headers.Location, '/owner?auth=denied'); assert.equal(forged.exchanges, 0); cache.forget(forged.session.token);
 });
