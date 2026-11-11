@@ -108,13 +108,20 @@ this build through the retained Node 22 managed-SWA promoter.
 
 ## Rollout and evidence
 
-The [canonical cutover checkpoint](../specs/031-society-vnext/tasks.md#canonical-cutover--2026-11-10-pacific)
-records the deployed v1.1.1 frontend/backend pair and successful canonical public
-and negative-authentication probes. The deployment workflow remains failed because
-its immediate journal probe exceeded the retry window after publication/linkage;
-subsequent independent read-only checks passed. Positive password/Entra sign-in,
-session lifecycle, signed download and physical acceptance remain open. The owner
-authorized this no-users cutover without a rollback plan on 2026-11-10 Pacific;
+The [sign-in repair receipt](../specs/031-society-vnext/tasks.md#sign-in-repair--2026-11-11-utc)
+records the deployed v1.1.2 frontend/backend pair, successful protected update,
+exact canonical frontend readback and public/private routing probes. The repair
+bounds owner-entry requests and distinguishes password rejection from service
+failures. Positive password/Entra sign-in, session lifecycle, signed download
+and physical acceptance remain open. The 07:59:39 UTC diagnostic still found one
+ready replica after approximately six minutes of inactivity, with anonymous
+responses in 58–263 ms. This is warm-backend evidence; the cold-versus-warm
+comparison remains open and the reported failures' cause is unproven.
+
+The original [v1.1.1 cutover checkpoint](../specs/031-society-vnext/tasks.md#canonical-cutover--2026-11-10-pacific)
+retains its failed workflow: the immediate journal probe exceeded its retry window
+after publication/linkage, then independent read-only checks passed. The owner
+authorized that no-users cutover without a rollback plan on 2026-11-10 Pacific;
 authentication and privacy criteria remain required.
 
 ### Earlier source checkpoint — 2026-11-10

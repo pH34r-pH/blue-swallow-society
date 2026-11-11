@@ -58,14 +58,56 @@ checks did not exercise a successful login and cannot close this report.
 
 - [x] Reproduce and repair the unbounded owner-entry requests and stale-restore race.
 - [x] Distinguish `invalid_password` from platform/session failures in the dialog.
-- [ ] Verify the entry repairs in the hosted Chromium suite and deploy the exact release.
-- [ ] Inspect protected hosting/storage diagnostics without exposing credentials.
+- [x] Verify the entry repairs in the hosted Chromium suite and deploy the exact release.
+- [x] Inspect protected hosting/storage diagnostics without exposing credentials.
+- [ ] Compare cold and warm API timing through the existing protected diagnostic.
 - [ ] Verify successful password session creation/restoration and completed Entra login.
 
-Anonymous canonical probes currently reach the normal Microsoft account picker;
-an empty password request returns the expected 400 `invalid_request`. The
-migration producer and API verifier agree on synthetic inputs. None of these
-observations proves that either reported positive sign-in failure is repaired.
+Before the v1.1.2 deployment, anonymous canonical probes reached the normal
+Microsoft account picker; an empty password request returned the expected
+400 `invalid_request`. The migration producer and API verifier agree on synthetic
+inputs. None of these observations proves that either reported positive sign-in
+failure is repaired.
+
+[Protected diagnostic run 42975961097](https://github.com/pH34r-pH/long-haul-fleet/actions/runs/42975961097)
+inspected v1.1.1 at 06:57:19 UTC. Its table inventory found `viewerSessions` and
+`passcodeFailures`; expected secret references matched, with one ready replica
+and zero restarts. The aggregate Log Analytics query was unavailable. The opaque
+connection secret's target and effective table-write access remain unverified.
+
+### v1.1.2 deployment receipt
+
+- [Society PR #128](https://github.com/pH34r-pH/blue-swallow-society/pull/128)
+  contains the entry repairs. [Hosted browser run 42975387319](https://github.com/pH34r-pH/blue-swallow-society/actions/runs/42975387319)
+  passed. This is browser-regression evidence, not a completed production login.
+- [Release v1.1.2](https://github.com/pH34r-pH/blue-swallow-society/releases/tag/v1.1.2)
+  and [publication run 42976370053](https://github.com/pH34r-pH/blue-swallow-society/actions/runs/42976370053)
+  published the matching artifacts from source
+  `49209af66b705c90935297a5a89c82109b7fe430`.
+  Functions image: `ghcr.io/ph34r-ph/blue-swallow-society/functions@sha256:d56cbf05795c7766d353de59698e8624f8a8bf0d2359c37d172da71c03a7731c`.
+  Frontend archive SHA-256: `e71bbc06f49fd857edbf5b8939c864c1002041a9c20284c30d385f4499235d61`.
+- [Fleet plan 42981706875](https://github.com/pH34r-pH/long-haul-fleet/actions/runs/42981706875)
+  passed at 07:47:14 UTC. [Fleet apply 42982286860](https://github.com/pH34r-pH/long-haul-fleet/actions/runs/42982286860)
+  succeeded using Fleet source `197940efaa2e2486901b1b86c96c80979aee8d9e`.
+  OpenTofu apply bookkeeping completed at 07:51:49 UTC; backend readiness passed
+  at 07:52:47 UTC, followed by exact live-template and unchanged-link readback
+  at 07:52:48 UTC. The update retained the existing backend association.
+- The matching frontend was published at 07:53:11 UTC. Exact canonical bytes
+  and routes passed at 07:53:17 UTC. By 07:53:21 UTC, the workflow verified
+  public journal 200, six anonymous private-route denials (401), cross-origin
+  login denial (403), and direct backend-origin denial.
+- [Post-idle diagnostic 42983479567](https://github.com/pH34r-pH/long-haul-fleet/actions/runs/42983479567)
+  completed at 07:59:39 UTC after approximately six minutes of inactivity.
+  Before probing, the exact v1.1.2 revision (suffix `0000002`) still had one
+  ready, started replica and zero restarts. Anonymous probes returned journal
+  200 in 208 ms, viewer session 401 `session_expired` in 192 ms, owner session
+  401 `signed_out` in 263 ms, and owner initiation 200 in 58 ms with valid
+  authorization-host, callback and cookie-attribute checks. This measured a
+  warm backend; scale-from-zero was not captured and is not an established
+  cause of the reported failures.
+- Positive password creation/restoration and completed Entra sign-in remain
+  unverified. Cold-start timing is still pending; no scale change or conclusion
+  about the reported failures follows from this deployment receipt.
 
 ## Release and backend checkpoint — 2026-11-10 Pacific
 
