@@ -21,6 +21,12 @@ provenance rather than current operation.
 
 ## Architecture and data flow
 
+For the deployed v1.1.1 frontend/backend pair and canonical routing evidence, see
+the [cutover checkpoint](../specs/031-society-vnext/tasks.md#canonical-cutover--2026-11-10-pacific).
+It distinguishes the failed immediate workflow probe from successful subsequent
+read-only checks. Positive password/Entra sign-in, session lifecycle, signed
+downloads and physical-phone acceptance remain unverified.
+
 ```text
 Web browser
   -> app/index.html + app/main.js

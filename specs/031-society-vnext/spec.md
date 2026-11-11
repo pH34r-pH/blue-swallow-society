@@ -39,6 +39,17 @@ records remain unchanged. It does not establish deployment or phone acceptance.
 8. Integrated browser, hosting, artifact and physical friend-pilot evidence
    (#124) is required before launch completion.
 
+## Initial site cutover
+
+On 2026-11-10 Pacific, the owner authorized replacing the current site with the
+implemented vNext release before the full friend pilot. There are no users yet;
+a rollback plan or rehearsal is not a gate for this cutover. Pair the exact
+frontend and backend source, configure the protected authentication/storage
+boundaries, and verify public/private separation on the canonical origin.
+Unfinished views remain unavailable, and empty public content must not be filled
+with synthetic history. Cutover does not complete the remaining feature or
+physical-device acceptance above.
+
 ## Password session contract
 
 The new `password` auth mode is explicit during source integration. `entra` and

@@ -72,7 +72,7 @@ values or place passwords in command-line arguments, browser bundles or logs.
 | --- | --- |
 | `BLUE_SWALLOW_AUTH_MODE` | Explicit `password`; no automatic legacy digest fallback |
 | `BLUE_SWALLOW_PUBLIC_ORIGIN` | Exact HTTPS origin without a trailing path/slash |
-| `BLUE_SWALLOW_VIEWER_PASSWORD_SCRYPT` | `scrypt$131072$8$1$` followed by a 32-character lowercase hex salt and 64-character lowercase hex digest, separated by `$` |
+| `BLUE_SWALLOW_VIEWER_PASSWORD_SCRYPT` | `scrypt$131072$8$1$` for a fresh password or `scrypt-sha256$131072$8$1$` for explicit migration, followed by a 32-character lowercase hex salt and 64-character lowercase hex digest, separated by `$` |
 | `BLUE_SWALLOW_VIEWER_SESSION_KEY` | Independent random 32-byte key encoded as canonical unpadded base64url |
 | `BLUE_SWALLOW_VIEWER_SESSION_EPOCH` | Explicit 1–64-character alphanumeric/underscore/hyphen revocation generation |
 | `BLUE_SWALLOW_VIEWER_SESSION_STORAGE_CONNECTION_STRING` | Private Azure Table connection, never sent to the browser |
@@ -82,9 +82,12 @@ values or place passwords in command-line arguments, browser bundles or logs.
 | `BSS_WARDRIVER_SYNC_GROUP_ID` | Optional explicit group binding; changing it invalidates sessions |
 
 The server-side `encodePassword` helper in `api/_lib/viewer-session.js` creates
-the fixed-cost verifier from a privately supplied password of 12–1024 UTF-8
-bytes. The old SHA-256 digest cannot be converted back into a password. A new
-verifier must be generated privately when the deployment is authorized.
+the direct-scrypt verifier from a privately supplied password of 12–1024 UTF-8
+bytes. The explicit `scrypt-sha256` migration format preserves an existing
+password by deriving scrypt over the raw bytes of its existing SHA-256 digest;
+login applies the same preprocessing. It neither recovers the password nor
+adds a SHA-256-only fallback. Generate and provision either verifier privately;
+the old digest and new verifier must not enter source, logs or browser assets.
 The separate existing Entra owner and development artifact settings remain
 required for their respective features.
 
@@ -104,6 +107,19 @@ requires the qualified Node 24 Functions host and its host storage. Do not route
 this build through the retained Node 22 managed-SWA promoter.
 
 ## Rollout and evidence
+
+The [canonical cutover checkpoint](../specs/031-society-vnext/tasks.md#canonical-cutover--2026-11-10-pacific)
+records the deployed v1.1.1 frontend/backend pair and successful canonical public
+and negative-authentication probes. The deployment workflow remains failed because
+its immediate journal probe exceeded the retry window after publication/linkage;
+subsequent independent read-only checks passed. Positive password/Entra sign-in,
+session lifecycle, signed download and physical acceptance remain open. The owner
+authorized this no-users cutover without a rollback plan on 2026-11-10 Pacific;
+authentication and privacy criteria remain required.
+
+### Earlier source checkpoint — 2026-11-10
+
+The following source observations retain their original scope.
 
 The friend download page includes a stable phone link with no password or artifact
 grant, mobile deep-link login, immutable release selection and a manual update
