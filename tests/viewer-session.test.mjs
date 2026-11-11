@@ -25,6 +25,20 @@ test('password KDF validates a generated verifier and bounds untrusted input/cos
   assert.equal(results.filter((result) => result.status === 'rejected').length, 1);
 });
 
+test('prehashed migration verifier preserves the existing password without accepting its hash as a password', async () => {
+  const password = 'synthetic password with unicode \u2603';
+  const prehash = crypto.createHash('sha256').update(password, 'utf8').digest();
+  const salt = crypto.randomBytes(16);
+  const digest = crypto.scryptSync(prehash, salt, 32, { N: 131072, r: 8, p: 1, maxmem: 160 * 1024 * 1024 });
+  const encoded = `scrypt-sha256$131072$8$1$${salt.toString('hex')}$${digest.toString('hex')}`;
+  const settings = viewer.config({ ...f.env, BLUE_SWALLOW_VIEWER_PASSWORD_SCRYPT: encoded });
+  assert.equal(await viewer.verifyPassword(password, settings), true);
+  assert.equal(await viewer.verifyPassword(password + 'wrong', settings), false);
+  assert.equal(await viewer.verifyPassword(prehash.toString('hex'), settings), false);
+  assert.equal(await viewer.verifyPassword(password, viewer.config({ ...f.env, BLUE_SWALLOW_VIEWER_PASSWORD_SCRYPT: encoded.replace('scrypt-sha256', 'scrypt') })), false);
+  assert.throws(() => viewer.verifier(encoded.replace('scrypt-sha256', 'sha256')));
+});
+
 test('configuration, purpose, generation and time are fail-closed', async () => {
   const record = await f.store.create(f.settings, now);
   const session = viewer.signSession(record, f.settings, now);

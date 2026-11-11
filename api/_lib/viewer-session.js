@@ -35,9 +35,9 @@ function requestToken(req, cookieName = COOKIE) {
   return explicit ?? bearer ?? cookie(req, cookieName);
 }
 function verifier(value) {
-  const match = typeof value === 'string' && /^scrypt\$131072\$8\$1\$([a-f0-9]{32})\$([a-f0-9]{64})$/.exec(value);
+  const match = typeof value === 'string' && /^(scrypt|scrypt-sha256)\$131072\$8\$1\$([a-f0-9]{32})\$([a-f0-9]{64})$/.exec(value);
   if (!match) throw unavailable();
-  return { salt: Buffer.from(match[1], 'hex'), digest: Buffer.from(match[2], 'hex') };
+  return { prehash: match[1] === 'scrypt-sha256', salt: Buffer.from(match[2], 'hex'), digest: Buffer.from(match[3], 'hex') };
 }
 function sessionKey(value) {
   if (!/^[A-Za-z0-9_-]{43}$/.test(value) || Buffer.from(value, 'base64url').length !== 32
@@ -66,7 +66,8 @@ async function verifyPassword(value, settings) {
   if (activeKdfs >= 2) throw unavailable();
   activeKdfs++;
   try {
-    const actual = await scrypt(value, settings.password.salt, 32, KDF);
+    const input = settings.password.prehash ? crypto.createHash('sha256').update(value, 'utf8').digest() : value;
+    const actual = await scrypt(input, settings.password.salt, 32, KDF);
     return crypto.timingSafeEqual(actual, settings.password.digest);
   } finally { activeKdfs--; }
 }
