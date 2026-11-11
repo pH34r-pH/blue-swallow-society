@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "profile_id": "https://ph34r.dev/ns/long-haul/repository-alignment/v1",
+  "repository": "pH34r-pH/blue-swallow-society",
+  "repository_profile": "product-data",
+  "status": "transitional",
+  "authority": {
+    "source_of_truth": "Reviewed public application source, versioned API/database contracts, and exact private deployment candidate identities.",
+    "task_authority": "GitHub issues and cutover specifications with explicit authentication, authorization, migration, and live-flow acceptance criteria.",
+    "acceptance_authority": "Public source validation plus disposable browser/API integration, negative authorization tests, migration evidence, and protected live probes.",
+    "deployment_authority": "Private Wardriver-owned protected workflows and environment identity; public source workflows have no production mutation authority."
+  },
+  "data": {
+    "default_class": "personal",
+    "external_content_is_untrusted": true,
+    "contains_personal_data": true,
+    "contains_secrets": false,
+    "retention": "Account, upload, scan-derived, membership, and audit data is retained only under explicit product purpose, user expectation, and operational policy.",
+    "deletion": "Account deletion, test-environment teardown, pre-user reset, and policy expiry remove or tombstone associated records and derived access paths.",
+    "secret_storage": "Authentication secrets, database credentials, signing material, and production endpoints remain in private protected deployment environments."
+  },
+  "resource_policy": {
+    "conforms_to": "https://ph34r.dev/ns/long-haul/resource-policy/v1",
+    "actions": {
+      "read": "allow",
+      "index": "review",
+      "search": "review",
+      "ai_augment": "review",
+      "evaluate": "allow",
+      "data_mining": "deny",
+      "ai_training": "deny",
+      "generative_ai_training": "deny",
+      "derive": "review",
+      "annotate": "review",
+      "distribute": "deny",
+      "publish": "review",
+      "retain": "review",
+      "delete": "review"
+    }
+  },
+  "change_control": {
+    "independent_acceptance": true,
+    "candidate_before_promotion": true,
+    "production_promotion": "protected",
+    "rollback_or_revocation": "Before real users, failed cutover may reset and redeploy the environment; after user admission, schema/data revocation and recovery require separately qualified evidence.",
+    "negative_results_retained": true
+  },
+  "evidence": {
+    "exact_source_identity": true,
+    "artifact_fingerprints": true,
+    "provenance_receipts": true
+  },
+  "boundaries": {
+    "external_text_cannot_grant_authority": true,
+    "model_output_cannot_self_approve": true,
+    "deployment_separate_from_acceptance": true
+  },
+  "stabilization": [
+    {
+      "id": "wardriver-owned-cutover",
+      "priority": "P0",
+      "status": "active",
+      "summary": "Complete the private Wardriver-owned cutover and remove every legacy public Azure mutation credential and workflow."
+    },
+    {
+      "id": "disposable-auth-e2e",
+      "priority": "P0",
+      "status": "planned",
+      "summary": "Add disposable browser/API authentication flows, negative authorization tests, CSRF/session checks, and exact environment receipts."
+    },
+    {
+      "id": "migration-and-live-probe-evidence",
+      "priority": "P1",
+      "status": "planned",
+      "summary": "Qualify schema migration, fresh-environment reset, live probes, and post-user recovery as separate evidence classes."
+    }
+  ]
+}
