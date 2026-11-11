@@ -151,7 +151,10 @@ tracked `app/` tree at an exact full commit, omits its authoring instructions,
 explicitly removes the managed Node 24 API setting, and hashes every resulting
 frontend file into a separate manifest. The output is a local candidate, not a
 published or attested release. Deployment must pair the exact frontend source
-with the qualified backend artifact and retain a tested rollback.
+with the qualified backend artifact and verify canonical-origin authentication
+and private-data separation. The owner's 2026-11-10 Pacific direction removes
+rollback planning/rehearsal from this no-users cutover; remaining feature and
+physical-pilot qualification stays separate.
 The semantic release workflow packages that candidate reproducibly, attests it
 against the same tag and source as the OCI image, verifies both attestations and
 attaches the frontend archive as a release asset. Existing releases without a

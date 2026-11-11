@@ -102,3 +102,11 @@ Record exact source/artifact/runtime versions. Verify live auth/storage rules
 and signed artifact download separately, then real phone fresh install/update,
 local recording and invited contribution. Tests or fixtures never substitute
 for the required host or physical-device evidence in #124.
+
+For the initial no-users cutover authorized on 2026-11-10 Pacific, record release
+publication, protected backend configuration and canonical frontend deployment
+as distinct evidence. Probe the public journal, anonymous private-route denial,
+forged platform identities, password/session lifecycle and private downloads.
+Backend-only probes do not establish canonical-origin integration or a valid
+password session. Rollback planning/rehearsal is not a cutover requirement;
+authentication and privacy checks remain required.

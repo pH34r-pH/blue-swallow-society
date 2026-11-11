@@ -21,6 +21,11 @@ provenance rather than current operation.
 
 ## Architecture and data flow
 
+For current release and protected backend evidence, see the
+[vNext checkpoint](../specs/031-society-vnext/tasks.md#release-and-backend-checkpoint--2026-11-10-pacific).
+Its v1.1.1 artifacts and configured backend do not yet establish canonical-origin
+frontend integration, valid-password sessions or physical-phone acceptance.
+
 ```text
 Web browser
   -> app/index.html + app/main.js
