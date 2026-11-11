@@ -3,7 +3,8 @@
 Functions are the authenticated same-origin boundary. Route families are:
 
 - `companion-auth/`, `_lib/viewer-session*`, and `_lib/companion-auth.js` add
-  explicit password-mode viewer sessions with scrypt, durable revocation and
+  explicit password-mode viewer sessions with scrypt (including the versioned
+  prehashed migration format), durable revocation and
   conditional renewal. Only the asynchronous companion guard accepts viewers;
   do not widen the synchronous owner/operator guard. `viewer-session-cleanup/`
   performs bounded expiry cleanup. The public dialog uses these routes.

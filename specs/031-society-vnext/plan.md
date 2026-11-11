@@ -24,6 +24,12 @@ timeouts and conditional updates. `companion-auth.js` is the only guard acceptin
 viewer sessions. Existing `operator-auth` remains owner/legacy-only, preventing
 accidental access to retained owner data and experiments.
 
+The explicit `scrypt-sha256` verifier format supports migrating an existing
+SHA-256 password digest without recovering the password: derive scrypt over the
+32 raw digest bytes, and preprocess each login password in the same way. The
+protected migration process must keep the old digest and derived verifier out
+of logs. Ordinary `scrypt` remains the format for newly chosen passwords.
+
 `api/companion-auth/{action}` provides login/session/renew/logout. The runtime
 configuration uses `BLUE_SWALLOW_VIEWER_PASSWORD_SCRYPT`,
 `BLUE_SWALLOW_VIEWER_SESSION_KEY`, `BLUE_SWALLOW_VIEWER_SESSION_EPOCH`,

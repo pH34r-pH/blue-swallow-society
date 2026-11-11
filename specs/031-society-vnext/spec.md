@@ -49,9 +49,13 @@ existing synchronous owner/operator guard or device/update-feed guards.
 
 Passwords use fixed-cost asynchronous scrypt (N=131072, r=8, p=1), a random
 16-byte salt and a 32-byte digest. Configuration contains the encoded verifier,
-an independent random 32-byte session key and a revocation epoch. No migration
-from a SHA-256 digest can recover a password; an authorized operator must create
-the new verifier privately. There is no legacy fallback in password mode.
+an independent random 32-byte session key and a revocation epoch. To preserve an
+existing password without recovering it, an authorized protected process may
+derive a versioned scrypt verifier over the raw bytes of the existing SHA-256
+digest. Login applies the same SHA-256 preprocessing to the submitted password.
+The SHA-256 digest is sensitive and must not enter source, logs or the browser;
+the new verifier does not contain it. Fresh passwords use ordinary scrypt. Neither
+format adds a legacy owner credential or a SHA-256-only fallback.
 
 Sessions use a Secure HttpOnly SameSite=Strict host cookie and a memory-only
 explicit header for private module requests. The signed purpose-typed token is

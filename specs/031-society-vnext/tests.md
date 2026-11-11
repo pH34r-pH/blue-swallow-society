@@ -10,6 +10,10 @@ method/body limits, and denial before private storage access. Exercise real
 handlers, not just string inspection. Existing owner, device and machine-feed
 tests must continue passing.
 
+For the migration format, derive a synthetic legacy digest independently and
+verify the original password works, wrong passwords and the digest as a password
+fail, and format confusion does not authenticate. Preserve direct-scrypt tests.
+
 For browser downloads, verify authorization before store construction, exact
 package/channel/signer validation, immutable version/source binding despite
 latest changes, APK/FAP allowlisting, missing release and private/no-store HEAD.

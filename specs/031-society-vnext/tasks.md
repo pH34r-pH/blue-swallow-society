@@ -7,6 +7,7 @@
 - [x] Implement password KDF, durable sessions, companion guard and auth routes.
 - [x] Implement browser-authorized private vNext download facade.
 - [x] Verify focused authentication/release and retained boundary regressions.
+- [ ] Qualify prehashed migration verifier and provision it through Fleet without exposing password material.
 
 ## Experience and data
 
