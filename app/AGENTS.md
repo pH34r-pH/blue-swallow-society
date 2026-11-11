@@ -5,6 +5,8 @@ The public browser boundary is intentionally small:
 - `index.html`, `journal.css`, `journal-view.mjs` and `main.js` provide the
   public journal and explicit password dialog. Root navigation never restores
   a private session. Public records come only from `/api/bird-journal`.
+  Only the API's `invalid_password` response is described as a rejected password;
+  platform or session failures remain retryable service errors.
 - `companion.html` and `companion-loader.mjs` restore viewer sessions only on
   private navigation or explicit Login, then load the isolated private shell.
   Lock, expiry, failed bootstrap and pagehide clear private DOM/object URLs.
@@ -13,6 +15,8 @@ The public browser boundary is intentionally small:
   The map loader retrieves fixed, authenticated MapLibre modules and revokes
   their object URLs on teardown; its basemap requires explicit user action.
 - `owner/index.html` and `owner/main.js` retain Entra owner entry at `/owner`.
+  Session restore and login start have bounded requests; a late restore cannot
+  overwrite a newer login's state.
   `/owner/birds` restores an owner session and previews a chosen CSV in memory.
   It can save explicitly selected records as private drafts, but cannot publish.
   Clear, expiry and page teardown discard the in-page preview state.

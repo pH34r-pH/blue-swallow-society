@@ -54,6 +54,11 @@ existing Entra owner flow; ordinary friend navigation never starts it. The
 retained `/owner` fallback and legacy private APIs remain owner-only.
 Password-mode configuration stays explicit until hosting cutover.
 
+The retained owner entry uses the same native `AbortSignal.timeout` pattern as
+the password dialog: ten seconds for session restoration and fifteen seconds
+for login start. Generation checks discard late restore/login completions.
+Password error copy checks the API error code before identifying a wrong password.
+
 Read-only entity inspection must consume bounded, authorized shared-group
 projections with stable scoped identity and evidence. It must not obtain an
 owner token, reuse the owner-only entity workbench guard, or silently expose

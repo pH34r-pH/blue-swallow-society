@@ -52,7 +52,9 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
     password.value = '';
     if (current !== generation || !dialog.open) return;
     if (!response.ok) {
-      status.textContent = response.status === 401 ? 'That password was not accepted. Please try again.'
+      const failure = await response.json().catch(() => null);
+      if (current !== generation || !dialog.open) return;
+      status.textContent = response.status === 401 && failure?.error === 'invalid_password' ? 'That password was not accepted. Please try again.'
         : response.status === 429 ? 'Too many attempts. Please wait a few minutes before trying again.'
           : 'Login is temporarily unavailable. The journal is still here.';
       return;

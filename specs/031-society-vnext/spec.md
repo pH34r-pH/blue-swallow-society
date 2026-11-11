@@ -87,6 +87,12 @@ The server session table stores only random session references, revocation
 generation and expiry metadata. A bounded scheduled cleanup removes expired
 entries. There is no in-memory authorization fallback in production.
 
+Sign-in entry requests must leave their pending state within a bounded time and
+offer a retry after service failure. A late session restore must not overwrite
+a newer explicit sign-in attempt. The password dialog describes a rejected
+password only when the API explicitly returns `invalid_password`; a platform
+authorization or session error does not establish that the password was wrong.
+
 ## Authority matrix
 
 | Principal | Allowed | Explicitly excluded |

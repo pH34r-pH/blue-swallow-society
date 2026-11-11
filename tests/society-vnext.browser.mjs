@@ -24,6 +24,28 @@ async function signIn(page, origin, password) {
   await page.waitForURL('**/operator/map');
   await page.getByRole('heading', { name: 'Map', exact: true }).waitFor();
 }
+test('password login distinguishes rejected credentials from platform and session failures', async (t) => {
+  const f = await setup(t);
+  let failure;
+  await f.page.route('**/api/companion-auth/login', (route) => route.fulfill(failure));
+  await f.page.goto(f.origin);
+  await f.page.getByRole('button', { name: 'Login' }).click();
+  for (const [status, contentType, body, expected] of [
+    [401, 'application/json', '{"error":"invalid_password"}', 'That password was not accepted. Please try again.'],
+    [401, 'text/html', '<html>Unauthorized</html>', 'Login is temporarily unavailable. The journal is still here.'],
+    [401, 'application/json', '{"error":"session_expired"}', 'Login is temporarily unavailable. The journal is still here.'],
+    [503, 'application/json', '{"error":"viewer_unavailable"}', 'Login is temporarily unavailable. The journal is still here.'],
+  ]) {
+    failure = { status, contentType, body };
+    await f.page.getByLabel('Password', { exact: true }).fill('synthetic-browser-test');
+    await f.page.getByRole('button', { name: 'Continue' }).click();
+    await f.page.getByText(expected, { exact: true }).waitFor();
+    assert.equal(await f.page.getByLabel('Password', { exact: true }).inputValue(), '');
+    assert.equal(await f.page.getByRole('button', { name: 'Continue' }).isEnabled(), true);
+    assert.equal(await f.page.locator('#loginDialog').isVisible(), true);
+    assert.equal(f.state.privateReads, 0);
+  }
+});
 test('admin sign-in starts only from the explicit operator action', async (t) => {
   const f = await setup(t); let attempts = 0; let forwarded = false; let available = false;
   await f.page.route('**/api/owner-auth/login?*', async (route) => {

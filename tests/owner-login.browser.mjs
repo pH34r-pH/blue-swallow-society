@@ -220,3 +220,46 @@ test('Chromium owner login, wrong user, unavailable config, deep-link restoratio
   await page.getByText('Your session expired. Sign in again.', { exact: true }).waitFor();
   assert.deepEqual(errors, []);
 });
+
+test('owner entry bounds stalled requests and keeps a newer login ahead of session restoration', { timeout: 45000 }, async (t) => {
+  const server = createServer((req, res) => serve(req, res).catch(() => { res.writeHead(500); res.end('unavailable'); }));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) });
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  let sessionRoute, loginRoute, sessionRequested, loginRequested;
+  await page.route('**/api/owner-auth/session', (route) => { sessionRoute = route; sessionRequested?.(); });
+  await page.route('**/api/owner-auth/login?*', (route) => { loginRoute = route; loginRequested?.(); });
+  const unavailable = page.getByText('Sign-in is unavailable. Configuration or the identity service needs attention.', { exact: true });
+  const button = page.getByRole('button', { name: 'Sign in with Microsoft' });
+
+  await page.goto(origin + '/owner');
+  await unavailable.waitFor({ timeout: 12000 });
+  assert.equal(await button.isEnabled(), true);
+  await sessionRoute.abort().catch(() => {});
+
+  await page.goto(origin + '/owner?auth=signed-out');
+  await button.click();
+  await page.getByText('Opening Microsoft sign-in…', { exact: true }).waitFor();
+  await unavailable.waitFor({ timeout: 17000 });
+  assert.equal(await button.isEnabled(), true);
+  await loginRoute.abort().catch(() => {});
+
+  const restoring = new Promise((resolve) => { sessionRequested = resolve; });
+  await page.goto(origin + '/owner');
+  await restoring;
+  const opening = new Promise((resolve) => { loginRequested = resolve; });
+  await button.click();
+  await opening;
+  const restored = page.waitForResponse('**/api/owner-auth/session');
+  await sessionRoute.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'signed_out' }) });
+  await (await restored).finished();
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert.equal(await page.locator('#authStatus').textContent(), 'Opening Microsoft sign-in…');
+  assert.equal(await button.isDisabled(), true);
+  await loginRoute.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'owner_auth_unavailable' }) });
+  await unavailable.waitFor();
+  assert.equal(await button.isEnabled(), true);
+});

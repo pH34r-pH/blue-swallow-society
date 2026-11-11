@@ -27,6 +27,12 @@ It distinguishes the failed immediate workflow probe from successful subsequent
 read-only checks. Positive password/Entra sign-in, session lifecycle, signed
 downloads and physical-phone acceptance remain unverified.
 
+The owner subsequently reported failed password sign-in and a stalled Entra
+flow; both positive journeys remain under investigation. The source now bounds
+owner restore/login requests and discards late restore responses after a newer
+login starts. The password dialog labels only `invalid_password` as a rejected
+password. These entry-state repairs do not by themselves qualify live sign-in.
+
 ```text
 Web browser
   -> app/index.html + app/main.js
