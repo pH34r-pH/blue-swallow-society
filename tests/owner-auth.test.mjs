@@ -191,9 +191,13 @@ test('owner login diagnostics report only a bounded error category', async () =>
   const context = { log: { warn: (message) => messages.push(message) } };
   await handler(context, { params: { action: 'callback' }, headers: { cookie }, query: { state: transaction.state, code: 'test-code' } });
   assert.equal(context.res.headers.Location, '/owner?auth=unavailable');
-  assert.deepEqual(messages, ['Owner sign-in failure: exchange invalid_grant 70000']);
+  assert.deepEqual(messages, ['Owner sign-in failure: exchange invalid_grant 70000 other']);
   const hidden = createOwnerAuthHandler({ getConfig: () => config, now: () => now,
     clientFactory: () => ({ async acquireTokenByCode() { throw { errorCode: 'private details', errorNo: 'private details' }; } }) });
   await hidden(context, { params: { action: 'callback' }, headers: { cookie }, query: { state: transaction.state, code: 'test-code' } });
-  assert.equal(messages.at(-1), 'Owner sign-in failure: exchange other 0');
+  assert.equal(messages.at(-1), 'Owner sign-in failure: exchange other 0 other');
+  const libraryError = createOwnerAuthHandler({ getConfig: () => config, now: () => now,
+    clientFactory: () => ({ async acquireTokenByCode() { throw { errorCode: 'client_info_decoding_error', name: 'ClientAuthError', message: 'private details' }; } }) });
+  await libraryError(context, { params: { action: 'callback' }, headers: { cookie }, query: { state: transaction.state, code: 'test-code' } });
+  assert.equal(messages.at(-1), 'Owner sign-in failure: exchange client_info_decoding_error 0 ClientAuthError');
 });

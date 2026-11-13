@@ -8,13 +8,18 @@ const headers = { 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-r
 
 function json(status, body) { return { status, headers: { ...headers, 'Content-Type': 'application/json' }, body }; }
 function redirect(location, cookies) { return { status: 302, headers: { ...headers, Location: location }, cookies, body: '' }; }
+const msal = require('@azure/msal-node');
+const libraryCodes = new Set(['AuthErrorCodes', 'ClientAuthErrorCodes', 'ClientConfigurationErrorCodes',
+  'InteractionRequiredAuthErrorCodes'].flatMap((name) => Object.values(msal[name])));
 function reportFailure(context, stage, error) {
   const known = ['invalid_grant', 'invalid_client', 'invalid_request', 'unauthorized_client',
     'interaction_required', 'ERR_JWKS_TIMEOUT', 'ERR_JOSE_GENERIC', 'ENOTFOUND', 'ECONNRESET'];
   const rawCode = error?.errorCode || error?.code;
-  const code = known.includes(rawCode) ? rawCode : 'other';
+  const code = known.includes(rawCode) || libraryCodes.has(rawCode) ? rawCode : 'other';
+  const kind = ['AuthError', 'ClientAuthError', 'ClientConfigurationError', 'ServerError',
+    'InteractionRequiredAuthError', 'TypeError', 'Error'].includes(error?.name) ? error.name : 'other';
   const number = Number.isInteger(error?.errorNo) && error.errorNo >= 1000 && error.errorNo <= 99999999 ? error.errorNo : 0;
-  context.log?.warn?.(`Owner sign-in failure: ${stage} ${code} ${number}`);
+  context.log?.warn?.(`Owner sign-in failure: ${stage} ${code} ${number} ${kind}`);
 }
 function failedLogin(reason) { return redirect(`/owner?auth=${reason}`, [login.transactionCookieOptions(), sessionCookieOptions()]); }
 function readSession(req, now) {
