@@ -180,3 +180,20 @@ test('unknown auth modes fail closed and logout clears both owner cookies', asyn
   assert.equal(context.res.cookies.length, 2);
   assert.ok(context.res.cookies.every((cookie) => cookie.maxAge === 0));
 });
+
+
+test('owner login diagnostics report only a bounded error category', async () => {
+  const transaction = login.newTransaction('/owner/birds', config, now);
+  const cookie = `${login.TRANSACTION_COOKIE}=${login.sealTransaction(transaction, config)}`;
+  const messages = [];
+  const handler = createOwnerAuthHandler({ getConfig: () => config, now: () => now,
+    clientFactory: () => ({ async acquireTokenByCode() { throw { errorCode: 'invalid_grant', errorNo: 70000, message: 'private details' }; } }) });
+  const context = { log: { warn: (message) => messages.push(message) } };
+  await handler(context, { params: { action: 'callback' }, headers: { cookie }, query: { state: transaction.state, code: 'test-code' } });
+  assert.equal(context.res.headers.Location, '/owner?auth=unavailable');
+  assert.deepEqual(messages, ['Owner sign-in failure: exchange invalid_grant 70000']);
+  const hidden = createOwnerAuthHandler({ getConfig: () => config, now: () => now,
+    clientFactory: () => ({ async acquireTokenByCode() { throw { errorCode: 'private details', errorNo: 'private details' }; } }) });
+  await hidden(context, { params: { action: 'callback' }, headers: { cookie }, query: { state: transaction.state, code: 'test-code' } });
+  assert.equal(messages.at(-1), 'Owner sign-in failure: exchange other 0');
+});
