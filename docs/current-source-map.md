@@ -21,22 +21,10 @@ provenance rather than current operation.
 
 ## Architecture and data flow
 
-For the deployed v1.1.2 frontend/backend pair and successful canonical readback,
-see the [sign-in repair receipt](../specs/031-society-vnext/tasks.md#sign-in-repair--2026-11-11-utc).
-The earlier [v1.1.1 cutover checkpoint](../specs/031-society-vnext/tasks.md#canonical-cutover--2026-11-10-pacific)
-retains its failed immediate workflow probe and successful subsequent read-only
-checks. Positive password/Entra sign-in, session lifecycle, signed downloads and
-physical-phone acceptance remain unverified.
-
-The owner subsequently reported failed password sign-in and a stalled Entra
-flow; both positive journeys remain under investigation. The deployed repair bounds
-owner restore/login requests and discards late restore responses after a newer
-login starts. The password dialog labels only `invalid_password` as a rejected
-password. These entry-state repairs do not by themselves qualify live sign-in.
-The 07:59:39 UTC diagnostic after approximately six minutes of inactivity still
-found one ready replica and fast anonymous responses. It measured a warm backend;
-the cold-versus-warm comparison remains open, and cold start is not a proven
-cause of either reported failure.
+The live 2026-11-13 state and its verification limits are recorded in the
+[Society runtime reconciliation](society-runtime-reconciliation-2026-11-13.md).
+Earlier v1.1.2 sign-in entry and v1.1.1 cutover records retain their original
+observations in [the vNext task history](../specs/031-society-vnext/tasks.md).
 
 ```text
 Web browser
