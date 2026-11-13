@@ -24,7 +24,7 @@ function fixture({ tokenScope = 'Owner.Read Entities.Write', wrongOwner = false,
   const session = owner.createOwnerSession(claims, config, now); let clock = now, authorization, transaction, exchanges = 0;
   const client = { async getAuthCodeUrl(input) { authorization = input; return 'https://login.microsoftonline.com/synthetic'; },
     async acquireTokenByCode(input) {
-      exchanges++; if (codeFailure) throw new Error('synthetic-provider-unavailable'); assert.equal(input.codeVerifier, transaction.verifier);
+      exchanges++; if (codeFailure) throw new Error('synthetic-provider-unavailable'); assert.equal(input.codeVerifier, transaction.verifier); assert.equal(input.nonce, transaction.nonce);
       assert.deepEqual(input.scopes, authorization.scopes);
       return { account: { homeAccountId: 'synthetic' }, idToken: await sign({ ...claims, nonce: wrongNonce ? 'incorrect' : transaction.nonce, ...(wrongOwner ? { oid: '55555555-5555-5555-5555-555555555555' } : {}) }),
         accessToken: await sign({ ...claims, aud: config.apiClientId, ver: '2.0', nbf: claims.iat, scp: tokenScope }) };

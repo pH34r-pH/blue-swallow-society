@@ -48,7 +48,7 @@ async function completeLogin(req, config, deps, context) {
   let result;
   const client = clientFactory(config);
   try {
-    result = await client.acquireTokenByCode({ code: req.query.code, codeVerifier: transaction.verifier,
+    result = await client.acquireTokenByCode({ code: req.query.code, codeVerifier: transaction.verifier, nonce: transaction.nonce,
       scopes: login.loginScopes(config), redirectUri: config.redirectUri });
   } catch (error) { reportFailure(context, 'exchange', error); return failedLogin('unavailable'); }
   try {

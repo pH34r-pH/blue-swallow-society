@@ -36,7 +36,7 @@ async function completeEdit(req, transaction, config, { clientFactory, verify, n
   if (req.query?.error || typeof req.query?.code !== 'string' || !req.query.code) return finishFailure(transaction, config, now());
   try {
     const client = clientFactory(config);
-    const result = await client.acquireTokenByCode({ code: req.query.code, codeVerifier: transaction.verifier,
+    const result = await client.acquireTokenByCode({ code: req.query.code, codeVerifier: transaction.verifier, nonce: transaction.nonce,
       scopes: login.loginScopes(config, true), redirectUri: config.redirectUri });
     const claims = await verify(result.idToken, config, transaction.nonce, { now: now() });
     await verifyApi(result.accessToken, 'Owner.Read');
