@@ -25,3 +25,12 @@ proof of its cause or of a data breach.
 
 See the [current source map](current-source-map.md) for source boundaries and
 the [vNext foundation](society-vnext-foundation.md) for the companion contract.
+
+Later on 2026-11-13, the owner sign-in was aligned with the journal login and
+the owner workspace was aligned with the companion theme. Fleet deployed the
+v1.1.7 backend from Society commit
+`205df9e437c2a814e231195981426e1a7ec908ed` after verifying its matching live
+frontend and protected backend checks. A real Microsoft owner login and the
+updated workspace were verified after deployment. The owner reported that both
+password and Microsoft login work; browser APK delivery and physical-device
+acceptance remain separate checks.
