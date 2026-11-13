@@ -65,7 +65,7 @@ test('authorization-code callback uses PKCE, validates owner and sets a secure b
   let request;
   let transaction;
   const client = { async getAuthCodeUrl(input) { request = input; return 'https://login.microsoftonline.com/test'; },
-    async acquireTokenByCode(input) { assert.equal(input.codeVerifier, transaction.verifier); return { idToken: await signed({ nonce: transaction.nonce }) }; } };
+    async acquireTokenByCode(input) { assert.equal(input.codeVerifier, transaction.verifier); assert.equal(input.nonce, transaction.nonce); return { idToken: await signed({ nonce: transaction.nonce }) }; } };
   const handler = createOwnerAuthHandler({ getConfig: () => config, clientFactory: () => client, now: () => now,
     verify: (raw, config, nonce) => verifyIdToken(raw, config, nonce, { keySet, now }) });
   const start = {};
