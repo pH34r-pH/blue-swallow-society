@@ -8,6 +8,14 @@ const headers = { 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-r
 
 function json(status, body) { return { status, headers: { ...headers, 'Content-Type': 'application/json' }, body }; }
 function redirect(location, cookies) { return { status: 302, headers: { ...headers, Location: location }, cookies, body: '' }; }
+function reportFailure(context, stage, error) {
+  const known = ['invalid_grant', 'invalid_client', 'invalid_request', 'unauthorized_client',
+    'interaction_required', 'ERR_JWKS_TIMEOUT', 'ERR_JOSE_GENERIC', 'ENOTFOUND', 'ECONNRESET'];
+  const rawCode = error?.errorCode || error?.code;
+  const code = known.includes(rawCode) ? rawCode : 'other';
+  const number = Number.isInteger(error?.errorNo) && error.errorNo >= 1000 && error.errorNo <= 99999999 ? error.errorNo : 0;
+  context.log?.warn?.(`Owner sign-in failure: ${stage} ${code} ${number}`);
+}
 function failedLogin(reason) { return redirect(`/owner?auth=${reason}`, [login.transactionCookieOptions(), sessionCookieOptions()]); }
 function readSession(req, now) {
   const result = verifyOwnerSession(cookieValue(req.headers?.cookie), { now });
@@ -24,7 +32,7 @@ async function beginLogin(req, config, clientFactory, now) {
     ? { ...json(200, { ok: true, authorizationUrl: url }), headers: { ...headers, 'Content-Type': 'application/json', 'Set-Cookie': cookie } }
     : redirect(url, [login.transactionCookieOptions(login.sealTransaction(transaction, config))]);
 }
-async function completeLogin(req, config, deps) {
+async function completeLogin(req, config, deps, context) {
   const { clientFactory, verify, now } = deps;
   let transaction;
   try {
@@ -37,13 +45,14 @@ async function completeLogin(req, config, deps) {
   try {
     result = await client.acquireTokenByCode({ code: req.query.code, codeVerifier: transaction.verifier,
       scopes: login.loginScopes(config), redirectUri: config.redirectUri });
-  } catch { return failedLogin('unavailable'); }
+  } catch (error) { reportFailure(context, 'exchange', error); return failedLogin('unavailable'); }
   try {
     const claims = await verify(result.idToken, config, transaction.nonce, { now: now() });
     const session = createOwnerSession(claims, config, now());
     if (config.apiClientId) apiCache.store(session, client, result.account, login.apiScopes(config), now());
     return redirect(transaction.returnTo, [login.transactionCookieOptions(), sessionCookieOptions(session)]);
   } catch (error) {
+    reportFailure(context, 'verify', error);
     return failedLogin(['ERR_JWKS_TIMEOUT', 'ERR_JOSE_GENERIC', 'ENOTFOUND', 'ECONNRESET'].includes(error.code) ? 'unavailable' : 'denied');
   }
 }
@@ -58,7 +67,7 @@ function createOwnerAuthHandler({ getConfig = login.loginConfig, clientFactory =
       const config = getConfig();
       if (action === 'edit') context.res = await edit.beginEdit(req, config, clientFactory, now());
       else if (action === 'login') context.res = await beginLogin(req, config, clientFactory, now());
-      else if (action === 'callback') context.res = await completeLogin(req, config, { clientFactory, verify, verifyApi, now });
+      else if (action === 'callback') context.res = await completeLogin(req, config, { clientFactory, verify, verifyApi, now }, context);
       else context.res = json(404, { ok: false, error: 'not_found' });
     } catch { context.res = json(503, { ok: false, error: 'owner_auth_unavailable' }); }
   };
