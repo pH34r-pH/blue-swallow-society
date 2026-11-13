@@ -1,0 +1,80 @@
+/* Match the journal login while keeping the authenticated operator styles isolated. */
+body[data-mode="login"] {
+  min-height: 100vh;
+  background: #f3f1e8;
+  color: #203b40;
+  font-family: Arial, Helvetica, sans-serif;
+}
+body[data-mode="login"] .owner-entry {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+body[data-mode="login"] .owner-entry-card {
+  display: grid;
+  gap: 18px;
+  width: min(440px, 100%);
+  padding: 42px;
+  border: 1px solid #d4d9cd;
+  border-radius: 4px;
+  background: #f3f1e8;
+  box-shadow: 0 24px 90px #203b4033;
+}
+body[data-mode="login"] .owner-entry-eyebrow {
+  margin: 0;
+  color: #69766c;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+body[data-mode="login"] h1 {
+  margin: 0;
+  color: #203b40;
+  font: 400 39px/1.1 Georgia, "Times New Roman", serif;
+  letter-spacing: -1px;
+}
+body[data-mode="login"] .owner-entry-copy,
+body[data-mode="login"] .owner-entry-status {
+  margin: 0;
+  color: #69766c;
+  font-size: 14px;
+  line-height: 1.6;
+}
+body[data-mode="login"][data-auth-state="denied"] .owner-entry-status,
+body[data-mode="login"][data-auth-state="unavailable"] .owner-entry-status {
+  color: #79513c;
+}
+body[data-mode="login"] .owner-entry-button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 14px 18px;
+  border: 0;
+  border-radius: 2px;
+  background: #355c63;
+  color: white;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+body[data-mode="login"] .owner-entry-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+body[data-mode="login"] .owner-entry-back {
+  color: #69766c;
+  font-size: 11px;
+  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+body[data-mode="login"] :focus-visible {
+  outline: 3px solid #648797;
+  outline-offset: 5px;
+}
+@media (max-width: 760px) {
+  body[data-mode="login"] .owner-entry-card { padding: 34px 26px; }
+}

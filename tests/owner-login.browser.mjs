@@ -76,7 +76,7 @@ async function serve(req, res) {
   else if (url.pathname.startsWith('/api/')) {
     if (requireOperatorToken(context, request).ok) context.res = { status: 503, body: { ok: false } };
   } else {
-    const staticPaths = { '/': 'index.html', '/owner': 'owner/index.html', '/owner/birds': 'owner/birds.html', '/owner/birds.mjs': 'owner/birds.mjs', '/owner/main.js': 'owner/main.js', '/journal.css': 'journal.css', '/journal-view.mjs': 'journal-view.mjs', '/companion-loader.mjs': 'companion-loader.mjs', '/main.js': 'main.js', '/styles.css': 'styles.css', '/operator/loader.js': 'operator/loader.js', '/operator/loader.css': 'operator/loader.css', '/operator/operator-session.mjs': 'operator/operator-session.mjs' };
+    const staticPaths = { '/': 'index.html', '/owner': 'owner/index.html', '/owner/birds': 'owner/birds.html', '/owner/birds.mjs': 'owner/birds.mjs', '/owner/main.js': 'owner/main.js', '/owner/login.css': 'owner/login.css', '/journal.css': 'journal.css', '/journal-view.mjs': 'journal-view.mjs', '/companion-loader.mjs': 'companion-loader.mjs', '/main.js': 'main.js', '/styles.css': 'styles.css', '/operator/loader.js': 'operator/loader.js', '/operator/loader.css': 'operator/loader.css', '/operator/operator-session.mjs': 'operator/operator-session.mjs' };
     const file = staticPaths[url.pathname] || (url.pathname.startsWith('/operator/') ? 'operator/index.html' : null);
     if (!file) context.res = { status: 404, body: '' };
     else context.res = { status: 200, headers: { 'Content-Type': /\.m?js$/.test(file) ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html' }, body: await readFile(new URL('../app/' + file, import.meta.url), 'utf8') };

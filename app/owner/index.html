@@ -5,17 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Blue Swallow</title>
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/owner/login.css">
   <script type="module" src="/owner/main.js"></script>
 </head>
 <body data-mode="login">
-  <main class="terminal-screen active" aria-labelledby="loginTitle">
-    <section class="terminal-container">
-      <div class="terminal-panel panel login-panel">
-        <h1 id="loginTitle" class="terminal-title">Blue Swallow</h1>
-        <p>Personal sensing companion</p>
-        <p id="authStatus" role="status" aria-live="polite">Checking your session…</p>
-        <button id="signInBtn" class="btn login-btn" type="button">Sign in with Microsoft</button>
-      </div>
+  <main class="owner-entry" aria-labelledby="loginTitle">
+    <section class="owner-entry-card">
+      <p class="owner-entry-eyebrow">Blue Swallow Society</p>
+      <h1 id="loginTitle">Welcome back.</h1>
+      <p class="owner-entry-copy">Sign in with your Microsoft account to continue as the owner.</p>
+      <p id="authStatus" class="owner-entry-status" role="status" aria-live="polite">Checking your session…</p>
+      <button id="signInBtn" class="owner-entry-button" type="button">Sign in with Microsoft <span aria-hidden="true">→</span></button>
+      <a class="owner-entry-back" href="/">Back to the journal</a>
     </section>
   </main>
 </body>
