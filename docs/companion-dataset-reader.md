@@ -6,6 +6,25 @@ Producer source reviewed at Wardriver `2b5a526bac6cf2914c967fa61a185b4ff3db70e8`
 `specs/036-vnext/shared-map-design.md`. Source compatibility is not Android/browser
 parity or deployed convergence evidence.
 
+## Published-producer alignment check — 2026-11-14 UTC
+
+The private development manifest observed on 2026-11-14 identified Wardriver
+`0.5-dev-ci.189.2`, source `5e0a17e3ecf4cfbb4632e0e8bb2b2985bbf427d9`
+and release run `43523623825-2`. The live Society backend validated that
+manifest and retrieved its APK with matching size and SHA-256. This is not a
+browser-download or physical-device acceptance result, and later publication
+can change the current release.
+
+Compared with the pinned `2b5a526` producer, that published source leaves
+`device_sync.proto` and `DeviceDatasetWire.kt` unchanged but adds optional
+callback-loss accounting fields to `ControlSourceState` in `observations.proto`.
+A synthetic closed-batch regression in `tests/dataset-wire.test.mjs` verifies
+that the current reader accepts representative unknown nested fields and
+retains the original event bytes. The fields remain opaque to the pinned
+decoder: their semantics are not validated or displayed. This focused result is
+not evidence of complete Android/browser parity, every newer producer change,
+or live shared-map convergence; those gates remain open.
+
 ## Decision and authority
 
 Use a same-origin, read-only transport adapter and an in-memory browser worker.

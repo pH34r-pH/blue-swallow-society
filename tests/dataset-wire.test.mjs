@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { generateKeyPairSync, sign, createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
 import { publisherKey } from '../api/_private/companion/data/signatures.mjs';
 import { W, O, Reader, sha256, utf8, base64url } from '../api/_private/companion/data/protocol.mjs';
 import { decodeHead, decodeCommit, decodeDelta, commitSlot } from '../api/_private/companion/data/dataset-wire.mjs';
+const { Writer } = createRequire(new URL('../api/package.json', import.meta.url))('protobufjs/minimal');
 const fixture = JSON.parse(await readFile(new URL('./fixtures/dataset-wire/producer-golden.json', import.meta.url)));
 const bytes = (value) => Buffer.from(value, 'base64');
 const goldenKey = await publisherKey(fixture.publicKeySpki, fixture.deviceId);
@@ -128,6 +130,26 @@ test('closed batch validates control outcomes, ordering, final Stop and publishe
     (wire) => { const event = O.SessionControlEvent.decode(wire.events[2]); event.outcome = 'intent'; wire.events[2] = O.SessionControlEvent.encode(event).finish(); },
     (wire) => { const event = O.SessionControlEvent.decode(wire.events[0]); event.policy.batteryPercent = -1; wire.events[0] = O.SessionControlEvent.encode(event).finish(); },
   ]) await assert.rejects(alter(mutation), /invalid_dataset/);
+});
+
+test('new callback-loss fields stay opaque and retained in control-event bytes', async () => {
+  const commit = await decodeCommit(fixture, goldenKey, bytes(fixture.closed.commit));
+  const wire = W.DatasetDelta.decode(bytes(fixture.closed.delta));
+  const event = O.SessionControlEvent.decode(wire.events[0]);
+  const source = O.ControlSourceState.encode({ sourceId: 'ble', kind: 'BLE', health: 'HEALTHY', availability: 'AVAILABLE' }).finish();
+  // Fields 28 and 29 are nested CallbackLossAccounting messages in the newer producer.
+  const accounting = Writer.create().uint32(8).uint64(1).uint32(16).uint64(2).finish();
+  const extendedSource = Buffer.concat([Buffer.from(source), Buffer.from(Writer.create().uint32(226).bytes(accounting).uint32(234).bytes(accounting).finish())]);
+  const policy = O.CapturePolicyDecision.encode(event.policy).finish();
+  const extendedPolicy = Buffer.concat([Buffer.from(policy), Buffer.from(Writer.create().uint32(82).bytes(extendedSource).finish())]);
+  const withoutPolicy = O.SessionControlEvent.encode({ ...event, policy: null }).finish();
+  const extendedEvent = Buffer.concat([Buffer.from(withoutPolicy), Buffer.from(Writer.create().uint32(82).bytes(extendedPolicy).finish())]);
+  wire.events[0] = extendedEvent;
+  const data = W.DatasetDelta.encode(wire).finish();
+  const result = await decodeDelta({ ...commit, deltaSize: data.length, deltaSha256: await sha256(data) }, data);
+  assert.deepEqual(Buffer.from(result.events[0].bytes), extendedEvent);
+  assert.equal(result.events[0].wire.policy.sources[0].sourceId, 'ble');
+  assert.equal(Object.hasOwn(result.events[0].wire.policy.sources[0], 'callbackLoss'), false);
 });
 
 test('generated wire decoder uses lossless long values and strict protobuf UTF-8', () => {
