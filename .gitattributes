@@ -4,3 +4,5 @@ vendor/wardriver-wire/*.proto -text
 vendor/wardriver-wire/LICENSE -text -whitespace
 api/_private/companion/vendor/** -text
 api/_private/companion/dataset-worker.js -text
+# Hash the exact synthetic bytes exported by Android.
+tests/fixtures/dataset-wire/sighting-withdrawal-v1.json -text
