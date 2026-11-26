@@ -32,6 +32,11 @@
 - [x] Bounded, owner-only candidate CSV preview endpoint (spec 032).
 - [ ] Owner correction compatibility and friend onboarding/update experience.
 
+## Cleanup cost qualification
+
+- [x] Change the bounded session cleanup schedule to hourly while retaining immediate expiry checks.
+- [ ] Qualify and deploy the exact Functions image; verify timer execution, authorization and cleanup backlog.
+
 ## Qualification
 
 - [ ] Real browser visual/accessibility/performance evidence.

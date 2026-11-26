@@ -10,6 +10,10 @@ method/body limits, and denial before private storage access. Exercise real
 handlers, not just string inspection. Existing owner, device and machine-feed
 tests must continue passing.
 
+Verify the cleanup binding runs hourly, an expired durable session is rejected
+before a delayed sweep, and the sweep retains its 200-row and concurrent-renewal
+guards. A live rollout must also verify the timer and monitor backlog.
+
 For the migration format, derive a synthetic legacy digest independently and
 verify the original password works, wrong passwords and the digest as a password
 fail, and format confusion does not authenticate. Preserve direct-scrypt tests.

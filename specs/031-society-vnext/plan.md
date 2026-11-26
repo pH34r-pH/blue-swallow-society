@@ -18,6 +18,12 @@ architecture. No Sites hosting migration or framework rewrite is required.
 
 ## Authentication boundaries
 
+Run the existing bounded expired-session sweep hourly to reduce idle wakes. Keep
+expiry enforcement in the session read path, retain ETag-protected deletion, and
+monitor failures and backlog; the hourly sweep can retain expired hashed rows
+longer and removes at most 200 per run. Roll out only with the paired Functions
+image and verify the timer and access behavior on the deployed host.
+
 `api/_lib/viewer-session.js` owns fixed-cost scrypt and purpose-bound tokens;
 `viewer-session-store.js` uses the existing Azure Tables dependency with explicit
 timeouts and conditional updates. `companion-auth.js` is the only guard accepting
