@@ -63,7 +63,7 @@ function expectCookie(response, { cleared = false } = {}) {
   return pair;
 }
 
-test('Functions and Azurite enforce viewer session lifecycle and owner route separation', { timeout: 600_000 }, async (t) => {
+test('Functions and Azurite enforce viewer session and shared dataset boundaries', { timeout: 600_000 }, async (t) => {
   const id = randomUUID().slice(0, 12);
   const image = `society-viewer-fixture:${id}`;
   const storage = `society-viewer-${id}-storage`;
@@ -160,4 +160,8 @@ test('Functions and Azurite enforce viewer session lifecycle and owner route sep
   assert.equal((await get('companion-auth/session', { cookie: secondCookie })).status, 401);
   assert.equal((await get(shell, { cookie: secondCookie })).status, 401);
   assert.equal(await tables('count'), '1', 'session reads enforce expiry before physical deletion');
+
+  const datasetsPath = '/tmp/viewer-host-datasets.cjs';
+  await docker(['cp', fileURLToPath(new URL('./helpers/viewer-host-datasets.cjs', import.meta.url)), `${functions}:${datasetsPath}`]);
+  t.diagnostic(await docker(['exec', functions, 'node', datasetsPath]));
 });

@@ -24,6 +24,16 @@ loopback. The test exercises the Functions binding and Azure Tables SDK.
 Browser cookie transport and live Azure remain covered by their respective
 qualification paths.
 
+The same integration test runs the dataset handler with the Azure Blob SDK
+pointed at disposable Azurite containers. Two viewers sign in through the
+Table-backed login handler with independent group settings. Verify exact private
+reads in each group, denial before Blob access for anonymous and cross-group
+requests, and roster membership even when an unlisted device has a stored head.
+After a signed roster update, verify stale revision denial, removal of a revoked
+member's mutable head from the read surface, and access to its retained immutable
+bytes. Live Azure managed identity and storage permissions require their own
+qualification.
+
 For the migration format, derive a synthetic legacy digest independently and
 verify the original password works, wrong passwords and the digest as a password
 fail, and format confusion does not authenticate. Preserve direct-scrypt tests.
