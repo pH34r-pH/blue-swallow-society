@@ -84,8 +84,10 @@ logout cannot be undone by a racing renewal. Password/key/epoch/group changes
 invalidate prior sessions. Shared-password rotation affects the whole cohort.
 
 The server session table stores only random session references, revocation
-generation and expiry metadata. A bounded scheduled cleanup removes expired
-entries. There is no in-memory authorization fallback in production.
+generation and expiry metadata. Authorization rejects expired sessions immediately,
+independently of deletion. An hourly bounded cleanup removes up to 200 expired
+entries per run; a backlog can take longer. There is no in-memory authorization
+fallback in production.
 
 Sign-in entry requests must leave their pending state within a bounded time and
 offer a retry after service failure. A late session restore must not overwrite

@@ -99,11 +99,13 @@ also consume the quota. Two concurrent KDF operations per process bound memory;
 excess concurrent work returns unavailable. Shared-password rotation affects
 the whole friend cohort; this is not per-friend identity or revocation.
 
-Table operations use bounded cancellation. `viewer-session-cleanup` runs every
-15 minutes, reads at most 200 expired rows and deletes by ETag under a ten-second
-budget. Concurrently renewed rows survive. Monitor timer failures and backlog;
-expiry is enforced during authorization even if cleanup is delayed. The timer
-requires the qualified Node 24 Functions host and its host storage. Do not route
+Table operations use bounded cancellation. `viewer-session-cleanup` runs hourly,
+reads at most 200 expired rows and deletes by ETag under a ten-second
+budget. Concurrently renewed rows survive. Expired hashed rows can remain longer,
+and a backlog above 200 requires multiple runs. Monitor timer failures and backlog;
+expiry is enforced during authorization even if cleanup is delayed. This source
+schedule requires a separately qualified release and is not proof of deployment.
+The timer requires the qualified Node 24 Functions host and its host storage. Do not route
 this build through the retained Node 22 managed-SWA promoter.
 
 ## Rollout and evidence

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const viewer = require('../api/_lib/viewer-session');
@@ -86,6 +87,18 @@ test('concurrent renewal cannot resurrect logout and converges on one idle expir
   f.table.beforeUpdate = async () => { f.table.beforeUpdate = null; await f.store.revoke(claims); };
   await assert.rejects(f.store.renew(claims, now + 2000), /session_expired/);
   await assert.rejects(f.store.validate(claims, now + 2000));
+});
+
+test('hourly cleanup never extends an expired session', async () => {
+  const binding = JSON.parse(readFileSync(new URL('../api/viewer-session-cleanup/function.json', import.meta.url), 'utf8'));
+  assert.equal(binding.bindings[0].schedule, '0 0 * * * *');
+  const record = await f.store.create(f.settings, now);
+  const claims = viewer.verifyToken(viewer.signSession(record, f.settings, now).token, f.settings, now);
+  assert.equal(f.table.rows.has(record.rowKey), true);
+  await assert.rejects(f.store.validate(claims, now + 900000), /session_expired/);
+  assert.equal(f.table.rows.has(record.rowKey), true);
+  await f.store.sweep(now + 3600000);
+  assert.equal(f.table.rows.has(record.rowKey), false);
 });
 
 test('cleanup is bounded and cannot delete a concurrently renewed row', async () => {
