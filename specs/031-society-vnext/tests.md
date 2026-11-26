@@ -141,3 +141,15 @@ forged platform identities, password/session lifecycle and private downloads.
 Backend-only probes do not establish canonical-origin integration or a valid
 password session. Rollback planning/rehearsal is not a cutover requirement;
 authentication and privacy checks remain required.
+
+Run `node --test tests/postgres-recovery.integration.mjs` with Node 24 and Docker
+for the disposable database rehearsal. Apply the ordered schema to a fresh
+PostGIS database and verify the empty rebuild before synthetic admission. Apply
+the remaining migrations over legacy observations and a finalized ingest receipt.
+Verify their preservation and scope only the observation with proven ownership.
+Restore the backup into a separate database, verify the migrated records and
+receipt at the backup point, check that both remain immutable, and confirm
+later writes remain on the source.
+The test logs the candidate commit, migration digest and versions, engine image,
+policy per stage, and backup digest. Live health, authorization, and recovery
+qualification require evidence from the protected candidate and environment.

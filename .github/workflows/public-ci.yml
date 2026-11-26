@@ -101,3 +101,5 @@ jobs:
         env:
           SOCIETY_INGEST_TEST_DATABASE_URL: postgres://postgres:synthetic-history-only@127.0.0.1:5432/bss_history_synthetic
         run: node --test tests/device-ingest-postgres.integration.mjs
+      - name: Rehearse disposable PostGIS migration and recovery
+        run: node --test tests/postgres-recovery.integration.mjs
