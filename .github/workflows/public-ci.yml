@@ -32,6 +32,8 @@ jobs:
         # Three Obscura browser tests require a separate browser CLI that is not
         # available on standard hosted runners; all other root tests run here.
         run: node --test --test-skip-pattern='^Obscura ' tests/*.test.mjs
+      - name: Verify viewer sessions through disposable Functions and Azurite
+        run: node --test tests/viewer-host.integration.mjs
 
   companion-browser:
     name: companion-browser

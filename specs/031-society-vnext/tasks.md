@@ -7,6 +7,7 @@
 - [x] Implement password KDF, durable sessions, companion guard and auth routes.
 - [x] Implement browser-authorized private vNext download facade.
 - [x] Verify focused authentication/release and retained boundary regressions.
+- [x] Verify viewer login, renewal, logout, expiry, Origin rejection, and role separation through a disposable Functions host and Azure Tables emulator.
 - [x] Qualify prehashed migration verifier and provision it through Fleet without exposing password material.
 
 ## Experience and data
