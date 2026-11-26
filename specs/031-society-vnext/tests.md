@@ -14,6 +14,16 @@ Verify the cleanup binding runs hourly, an expired durable session is rejected
 before a delayed sweep, and the sweep retains its 200-row and concurrent-renewal
 guards. A live rollout must also verify the timer and monitor backlog.
 
+Run `node --test tests/viewer-host.integration.mjs` from the repository root
+with Node 24 and a local Docker engine. It builds the
+checked-out Functions source and uses two generated viewer sessions in disposable
+Azurite tables. It checks Origin rejection, the viewer cookie, private shell
+access, owner-route rejection, renewal, session-specific logout, and durable
+expiry before cleanup. Only the Functions listener is published on host
+loopback. The test exercises the Functions binding and Azure Tables SDK.
+Browser cookie transport and live Azure remain covered by their respective
+qualification paths.
+
 For the migration format, derive a synthetic legacy digest independently and
 verify the original password works, wrong passwords and the digest as a password
 fail, and format confusion does not authenticate. Preserve direct-scrypt tests.
