@@ -4,7 +4,7 @@ date: 2026-07-29
 implements: specs/017-device-scoped-observation-reconciliation/spec.md
 ---
 
-# Test Design
+## Test Design
 
 | ID | Authority | Test | Expected result |
 |---|---|---|---|
@@ -17,5 +17,12 @@ implements: specs/017-device-scoped-observation-reconciliation/spec.md
 | TST-017-07 | FR-002/003 | A scoped historical row has no valid content hash. | Server fails closed as legacy ambiguity; migration never scopes that row. |
 | TST-017-08 | FR-004 | Two device-scoped BLE observations reuse an external key. | Viewport emits opaque distinct IDs; operator merge retains both records. |
 | TST-017-09 | FR-003/004/005 | Memory and HTTP stores receive immutable legacy identities with proven/malformed scope and hash states, including an uppercase valid hash. | The owning device receives a normal duplicate receipt after hash normalization; another device may accept the same device-local key; malformed/unscoped rows fail closed; public conflicts stay generic `observation_key_reused`. |
+| TST-017-10 | FR-001/003/004 | Send batches through the Functions proxy handler, a loopback HTTPS VM listener, and disposable PostGIS. | Two enrolled devices retain distinct sessions and observations even with identical local keys. Another device's session is rejected before a batch is stored, and a disabled device cannot retrieve a replay receipt. |
 
 Run each new test RED before production code. Then run `npm test` in `vm/cybermap-api` and `node --test tests/*.test.mjs` at repo root.
+
+Public CI runs TST-017-10 with `node --test tests/device-ingest-postgres.integration.mjs`
+after applying the migrations to its disposable PostGIS service. It uses the
+existing ingest-token contract and a locally generated TLS certificate. Device
+mTLS, Azure Functions hosting, and a production deployment have their own
+qualification paths.

@@ -97,3 +97,7 @@ jobs:
         env:
           HISTORY_TEST_DATABASE_URL: postgres://postgres:synthetic-history-only@127.0.0.1:5432/bss_history_synthetic
         run: node --test tests/history-postgres.integration.mjs
+      - name: Verify device-owned uploads through the HTTPS proxy and PostGIS
+        env:
+          SOCIETY_INGEST_TEST_DATABASE_URL: postgres://postgres:synthetic-history-only@127.0.0.1:5432/bss_history_synthetic
+        run: node --test tests/device-ingest-postgres.integration.mjs

@@ -4,7 +4,7 @@ created: 2026-07-29
 implements: specs/018-best-effort-observation-progress/spec.md
 ---
 
-# Test Design
+## Test Design
 
 | ID | Authority | Test | Expected result |
 |---|---|---|---|
@@ -17,5 +17,6 @@ implements: specs/018-best-effort-observation-progress/spec.md
 | TST-018-07 | FR-008 | V2 matches an unscoped/malformed legacy identity. | Existing generic non-durable conflict; no v2 progress receipt and no write. |
 | TST-018-08 | FR-009 | Root schema/installer contract examines migration. | New receipt/count constraints accept valid old v1 and new v2 receipts, reject inconsistent v2 receipt state, register migration, and leave observation append-only triggers enabled. |
 | TST-018-09 | FR-004/006 | Postgres scripted/store test inspects conflict classification and receipt persistence ordering. | V2 content mismatch does not execute an observation insert; receipt persistence precedes commit; replay parses the stored v2 receipt. |
+| TST-018-10 | FR-003/004/005/006 | Exercise v2 upload, exact retry, and changed-content reuse through the Functions proxy handler and a real PostGIS store. | Retry returns the exact stored receipt. Changed-content reuse keeps the original observation and stores a separate acknowledgement receipt. |
 
 Run each new test RED first. Then run `npm test` in `vm/cybermap-api`, `node --test tests/*.test.mjs` at repository root, syntax/static checks, and a protected disposable Postgres lane when approved.
