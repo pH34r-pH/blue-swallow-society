@@ -204,7 +204,9 @@ It uses a stable authenticated index and immutable versioned download paths;
 expiring Blob grants are issued at download time. Its credentials do not authorize
 owner APIs, observation upload, or shared-map access. Current Society source
 requires Node 24 and is packaged by the public Functions OCI release workflow;
-Wardriver's retained Node 22 managed-SWA promoter cannot deploy this source.
+The retained Wardriver Node 22 managed-SWA promoter cannot deploy this source;
+it is historical, not the current deployment owner. Fleet owns the protected
+hosting and promotion paths described in [the public handoff](public-ci-handoff.md).
 Runtime qualification and live configuration remain separate work.
 
 The private dataset access contract is

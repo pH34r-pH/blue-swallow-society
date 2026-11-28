@@ -2,13 +2,16 @@
 
 ![Blue Swallow Society — Expand awareness into digital space.](docs/assets/hero.png)
 
-Deployment ownership is moving to the private Wardriver repository. The new
-[public CI and source handoff](docs/public-ci-handoff.md) validates Society code
-for that path. The legacy public Azure workflow is manual and main-only during
-migration; normal commits no longer reapply infrastructure. Its authority will
-be removed after the private Wardriver deployment passes the cutover gates.
+[Long-Haul Fleet](https://github.com/pH34r-pH/long-haul-fleet) owns private
+Society hosting, DNS and deployment controls. Society owns the public app,
+Functions, Cybermap runtime and source validation; Wardriver owns the Android
+product and device evidence. The [public CI and source handoff](docs/public-ci-handoff.md)
+separates source checks from protected deployment and live readback.
 
-Current public site: **https://blueswallow.ph34r.dev** (the existing default Azure Static Web Apps hostname remains reachable). Fleet delegates the `ph34r.dev` child label; private Wardriver owns its DNS, SWA binding, VM gateway, release CORS and deployment authority. Society owns the app, Functions, Cybermap runtime and public validation. The separate device-ingest gateway is `https://mtls.blueswallow.ph34r.dev:8443`; installed Android clients retain their existing compiled VM origin until Wardriver's verified migration.
+The canonical Society origin is **https://blueswallow.ph34r.dev**. The separate
+device-ingest gateway is `https://mtls.blueswallow.ph34r.dev:8443`; installed
+Android clients retain their own configured origin until a verified migration.
+A source or CI result alone does not establish what is currently served.
 
 This repository gives you:
 
@@ -103,7 +106,7 @@ The [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-syste
 │   └── mosaic-murmurs-paper-ledger.json        # paper-only morning brief books/positions
 ├── infra/
 │   ├── main.bicep                  # single entrypoint, composes VM + optional OpenAI
-│   ├── custom-domains.bicep        # legacy deployable snapshot; private Wardriver owns live binding
+│   ├── custom-domains.bicep        # legacy deployable snapshot; Fleet owns deployment and DNS controls
 │   ├── custom-domains-dns.bicep    # legacy unowned-domain snapshot; do not deploy
 │   ├── main.parameters.json
 │   ├── vm-echo-lab.bicep           # legacy-named VM API gateway + NSG + auto-shutdown
@@ -113,7 +116,7 @@ The [Blue Swallow Society System Implementation Delta](./docs/blue-swallow-syste
 │   ├── local-dev.ps1
 │   ├── mosaic-murmurs-morning-brief-collect.py  # public-source morning brief collector
 │   ├── print-next-steps.sh
-│   ├── wireup-custom-domains.py    # legacy helper; current DNS is private Wardriver-owned
+│   ├── wireup-custom-domains.py    # legacy helper; Fleet owns the DNS controls
 │   └── wireup-backend-url.sh
 └── vm/
     └── cybermap-api/
@@ -183,11 +186,25 @@ In local development, point the WiGLE endpoint field at `http://127.0.0.1:8787/a
 
 ## Development and deployment
 
-Pull requests and `main` run [Society public CI](docs/public-ci-handoff.md) on free GitHub runners without Azure permissions. Society commits do not automatically apply Azure infrastructure. The intended private Wardriver promoter will check both named CI jobs on one exact Society main SHA, independently verify its archive digest, and deploy the app/Functions and VM runtime from that immutable source. Work and acceptance are tracked in [Wardriver #46](https://github.com/pH34r-pH/blue-swallow-wardriver/issues/46), [Wardriver #47](https://github.com/pH34r-pH/blue-swallow-wardriver/issues/47), and [Society #53](https://github.com/pH34r-pH/blue-swallow-society/issues/53).
+Pull requests and `main` run [Society public CI](docs/public-ci-handoff.md)
+on GitHub-hosted runners without Azure deployment permissions. Fleet owns the
+protected source-to-release and hosting paths; a passing public check is not a
+deployment or live-readback receipt. [Fleet #630](https://github.com/pH34r-pH/long-haul-fleet/issues/630)
+tracks the ownership migration, and [Fleet #1631](https://github.com/pH34r-pH/long-haul-fleet/issues/1631)
+tracks paired promotion and recovery.
 
-Until that private path passes production probes, an operator can manually dispatch the legacy **Deploy Infra + App** workflow from `main` for recovery. It is a broad resource-group/VM deployment, not the routine source path. A full run can restore the historical Caddyfile and the old Blob CORS origins. After such a recovery, use [Wardriver's guarded domain steps](https://github.com/pH34r-pH/blue-swallow-wardriver/tree/main/infra/dns) to reapply its mTLS SNI and current `release-cors.bicep` overlay after the full infrastructure deployment, then verify both hosts and operator flows. Do not run the old `.net` domain-wiring helper or recreate an unowned zone. Public Azure credentials and manual workflow remain only until private parity and rollback are proven; [Society #53](https://github.com/pH34r-pH/blue-swallow-society/issues/53) tracks their removal.
+The legacy public **Deploy Infra + App** workflow remains a manual, main-only
+source path with Azure permissions. Its existence does not authorize a run or
+prove its credentials are usable. It can affect broad infrastructure and old
+domain configuration; consult the protected Fleet recovery plan and
+[Society #53](https://github.com/pH34r-pH/blue-swallow-society/issues/53)
+before any cutover or retirement. Do not run the old `.net` domain-wiring
+helper against Fleet DNS. Public workflow and credential retirement remains
+gated on verified private parity and recovery.
 
-The [dated infrastructure specification](docs/azure-resources.md) describes the former public deployment and its old domain assumptions. Current Azure DNS authority and validation evidence are in Wardriver's `infra/dns` runbook. The default SWA hostname and old VM hostname remain available during the Android compatibility window.
+The [dated infrastructure specification](docs/azure-resources.md) records the
+former public deployment and its old domain assumptions. Consult Fleet's
+current hosting records for operational state.
 
 ## Notes on security
 
