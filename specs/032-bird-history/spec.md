@@ -1,5 +1,7 @@
 # Private bird-history import
 
+> The living specification for this behavior is [`spec/features/bird-history/index.md`](../../spec/features/bird-history/index.md). This file is retained history; open work stays in `tasks.md`.
+
 Status: foundation in progress; issue #122 under Society vNext #85.
 
 An owner can import a supported personal export privately, review added,

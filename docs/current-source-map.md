@@ -97,7 +97,8 @@ Society vNext is being implemented under
 slice adds opt-in password viewer sessions and a browser-authorized development
 download facade. The second adds the public journal, explicit Login and an
 isolated Vector Edge shell with Map/Encounters/Trips/Downloads navigation.
-The separate [bird-history package](../specs/032-bird-history/spec.md) contains
+The separate [bird-history package](../specs/032-bird-history/spec.md) (living
+specification: [`spec/features/bird-history/`](../spec/features/bird-history/index.md)) contains
 an owner-only, same-origin CSV preview endpoint and `/owner/birds` preview UI;
 its candidate format is not yet verified, and durable private import and
 publication remain open.
@@ -229,6 +230,7 @@ the group. This route does not call the retained observation-ingestion service.
 | Travels/history/nearby map | `api/cybermap-history/`, `api/operator-signals/`, `vm/cybermap-api/src/history-*`, `api/_private/operator/assets/travels-*` | `node --test tests/history-api.test.mjs tests/travels-state.test.mjs tests/travels.browser.mjs vm/cybermap-api/test/history-*.test.mjs` |
 | Entities/auth | `api/cybermap-entities/`, `api/_lib/entity-*`, `api/_private/operator/assets/entity-*`, `vm/cybermap-api/src/entity-*` | `node --test tests/entity-proxy.test.mjs tests/entity-edit-auth.test.mjs tests/entity-workbench.browser.mjs tests/entity-integration.browser.mjs vm/cybermap-api/test/entity-workbench*.test.mjs vm/cybermap-api/test/entity-api-adapter.test.mjs` |
 | Ingest/schema | `api/cybermap-observations-batch/`, `vm/cybermap-api/src/contracts.mjs`, `db/migrations/`, `shared/contracts/` | `node --test tests/cybermap-ingest-api.test.mjs tests/cybermap-schema.test.mjs vm/cybermap-api/test/contracts.test.mjs vm/cybermap-api/test/wardriver-contract-conformance.test.mjs` |
+| Private bird-history import | `spec/features/bird-history/`, `build/bird-history/`, `api/_lib/bird-*`, `api/bird-import-preview/`, `api/bird-import-commit/` | `node --test tests/bird-*.test.mjs`; `specified-check-layout --root .` |
 | Private dataset access | `api/wardriver-sync/`, `api/_lib/wardriver-sync-*`, `docs/wardriver-device-sync-access.md` | `node --test tests/wardriver-sync-auth.test.mjs tests/wardriver-sync-api.test.mjs` |
 | Browser dataset transport | `api/companion-datasets/`, `api/_lib/companion-dataset-store.js`, `docs/companion-dataset-reader.md` | `node --test tests/companion-datasets.test.mjs` |
 | Browser dataset wire codec | `api/_private/companion/data/`, `vendor/wardriver-wire/`, `scripts/build-companion-wire.mjs` | `node scripts/build-companion-wire.mjs --check`; `node --test tests/dataset-wire.test.mjs tests/dataset-wire.browser.mjs` |

@@ -1,0 +1,335 @@
+{
+  "schema_version": 1,
+  "kind": "brownfield-onboarding-record",
+  "repository": "pH34r-pH/blue-swallow-society",
+  "baseline_revision": "d59fc2bd400318fa42c38dbd5ed481534155c8b2",
+  "areas": [
+    {
+      "feature_id": "bird-history",
+      "paths": [
+        "api/_lib/bird-owner-request.js",
+        "api/_lib/bird-export-preview.js",
+        "api/_lib/bird-reconciliation.js",
+        "api/_lib/bird-snapshot-store.js",
+        "api/_lib/bird-draft-import.js",
+        "api/_lib/bird-publication-plan.js",
+        "api/bird-import-preview/index.js",
+        "api/bird-import-commit/index.js"
+      ]
+    }
+  ],
+  "requirements": {
+    "bird-history#BH-FR-001": {
+      "sources": [
+        {
+          "kind": "documentation",
+          "reference": "specs/032-bird-history/plan.md owner-only preview"
+        },
+        {
+          "kind": "code",
+          "reference": "api/_lib/bird-owner-request.js"
+        }
+      ]
+    },
+    "bird-history#BH-FR-002": {
+      "sources": [
+        {
+          "kind": "documentation",
+          "reference": "specs/032-bird-history/plan.md exact Origin and content type"
+        },
+        {
+          "kind": "code",
+          "reference": "api/_lib/bird-owner-request.js"
+        }
+      ]
+    },
+    "bird-history#BH-FR-003": {
+      "sources": [
+        {
+          "kind": "documentation",
+          "reference": "specs/032-bird-history/plan.md canonical base64 and 10 MiB limit"
+        },
+        {
+          "kind": "code",
+          "reference": "api/bird-import-preview/index.js"
+        },
+        {
+          "kind": "code",
+          "reference": "api/bird-import-commit/index.js"
+        }
+      ]
+    },
+    "bird-history#BH-FR-004": {
+      "sources": [
+        {
+          "kind": "documentation",
+          "reference": "specs/032-bird-history/plan.md csv-parse strict parsing"
+        },
+        {
+          "kind": "code",
+          "reference": "api/_lib/bird-export-preview.js"
+        }
+      ]
+    },
+    "bird-history#BH-FR-005": {
+      "sources": [
+        {
+          "kind": "documentation",
+          "reference": "specs/032-bird-history/spec.md presence-only and unknown counts"
+        },
+        {
+          "kind": "code",
+          "reference": "api/_lib/bird-export-preview.js"
+        }
+      ]
+    },
+    "bird-history#BH-FR-006": {
+      "sources": [
+        {
+          "kind": "documentation",
+          "reference": "specs/032-bird-history/plan.md provisional composite key"
+        },
+        {
+          "kind": "code",
+          "reference": "api/_lib/bird-export-preview.js"
+        }
+      ]
+    },
+    "bird-history#BH-FR-007": {
+      "sources": [
+        {
+          "kind": "documentation",
+          "reference": "specs/032-bird-history/plan.md preview has no persistent side effects"
+        },
+        {
+          "kind": "code",
+          "reference": "api/bird-import-preview/index.js"
+        }
+      ]
+    },
+    "bird-history#BH-FR-008": {
+      "sources": [
+        {
+          "kind": "documentation",
+          "reference": "specs/032-bird-history/plan.md reconciliation planner"
+        },
+        {
+          "kind": "code",
+          "reference": "api/_lib/bird-reconciliation.js"
+        }
+      ]
+    },
+    "bird-history#BH-FR-009": {
+      "sources": [
+        {
+          "kind": "documentation",
+          "reference": "specs/032-bird-history/plan.md snapshot adapter"
+        },
+        {
+          "kind": "code",
+          "reference": "api/_lib/bird-snapshot-store.js"
+        }
+      ]
+    },
+    "bird-history#BH-FR-010": {
+      "sources": [
+        {
+          "kind": "documentation",
+          "reference": "specs/032-bird-history/plan.md owner preview comparison"
+        },
+        {
+          "kind": "code",
+          "reference": "api/bird-import-preview/index.js"
+        },
+        {
+          "kind": "code",
+          "reference": "api/_lib/bird-draft-import.js"
+        }
+      ]
+    },
+    "bird-history#BH-FR-011": {
+      "sources": [
+        {
+          "kind": "documentation",
+          "reference": "specs/032-bird-history/plan.md fingerprint-bound commit"
+        },
+        {
+          "kind": "code",
+          "reference": "api/_lib/bird-draft-import.js"
+        },
+        {
+          "kind": "code",
+          "reference": "api/bird-import-commit/index.js"
+        }
+      ]
+    },
+    "bird-history#BH-FR-012": {
+      "sources": [
+        {
+          "kind": "documentation",
+          "reference": "specs/032-bird-history/plan.md sanitized publication planner"
+        },
+        {
+          "kind": "code",
+          "reference": "api/_lib/bird-publication-plan.js"
+        }
+      ]
+    },
+    "bird-history#BH-FR-013": {
+      "sources": [
+        {
+          "kind": "documentation",
+          "reference": "specs/032-bird-history/plan.md redacted errors"
+        },
+        {
+          "kind": "code",
+          "reference": "api/bird-import-preview/index.js"
+        },
+        {
+          "kind": "code",
+          "reference": "api/bird-import-commit/index.js"
+        }
+      ]
+    },
+    "bird-history#BH-SC-001": {
+      "sources": [
+        {
+          "kind": "documentation",
+          "reference": "build/bird-history/tests.md"
+        }
+      ]
+    }
+  },
+  "known_defects": [],
+  "oracle": [
+    {
+      "case": "BH-001",
+      "requirements": [
+        "bird-history#BH-FR-001",
+        "bird-history#BH-SC-001"
+      ],
+      "expected_source": "adopted-existing-test",
+      "reference": "tests/bird-import-preview-api.test.mjs::only an owner can preview and denial happens before private body access (+3 more)"
+    },
+    {
+      "case": "BH-002",
+      "requirements": [
+        "bird-history#BH-FR-002",
+        "bird-history#BH-SC-001"
+      ],
+      "expected_source": "adopted-existing-test",
+      "reference": "tests/bird-import-preview-api.test.mjs::origin, method, content type, request shape, encoding and size fail closed with redacted errors (+1 more)"
+    },
+    {
+      "case": "BH-003",
+      "requirements": [
+        "bird-history#BH-FR-003",
+        "bird-history#BH-SC-001"
+      ],
+      "expected_source": "adopted-existing-test",
+      "reference": "tests/bird-import-preview-api.test.mjs::origin, method, content type, request shape, encoding and size fail closed with redacted errors (+1 more)"
+    },
+    {
+      "case": "BH-004",
+      "requirements": [
+        "bird-history#BH-FR-004",
+        "bird-history#BH-SC-001"
+      ],
+      "expected_source": "adopted-existing-test",
+      "reference": "tests/bird-export-preview.test.mjs::bounded CSV preview preserves Unicode, quoted newlines, presence and private fields without publishing (+2 more)"
+    },
+    {
+      "case": "BH-005",
+      "requirements": [
+        "bird-history#BH-FR-005",
+        "bird-history#BH-SC-001"
+      ],
+      "expected_source": "adopted-existing-test",
+      "reference": "tests/bird-export-preview.test.mjs::invalid rows are reported without falling back to guessed counts or dates (+1 more)"
+    },
+    {
+      "case": "BH-006",
+      "requirements": [
+        "bird-history#BH-FR-006",
+        "bird-history#BH-SC-001"
+      ],
+      "expected_source": "adopted-existing-test",
+      "reference": "tests/bird-export-preview.test.mjs::duplicate provisional identities are flagged, not merged; different checklists remain distinct (+2 more)"
+    },
+    {
+      "case": "BH-007",
+      "requirements": [
+        "bird-history#BH-FR-007",
+        "bird-history#BH-SC-001"
+      ],
+      "expected_source": "adopted-existing-test",
+      "reference": "tests/bird-export-preview.test.mjs::bounded CSV preview preserves Unicode, quoted newlines, presence and private fields without publishing (+2 more)"
+    },
+    {
+      "case": "BH-008",
+      "requirements": [
+        "bird-history#BH-FR-008",
+        "bird-history#BH-SC-001"
+      ],
+      "expected_source": "adopted-existing-test",
+      "reference": "tests/bird-reconciliation.test.mjs::reconciliation distinguishes unchanged, corrected and new rows without mutating prior state (+4 more)"
+    },
+    {
+      "case": "BH-009",
+      "requirements": [
+        "bird-history#BH-FR-009",
+        "bird-history#BH-SC-001"
+      ],
+      "expected_source": "adopted-existing-test",
+      "reference": "tests/bird-snapshot-store.test.mjs::snapshot storage uses create-only then conditional writes with revision and ETag checks (+3 more)"
+    },
+    {
+      "case": "BH-010",
+      "requirements": [
+        "bird-history#BH-FR-010",
+        "bird-history#BH-SC-001"
+      ],
+      "expected_source": "adopted-existing-test",
+      "reference": "tests/bird-import-preview-api.test.mjs::configured comparison reads only after authorization, reports changes and fails closed on storage errors"
+    },
+    {
+      "case": "BH-011",
+      "requirements": [
+        "bird-history#BH-FR-011",
+        "bird-history#BH-SC-001"
+      ],
+      "expected_source": "adopted-existing-test",
+      "reference": "tests/bird-draft-import.test.mjs::explicit reviewed selection imports drafts and preserves rows omitted from later exports (+4 more)"
+    },
+    {
+      "case": "BH-012",
+      "requirements": [
+        "bird-history#BH-FR-012",
+        "bird-history#BH-SC-001"
+      ],
+      "expected_source": "adopted-existing-test",
+      "reference": "tests/bird-publication-plan.test.mjs::explicit approval builds only sanitized public fields and never mutates drafts (+3 more)"
+    },
+    {
+      "case": "BH-013",
+      "requirements": [
+        "bird-history#BH-FR-013",
+        "bird-history#BH-SC-001"
+      ],
+      "expected_source": "adopted-existing-test",
+      "reference": "tests/bird-import-preview-api.test.mjs::configured comparison reads only after authorization, reports changes and fails closed on storage errors (+3 more)"
+    }
+  ],
+  "acceptance": {
+    "state": "candidate"
+  },
+  "initial_gaps": [],
+  "spec_kit_layout": {
+    "source": "specs/",
+    "features": {
+      "032-bird-history": "bird-history"
+    },
+    "history_preserved": true,
+    "constitution_preserved": true
+  }
+}

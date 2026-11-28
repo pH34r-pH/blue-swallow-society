@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "documents": {
+    "blue-swallow-society/overview": {
+      "path": "index.md",
+      "role": "overview",
+      "normative_dependencies": [],
+      "assets": [],
+      "visibility": "public"
+    },
+    "blue-swallow-society/bird-history": {
+      "path": "features/bird-history/index.md",
+      "role": "feature",
+      "normative_dependencies": [],
+      "assets": [],
+      "visibility": "public"
+    }
+  },
+  "features": {
+    "bird-history": {
+      "root": "blue-swallow-society/bird-history"
+    }
+  },
+  "assets": {}
+}

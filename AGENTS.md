@@ -66,6 +66,8 @@ spec.md → plan.md → tests.md → tasks.md
 - `tasks.md` owns executable work only.
 - Repair a contradiction at the earliest authoritative artifact, then regenerate downstream work. Use explicit actors, conditions, expected results, error behavior, and evidence.
 
+Features that have been mapped into the living [Specified Development](https://github.com/pH34r-pH/specified-development) layout keep their behavior in `spec/features/<feature>/index.md`, written in present tense, with `build/<feature>/plan.md` and `tests.md` beside it and `onboarding.json` recording the mapping. Today only [`bird-history`](spec/features/bird-history/index.md) is mapped; its `specs/032-bird-history/` package is retained history and its open tasks stay in that package's `tasks.md`. Change mapped behavior spec-first: edit the living specification, then the plan and test contract, then a failing test, then the code. Every unmapped feature is still governed by its `specs/<NNN-feature>/` package.
+
 ## Verification and delivery
 
 - Reconcile tasks against current source before implementation; do not recreate existing behavior.
