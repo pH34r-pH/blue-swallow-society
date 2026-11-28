@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "items": [
+    {
+      "label": "Overview",
+      "document": "blue-swallow-society/overview"
+    },
+    {
+      "label": "Private bird-history import",
+      "document": "blue-swallow-society/bird-history"
+    }
+  ]
+}

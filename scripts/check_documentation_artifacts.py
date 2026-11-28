@@ -55,6 +55,8 @@ SUSPICIOUS_PARTS = {
     "temp",
     "tmp",
 }
+# Specified Development feature records are tracked source, not build output.
+FEATURE_RECORD = re.compile(r"^build/[a-z0-9]+(?:-[a-z0-9]+)*/(?:plan|tests|tasks)\.md$")
 SUSPICIOUS_SUFFIXES = {".bak", ".log", ".orig", ".pyc", ".pyo", ".swp", ".swo", ".tmp"}
 
 
@@ -122,7 +124,7 @@ def _path_errors(status: str, relative: str) -> list[str]:
 
     if path.name in {".DS_Store", "Thumbs.db"} or path.suffix.lower() in SUSPICIOUS_SUFFIXES:
         errors.append(f"{relative}: incidental temporary/build artifact is not approved")
-    if any(part in SUSPICIOUS_PARTS for part in path.parts):
+    if any(part in SUSPICIOUS_PARTS for part in path.parts) and not FEATURE_RECORD.fullmatch(relative):
         errors.append(f"{relative}: incidental temporary/build artifact is not approved")
     return errors
 

@@ -57,6 +57,13 @@ class DocumentationHygieneTests(unittest.TestCase):
             )
             self.assertIn("guard passed for 1 changed path", guard.stdout)
 
+    def test_feature_records_under_build_are_allowed_but_build_output_is_not(self) -> None:
+        for record in ("plan.md", "tests.md", "tasks.md"):
+            self.assertEqual([], _path_errors("A", f"build/bird-history/{record}"))
+        for rejected in ("build/lib/module.js", "build/bird-history/notes.md", "build/bird-history/cache/plan.md",
+                         "build/plan.md", "build/Bad_Name/plan.md"):
+            self.assertTrue(_path_errors("A", rejected), rejected)
+
     def test_cache_and_temp_are_rejected_under_evidence(self) -> None:
         self.assertTrue(_path_errors("A", "evidence/cache/result.json"))
         self.assertTrue(_path_errors("A", "evidence/2026-10-01/scan.tmp"))
